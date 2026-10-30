@@ -407,6 +407,17 @@ export const ur: Translation = {
   "fees.setup.siblingRule": "بہن بھائی رعایت کس کو ملے",
   "fees.setup.siblingRule.all": "تمام بہن بھائی",
   "fees.setup.siblingRule.second_child_onwards": "دوسرے بچے سے آگے",
+  "fees.setup.concessionBase": "فیصدی رعایت کس رقم پر لگے",
+  "fees.setup.concessionBase.gross": "مجموعی فیس پر",
+  "fees.setup.concessionBase.after_sibling_discount": "بہن بھائی رعایت کے بعد",
+  "fees.setup.concessionBase.hint":
+    "یہ ان طلبہ کی فیصدی رعایتوں (عملہ کا بچہ، وظیفہ، دیگر) پر لاگو ہوتا ہے جنہیں بہن بھائی رعایت بھی ملتی ہے۔ مقررہ رقم والی رعایتوں پر اثر نہیں پڑتا۔ یہ انتخاب آئندہ بننے والے واؤچرز پر لاگو ہوگا اور آڈٹ لاگ میں درج کیا جاتا ہے۔",
+  "fees.setup.concessionBase.example.intro":
+    "مثال: ماہانہ فیس {fee}، بہن بھائی رعایت {siblingPercent}% = {sibling}، وظیفہ 25%۔",
+  "fees.setup.concessionBase.example.gross":
+    "مجموعی فیس پر: {base} کا 25% = {amount}؛ طالب علم {net} ادا کرے گا۔",
+  "fees.setup.concessionBase.example.after_sibling_discount":
+    "بہن بھائی رعایت کے بعد: {base} کا 25% = {amount}؛ طالب علم {net} ادا کرے گا۔",
   "fees.setup.latePercent": "تاخیری فیس (خالص ماہانہ فیس کا %)",
   "fees.setup.dueDay": "مہینے کی آخری تاریخ",
   "fees.setup.heads": "فیس مدات",

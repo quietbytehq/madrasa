@@ -54,6 +54,7 @@ const ADMIN = [...ACCOUNTANT, "fees.approve"];
 const policy: FeePolicy = {
   sibling_discount_percent: "10",
   sibling_rule: "all",
+  concession_base: "gross",
   late_fee_percent: "10",
   due_day: 15,
 };
@@ -368,11 +369,59 @@ describe("SetupTab policy", () => {
       expect(api.updateFeePolicy).toHaveBeenCalledWith({
         sibling_discount_percent: "12.5",
         sibling_rule: "second_child_onwards",
+        concession_base: "gross",
         late_fee_percent: "10",
         due_day: 10,
       }),
     );
     expect(await screen.findByText("Saved.")).toBeInTheDocument();
+  });
+
+  it("explains the concession base with a worked example and saves the choice", async () => {
+    vi.mocked(api.feePolicy).mockResolvedValue(policy);
+    vi.mocked(api.updateFeePolicy).mockImplementation(async (p) => p);
+    renderWithProviders(
+      <SessionProvider initial={{ user, permissions: ADMIN }}>
+        <SetupTab />
+      </SessionProvider>,
+    );
+    const select = await screen.findByLabelText("Percentage concessions are calculated on");
+    expect(select).toHaveValue("gross");
+    // Worked example follows the sibling percent: 10% of 3,000 = 300; 25% of 3,000 vs 2,700.
+    expect(
+      screen.getByText(
+        "Example: monthly fee 3,000.00, sibling discount 10% = 300.00, scholarship 25%.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("On gross fee: 25% of 3,000.00 = 750.00; student pays 1,950.00."),
+    ).toHaveClass("font-semibold");
+    expect(
+      screen.getByText("After sibling discount: 25% of 2,700.00 = 675.00; student pays 2,025.00."),
+    ).not.toHaveClass("font-semibold");
+
+    await userEvent.selectOptions(select, "after_sibling_discount");
+    expect(
+      screen.getByText("After sibling discount: 25% of 2,700.00 = 675.00; student pays 2,025.00."),
+    ).toHaveClass("font-semibold");
+    await userEvent.click(screen.getAllByRole("button", { name: "Save" })[0]!);
+    await waitFor(() =>
+      expect(api.updateFeePolicy).toHaveBeenCalledWith(
+        expect.objectContaining({ concession_base: "after_sibling_discount" }),
+      ),
+    );
+  });
+
+  it("renders the concession base explanation in Urdu", async () => {
+    vi.mocked(api.feePolicy).mockResolvedValue(policy);
+    renderWithProviders(
+      <SessionProvider initial={{ user, permissions: ADMIN }}>
+        <SetupTab />
+      </SessionProvider>,
+      { locale: "ur" },
+    );
+    expect(await screen.findByLabelText("فیصدی رعایت کس رقم پر لگے")).toHaveValue("gross");
+    expect(screen.getByText(/مجموعی فیس پر: 3,000.00 کا 25%/)).toBeInTheDocument();
   });
 
   it("is read-only without the approve permission", async () => {

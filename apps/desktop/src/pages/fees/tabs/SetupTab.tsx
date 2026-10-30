@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { useToast } from "@/components/ui/Toast";
 import { useI18n } from "@/i18n";
-import { parseMoney } from "@/lib/money";
+import { formatMoney, parseMoney } from "@/lib/money";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 import { useSession } from "@/app/session";
 
@@ -109,6 +109,26 @@ function PolicyCard({
           ]}
           disabled={!canEdit}
         />
+        <Select
+          label={t("fees.setup.concessionBase")}
+          value={p.concession_base ?? "gross"}
+          onChange={(e) =>
+            setP({ ...p, concession_base: e.target.value as FeePolicy["concession_base"] })
+          }
+          options={[
+            { value: "gross", label: t("fees.setup.concessionBase.gross") },
+            {
+              value: "after_sibling_discount",
+              label: t("fees.setup.concessionBase.after_sibling_discount"),
+            },
+          ]}
+          disabled={!canEdit}
+          className="col-span-2"
+        />
+        <ConcessionBaseExample
+          siblingPercent={p.sibling_discount_percent}
+          base={p.concession_base ?? "gross"}
+        />
         <Input
           label={t("fees.setup.latePercent")}
           inputMode="decimal"
@@ -134,6 +154,49 @@ function PolicyCard({
         )}
       </form>
     </Card>
+  );
+}
+
+/** Short explanation plus a worked example of the two concession bases. Display only: the
+ * server does the real arithmetic. */
+function ConcessionBaseExample({
+  siblingPercent,
+  base,
+}: {
+  siblingPercent: string;
+  base: FeePolicy["concession_base"];
+}) {
+  const { t } = useI18n();
+  const fee = 3000;
+  const sp = Number(siblingPercent) || 0;
+  const sibling = Math.round(fee * sp) / 100;
+  const afterSibling = fee - sibling;
+  const onGross = Math.round(fee * 25) / 100;
+  const stacked = Math.round(afterSibling * 25) / 100;
+  const line = (key: FeePolicy["concession_base"], baseAmount: number, concession: number) => (
+    <li className={base === key ? "font-semibold text-text" : ""}>
+      {t(`fees.setup.concessionBase.example.${key}`, {
+        base: formatMoney(baseAmount),
+        amount: formatMoney(concession),
+        net: formatMoney(afterSibling - concession),
+      })}
+    </li>
+  );
+  return (
+    <div className="col-span-2 rounded border border-border bg-bg px-3 py-2 text-xs text-muted">
+      <p>{t("fees.setup.concessionBase.hint")}</p>
+      <p className="mt-1">
+        {t("fees.setup.concessionBase.example.intro", {
+          fee: formatMoney(fee),
+          siblingPercent: String(sp),
+          sibling: formatMoney(sibling),
+        })}
+      </p>
+      <ul className="mt-1 list-inside list-disc">
+        {line("gross", fee, onGross)}
+        {line("after_sibling_discount", afterSibling, stacked)}
+      </ul>
+    </div>
   );
 }
 

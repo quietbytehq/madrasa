@@ -5,6 +5,8 @@
 //! - **gross**: sum of the voucher's charge lines for the month.
 //! - **sibling discount**: percentage of gross, for students who qualify under the policy.
 //! - **concession**: another discount (staff child, scholarship, custom), percent or fixed.
+//!   A percent concession is taken on the gross fee by default, or on the fee left after the
+//!   sibling discount when the policy says so (`concession_base`).
 //! - **net monthly**: gross − all discounts (never below zero).
 //! - **arrears**: unpaid balance carried forward from earlier vouchers (and years).
 //! - **total due**: net monthly + arrears.
@@ -36,12 +38,27 @@ pub enum SiblingRule {
     SecondChildOnwards,
 }
 
+/// What a percent concession is a percentage of.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ConcessionBase {
+    /// Percent of the gross monthly fee; sibling discount and concession are independent.
+    #[default]
+    Gross,
+    /// Percent of what is left after the sibling discount (the two stack).
+    AfterSiblingDiscount,
+}
+
 /// School-wide fee policy (stored in settings as `fees.policy`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FeePolicy {
     /// Percent of the total monthly fee, e.g. 10.
     pub sibling_discount_percent: Decimal,
     pub sibling_rule: SiblingRule,
+    /// Base for percent concessions. Missing in policies stored before this field existed,
+    /// which means the original behaviour (gross).
+    #[serde(default)]
+    pub concession_base: ConcessionBase,
     /// Percent of the net monthly fee charged after the due date, e.g. 10.
     pub late_fee_percent: Decimal,
     /// Day of the billing month the voucher is due (late fee applies after it), e.g. 15.
@@ -53,6 +70,7 @@ impl Default for FeePolicy {
         Self {
             sibling_discount_percent: Decimal::new(10, 0),
             sibling_rule: SiblingRule::All,
+            concession_base: ConcessionBase::Gross,
             late_fee_percent: Decimal::new(10, 0),
             due_day: 15,
         }
@@ -98,7 +116,8 @@ impl FeePolicy {
     }
 }
 
-/// A concession granted to a student: either a percent of gross or a fixed amount.
+/// A concession granted to a student: either a percent (of the policy's concession base) or a
+/// fixed amount.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ConcessionTerms {
     pub percent: Option<Decimal>,
@@ -106,10 +125,11 @@ pub struct ConcessionTerms {
 }
 
 impl ConcessionTerms {
-    pub fn value_on(&self, gross: Decimal) -> Decimal {
+    /// Value of this concession when percentages are taken on `base`.
+    pub fn value_on(&self, base: Decimal) -> Decimal {
         let mut v = Decimal::ZERO;
         if let Some(p) = self.percent {
-            v += percent_of(gross, p);
+            v += percent_of(base, p);
         }
         if let Some(a) = self.amount {
             v += money(a);
@@ -140,7 +160,9 @@ pub struct VoucherTotals {
     pub total_due: Decimal,
 }
 
-/// Compute a voucher. Discounts are each a share of gross, and together never exceed it.
+/// Compute a voucher. The sibling discount is a share of gross; percent concessions are a share
+/// of gross or of the fee after the sibling discount, per `policy.concession_base`. Together
+/// the discounts never exceed gross.
 pub fn compute_voucher(policy: &FeePolicy, input: &VoucherInput) -> VoucherTotals {
     let gross = money(input.lines.iter().map(|(_, a)| *a).sum::<Decimal>());
     let sibling = if input.sibling_discount {
@@ -148,7 +170,11 @@ pub fn compute_voucher(policy: &FeePolicy, input: &VoucherInput) -> VoucherTotal
     } else {
         Decimal::ZERO
     };
-    let mut concession = money(input.concessions.iter().map(|c| c.value_on(gross)).sum());
+    let base = match policy.concession_base {
+        ConcessionBase::Gross => gross,
+        ConcessionBase::AfterSiblingDiscount => gross - sibling,
+    };
+    let mut concession = money(input.concessions.iter().map(|c| c.value_on(base)).sum());
     if sibling + concession > gross {
         concession = gross - sibling;
     }
@@ -449,6 +475,88 @@ mod tests {
         let t = compute_voucher(&policy, &i);
         assert_eq!(t.sibling_discount + t.concession_discount, dec!(2000));
         assert_eq!(t.net_monthly, dec!(0));
+    }
+
+    #[test]
+    fn concession_base_gross_or_after_sibling_discount() {
+        // One student with both: 10% sibling discount and a 25% scholarship on
+        // tuition 2,500 + transport 800 + exam 33.33 = 3,333.33.
+        let mut i = input(&[
+            ("Tuition", dec!(2500)),
+            ("Transport", dec!(800)),
+            ("Exam", dec!(33.33)),
+        ]);
+        i.sibling_discount = true;
+        i.concessions = vec![ConcessionTerms {
+            percent: Some(dec!(25)),
+            amount: None,
+        }];
+
+        // Default: on the gross fee. 25% of 3,333.33 = 833.33.
+        let on_gross = FeePolicy::default();
+        assert_eq!(on_gross.concession_base, ConcessionBase::Gross);
+        let t = compute_voucher(&on_gross, &i);
+        assert_eq!(t.sibling_discount, dec!(333.33));
+        assert_eq!(t.concession_discount, dec!(833.33));
+        assert_eq!(t.net_monthly, dec!(2166.67));
+
+        // Stacked: on what is left after the sibling discount. 25% of 3,000.00 = 750.00.
+        let stacked = FeePolicy {
+            concession_base: ConcessionBase::AfterSiblingDiscount,
+            ..FeePolicy::default()
+        };
+        let t = compute_voucher(&stacked, &i);
+        assert_eq!(t.sibling_discount, dec!(333.33));
+        assert_eq!(t.concession_discount, dec!(750.00));
+        assert_eq!(t.net_monthly, dec!(2250.00));
+
+        // Without a sibling discount both modes agree.
+        i.sibling_discount = false;
+        assert_eq!(
+            compute_voucher(&on_gross, &i).concession_discount,
+            compute_voucher(&stacked, &i).concession_discount
+        );
+        assert_eq!(compute_voucher(&stacked, &i).net_monthly, dec!(2500.00));
+
+        // Fixed amounts are unaffected by the base; rounding is half away from zero.
+        i.sibling_discount = true;
+        i.concessions = vec![ConcessionTerms {
+            percent: None,
+            amount: Some(dec!(100.005)),
+        }];
+        assert_eq!(
+            compute_voucher(&on_gross, &i).concession_discount,
+            dec!(100.01)
+        );
+        assert_eq!(
+            compute_voucher(&stacked, &i).concession_discount,
+            dec!(100.01)
+        );
+
+        // A 100% concession in stacked mode takes exactly the remainder, never more.
+        i.concessions = vec![ConcessionTerms {
+            percent: Some(dec!(100)),
+            amount: None,
+        }];
+        let t = compute_voucher(&stacked, &i);
+        assert_eq!(t.concession_discount, dec!(3000.00));
+        assert_eq!(t.net_monthly, dec!(0));
+    }
+
+    #[test]
+    fn policy_without_concession_base_reads_as_gross() {
+        // Policies saved before the field existed must keep the original behaviour.
+        let p: FeePolicy = serde_json::from_str(
+            r#"{"sibling_discount_percent":"10","sibling_rule":"all","late_fee_percent":"10","due_day":15}"#,
+        )
+        .unwrap();
+        assert_eq!(p.concession_base, ConcessionBase::Gross);
+        let s = serde_json::to_value(&FeePolicy {
+            concession_base: ConcessionBase::AfterSiblingDiscount,
+            ..FeePolicy::default()
+        })
+        .unwrap();
+        assert_eq!(s["concession_base"], "after_sibling_discount");
     }
 
     #[test]

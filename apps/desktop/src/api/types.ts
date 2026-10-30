@@ -327,9 +327,13 @@ export type ConcessionKind = "staff_child" | "scholarship" | "custom";
 export interface FeePolicy {
   sibling_discount_percent: Money;
   sibling_rule: "all" | "second_child_onwards";
+  /** What a percent concession is a percentage of. Default "gross". */
+  concession_base: ConcessionBase;
   late_fee_percent: Money;
   due_day: number;
 }
+
+export type ConcessionBase = "gross" | "after_sibling_discount";
 
 export interface FeeHead {
   id: string;

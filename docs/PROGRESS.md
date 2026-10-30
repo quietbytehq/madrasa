@@ -221,6 +221,15 @@ depend on each other and were built together)
   teacher 403); demo-data 6; vitest 69 (15 new: money helpers, ledger permissions and
   actions, pay dialog validation and late warning, voucher list totals and generation, policy
   editing). fmt, clippy, eslint, prettier and tsc clean.
+- Review follow-up: the base for percentage concessions is now a policy option,
+  `concession_base` = "On gross fee" (default, the original behaviour) or "After sibling
+  discount" (stacked). Setup tab shows a short explanation and a worked example that follows
+  the entered sibling percent, in English and Urdu. Changes are audit-logged with old and new
+  values (asserted in a db test). Tests: core 2 new (both modes for a student with a sibling
+  discount and a concession, fixed amounts unaffected, 100 % cap, old stored policies still
+  read as gross), db 1 new (generation in both modes, April voucher untouched after the
+  switch), api assertions for default/round-trip/invalid value, vitest 2 new (worked example
+  and save, Urdu rendering).
 - Not done / notes: the `collections` summary covers one day at a time (no date range yet);
   voucher PDF files are produced through the print dialog rather than generated server-side;
   bank/1Bill/Kuickpay integrations are manual reference entry only, as specified.

@@ -192,15 +192,18 @@ Numbering uses `school_sequences`: vouchers `V<YYYY><MM>-<5 digits>` per month, 
 
 **Policy** (`settings` key `fees.policy`, editable with `fees.approve`):
 `sibling_discount_percent` (default 10), `sibling_rule` (`all` or `second_child_onwards`),
-`late_fee_percent` (default 10), `due_day` (default 15). Siblings are students who share a
-guardian; the rank for `second_child_onwards` is by admission date, then date of birth.
+`concession_base` (`gross`, the default, or `after_sibling_discount`), `late_fee_percent`
+(default 10), `due_day` (default 15). Siblings are students who share a guardian; the rank for
+`second_child_onwards` is by admission date, then date of birth. Policies stored without
+`concession_base` read as `gross`. Every policy change is audit-logged as a `setting` entry
+with the old and new values.
 
 **Voucher arithmetic** (`crates/core/src/fees.rs`, exact decimals rounded half away from zero
 to 2 places at each step):
 
 1. `gross` = Σ structure lines for the student's class (one-time heads only on the first voucher).
 2. `sibling_discount` = `gross` × sibling percent when the policy applies to this student.
-3. `concession_discount` = Σ active concessions (percent of `gross`, or a fixed amount), capped so `net_monthly` ≥ 0.
+3. `concession_discount` = Σ active concessions, capped so `net_monthly` ≥ 0. A fixed amount is taken as is. A percent concession is taken on `gross` when `concession_base` is `gross` (the discounts are independent), or on `gross − sibling_discount` when it is `after_sibling_discount` (the discounts stack). Example with a 3,000 fee, 10 % sibling discount and a 25 % scholarship: on gross 25 % × 3,000 = 750, net 1,950; after sibling discount 25 % × 2,700 = 675, net 2,025. The base in force at generation time is used; existing vouchers are not recalculated.
 4. `net_monthly` = `gross − sibling_discount − concession_discount`.
 5. `arrears` = the unpaid balance of the student's earlier vouchers (including late fees). Those vouchers become `carried` and are no longer payable, so a balance is never counted twice. Carry-forward crosses month and academic-year boundaries.
 6. `total_due` = `net_monthly + arrears`.

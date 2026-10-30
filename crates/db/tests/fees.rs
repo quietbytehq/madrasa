@@ -1,7 +1,7 @@
 //! M1 stage 2: fees. Needs PostgreSQL via `MADRASA_TEST_DATABASE_URL`.
 
 use chrono::NaiveDate;
-use madrasa_core::fees::{FeePolicy, PaymentMethod, SiblingRule};
+use madrasa_core::fees::{ConcessionBase, FeePolicy, PaymentMethod, SiblingRule};
 use madrasa_core::hlc::Hlc;
 use madrasa_core::password::hash_password;
 use madrasa_db::models::{AcademicYear, School, Section};
@@ -261,6 +261,12 @@ async fn link_father(pool: &PgPool, f: &Fixture, guardian: Uuid, student_id: Uui
     .unwrap();
 }
 
+fn is_policy(v: &Option<serde_json::Value>) -> bool {
+    v.as_ref()
+        .map(|v| v["key"] == "fees.policy")
+        .unwrap_or(false)
+}
+
 #[tokio::test]
 async fn structure_upsert_and_policy_defaults() {
     let db: TestDb = test_db!();
@@ -274,6 +280,7 @@ async fn structure_upsert_and_policy_defaults() {
     let custom = FeePolicy {
         sibling_discount_percent: dec!(15),
         sibling_rule: SiblingRule::SecondChildOnwards,
+        concession_base: ConcessionBase::AfterSiblingDiscount,
         late_fee_percent: dec!(5),
         due_day: 10,
     };
@@ -281,6 +288,44 @@ async fn structure_upsert_and_policy_defaults() {
         .await
         .unwrap();
     assert_eq!(fees::policy(&mut c, f.school.id).await.unwrap(), custom);
+    // The policy change is audit-logged with the old and new values, including the
+    // concession base.
+    let entry = audit::list_recent(&mut c, Some(f.school.id), 50)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|e| e.entity == "setting" && is_policy(&e.new_value))
+        .expect("policy change audited");
+    assert_eq!(entry.action, "create");
+    assert_eq!(
+        entry.new_value.as_ref().unwrap()["value"]["concession_base"],
+        "after_sibling_discount"
+    );
+    fees::set_policy(
+        &mut c,
+        &hlc(),
+        actor,
+        f.school.id,
+        &FeePolicy {
+            concession_base: ConcessionBase::Gross,
+            ..custom.clone()
+        },
+    )
+    .await
+    .unwrap();
+    let entry = audit::list_recent(&mut c, Some(f.school.id), 50)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|e| e.entity == "setting" && e.action == "update" && is_policy(&e.new_value))
+        .expect("policy update audited");
+    assert_eq!(
+        (
+            entry.old_value.as_ref().unwrap()["value"]["concession_base"].as_str(),
+            entry.new_value.as_ref().unwrap()["value"]["concession_base"].as_str()
+        ),
+        (Some("after_sibling_discount"), Some("gross"))
+    );
 
     let rows = fees::list_structure(&mut c, f.year.id, Some(f.sec1.class_id))
         .await
@@ -1112,4 +1157,140 @@ async fn carry_forward_across_months_and_into_next_year_with_defaulters_and_coll
     assert_eq!(later.len(), 1, "Zain still owes May 2026");
     drop(c);
     db.cleanup().await;
+}
+
+#[tokio::test]
+async fn concession_base_changes_what_a_percent_concession_is_taken_on() {
+    let db: TestDb = test_db!();
+    let f = fixture(&db.pool).await;
+    let actor = Actor::system_for(f.school.id);
+    // Two siblings in class 2 (tuition 3,333.33, no one-time heads); Sara also has a 25%
+    // scholarship, so she carries both a sibling discount and a concession.
+    let ali = student(&db.pool, &f, "Ali", "Ahmed", &f.sec2, d(2024, 4, 1)).await;
+    let sara = student(&db.pool, &f, "Sara", "Ahmed", &f.sec2, d(2025, 4, 1)).await;
+    let mut c = db.pool.acquire().await.unwrap();
+    let father = guardians::create(
+        &mut c,
+        &hlc(),
+        actor,
+        guardians::NewGuardian {
+            school_id: f.school.id,
+            full_name: "Ahmed".into(),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+    drop(c);
+    link_father(&db.pool, &f, father.id, ali).await;
+    link_father(&db.pool, &f, father.id, sara).await;
+    let mut c = db.pool.acquire().await.unwrap();
+    fees::create_concession(
+        &mut c,
+        &hlc(),
+        actor,
+        fees::NewConcession {
+            school_id: f.school.id,
+            student_id: sara,
+            kind: "scholarship".into(),
+            percent: Some(dec!(25)),
+            amount: None,
+            reason: "Merit".into(),
+            approved_by: f.admin,
+            valid_from: d(2026, 4, 1),
+            valid_to: None,
+        },
+    )
+    .await
+    .unwrap();
+
+    // April under the default policy: concession on the gross fee.
+    assert_eq!(
+        fees::policy(&mut c, f.school.id)
+            .await
+            .unwrap()
+            .concession_base,
+        ConcessionBase::Gross
+    );
+    fees::generate_vouchers(
+        &mut c,
+        &hlc(),
+        actor,
+        f.school.id,
+        f.year.id,
+        d(2026, 4, 1),
+        None,
+        d(2026, 4, 1),
+    )
+    .await
+    .unwrap();
+    let april = fees::vouchers_for_student(&mut c, sara)
+        .await
+        .unwrap()
+        .remove(0);
+    assert_eq!(april.gross, dec!(3333.33));
+    assert_eq!(april.sibling_discount, dec!(333.33));
+    assert_eq!(april.concession_discount, dec!(833.33), "25% of 3,333.33");
+    assert_eq!(april.net_monthly, dec!(2166.67));
+    assert_eq!(april.total_due, dec!(2166.67));
+    let april_ali = fees::vouchers_for_student(&mut c, ali)
+        .await
+        .unwrap()
+        .remove(0);
+    assert_eq!(
+        (april_ali.sibling_discount, april_ali.concession_discount),
+        (dec!(333.33), dec!(0))
+    );
+
+    // Switch to stacked mode; the April voucher is untouched, May uses the new base.
+    fees::set_policy(
+        &mut c,
+        &hlc(),
+        actor,
+        f.school.id,
+        &FeePolicy {
+            concession_base: ConcessionBase::AfterSiblingDiscount,
+            ..FeePolicy::default()
+        },
+    )
+    .await
+    .unwrap();
+    fees::generate_vouchers(
+        &mut c,
+        &hlc(),
+        actor,
+        f.school.id,
+        f.year.id,
+        d(2026, 5, 1),
+        None,
+        d(2026, 5, 1),
+    )
+    .await
+    .unwrap();
+    let mut sara_vouchers = fees::vouchers_for_student(&mut c, sara).await.unwrap();
+    assert_eq!(sara_vouchers.len(), 2);
+    let may = sara_vouchers.remove(0);
+    assert_eq!(may.billing_month, d(2026, 5, 1));
+    assert_eq!(may.sibling_discount, dec!(333.33));
+    assert_eq!(may.concession_discount, dec!(750.00), "25% of 3,000.00");
+    assert_eq!(may.net_monthly, dec!(2250.00));
+    // April was still unpaid after its due date (15 April), so generating May assessed its
+    // late fee (10% of 2,166.67 = 216.67) and carried 2,383.34 forward.
+    assert_eq!(may.arrears, dec!(2383.34));
+    assert_eq!(may.total_due, dec!(2250.00) + dec!(2383.34));
+    let april_again = fees::get_voucher(&mut c, april.id).await.unwrap();
+    assert_eq!(april_again.concession_discount, dec!(833.33));
+    // Ali has no concession, so the mode makes no difference to him.
+    let may_ali = fees::vouchers_for_student(&mut c, ali)
+        .await
+        .unwrap()
+        .remove(0);
+    assert_eq!(
+        (may_ali.sibling_discount, may_ali.concession_discount),
+        (dec!(333.33), dec!(0))
+    );
+    assert_eq!(
+        fees::ledger_totals(&mut c, sara).await.unwrap().discounts,
+        dec!(333.33) + dec!(833.33) + dec!(333.33) + dec!(750.00)
+    );
 }

@@ -213,9 +213,16 @@ async fn setup_policy_and_permissions() {
             s,
             p["sibling_discount_percent"].as_str(),
             p["late_fee_percent"].as_str(),
-            p["due_day"].as_i64()
+            p["due_day"].as_i64(),
+            p["concession_base"].as_str()
         ),
-        (StatusCode::OK, Some("10"), Some("10"), Some(15))
+        (
+            StatusCode::OK,
+            Some("10"),
+            Some("10"),
+            Some(15),
+            Some("gross")
+        )
     );
     let (s, e) = app.put("/fees/policy", &admin, json!({ "sibling_discount_percent": "150", "sibling_rule": "all", "late_fee_percent": "10", "due_day": 15 })).await;
     assert_eq!(
@@ -224,8 +231,24 @@ async fn setup_policy_and_permissions() {
     );
     let (s, p) = app.put("/fees/policy", &admin, json!({ "sibling_discount_percent": "15", "sibling_rule": "second_child_onwards", "late_fee_percent": "5", "due_day": 10 })).await;
     assert_eq!(
-        (s, p["sibling_rule"].as_str()),
-        (StatusCode::OK, Some("second_child_onwards"))
+        (s, p["sibling_rule"].as_str(), p["concession_base"].as_str()),
+        (StatusCode::OK, Some("second_child_onwards"), Some("gross")),
+        "concession base defaults to gross when omitted"
+    );
+    let (s, p) = app.put("/fees/policy", &admin, json!({ "sibling_discount_percent": "10", "sibling_rule": "all", "concession_base": "after_sibling_discount", "late_fee_percent": "10", "due_day": 15 })).await;
+    assert_eq!(
+        (s, p["concession_base"].as_str()),
+        (StatusCode::OK, Some("after_sibling_discount"))
+    );
+    let (s, p) = app.get("/fees/policy", &admin).await;
+    assert_eq!(
+        (s, p["concession_base"].as_str()),
+        (StatusCode::OK, Some("after_sibling_discount"))
+    );
+    let (s, e) = app.put("/fees/policy", &admin, json!({ "sibling_discount_percent": "10", "sibling_rule": "all", "concession_base": "stacked", "late_fee_percent": "10", "due_day": 15 })).await;
+    assert_eq!(
+        (s, e["error"]["code"].as_str()),
+        (StatusCode::BAD_REQUEST, Some("validation"))
     );
 
     // Accountant collects but cannot change setup; teacher cannot see fees at all.

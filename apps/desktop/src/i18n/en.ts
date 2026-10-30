@@ -421,6 +421,17 @@ export const en = {
   "fees.setup.siblingRule": "Who gets the sibling discount",
   "fees.setup.siblingRule.all": "All siblings",
   "fees.setup.siblingRule.second_child_onwards": "Second child onwards",
+  "fees.setup.concessionBase": "Percentage concessions are calculated on",
+  "fees.setup.concessionBase.gross": "On gross fee",
+  "fees.setup.concessionBase.after_sibling_discount": "After sibling discount",
+  "fees.setup.concessionBase.hint":
+    "Applies to percentage concessions (staff child, scholarship, custom) for students who also get the sibling discount. Fixed-amount concessions are not affected. The choice is used for vouchers generated from now on and is recorded in the audit log.",
+  "fees.setup.concessionBase.example.intro":
+    "Example: monthly fee {fee}, sibling discount {siblingPercent}% = {sibling}, scholarship 25%.",
+  "fees.setup.concessionBase.example.gross":
+    "On gross fee: 25% of {base} = {amount}; student pays {net}.",
+  "fees.setup.concessionBase.example.after_sibling_discount":
+    "After sibling discount: 25% of {base} = {amount}; student pays {net}.",
   "fees.setup.latePercent": "Late fee (% of net monthly fee)",
   "fees.setup.dueDay": "Due day of the month",
   "fees.setup.heads": "Fee heads",
