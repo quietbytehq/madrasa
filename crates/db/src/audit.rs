@@ -19,6 +19,10 @@ pub enum Action {
     LoginFailed,
     Lockout,
     Logout,
+    Backup,
+    Restore,
+    /// A wrong backup password or recovery key was offered (restore or password change).
+    BackupPasswordFailed,
 }
 
 impl Action {
@@ -31,6 +35,9 @@ impl Action {
             Action::LoginFailed => "login_failed",
             Action::Lockout => "lockout",
             Action::Logout => "logout",
+            Action::Backup => "backup",
+            Action::Restore => "restore",
+            Action::BackupPasswordFailed => "backup_password_failed",
         }
     }
 }

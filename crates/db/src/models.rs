@@ -697,3 +697,18 @@ pub struct MarkRow {
     pub is_absent: bool,
     pub sheet_status: String,
 }
+
+// ---- M1 stage 5: backup --------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct BackupRun {
+    pub id: Uuid,
+    pub school_id: Uuid,
+    pub trigger: String,
+    pub status: String,
+    pub started_at: DateTime<Utc>,
+    pub finished_at: Option<DateTime<Utc>>,
+    pub file_path: Option<String>,
+    pub file_size: Option<i64>,
+    pub error: Option<String>,
+}
