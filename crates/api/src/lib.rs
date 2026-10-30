@@ -31,6 +31,10 @@ pub fn router(state: AppState) -> Router {
         .merge(routes::schools::router())
         .merge(routes::audit::router())
         .merge(routes::nexus::router())
+        .merge(routes::academics::router())
+        .merge(routes::staff::router())
+        .merge(routes::students::router())
+        .merge(routes::school_settings::router())
         .with_state(state);
 
     // The UI is served from a different origin in `vite dev` (http://localhost:1420) and from

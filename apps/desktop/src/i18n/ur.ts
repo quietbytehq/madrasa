@@ -105,7 +105,7 @@ export const ur: Translation = {
   "setup.step.done": "ریکوری کلید",
   "setup.school.name": "اسکول کا نام",
   "setup.school.code": "اسکول کوڈ",
-  "setup.school.codeHint": "مختصر منفرد کوڈ، صرف حروف اور ہندسے، مثلاً GHS01۔",
+  "setup.school.codeHint": "مختصر منفرد کوڈ، حروف، ہندسے اور ہائفن، مثلاً KHI-MC۔ یہ طلبہ کے نمبروں کا سابقہ بھی ہے۔",
   "setup.school.city": "شہر",
   "setup.year.startMonth": "تعلیمی سال کا آغاز",
   "setup.year.april": "اپریل",
@@ -128,7 +128,7 @@ export const ur: Translation = {
   "setup.error.passwordMismatch": "پاس ورڈ مطابقت نہیں رکھتے۔",
   "setup.error.required": "یہ خانہ ضروری ہے۔",
   "setup.error.passwordShort": "کم از کم 10 حروف استعمال کریں۔",
-  "setup.error.codeFormat": "2 سے 12 حروف یا ہندسے استعمال کریں۔",
+  "setup.error.codeFormat": "2 سے 12 حروف، ہندسے یا ہائفن استعمال کریں۔",
   "setup.summary": "خلاصہ",
 
   "field.optional": "اختیاری",

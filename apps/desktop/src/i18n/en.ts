@@ -115,7 +115,7 @@ export const en = {
   "setup.step.done": "Recovery key",
   "setup.school.name": "School name",
   "setup.school.code": "School code",
-  "setup.school.codeHint": "Short unique code, letters and digits only, for example GHS01.",
+  "setup.school.codeHint": "Short unique code, letters, digits and hyphens, for example KHI-MC. It also prefixes student numbers.",
   "setup.school.city": "City",
   "setup.year.startMonth": "Academic year starts in",
   "setup.year.april": "April",
@@ -138,7 +138,7 @@ export const en = {
   "setup.error.passwordMismatch": "The passwords do not match.",
   "setup.error.required": "This field is required.",
   "setup.error.passwordShort": "Use at least 10 characters.",
-  "setup.error.codeFormat": "Use 2–12 letters or digits.",
+  "setup.error.codeFormat": "Use 2–12 letters, digits or hyphens.",
   "setup.summary": "Summary",
 
   // Validation / misc

@@ -243,6 +243,7 @@ impl RoleCode {
                 SchoolRead,
                 AcademicsRead,
                 StudentsRead,
+                TeachersRead,
                 AttendanceRead,
                 AttendanceManage,
                 ExamsRead,

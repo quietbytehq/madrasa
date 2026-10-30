@@ -142,7 +142,7 @@ describe("Setup wizard", () => {
 
   it("shows the server's validation message", async () => {
     vi.mocked(api.setup).mockImplementation(async () => {
-      throw new ApiError(400, "validation", "School code must be 2–12 letters or digits.");
+      throw new ApiError(400, "validation", "School code must be 2–12 letters, digits or hyphens.");
     });
     renderWizard();
     await fillStep1();
@@ -156,7 +156,7 @@ describe("Setup wizard", () => {
     await userEvent.type(screen.getByLabelText("Confirm backup password"), "backup-password-1");
     await userEvent.click(screen.getByRole("button", { name: "Finish" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "School code must be 2–12 letters or digits.",
+      "School code must be 2–12 letters, digits or hyphens.",
     );
   });
 });

@@ -215,7 +215,7 @@ SELECT gen_random_uuid(), r.school_id, r.id, p.code, '0000000000000-00000-000000
 FROM roles r
 JOIN (VALUES ('principal', 'academics.read'), ('principal', 'academics.manage'),
              ('admin', 'academics.read'), ('admin', 'academics.manage'),
-             ('accountant', 'academics.read'), ('teacher', 'academics.read')) AS p(role, code)
+             ('accountant', 'academics.read'), ('teacher', 'academics.read'), ('teacher', 'teachers.read')) AS p(role, code)
   ON p.role = r.code
 WHERE r.is_system AND r.deleted_at IS NULL
 ON CONFLICT (role_id, code) DO NOTHING;

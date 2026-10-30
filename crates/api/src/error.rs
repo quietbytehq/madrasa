@@ -17,6 +17,8 @@ pub struct ApiError {
     pub status: StatusCode,
     pub code: &'static str,
     pub message: String,
+    /// Optional structured payload (e.g. duplicate matches).
+    pub details: Option<serde_json::Value>,
 }
 
 pub type ApiResult<T> = Result<T, ApiError>;
@@ -27,6 +29,7 @@ impl ApiError {
             status,
             code,
             message: message.into(),
+            details: None,
         }
     }
 
@@ -106,7 +109,8 @@ impl ApiError {
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let body = Json(serde_json::json!({
-            "error": ErrorBody { code: self.code.to_string(), message: self.message }
+            "error": ErrorBody { code: self.code.to_string(), message: self.message },
+            "details": self.details,
         }));
         (self.status, body).into_response()
     }

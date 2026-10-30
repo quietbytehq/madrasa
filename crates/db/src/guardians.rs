@@ -111,7 +111,7 @@ pub async fn get(conn: &mut PgConnection, id: Uuid) -> DbResult<Guardian> {
         .ok_or_else(|| DbError::NotFound("guardian".into()))
 }
 
-/// Search by name, phone or CNIC (normalised values expected for phone/CNIC).
+/// Search by name (substring), or by the digits of a phone number / CNIC (prefix match).
 pub async fn search(
     conn: &mut PgConnection,
     school_id: Uuid,
@@ -119,13 +119,21 @@ pub async fn search(
     limit: i64,
 ) -> DbResult<Vec<Guardian>> {
     let q = q.trim();
+    let digits: String = q.chars().filter(|c| c.is_ascii_digit()).collect();
+    let digits = if digits.len() >= 3 {
+        digits
+    } else {
+        String::new()
+    };
     Ok(sqlx::query_as::<_, Guardian>(
         "SELECT * FROM guardians WHERE school_id = $1 AND deleted_at IS NULL
-           AND (full_name ILIKE '%' || $2 || '%' OR phone = $2 OR cnic = $2 OR phone LIKE $2 || '%')
-         ORDER BY full_name LIMIT $3",
+           AND (full_name ILIKE '%' || $2 || '%'
+                OR ($3 <> '' AND (phone LIKE $3 || '%' OR replace(coalesce(cnic, ''), '-', '') LIKE $3 || '%')))
+         ORDER BY full_name LIMIT $4",
     )
     .bind(school_id)
     .bind(q)
+    .bind(digits)
     .bind(limit)
     .fetch_all(conn)
     .await?)

@@ -56,7 +56,8 @@ export function validateStep(step: number, f: SetupForm): Errors {
   const e: Errors = {};
   if (step === 0) {
     if (!f.schoolName.trim()) e.schoolName = "setup.error.required";
-    if (!/^[A-Za-z0-9]{2,12}$/.test(f.schoolCode.trim())) e.schoolCode = "setup.error.codeFormat";
+    if (!/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,10}[A-Za-z0-9])?$/.test(f.schoolCode.trim()))
+      e.schoolCode = "setup.error.codeFormat";
   } else if (step === 2) {
     if (!f.adminFullName.trim()) e.adminFullName = "setup.error.required";
     if (!f.adminUsername.trim()) e.adminUsername = "setup.error.required";
