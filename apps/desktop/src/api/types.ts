@@ -721,3 +721,217 @@ export interface DashboardView {
   day_kind: DayKind;
   attendance: { totals: StatusTotals; unmarked: UnmarkedSection[] } | null;
 }
+
+// ---- M1 stage 4: exams ---------------------------------------------------------------------
+
+export type SheetStatus = "draft" | "submitted" | "approved";
+
+export interface AssessmentType {
+  id: string;
+  school_id: string;
+  academic_year_id: string;
+  name: string;
+  position: number;
+  weight: Money;
+}
+
+export interface GradeBand {
+  grade: string;
+  min_percent: Money;
+  remarks: string;
+}
+
+/** Mirrors `GradingScheme` in the API. */
+export interface GradingScheme {
+  bands: GradeBand[];
+  pass_percent: Money;
+}
+
+export interface MaxMarksLine {
+  subject_id: string;
+  subject_name: string;
+  subject_code: string;
+  max_marks: Money | null;
+}
+
+export interface ExamSectionHeader {
+  id: string;
+  class_id: string;
+  class_name: string;
+  section_name: string;
+  class_teacher_name: string | null;
+}
+
+export interface SheetSummary {
+  subject_id: string;
+  subject_name: string;
+  subject_code: string;
+  max_marks: Money | null;
+  sheet_id: string | null;
+  status: SheetStatus | null;
+  submitted_at: string | null;
+  approved_at: string | null;
+  entered: number;
+  students: number;
+  can_enter: boolean;
+}
+
+export interface SheetsView {
+  assessment: AssessmentType;
+  section: ExamSectionHeader;
+  sheets: SheetSummary[];
+}
+
+export interface MarkSheet {
+  id: string;
+  assessment_type_id: string;
+  section_id: string;
+  subject_id: string;
+  status: SheetStatus;
+  submitted_by: string | null;
+  submitted_at: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+}
+
+export interface SheetStudent {
+  student_id: string;
+  student_number: string;
+  full_name: string;
+  roll_no: number | null;
+  obtained: Money | null;
+  is_absent: boolean;
+}
+
+/** Mirrors `MarksSheetView` in the API. */
+export interface MarksSheetView {
+  assessment: AssessmentType;
+  section: ExamSectionHeader;
+  subject_id: string;
+  subject_name: string;
+  max_marks: Money | null;
+  sheet: MarkSheet | null;
+  status: SheetStatus;
+  submitted_by_name: string | null;
+  approved_by_name: string | null;
+  students: SheetStudent[];
+  can_edit: boolean;
+  can_submit: boolean;
+  can_approve: boolean;
+  can_reopen: boolean;
+}
+
+export interface SaveMarksRequest {
+  assessment_id: string;
+  section_id: string;
+  subject_id: string;
+  marks: Array<{ student_id: string; obtained: Money | null; is_absent: boolean }>;
+}
+
+export interface ResultSubject {
+  subject_id: string;
+  subject_name: string;
+  max_marks: Money;
+  sheet_status: SheetStatus;
+}
+
+export interface ResultMark {
+  subject_id: string;
+  obtained: Money | null;
+  is_absent: boolean;
+  percent: Money;
+  grade: string;
+}
+
+export interface ResultRow {
+  student_id: string;
+  student_number: string;
+  full_name: string;
+  roll_no: number | null;
+  marks: ResultMark[];
+  total: Money;
+  max: Money;
+  percent: Money;
+  grade: string;
+  pass: boolean;
+  position: number;
+}
+
+export interface SubjectAnalysis {
+  subject_id: string;
+  subject_name: string;
+  max_marks: Money;
+  appeared: number;
+  absent: number;
+  average_percent: Money | null;
+  highest: Money | null;
+  lowest: Money | null;
+  passed: number;
+  failed: number;
+}
+
+/** Mirrors `ResultSheet` in the API. */
+export interface ResultSheet {
+  assessment: AssessmentType;
+  section: ExamSectionHeader;
+  subjects: ResultSubject[];
+  rows: ResultRow[];
+  analysis: SubjectAnalysis[];
+  grading: GradingScheme;
+  complete: boolean;
+}
+
+export interface CardAssessment {
+  id: string;
+  name: string;
+  weight: Money;
+  held: boolean;
+}
+
+export interface CardCell {
+  max_marks: Money | null;
+  obtained: Money | null;
+  is_absent: boolean;
+  percent: Money | null;
+  approved: boolean;
+}
+
+export interface CardSubject {
+  subject_id: string;
+  subject_name: string;
+  cells: CardCell[];
+  weighted_percent: Money | null;
+  grade: string | null;
+}
+
+export interface CardAssessmentTotal {
+  assessment_id: string;
+  total: Money;
+  max: Money;
+  percent: Money | null;
+  grade: string | null;
+  position: number | null;
+  students: number;
+}
+
+/** Mirrors `ReportCard` in the API. */
+export interface ReportCard {
+  school: { name: string; code: string; city: string };
+  academic_year: string;
+  student_id: string;
+  student_number: string;
+  full_name: string;
+  father_name: string;
+  class_name: string | null;
+  section_name: string | null;
+  roll_no: number | null;
+  assessments: CardAssessment[];
+  subjects: CardSubject[];
+  totals: CardAssessmentTotal[];
+  overall_percent: Money | null;
+  overall_grade: string | null;
+  overall_remarks: string | null;
+  pass: boolean | null;
+  attendance: { present: number; total: number; percent: number | null };
+  grading: GradingScheme;
+}

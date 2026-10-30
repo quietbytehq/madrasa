@@ -22,6 +22,7 @@ import { useSession } from "@/app/session";
 import { PageHeader } from "../PageHeader";
 import { LedgerView } from "../fees/LedgerView";
 import { StudentAttendanceView } from "../attendance/StudentAttendanceView";
+import { StudentResultsView } from "../exams/StudentResultsView";
 import {
   classLabel,
   genderLabel,
@@ -36,7 +37,7 @@ const TABS: Array<{ key: string; labelKey: TranslationKey; available: boolean }>
   { key: "guardians", labelKey: "students.tabs.guardians", available: true },
   { key: "fees", labelKey: "students.tabs.fees", available: true },
   { key: "attendance", labelKey: "students.tabs.attendance", available: true },
-  { key: "results", labelKey: "students.tabs.results", available: false },
+  { key: "results", labelKey: "students.tabs.results", available: true },
 ];
 
 export function StudentProfile() {
@@ -167,6 +168,14 @@ export function StudentProfile() {
         {tab === "attendance" &&
           (can("attendance.read") ? (
             <StudentAttendanceView studentId={s.id} />
+          ) : (
+            <Card>
+              <EmptyState title={t("app.error.generic")} />
+            </Card>
+          ))}
+        {tab === "results" &&
+          (can("exams.read") ? (
+            <StudentResultsView studentId={s.id} />
           ) : (
             <Card>
               <EmptyState title={t("app.error.generic")} />

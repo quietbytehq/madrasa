@@ -2,6 +2,8 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
 import { AppShell } from "@/layout/AppShell";
 import { AttendancePage } from "@/pages/attendance/AttendancePage";
+import { ExamsPage } from "@/pages/exams/ExamsPage";
+import { ReportCardsPrintPage, ResultSheetPrintPage } from "@/pages/exams/PrintPages";
 import { Dashboard } from "@/pages/Dashboard";
 import { ComingSoon } from "@/pages/ComingSoon";
 import { FeesPage } from "@/pages/fees/FeesPage";
@@ -70,6 +72,13 @@ export function AppRoutes({ login, setup }: AppRoutesProps) {
           </>
         )}
         {has("attendance") && <Route path="/attendance" element={<AttendancePage />} />}
+        {has("examinations") && (
+          <>
+            <Route path="/exams" element={<ExamsPage />} />
+            <Route path="/exams/report-cards/print" element={<ReportCardsPrintPage />} />
+            <Route path="/exams/results/print" element={<ResultSheetPrintPage />} />
+          </>
+        )}
         {has("teachers") && <Route path="/teachers" element={<StaffPage />} />}
         {has("settings") && <Route path="/settings" element={<SettingsPage />} />}
         {NAV_ITEMS.filter((item) => item.path !== "/" && !item.available && has(item.feature)).map(

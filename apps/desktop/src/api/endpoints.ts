@@ -1,5 +1,13 @@
 import { request } from "./client";
 import type {
+  AssessmentType,
+  GradingScheme,
+  MarksSheetView,
+  MaxMarksLine,
+  ReportCard,
+  ResultSheet,
+  SaveMarksRequest,
+  SheetsView,
   AbsenteeRow,
   CalendarView,
   DashboardView,
@@ -260,4 +268,55 @@ export const api = {
   }) => request<StaffDayView>("/attendance/staff", { method: "PUT", body }),
   staffAttendanceHistory: (staffId: string, params: { from?: string; to?: string } = {}) =>
     request<StaffHistoryView>(`/attendance/staff/${staffId}${qs(params)}`),
+
+  // Exams
+  assessments: (academic_year_id: string) =>
+    request<AssessmentType[]>(`/exams/assessments${qs({ academic_year_id })}`),
+  createAssessment: (body: {
+    academic_year_id: string;
+    name: string;
+    weight?: string;
+    position?: number;
+  }) => request<AssessmentType>("/exams/assessments", { method: "POST", body }),
+  defaultAssessments: (academic_year_id: string) =>
+    request<AssessmentType[]>("/exams/assessments/defaults", {
+      method: "POST",
+      body: { academic_year_id },
+    }),
+  renameAssessment: (id: string, body: { name: string; position?: number }) =>
+    request<AssessmentType>(`/exams/assessments/${id}`, { method: "PATCH", body }),
+  deleteAssessment: (id: string) => request<void>(`/exams/assessments/${id}`, { method: "DELETE" }),
+  setWeights: (academic_year_id: string, weights: Array<{ id: string; weight: string }>) =>
+    request<AssessmentType[]>("/exams/assessments/weights", {
+      method: "PUT",
+      body: { academic_year_id, weights },
+    }),
+  grading: () => request<GradingScheme>("/exams/grading"),
+  setGrading: (body: GradingScheme) =>
+    request<GradingScheme>("/exams/grading", { method: "PUT", body }),
+  maxMarks: (assessment_id: string, class_id: string) =>
+    request<MaxMarksLine[]>(`/exams/max-marks${qs({ assessment_id, class_id })}`),
+  setMaxMarks: (body: {
+    assessment_id: string;
+    class_id: string;
+    lines: Array<{ subject_id: string; max_marks: string }>;
+  }) => request<MaxMarksLine[]>("/exams/max-marks", { method: "PUT", body }),
+  examSheets: (assessment_id: string, section_id: string) =>
+    request<SheetsView>(`/exams/sheets${qs({ assessment_id, section_id })}`),
+  examSheet: (assessment_id: string, section_id: string, subject_id: string) =>
+    request<MarksSheetView>(`/exams/sheet${qs({ assessment_id, section_id, subject_id })}`),
+  saveMarks: (body: SaveMarksRequest) =>
+    request<MarksSheetView>("/exams/sheet", { method: "PUT", body }),
+  submitSheet: (id: string) =>
+    request<MarksSheetView>(`/exams/sheets/${id}/submit`, { method: "POST", body: {} }),
+  approveSheet: (id: string) =>
+    request<MarksSheetView>(`/exams/sheets/${id}/approve`, { method: "POST", body: {} }),
+  reopenSheet: (id: string) =>
+    request<MarksSheetView>(`/exams/sheets/${id}/reopen`, { method: "POST", body: {} }),
+  sectionResults: (assessment_id: string, section_id: string) =>
+    request<ResultSheet>(`/exams/results/section${qs({ assessment_id, section_id })}`),
+  sectionReportCards: (section_id: string) =>
+    request<ReportCard[]>(`/exams/results/section/report-cards${qs({ section_id })}`),
+  studentReportCard: (studentId: string, academic_year_id?: string) =>
+    request<ReportCard>(`/exams/results/student/${studentId}${qs({ academic_year_id })}`),
 };
