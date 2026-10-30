@@ -10,11 +10,13 @@ use madrasa_core::fees::PaymentMethod;
 use madrasa_core::hlc::Hlc;
 use madrasa_core::password::hash_password;
 use madrasa_db::{
-    academics, attendance, fees, guardians, roles, schools, settings, staff, students, users,
-    Actor, PgPool,
+    academics, attendance, exams, fees, guardians, roles, schools, settings, staff, students,
+    users, Actor, PgPool,
 };
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
+use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::Serialize;
 use serde_json::json;
@@ -42,6 +44,7 @@ pub struct LoadReport {
     pub receipts: usize,
     pub attendance_sheets: usize,
     pub staff_attendance_days: usize,
+    pub mark_sheets: usize,
     pub files_written: Vec<PathBuf>,
 }
 
@@ -545,6 +548,115 @@ pub async fn load(
         staff_attendance_days += 1;
     }
 
+    // Exams: default assessments, maximum marks for every class and subject, Test 1 and
+    // Mid-year marks for every section (≈2% absent), all submitted and approved.
+    let assessments =
+        exams::create_default_assessments(&mut tx, hlc, actor, school.id, year.id).await?;
+    let maxima: Vec<(uuid::Uuid, Decimal)> = assessments
+        .iter()
+        .zip([dec!(20), dec!(20), dec!(50), dec!(100)])
+        .map(|(a, m)| (a.id, m))
+        .collect();
+    let mut subjects_by_class: HashMap<uuid::Uuid, Vec<uuid::Uuid>> = HashMap::new();
+    for class_id in class_ids.values() {
+        let subjects = academics::class_subject_ids(&mut tx, *class_id).await?;
+        for (assessment_id, max) in &maxima {
+            for subject_id in &subjects {
+                exams::set_max_marks(
+                    &mut tx,
+                    hlc,
+                    actor,
+                    school.id,
+                    *assessment_id,
+                    *class_id,
+                    *subject_id,
+                    *max,
+                )
+                .await?;
+            }
+        }
+        subjects_by_class.insert(*class_id, subjects);
+    }
+    let mut mark_sheets = 0usize;
+    let mut exam_rng = StdRng::seed_from_u64(123);
+    let section_class: HashMap<uuid::Uuid, uuid::Uuid> = demo
+        .classes
+        .iter()
+        .filter_map(|c| {
+            section_ids
+                .get(&c.name)
+                .map(|sid| (*sid, class_ids[&c.grade]))
+        })
+        .collect();
+    // Test 1 and Mid-year are held (positions 0 and 2); Test 2 and the Final are not yet.
+    for (position, (assessment_id, max)) in maxima.iter().enumerate() {
+        if position != 0 && position != 2 {
+            continue;
+        }
+        for (section_id, members) in &students_by_section {
+            let Some(class_id) = section_class.get(section_id) else {
+                continue;
+            };
+            let marker = marker_by_section
+                .get(section_id)
+                .copied()
+                .unwrap_or(principal_user);
+            for subject_id in &subjects_by_class[class_id] {
+                let marks: Vec<exams::MarkInput> = members
+                    .iter()
+                    .map(|student_id| {
+                        let roll: f64 = exam_rng.gen();
+                        if roll < 0.02 {
+                            exams::MarkInput {
+                                student_id: *student_id,
+                                obtained: None,
+                                is_absent: true,
+                            }
+                        } else {
+                            let pct: f64 = 35.0 + exam_rng.gen::<f64>() * 65.0;
+                            let raw =
+                                Decimal::from_f64_retain(pct * max.to_f64().unwrap_or(0.0) / 100.0)
+                                    .unwrap_or(Decimal::ZERO);
+                            exams::MarkInput {
+                                student_id: *student_id,
+                                obtained: Some(madrasa_core::exams::round2(raw).min(*max)),
+                                is_absent: false,
+                            }
+                        }
+                    })
+                    .collect();
+                let (sheet, _) = exams::save_marks(
+                    &mut tx,
+                    hlc,
+                    Actor::user(marker, school.id),
+                    school.id,
+                    *assessment_id,
+                    *section_id,
+                    *subject_id,
+                    &marks,
+                )
+                .await?;
+                exams::submit_sheet(
+                    &mut tx,
+                    hlc,
+                    Actor::user(marker, school.id),
+                    sheet.id,
+                    marker,
+                )
+                .await?;
+                exams::approve_sheet(
+                    &mut tx,
+                    hlc,
+                    Actor::user(principal_user, school.id),
+                    sheet.id,
+                    principal_user,
+                )
+                .await?;
+                mark_sheets += 1;
+            }
+        }
+    }
+
     settings::set_edition(&mut tx, hlc, Actor::SYSTEM, Edition::Lite).await?;
     settings::set(
         &mut tx,
@@ -592,6 +704,7 @@ pub async fn load(
         receipts,
         attendance_sheets,
         staff_attendance_days,
+        mark_sheets,
         files_written,
     })
 }

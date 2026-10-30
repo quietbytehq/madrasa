@@ -69,6 +69,8 @@ async fn migrations_apply_and_tables_follow_the_rules() {
         tables,
         [
             "academic_years",
+            "assessment_max_marks",
+            "assessment_types",
             "attendance_entries",
             "attendance_sheets",
             "audit_log",
@@ -84,6 +86,8 @@ async fn migrations_apply_and_tables_follow_the_rules() {
             "fee_vouchers",
             "guardians",
             "holidays",
+            "mark_sheets",
+            "marks",
             "permissions",
             "roles",
             "school_sequences",

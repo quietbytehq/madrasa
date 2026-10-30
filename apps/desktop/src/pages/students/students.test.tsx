@@ -328,7 +328,7 @@ describe("Add student", () => {
 describe("Student profile", () => {
   beforeEach(() => vi.mocked(api.student).mockResolvedValue(detail));
 
-  it("shows details, guardians, siblings and coming-soon tabs", async () => {
+  it("shows details, guardians, siblings and every module tab", async () => {
     renderAt("/students/st1");
     expect(await screen.findByRole("heading", { level: 1, name: "Ali Khan" })).toBeInTheDocument();
     expect(screen.getByText("42101-1234567-1")).toBeInTheDocument();
@@ -337,8 +337,9 @@ describe("Student profile", () => {
     await userEvent.click(screen.getByRole("tab", { name: "Guardians" }));
     expect(screen.getByText("Ahmed Khan", { selector: "span" })).toBeInTheDocument();
     expect(screen.getByText("Primary contact")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("tab", { name: /Fees/ }));
-    expect(screen.getAllByText("Coming soon").length).toBeGreaterThan(0);
+    // Fees, Attendance and Results are real tabs now; nothing is "Coming soon".
+    expect(screen.getAllByRole("tab")).toHaveLength(5);
+    expect(screen.queryByText("Coming soon")).not.toBeInTheDocument();
   });
 
   it("withdraws a student with a reason", async () => {

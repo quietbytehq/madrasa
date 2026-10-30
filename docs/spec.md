@@ -248,6 +248,43 @@ Rules:
 - **Staff attendance** is simple daily present / absent / leave, saved by users with
   `teachers.manage` (admin, principal) and audited per staff member.
 
+### 5.7 Exams, results and report cards (M1 stage 4)
+
+| Table | Purpose |
+| --- | --- |
+| `assessment_types` | Per academic year: `name` (unique per year, case-insensitively), `position`, `weight` (NUMERIC(5,2)). Defaults: Bi-monthly Test 1 (15), Bi-monthly Test 2 (15), Mid-year (30), Final (40). Weights are saved together and must total exactly 100. |
+| `assessment_max_marks` | Maximum marks per `assessment_type_id`, `class_id` and `subject_id` (NUMERIC(6,2) > 0). Zero removes the line. Locked once any marks exist for that subject in the class. |
+| `mark_sheets` | One per assessment, section and subject with `status` draft → submitted → approved, `submitted_by/at`, `approved_by/at`. |
+| `marks` | One per sheet and student: `obtained` (NUMERIC(6,2), null until entered) and `is_absent`. |
+
+The grading scheme is the `settings` key `exams.grading`: bands with an inclusive
+`min_percent` and `remarks`, plus `pass_percent`. Default: A+ 90, A 80, B 70, C 60, D 50, E 40,
+F 0, pass 40. One band must start at 0; band minimums and grade names are unique.
+
+Rules (`crates/core/src/exams.rs`, exact decimals, every stored or shown number rounded half
+away from zero to two places):
+
+- Subject percentage in an assessment = obtained / max × 100. Absent counts as 0.
+- Assessment total = Σ obtained / Σ max over the subjects that have a maximum; its grade comes
+  from the scheme; the position in the section uses competition ranking (1, 1, 3) on the
+  percentage.
+- Weighted year result of a subject = Σ weight × percentage / Σ weight over the assessments
+  that have marks for that subject (an assessment not yet held is left out). The overall
+  weighted result applies the same rule to the assessment totals.
+- Marks are validated against the maximum (0 ≤ obtained ≤ max, at most two decimals) and the
+  student must be enrolled in the section; the subject must be taught in the section's class.
+- Workflow: the teacher saves a draft (the sheet is created on first save), submits once every
+  enrolled student has a mark or is absent, the principal approves (`exams.approve`) and may
+  reopen. Submitted and approved sheets are locked. Every save (with the list of changed marks)
+  and every status change is audit-logged.
+- Teachers enter marks only for a (section, subject) they are assigned to, or for any subject
+  of a section they are class teacher of; result sheets and report cards follow the section
+  scope used by attendance.
+- Report cards: default design, one page per student, English and Urdu; "PDF export" is the
+  print dialog's Save as PDF, as for fee vouchers. They show every assessment (held or not),
+  per-subject weighted percentage and grade, per-assessment totals, percentage, grade and
+  position, the overall weighted result with remarks and pass/fail, and the year's attendance.
+
 ## 6. API conventions
 
 - Base path `/api/v1`. JSON request and response bodies. `snake_case` keys.
@@ -337,6 +374,27 @@ Role defaults: accountant has `fees.read` + `fees.manage`; admin and principal a
 | GET/PUT | `/attendance/staff` | `teachers.read` / `teachers.manage` | Staff attendance for a date |
 | GET | `/attendance/staff/{id}` | `teachers.read` | Staff history |
 | GET | `/dashboard` | any user | Today's day kind and, with `attendance.read`, the attendance totals and the sections not yet marked |
+
+### 6.5 M1 stage 4 endpoints
+
+| Method | Path | Permission | Purpose |
+| --- | --- | --- | --- |
+| GET | `/exams/assessments` | `exams.read` | Assessments of a year (`academic_year_id`) |
+| POST | `/exams/assessments`, `/exams/assessments/defaults` | `academics.manage` | Add one, or the four defaults |
+| PATCH, DELETE | `/exams/assessments/{id}` | `academics.manage` | Rename or reorder; delete only while it has no sheets |
+| PUT | `/exams/assessments/weights` | `academics.manage` | Weights for every assessment of the year, totalling 100 |
+| GET/PUT | `/exams/grading` | `exams.read` / `academics.manage` | Grading scheme |
+| GET/PUT | `/exams/max-marks` | `exams.read` / `academics.manage` | Maximum marks per subject (`assessment_id`, `class_id`) |
+| GET | `/exams/sheets` | `exams.read` + section scope | Subjects of a section in an assessment with sheet state and `can_enter` |
+| GET/PUT | `/exams/sheet` | `exams.read` / `exams.manage` + subject scope | Marks grid; save a draft |
+| POST | `/exams/sheets/{id}/submit` | `exams.manage` + scope | Submit a complete sheet |
+| POST | `/exams/sheets/{id}/approve`, `/reopen` | `exams.approve` | Lock, or send back to draft |
+| GET | `/exams/results/section` | `exams.read` + scope | Result sheet with totals, grades, positions, subject analysis, `complete` |
+| GET | `/exams/results/section/report-cards` | `exams.read` + scope | Report cards of every student of a section |
+| GET | `/exams/results/student/{id}` | `exams.read` + scope | Report card for the active (or given) year |
+
+Role defaults: teachers have `exams.read` and `exams.manage`; principal also `exams.approve`;
+admin has `academics.manage` for setup but not `exams.approve` unless granted.
 
 ## 7. Security
 
