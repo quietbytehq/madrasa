@@ -49,8 +49,8 @@ Tick `[x]` only when built AND tested. Log progress in docs/PROGRESS.md.
 - [x] Set backup password; generate and display a printable recovery key (key derivation: Argon2id)
 
 ## 9. Demo data
-- [ ] Generator creates a fake school with ~1,200 students, ~120 staff, classes K-12 — clearly marked DEMO
-- [ ] Never runs automatically on a real install
+- [x] Generator creates a fake school with ~1,200 students, ~120 staff, classes K-12 — clearly marked DEMO
+- [x] Never runs automatically on a real install
 
 ## 10. CI and packaging
 - [ ] GitHub Actions: lint, tests, build on Linux and Windows

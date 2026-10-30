@@ -96,3 +96,20 @@ depend on each other and were built together)
   full wizard walk-through with mocked API (validation messages, recovery key shown, ack gate,
   navigation to login), server-side error surfaced.
 - Left: nothing for M0.
+
+### 2026-10-30 — Task 9: Demo data
+- Done: `crates/demo-data`: deterministic generator (seeded) for "DEMO Gulshan Model School"
+  (code `DEMO01`, `is_demo = true`): 1,200 students across KG–12 × sections A/B/C (39
+  classes, 30–31 each, plausible ages, unique `DEMO-nnnnn` admission numbers), 120 staff
+  (1 principal, 2 admins, 2 accountants, 115 teachers with subjects, usernames `demo.*`).
+  Loader inserts the school, default roles and staff accounts (shared documented password)
+  in one transaction and marks setup complete; students and classes are written as JSON
+  until their tables arrive in M1. CLI `madrasa-demo generate --out <dir>` /
+  `madrasa-demo load --yes [--out <dir>]`.
+- Safety: the loader errors without `confirmed`/`--yes`, when a non-demo school exists, and
+  when demo data is already present. Nothing calls it from the app.
+- Tested: 3 generator unit tests (determinism, sizes/classes/roles, DEMO marking and
+  uniqueness), 2 loader integration tests (loads into an empty DB and verifies accounts,
+  refuses with a real school present and inserts nothing). CLI run manually against a
+  scratch database: refused without `--yes`, loaded 120 accounts with it.
+- Left: persisting students/classes once M1 adds their tables.
