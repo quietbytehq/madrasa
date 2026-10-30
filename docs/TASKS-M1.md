@@ -43,14 +43,14 @@ Pilot school: K-12, ~1,200 students, ~120 staff. Details in docs/spec.md ("Pilot
 - [x] Tests: discount and late-fee calculations, rounding, reversals, carry-forward (exact decimals)
 
 ## Stage 3 — Attendance
-- [ ] Daily class-wise attendance: everyone present by default, teacher marks only absentees (and late/leave)
-- [ ] One-screen marking per section, fast keyboard use
-- [ ] Corrections after submission allowed for admin only, with audit history
-- [ ] Holidays and school calendar (no attendance on holidays/weekends)
-- [ ] Student attendance history on profile; monthly register view; absentee report
-- [ ] Staff attendance (simple daily present/absent/leave)
-- [ ] Dashboard: today's attendance %, sections not yet marked
-- [ ] Permissions: teachers mark their own sections only
+- [x] Daily class-wise attendance: everyone present by default, teacher marks only absentees (and late/leave)
+- [x] One-screen marking per section, fast keyboard use
+- [x] Corrections after submission allowed for admin only, with audit history
+- [x] Holidays and school calendar (no attendance on holidays/weekends)
+- [x] Student attendance history on profile; monthly register view; absentee report
+- [x] Staff attendance (simple daily present/absent/leave)
+- [x] Dashboard: today's attendance %, sections not yet marked
+- [x] Permissions: teachers mark their own sections only
 
 ## Stage 4 — Exams, results and report cards
 - [ ] Assessment types per academic year, default: Bi-monthly Test 1, Bi-monthly Test 2, Mid-year, Final; weightage configurable (must total 100%)

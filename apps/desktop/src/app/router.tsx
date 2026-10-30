@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
 import { AppShell } from "@/layout/AppShell";
+import { AttendancePage } from "@/pages/attendance/AttendancePage";
 import { Dashboard } from "@/pages/Dashboard";
 import { ComingSoon } from "@/pages/ComingSoon";
 import { FeesPage } from "@/pages/fees/FeesPage";
@@ -68,6 +69,7 @@ export function AppRoutes({ login, setup }: AppRoutesProps) {
             <Route path="/fees/receipts/:id/print" element={<ReceiptPrintPage />} />
           </>
         )}
+        {has("attendance") && <Route path="/attendance" element={<AttendancePage />} />}
         {has("teachers") && <Route path="/teachers" element={<StaffPage />} />}
         {has("settings") && <Route path="/settings" element={<SettingsPage />} />}
         {NAV_ITEMS.filter((item) => item.path !== "/" && !item.available && has(item.feature)).map(

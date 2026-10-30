@@ -45,6 +45,9 @@ pub enum Permission {
     AttendanceRead,
     #[serde(rename = "attendance.manage")]
     AttendanceManage,
+    /// Change a submitted attendance sheet (admin/principal); every change is audited.
+    #[serde(rename = "attendance.correct")]
+    AttendanceCorrect,
     #[serde(rename = "exams.read")]
     ExamsRead,
     #[serde(rename = "exams.manage")]
@@ -84,6 +87,7 @@ impl Permission {
         Permission::StudentsManage,
         Permission::AttendanceRead,
         Permission::AttendanceManage,
+        Permission::AttendanceCorrect,
         Permission::ExamsRead,
         Permission::ExamsManage,
         Permission::FeesRead,
@@ -111,6 +115,7 @@ impl Permission {
             Permission::StudentsManage => "students.manage",
             Permission::AttendanceRead => "attendance.read",
             Permission::AttendanceManage => "attendance.manage",
+            Permission::AttendanceCorrect => "attendance.correct",
             Permission::ExamsRead => "exams.read",
             Permission::ExamsManage => "exams.manage",
             Permission::FeesRead => "fees.read",
@@ -226,6 +231,7 @@ impl RoleCode {
                 StudentsManage,
                 AttendanceRead,
                 AttendanceManage,
+                AttendanceCorrect,
                 ExamsRead,
                 ExamsManage,
                 FeesRead,

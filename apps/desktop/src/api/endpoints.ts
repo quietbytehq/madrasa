@@ -1,5 +1,18 @@
 import { request } from "./client";
 import type {
+  AbsenteeRow,
+  CalendarView,
+  DashboardView,
+  Holiday,
+  RegisterView,
+  SaveSheetRequest,
+  SheetHistoryEntry,
+  SheetView,
+  StaffDayView,
+  StaffHistoryView,
+  StaffStatus,
+  StatusView,
+  StudentAttendanceView,
   AcademicYear,
   Collections,
   Defaulter,
@@ -213,4 +226,38 @@ export const api = {
   defaulters: (params: { as_of?: string; class_id?: string; min_days?: number } = {}) =>
     request<Defaulter[]>(`/fees/defaulters${qs(params)}`),
   collections: (date?: string) => request<Collections>(`/fees/collections${qs({ date })}`),
+
+  // Attendance
+  dashboard: () => request<DashboardView>("/dashboard"),
+  calendar: (params: { from?: string; to?: string } = {}) =>
+    request<CalendarView>(`/attendance/calendar${qs(params)}`),
+  setWeekend: (weekend_days: number[]) =>
+    request<CalendarView>("/attendance/calendar/weekend", {
+      method: "PUT",
+      body: { weekend_days },
+    }),
+  createHoliday: (body: { name: string; starts_on: string; ends_on?: string }) =>
+    request<Holiday>("/attendance/calendar/holidays", { method: "POST", body }),
+  deleteHoliday: (id: string) =>
+    request<void>(`/attendance/calendar/holidays/${id}`, { method: "DELETE" }),
+  attendanceSheet: (section_id: string, date: string) =>
+    request<SheetView>(`/attendance/sheet${qs({ section_id, date })}`),
+  saveAttendanceSheet: (body: SaveSheetRequest) =>
+    request<SheetView>("/attendance/sheet", { method: "PUT", body }),
+  attendanceSheetHistory: (section_id: string, date: string) =>
+    request<SheetHistoryEntry[]>(`/attendance/sheet/history${qs({ section_id, date })}`),
+  attendanceStatus: (date?: string) => request<StatusView>(`/attendance/status${qs({ date })}`),
+  absentees: (params: { date?: string; class_id?: string } = {}) =>
+    request<AbsenteeRow[]>(`/attendance/absentees${qs(params)}`),
+  attendanceRegister: (section_id: string, month: string) =>
+    request<RegisterView>(`/attendance/register${qs({ section_id, month })}`),
+  studentAttendance: (studentId: string, params: { from?: string; to?: string } = {}) =>
+    request<StudentAttendanceView>(`/attendance/students/${studentId}${qs(params)}`),
+  staffAttendance: (date?: string) => request<StaffDayView>(`/attendance/staff${qs({ date })}`),
+  saveStaffAttendance: (body: {
+    date: string;
+    entries: Array<{ staff_id: string; status: StaffStatus; note?: string }>;
+  }) => request<StaffDayView>("/attendance/staff", { method: "PUT", body }),
+  staffAttendanceHistory: (staffId: string, params: { from?: string; to?: string } = {}) =>
+    request<StaffHistoryView>(`/attendance/staff/${staffId}${qs(params)}`),
 };

@@ -4,12 +4,14 @@
 use crate::generate::DemoSchool;
 use crate::DEMO_PASSWORD;
 use chrono::{NaiveDate, Utc};
+use madrasa_core::attendance::{AttendanceStatus, StaffStatus};
 use madrasa_core::edition::Edition;
 use madrasa_core::fees::PaymentMethod;
 use madrasa_core::hlc::Hlc;
 use madrasa_core::password::hash_password;
 use madrasa_db::{
-    academics, fees, guardians, roles, schools, settings, staff, students, users, Actor, PgPool,
+    academics, attendance, fees, guardians, roles, schools, settings, staff, students, users,
+    Actor, PgPool,
 };
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
@@ -38,6 +40,8 @@ pub struct LoadReport {
     pub guardians: usize,
     pub vouchers: usize,
     pub receipts: usize,
+    pub attendance_sheets: usize,
+    pub staff_attendance_days: usize,
     pub files_written: Vec<PathBuf>,
 }
 
@@ -414,6 +418,133 @@ pub async fn load(
         fees::generate_vouchers(&mut tx, hlc, actor, school.id, year.id, may, None, may).await?;
     vouchers += rep.created;
 
+    // Attendance: Sunday off, two holidays, every section marked on each school day of April
+    // and May (≈4% absent, 2% late, 1% leave), and staff attendance for the same days.
+    let april1 = chrono::NaiveDate::from_ymd_opt(demo.academic_year_start, 4, 1).expect("date");
+    let may31 = chrono::NaiveDate::from_ymd_opt(demo.academic_year_start, 5, 31).expect("date");
+    attendance::create_holiday(
+        &mut tx,
+        hlc,
+        actor,
+        school.id,
+        "Labour Day",
+        chrono::NaiveDate::from_ymd_opt(demo.academic_year_start, 5, 1).expect("date"),
+        chrono::NaiveDate::from_ymd_opt(demo.academic_year_start, 5, 1).expect("date"),
+    )
+    .await?;
+    attendance::create_holiday(
+        &mut tx,
+        hlc,
+        actor,
+        school.id,
+        "Eid ul Adha",
+        chrono::NaiveDate::from_ymd_opt(demo.academic_year_start, 5, 27).expect("date"),
+        chrono::NaiveDate::from_ymd_opt(demo.academic_year_start, 5, 30).expect("date"),
+    )
+    .await?;
+    let (weekend, holidays) = attendance::calendar(&mut tx, school.id).await?;
+    let school_days = madrasa_core::attendance::school_days(april1, may31, &weekend, &holidays);
+    let mut marker_by_section: HashMap<uuid::Uuid, uuid::Uuid> = HashMap::new();
+    for class in &demo.classes {
+        if let (Some(section_id), Some(username)) =
+            (section_ids.get(&class.name), class.class_teacher.as_ref())
+        {
+            if let Some(u) = users::find_by_username(&mut tx, school.id, username).await? {
+                marker_by_section.insert(*section_id, u.id);
+            }
+        }
+    }
+    let mut students_by_section: HashMap<uuid::Uuid, Vec<uuid::Uuid>> = HashMap::new();
+    for s in &demo.students {
+        if let (Some(section_id), Some(student_id)) =
+            (section_ids.get(&s.class), student_ids.get(&s.admission_no))
+        {
+            students_by_section
+                .entry(*section_id)
+                .or_default()
+                .push(*student_id);
+        }
+    }
+    let mut attendance_sheets = 0usize;
+    let mut att_rng = StdRng::seed_from_u64(91);
+    for day in &school_days {
+        for (section_id, members) in &students_by_section {
+            let marked_by = marker_by_section
+                .get(section_id)
+                .copied()
+                .unwrap_or(principal_user);
+            let mut entries = Vec::new();
+            for student_id in members {
+                let roll: f64 = att_rng.gen();
+                let status = if roll < 0.04 {
+                    AttendanceStatus::Absent
+                } else if roll < 0.06 {
+                    AttendanceStatus::Late
+                } else if roll < 0.07 {
+                    AttendanceStatus::Leave
+                } else {
+                    continue;
+                };
+                entries.push(attendance::EntryInput {
+                    student_id: *student_id,
+                    status,
+                    note: if status == AttendanceStatus::Leave {
+                        Some("Family event".into())
+                    } else {
+                        None
+                    },
+                });
+            }
+            attendance::save_sheet(
+                &mut tx,
+                hlc,
+                Actor::user(marked_by, school.id),
+                attendance::SaveSheet {
+                    school_id: school.id,
+                    section_id: *section_id,
+                    date: *day,
+                    marked_by,
+                    entries,
+                },
+                false,
+            )
+            .await?;
+            attendance_sheets += 1;
+        }
+    }
+    let staff_rows = staff::list(&mut tx, school.id, None).await?;
+    let mut staff_attendance_days = 0usize;
+    for day in &school_days {
+        let mut entries = Vec::new();
+        for member in &staff_rows {
+            let roll: f64 = att_rng.gen();
+            if roll < 0.02 {
+                entries.push(attendance::StaffEntryInput {
+                    staff_id: member.id,
+                    status: StaffStatus::Absent,
+                    note: None,
+                });
+            } else if roll < 0.04 {
+                entries.push(attendance::StaffEntryInput {
+                    staff_id: member.id,
+                    status: StaffStatus::Leave,
+                    note: Some("Leave".into()),
+                });
+            }
+        }
+        attendance::save_staff_day(
+            &mut tx,
+            hlc,
+            Actor::user(principal_user, school.id),
+            school.id,
+            *day,
+            principal_user,
+            &entries,
+        )
+        .await?;
+        staff_attendance_days += 1;
+    }
+
     settings::set_edition(&mut tx, hlc, Actor::SYSTEM, Edition::Lite).await?;
     settings::set(
         &mut tx,
@@ -459,6 +590,8 @@ pub async fn load(
         guardians: demo.guardians.len(),
         vouchers,
         receipts,
+        attendance_sheets,
+        staff_attendance_days,
         files_written,
     })
 }

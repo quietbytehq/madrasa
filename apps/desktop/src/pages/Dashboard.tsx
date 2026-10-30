@@ -1,8 +1,11 @@
 import { CalendarCheck, Coins, UserRound, Users } from "lucide-react";
+import { Link } from "react-router-dom";
+import { api } from "@/api/endpoints";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useI18n } from "@/i18n";
+import { useAsync } from "@/lib/useAsync";
 import { useFeatures } from "@/app/features";
 import { useSession } from "@/app/session";
 import { PageHeader } from "./PageHeader";
@@ -11,10 +14,18 @@ export function Dashboard() {
   const { t } = useI18n();
   const { user } = useSession();
   const { edition } = useFeatures();
+  const dash = useAsync(() => api.dashboard(), []);
+  const att = dash.data?.attendance ?? null;
+  const dayKind = dash.data?.day_kind;
+  const noSchool =
+    dayKind && dayKind.kind !== "school"
+      ? dayKind.kind === "weekend"
+        ? t("dashboard.attendance.weekend")
+        : dayKind.name
+      : null;
 
   const cards = [
     { key: "students", icon: Users, label: t("dashboard.card.students") },
-    { key: "attendance", icon: CalendarCheck, label: t("dashboard.card.attendanceToday") },
     { key: "fees", icon: Coins, label: t("dashboard.card.feesCollected") },
     { key: "staff", icon: UserRound, label: t("dashboard.card.staff") },
   ];
@@ -33,6 +44,29 @@ export function Dashboard() {
         {t("dashboard.welcome", { name: user?.full_name ?? "" })}
       </p>
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <Card padded={false} className="p-3" data-testid="attendance-card">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted">
+              {t("dashboard.card.attendanceToday")}
+            </span>
+            <CalendarCheck className="h-4 w-4 text-muted" aria-hidden />
+          </div>
+          <div className="mt-2 text-2xl font-semibold tabular-nums text-navy">
+            {att?.totals.percent !== null && att?.totals.percent !== undefined
+              ? `${att.totals.percent.toFixed(1)}%`
+              : "—"}
+          </div>
+          <p className="mt-1 text-xs text-muted">
+            {noSchool
+              ? t("dashboard.attendance.noSchool", { reason: noSchool })
+              : att
+                ? t("dashboard.attendance.marked", {
+                    marked: att.totals.marked,
+                    total: att.totals.sections,
+                  })
+                : t("dashboard.card.placeholder")}
+          </p>
+        </Card>
         {cards.map(({ key, icon: Icon, label }) => (
           <Card key={key} padded={false} className="p-3">
             <div className="flex items-center justify-between">
@@ -46,6 +80,40 @@ export function Dashboard() {
           </Card>
         ))}
       </div>
+      {att && !noSchool && (
+        <Card
+          title={t("dashboard.attendance.unmarked")}
+          className="mt-3"
+          padded={false}
+          actions={
+            <Link to="/attendance" className="text-xs text-blue hover:underline">
+              {t("dashboard.attendance.open")}
+            </Link>
+          }
+        >
+          {att.unmarked.length === 0 ? (
+            <EmptyState title={t("dashboard.attendance.allMarked")} />
+          ) : (
+            <ul className="flex flex-wrap gap-2 p-3 text-sm">
+              {att.unmarked.map((s) => (
+                <li key={s.section_id}>
+                  <Link
+                    to={`/attendance?tab=mark&section=${s.section_id}`}
+                    className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 hover:bg-hover"
+                  >
+                    <span className="font-medium">
+                      {s.class_name}-{s.section_name}
+                    </span>
+                    {s.class_teacher_name && (
+                      <span className="text-xs text-muted">{s.class_teacher_name}</span>
+                    )}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      )}
       <Card title={t("dashboard.recentActivity")} className="mt-3">
         <EmptyState
           title={t("dashboard.recentActivity")}
