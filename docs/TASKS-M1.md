@@ -53,15 +53,15 @@ Pilot school: K-12, ~1,200 students, ~120 staff. Details in docs/spec.md ("Pilot
 - [x] Permissions: teachers mark their own sections only
 
 ## Stage 4 — Exams, results and report cards
-- [ ] Assessment types per academic year, default: Bi-monthly Test 1, Bi-monthly Test 2, Mid-year, Final; weightage configurable (must total 100%)
-- [ ] Max marks per subject per assessment
-- [ ] Marks entry grid by teacher for their subjects/sections; absent marking; validation
-- [ ] Approval workflow: teacher submits, principal approves, results locked after approval
-- [ ] Grading scheme configurable (marks ranges → grades, pass marks)
-- [ ] Result calculation: weighted totals, percentage, grade, position in section (optional)
-- [ ] Report card template (default design, English and Urdu), per student and bulk print/PDF
-- [ ] Result sheet per section; subject analysis report
-- [ ] Tests: weighted calculation, grading boundaries, rounding
+- [x] Assessment types per academic year, default: Bi-monthly Test 1, Bi-monthly Test 2, Mid-year, Final; weightage configurable (must total 100%)
+- [x] Max marks per subject per assessment
+- [x] Marks entry grid by teacher for their subjects/sections; absent marking; validation
+- [x] Approval workflow: teacher submits, principal approves, results locked after approval
+- [x] Grading scheme configurable (marks ranges → grades, pass marks)
+- [x] Result calculation: weighted totals, percentage, grade, position in section (optional)
+- [x] Report card template (default design, English and Urdu), per student and bulk print/PDF
+- [x] Result sheet per section; subject analysis report
+- [x] Tests: weighted calculation, grading boundaries, rounding
 
 ## Stage 5 — Encrypted backup and restore
 - [ ] Scheduled automatic backup (default nightly) to local folder, USB or network path

@@ -271,3 +271,36 @@ depend on each other and were built together)
   task list specifies); the register and absentee views are on screen only, printing and
   Excel export arrive with Stage 6; the dashboard's other cards remain placeholders until
   Stage 7.
+
+### 2026-10-30 — Stage 4: Exams, results and report cards (branch `m1-stage-4-exams`)
+- Started from `main` after pull requests #1–#4 were merged (main `2cd360a`).
+- Done, `crates/core`: `exams` module (default assessments whose weights must total 100,
+  grading scheme with inclusive bands, pass mark and validation, percentage and totals with
+  half-away-from-zero rounding kept at two decimals, weighted year result over the assessments
+  held, competition-ranked positions, mark validation, sheet workflow states); new permission
+  `exams.approve` (principal). 8 unit tests.
+- Done, `crates/db`: migration `0005_exams.sql` (`assessment_types`, `assessment_max_marks`,
+  `mark_sheets`, `marks`, grant of `exams.approve`). Repository `exams`: assessments, weights,
+  grading (settings key), maximum marks locked once marks exist, marks entry with validation
+  and change-level audit, submit (complete sheets only) → approve → reopen with audit, raw mark
+  rows for results. 3 integration tests.
+- Done, `crates/api`: `/exams/*` (spec §6.5). Setup needs `academics.manage`; teachers enter
+  marks only for their assigned subjects/sections or as class teacher; approval needs
+  `exams.approve`; result sheets with analysis and positions; report cards per student and per
+  section with weighted year results and attendance. 1 end-to-end test covering the whole flow.
+- Done, UI: Examinations page with Marks entry (subject list with status and progress, grid
+  with validation, absent tick, Enter to move, save / submit / approve / reopen by permission),
+  Results (result sheet, subject analysis, print), Report cards (list, print one or all) and
+  Setup (assessments and weights with live total, maximum marks per class, grading scheme).
+  Student profile Results tab. Report card and result sheet print pages reuse the light print
+  CSS; one card per page. English and Urdu strings.
+- Done, demo data: default assessments, maximum marks for every class and subject (20, 20,
+  50, 100), Test 1 and Mid-year marks for every section and subject (≈2 % absent), all
+  submitted by the class teacher and approved by the principal.
+- Tested: core 59 unit tests (8 new); db 29 integration tests (3 new); api 17 (1 new); demo
+  data 6; vitest 84 (5 new: marks validation, save payload and submit, approve/reopen for the
+  principal, result sheet rendering, report card rendering, weights total check). fmt, clippy,
+  eslint, prettier and tsc clean.
+- Not done / notes: positions are computed for every assessment (the task list marks them
+  optional); report cards and result sheets print through the print dialog, there is no
+  server-side PDF; Excel export of result sheets arrives with Stage 6.
