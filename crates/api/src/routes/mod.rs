@@ -1,6 +1,7 @@
 pub mod academics;
 pub mod audit;
 pub mod auth;
+pub mod fees;
 pub mod health;
 pub mod nexus;
 pub mod school_settings;

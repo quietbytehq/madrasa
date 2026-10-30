@@ -2527,6 +2527,8 @@ dependencies = [
  "madrasa-core",
  "madrasa-db",
  "postgresql_embedded",
+ "rust_decimal",
+ "rust_decimal_macros",
  "serde",
  "serde_json",
  "sqlx",
