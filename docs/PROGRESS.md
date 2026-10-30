@@ -338,3 +338,32 @@ depend on each other and were built together)
   picker yet; the Tauri dialog plugin is not bundled); a restore made with an older app version
   is refused rather than migrated forward; the scheduler runs only while the app is open (Lite
   has no system service), which the nightly default assumes.
+
+### 2026-10-30 — Stage 6: Excel/CSV import wizard (branch `m1-stage-6-import`)
+- Started from `main` after pull request #6 was merged (main `733a31b`).
+- Done, `crates/core`: `imports` module (fields for students + guardians, staff and opening
+  balances with English and Urdu heading aliases, header auto-mapping, cleanup of text,
+  digits, dates, phones, CNICs, gender, relationship, money and class names, row validation,
+  in-file duplicate keys). 6 unit tests with messy inputs.
+- Done, `crates/db`: migration `0007_imports.sql` (`import_batches`, `import_batch_rows`);
+  repository `imports` (batches, effects, rollback that soft-deletes created rows, cancels
+  vouchers and restores old values); `fees::create_opening_balance`; student and staff
+  lookups by number, legacy ID and CNIC. 1 integration test.
+- Done, `crates/api`: import service (xlsx/csv parsing with calamine and csv, templates,
+  saved mappings, preview and apply decided against classes, sections, existing records and
+  in-file duplicates, skip/update/merge, guardians linked by phone or CNIC, enrollments,
+  opening-balance vouchers, rollback) and `/imports/*` routes; `/export/*` routes writing
+  `.xlsx` (rust_xlsxwriter) or `.csv` with BOM for seven lists. 2 end-to-end tests using
+  generated messy files (Urdu digits, day-first dates, odd headings, blank rows, duplicates,
+  unknown class, bad B-Form, semicolon CSV with BOM).
+- Done, UI: Import page (type → file → columns → check → done, template downloads, mapping
+  table with sample values and remembered mappings, duplicate policy, preview grid with
+  editable cells on error rows and an error-row CSV download, import, history with roll
+  back) and Export to Excel/CSV buttons on students, staff, fee vouchers, defaulters,
+  absentees, attendance register and result sheets. English and Urdu strings. 2 component
+  tests.
+- Tested: core 70 unit tests (6 new); db 32 integration tests (1 new); api 21 (2 new) + 1
+  unit; demo data 6; vitest 92 (2 new). fmt, clippy, eslint, prettier and tsc clean.
+- Not done / notes: files are read in the browser and sent as base64 (fine up to the 5,000-row
+  limit; no streaming); a merged duplicate does not change the student's section; exports are
+  one list at a time (no "export everything").

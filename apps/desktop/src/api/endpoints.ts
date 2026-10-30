@@ -1,5 +1,13 @@
-import { request } from "./client";
+import { download, request } from "./client";
 import type {
+  ImportBatch,
+  ImportField,
+  ImportKind,
+  ImportPreview,
+  ImportRequest,
+  ImportResult,
+  ParsedFile,
+  SavedMapping,
   BackupFile,
   BackupRun,
   BackupSettings,
@@ -345,4 +353,25 @@ export const api = {
   }) => request<void>("/backup/password", { method: "POST", body }),
   unlockBackups: (body: { password?: string; recovery_key?: string }) =>
     request<void>("/backup/unlock", { method: "POST", body }),
+
+  // Imports and export
+  importFields: (kind: ImportKind) => request<ImportField[]>(`/imports/fields/${kind}`),
+  downloadTemplate: (kind: ImportKind, format: "xlsx" | "csv") =>
+    download(`/imports/templates/${kind}?format=${format}`),
+  parseImport: (body: {
+    kind: ImportKind;
+    file_name: string;
+    content_base64: string;
+    sheet?: string;
+  }) => request<ParsedFile>("/imports/parse", { method: "POST", body }),
+  importMapping: (kind: ImportKind) => request<SavedMapping | null>(`/imports/mappings/${kind}`),
+  previewImport: (body: ImportRequest) =>
+    request<ImportPreview>("/imports/preview", { method: "POST", body }),
+  applyImport: (body: ImportRequest) =>
+    request<ImportResult>("/imports/apply", { method: "POST", body }),
+  importBatches: () => request<ImportBatch[]>("/imports/batches"),
+  rollbackImport: (id: string) =>
+    request<ImportBatch>(`/imports/batches/${id}/rollback`, { method: "POST", body: {} }),
+  exportList: (path: string, params: Record<string, string | number | undefined>) =>
+    download(`/export/${path}${qs(params)}`),
 };

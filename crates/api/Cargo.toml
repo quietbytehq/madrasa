@@ -36,6 +36,9 @@ tracing-subscriber = { workspace = true }
 uuid = { workspace = true }
 postgresql_embedded = { version = "0.22", default-features = false, features = ["bundled", "tls-rustls-ring", "tokio"], optional = true }
 dirs = "6"
+rust_xlsxwriter = { workspace = true }
+csv = { workspace = true }
+calamine = { workspace = true }
 
 [dev-dependencies]
 madrasa-db = { workspace = true, features = ["testing"] }

@@ -955,6 +955,18 @@ async fn build_result_sheet(
     })
 }
 
+/// Result sheet of a section for a caller (permission already checked), used by exports.
+pub(crate) async fn result_sheet_for(
+    c: &mut sqlx::PgConnection,
+    user: &CurrentUser,
+    assessment_id: Uuid,
+    section_id: Uuid,
+) -> ApiResult<ResultSheet> {
+    let assessment = load_assessment(c, user, assessment_id).await?;
+    let section = load_section(c, user, section_id).await?;
+    build_result_sheet(c, user, assessment, section).await
+}
+
 async fn section_results(
     State(state): State<AppState>,
     user: CurrentUser,

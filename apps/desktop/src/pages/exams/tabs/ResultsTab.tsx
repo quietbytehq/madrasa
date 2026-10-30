@@ -13,6 +13,7 @@ import type { TFunction } from "@/i18n";
 import { cn } from "@/lib/cn";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 import { AssessmentSectionPickers, num, pct, SheetStatusBadge, useExamContext } from "../common";
+import { ExportMenu } from "@/components/ExportMenu";
 
 export function ResultsTab() {
   const { t } = useI18n();
@@ -38,6 +39,12 @@ export function ResultsTab() {
           onChange={onChange}
         />
         <span className="flex-1" />
+        {result.data && (
+          <ExportMenu
+            path="exams/results"
+            params={{ assessment_id: sel.assessmentId, section_id: sel.sectionId }}
+          />
+        )}
         {result.data && (
           <Link
             to={`/exams/results/print?assessment_id=${sel.assessmentId}&section_id=${sel.sectionId}`}

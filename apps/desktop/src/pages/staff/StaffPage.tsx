@@ -17,6 +17,7 @@ import { useI18n } from "@/i18n";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 import { useSession } from "@/app/session";
 import { PageHeader } from "../PageHeader";
+import { ExportMenu } from "@/components/ExportMenu";
 import { GENDERS, genderLabel } from "../students/common";
 
 export function StaffPage() {
@@ -38,14 +39,17 @@ export function StaffPage() {
         title={t("staff.title")}
         crumbs={[{ label: t("nav.dashboard"), to: "/" }, { label: t("staff.title") }]}
         actions={
-          manage && (
-            <Button
-              icon={<Plus className="h-4 w-4" aria-hidden />}
-              onClick={() => setEditing("new")}
-            >
-              {t("staff.add")}
-            </Button>
-          )
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportMenu path="staff" params={{ q: q || undefined }} />
+            {manage && (
+              <Button
+                icon={<Plus className="h-4 w-4" aria-hidden />}
+                onClick={() => setEditing("new")}
+              >
+                {t("staff.add")}
+              </Button>
+            )}
+          </div>
         }
       />
       <div className="mb-3">

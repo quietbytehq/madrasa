@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ExportMenu } from "@/components/ExportMenu";
 import { Link } from "react-router-dom";
 import { api } from "@/api/endpoints";
 import { Button } from "@/components/ui/Button";
@@ -56,6 +57,10 @@ export function DefaultersTab() {
           className="w-36"
         />
         <span className="flex-1" />
+        <ExportMenu
+          path="fees/defaulters"
+          params={{ as_of: asOf, class_id: classId || undefined, min_days: minDays || undefined }}
+        />
         <Button variant="secondary" onClick={() => window.print()}>
           {t("action.print")}
         </Button>

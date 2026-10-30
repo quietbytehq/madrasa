@@ -1002,3 +1002,92 @@ export interface BackupStatus {
   unattended_ready: boolean;
   last_error: string | null;
 }
+
+// ---- M1 stage 6: imports and export -------------------------------------------------------
+
+export type ImportKind = "students" | "staff" | "opening_balances";
+export type DuplicatePolicy = "skip" | "update" | "merge";
+
+export interface ImportField {
+  key: string;
+  label: string;
+  required: boolean;
+  aliases: string[];
+  example: string;
+}
+
+export interface ParsedFile {
+  file_name: string;
+  sheets: string[];
+  sheet: string;
+  headers: string[];
+  rows: string[][];
+  mapping: Record<string, number>;
+  mapping_saved: boolean;
+}
+
+export interface SavedMapping {
+  headers: string[];
+  mapping: Record<string, number>;
+}
+
+export interface ImportRequest {
+  kind: ImportKind;
+  file_name: string;
+  headers: string[];
+  rows: string[][];
+  mapping: Record<string, number>;
+  options: { duplicates: DuplicatePolicy };
+  save_mapping?: boolean;
+}
+
+export interface ImportIssue {
+  field: string;
+  message: string;
+}
+
+export type RowAction = "create" | "update" | "skip" | "error";
+
+export interface RowOutcome {
+  row_no: number;
+  values: Record<string, string>;
+  errors: ImportIssue[];
+  warnings: ImportIssue[];
+  action: RowAction;
+  matched: string | null;
+}
+
+export interface ImportSummary {
+  total: number;
+  create: number;
+  update: number;
+  skip: number;
+  error: number;
+}
+
+export interface ImportPreview {
+  rows: RowOutcome[];
+  summary: ImportSummary;
+}
+
+export interface ImportBatch {
+  id: string;
+  school_id: string;
+  kind: ImportKind;
+  file_name: string;
+  status: "applied" | "rolled_back";
+  options: Record<string, unknown>;
+  total_rows: number;
+  created_rows: number;
+  updated_rows: number;
+  skipped_rows: number;
+  applied_by: string | null;
+  applied_at: string;
+  rolled_back_at: string | null;
+}
+
+export interface ImportResult {
+  batch: ImportBatch;
+  summary: ImportSummary;
+  rows: RowOutcome[];
+}

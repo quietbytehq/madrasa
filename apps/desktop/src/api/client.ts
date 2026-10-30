@@ -115,3 +115,37 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   }
   return payload as T;
 }
+
+/** Fetch a file from the API (with the session token) and hand it to the browser as a download. */
+export async function download(path: string): Promise<void> {
+  const base = await getBaseUrl();
+  const headers: Record<string, string> = {};
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  let res: Response;
+  try {
+    res = await fetch(`${base}/api/v1${path}`, { headers });
+  } catch (err) {
+    throw new NetworkError(err);
+  }
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as ApiErrorBody | null;
+    throw new ApiError(
+      res.status,
+      body?.error?.code ?? "error",
+      body?.error?.message ?? res.statusText,
+    );
+  }
+  const disposition = res.headers.get("content-disposition") ?? "";
+  const match = /filename="?([^";]+)"?/.exec(disposition);
+  const name = match?.[1] ?? "download";
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}

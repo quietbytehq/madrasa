@@ -42,6 +42,109 @@ pub async fn set_policy(
     Ok(())
 }
 
+/// A voucher that carries an opening balance brought over from the old register: one line
+/// under the "Opening balance" head (created on first use), due on issue. Later months carry
+/// it forward like any other unpaid balance.
+#[allow(clippy::too_many_arguments)]
+pub async fn create_opening_balance(
+    conn: &mut PgConnection,
+    hlc: &Hlc,
+    actor: Actor,
+    school_id: Uuid,
+    student_id: Uuid,
+    academic_year_id: Uuid,
+    billing_month: NaiveDate,
+    amount: Decimal,
+    note: Option<&str>,
+) -> DbResult<FeeVoucher> {
+    if amount <= Decimal::ZERO || fees::money(amount) != amount {
+        return Err(DbError::Conflict(
+            "opening balance must be a positive amount with at most two decimals".into(),
+        ));
+    }
+    let head = match list_heads(&mut *conn, school_id)
+        .await?
+        .into_iter()
+        .find(|h| h.code.eq_ignore_ascii_case("OPB"))
+    {
+        Some(h) => h,
+        None => {
+            create_head(
+                &mut *conn,
+                hlc,
+                actor,
+                school_id,
+                "Opening balance",
+                "OPB",
+                false,
+                99,
+            )
+            .await?
+        }
+    };
+    let section_id = students::section_in_year(&mut *conn, student_id, academic_year_id).await?;
+    let seq = students::next_sequence(
+        &mut *conn,
+        hlc,
+        school_id,
+        &format!("voucher_no:{}", billing_month.year()),
+    )
+    .await?;
+    let voucher_no = format!(
+        "V{}{:02}-{:05}",
+        billing_month.year(),
+        billing_month.month(),
+        seq
+    );
+    let id = new_id();
+    let voucher = sqlx::query_as::<_, FeeVoucher>(
+        "INSERT INTO fee_vouchers (id, school_id, student_id, academic_year_id, section_id, voucher_no, billing_month, issue_date, due_date,
+            gross, sibling_discount, concession_discount, net_monthly, arrears, total_due, status, updated_by, hlc)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $7, $7, $8, 0, 0, $8, 0, $8, 'unpaid', $9, $10) RETURNING *",
+    )
+    .bind(id)
+    .bind(school_id)
+    .bind(student_id)
+    .bind(academic_year_id)
+    .bind(section_id)
+    .bind(&voucher_no)
+    .bind(billing_month)
+    .bind(amount)
+    .bind(actor.user_id)
+    .bind(hlc.now().to_string())
+    .fetch_one(&mut *conn)
+    .await?;
+    sqlx::query(
+        "INSERT INTO fee_voucher_lines (id, school_id, voucher_id, fee_head_id, description, amount, position, updated_by, hlc)
+         VALUES ($1, $2, $3, $4, $5, $6, 0, $7, $8)",
+    )
+    .bind(new_id())
+    .bind(school_id)
+    .bind(id)
+    .bind(head.id)
+    .bind(match note {
+        Some(n) if !n.trim().is_empty() => format!("Opening balance: {}", n.trim()),
+        _ => "Opening balance".to_string(),
+    })
+    .bind(amount)
+    .bind(actor.user_id)
+    .bind(hlc.now().to_string())
+    .execute(&mut *conn)
+    .await?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Create,
+        "fee_voucher",
+        Some(voucher.id),
+        None,
+        Some(serde_json::json!({ "opening_balance": amount, "note": note, "voucher_no": voucher_no })),
+    )
+    .await?;
+    Ok(voucher)
+}
+
 // ---- heads --------------------------------------------------------------------------------
 
 #[allow(clippy::too_many_arguments)]

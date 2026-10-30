@@ -246,6 +246,35 @@ pub async fn set_status(
     Ok(after)
 }
 
+pub async fn find_by_number(
+    conn: &mut PgConnection,
+    school_id: Uuid,
+    student_number: &str,
+) -> DbResult<Option<Student>> {
+    Ok(sqlx::query_as::<_, Student>(sqlx::AssertSqlSafe(format!(
+        "SELECT {COLS} FROM students WHERE school_id = $1 AND upper(student_number) = upper($2) AND deleted_at IS NULL"
+    )))
+    .bind(school_id)
+    .bind(student_number.trim())
+    .fetch_optional(conn)
+    .await?)
+}
+
+pub async fn find_by_legacy_id(
+    conn: &mut PgConnection,
+    school_id: Uuid,
+    legacy_id: &str,
+) -> DbResult<Option<Student>> {
+    Ok(sqlx::query_as::<_, Student>(sqlx::AssertSqlSafe(format!(
+        "SELECT {COLS} FROM students WHERE school_id = $1 AND upper(legacy_id) = upper($2) AND deleted_at IS NULL
+         ORDER BY created_at LIMIT 1"
+    )))
+    .bind(school_id)
+    .bind(legacy_id.trim())
+    .fetch_optional(conn)
+    .await?)
+}
+
 pub async fn get(conn: &mut PgConnection, id: Uuid) -> DbResult<Student> {
     sqlx::query_as::<_, Student>(sqlx::AssertSqlSafe(format!(
         "SELECT {COLS} FROM students WHERE id = $1 AND deleted_at IS NULL"

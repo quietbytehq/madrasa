@@ -13,6 +13,7 @@ import { cn } from "@/lib/cn";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 import { useSession } from "@/app/session";
 import { PageHeader } from "../PageHeader";
+import { ExportMenu } from "@/components/ExportMenu";
 import { classLabel, STATUSES, StatusBadge, statusLabel } from "./common";
 
 const PAGE_SIZE = 50;
@@ -96,14 +97,30 @@ export function StudentsPage() {
         title={t("students.title")}
         crumbs={[{ label: t("nav.dashboard"), to: "/" }, { label: t("students.title") }]}
         actions={
-          can("students.manage") && (
-            <Button
-              icon={<Plus className="h-4 w-4" aria-hidden />}
-              onClick={() => navigate("/students/new")}
-            >
-              {t("students.add")}
-            </Button>
-          )
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportMenu
+              path="students"
+              params={{
+                q: q || undefined,
+                class_id: classId || undefined,
+                section_id: sectionId || undefined,
+                status: status || undefined,
+              }}
+            />
+            {can("students.manage") && (
+              <Button variant="secondary" onClick={() => navigate("/import")}>
+                {t("import.title")}
+              </Button>
+            )}
+            {can("students.manage") && (
+              <Button
+                icon={<Plus className="h-4 w-4" aria-hidden />}
+                onClick={() => navigate("/students/new")}
+              >
+                {t("students.add")}
+              </Button>
+            )}
+          </div>
         }
       />
       <div className="mb-3 flex flex-wrap items-end gap-2">

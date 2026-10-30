@@ -11,6 +11,7 @@ pub mod custom_fields;
 pub mod exams;
 pub mod fees;
 pub mod guardians;
+pub mod imports;
 pub mod models;
 pub mod roles;
 pub mod schools;
