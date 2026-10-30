@@ -14,18 +14,18 @@ Pilot school: K-12, ~1,200 students, ~120 staff. Details in docs/spec.md ("Pilot
 ---
 
 ## Stage 1 — Academic structure, students and guardians
-- [ ] Academic years: create, set active; start month configurable (April or August)
-- [ ] Classes (K-12, configurable names) and sections; class teacher per section
-- [ ] Subjects per class
-- [ ] Student record: name, father's name, DOB, gender, B-Form/CNIC, photo, address, admission date, class/section, status (active, left, graduated), board roll/registration number, custom fields (JSONB)
-- [ ] Student number: school prefix + year + sequence (e.g. KHI-MC-2026-00417); UUID v7 internally; legacy ID alias field
-- [ ] Guardians: multiple per student, relationship, phone, email, CNIC, occupation; sibling linking via shared guardian
-- [ ] Duplicate warning on create (B-Form/CNIC, or name + DOB + father's name)
-- [ ] Student directory: search, filter by class/section/status, sort, paginate; student profile page with tabs (details, guardians, fees, attendance, results — later tabs "Coming soon")
-- [ ] Add/edit student form with inline validation; withdraw/leave workflow (no hard delete)
-- [ ] Teacher/staff profiles: basic record, role, subjects and sections assigned
-- [ ] Permissions: admin manages students; teachers read their own sections only (tested in backend)
-- [ ] Demo data generator updated for all of the above
+- [x] Academic years: create, set active; start month configurable (April or August)
+- [x] Classes (K-12, configurable names) and sections; class teacher per section
+- [x] Subjects per class
+- [x] Student record: name, father's name, DOB, gender, B-Form/CNIC, photo, address, admission date, class/section, status (active, left, graduated), board roll/registration number, custom fields (JSONB)
+- [x] Student number: school prefix + year + sequence (e.g. KHI-MC-2026-00417); UUID v7 internally; legacy ID alias field
+- [x] Guardians: multiple per student, relationship, phone, email, CNIC, occupation; sibling linking via shared guardian
+- [x] Duplicate warning on create (B-Form/CNIC, or name + DOB + father's name)
+- [x] Student directory: search, filter by class/section/status, sort, paginate; student profile page with tabs (details, guardians, fees, attendance, results — later tabs "Coming soon")
+- [x] Add/edit student form with inline validation; withdraw/leave workflow (no hard delete)
+- [x] Teacher/staff profiles: basic record, role, subjects and sections assigned
+- [x] Permissions: admin manages students; teachers read their own sections only (tested in backend)
+- [x] Demo data generator updated for all of the above
 
 ## Stage 2 — Fees
 - [ ] Fee heads (tuition, admission, transport, exam, etc.) configurable
