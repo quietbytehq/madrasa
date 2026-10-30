@@ -10,6 +10,7 @@ pub mod exams;
 pub mod fees;
 pub mod hlc;
 pub mod ids;
+pub mod imports;
 pub mod password;
 pub mod permissions;
 pub mod session_token;
