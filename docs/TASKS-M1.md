@@ -74,14 +74,14 @@ Pilot school: K-12, ~1,200 students, ~120 staff. Details in docs/spec.md ("Pilot
 - [x] Tests: backup → restore round trip, wrong password, tampered file
 
 ## Stage 6 — Excel/CSV import wizard
-- [ ] Downloadable templates: students + guardians, staff, opening fee balances
-- [ ] Upload .xlsx/.csv; column mapping UI; saved mappings
-- [ ] Cleanup: trim, date formats, phone/CNIC/B-Form normalisation, class name matching, Urdu text
-- [ ] Preview with row-level errors and warnings; dry run; fix in grid or download error file
-- [ ] Duplicate detection (skip / update / merge)
-- [ ] Import as a batch with one-click rollback; audit-logged
-- [ ] Export: every list to Excel/CSV
-- [ ] Tests: messy sample files (generated, fake data)
+- [x] Downloadable templates: students + guardians, staff, opening fee balances
+- [x] Upload .xlsx/.csv; column mapping UI; saved mappings
+- [x] Cleanup: trim, date formats, phone/CNIC/B-Form normalisation, class name matching, Urdu text
+- [x] Preview with row-level errors and warnings; dry run; fix in grid or download error file
+- [x] Duplicate detection (skip / update / merge)
+- [x] Import as a batch with one-click rollback; audit-logged
+- [x] Export: every list to Excel/CSV
+- [x] Tests: messy sample files (generated, fake data)
 
 ## Stage 7 — Pilot readiness
 - [ ] Academic year rollover: promote students, carry forward unpaid fees, archive previous year

@@ -325,6 +325,50 @@ Sessions are part of the data, so everyone logs in again after a restore.
 - Key sets written before stage 5 have no public key; the Backup page asks for the password once
   to add it, otherwise scheduled backups are skipped with a warning.
 
+### 5.9 Import and export (M1 stage 6)
+
+| Table | Purpose |
+| --- | --- |
+| `import_batches` | One per applied import: `kind` (students, staff, opening_balances), `file_name`, `status` (applied, rolled_back), `options` (duplicate policy), row counts, `applied_by/at`, `rolled_back_at`. |
+| `import_batch_rows` | One per effect: `row_no`, `action` (created, updated, skipped), `entity` (student, guardian, student_guardian, enrollment, staff, fee_voucher), `entity_id`, `old_value` (the fields an update changed). |
+
+Saved column mappings are the `settings` keys `import.mapping.<kind>` (file headings and the
+field → column map), reused when a file has the same headings.
+
+Rules (`madrasa_core::imports` for cleanup, `madrasa_api::imports` for the database checks):
+
+- **Files**: `.xlsx`, `.xlsm`, `.xls`, `.ods` (first sheet unless chosen) or CSV/TSV with a
+  BOM, comma, semicolon or tab; the first row holds the headings; blank rows are dropped; at
+  most 5,000 rows per import. Templates with the field labels and one example row are
+  downloadable for each kind.
+- **Cleanup**: trim and collapse spaces, strip zero-width characters, Urdu and Arabic-Indic
+  digits → Latin; dates in `YYYY-MM-DD`, `DD/MM/YYYY`, `DD-MM-YYYY`, `D.M.YYYY`, `DD Mon YYYY`,
+  `Month D, YYYY` and Excel serial numbers (day first for numeric dates); phone and CNIC/B-Form
+  normalised as in §5.4; gender and relationship words in English and Urdu; money with `Rs`
+  and thousands separators; class names matched tolerantly (`Class 1`, `Grade 1`, `1st`, `I`,
+  `One`, `جماعت 1`, `KG`, `Nursery`, `Prep`) and `1-A` / `1 A` / `Class 7 (B)` split into class
+  and section.
+- **Validation** (row by row, errors and warnings): required fields, formats, future dates,
+  class and section must exist in the active year (a class with one section is used
+  automatically), duplicates inside the file (student number, CNIC, or name + date of birth +
+  father's name), and matches with existing records (students by number or the §5.4 duplicate
+  rules; staff by number or CNIC). Rows with errors are never imported; the wizard lets the user
+  fix cells or download the error rows as CSV.
+- **Duplicates**: `skip` (default), `update` (every non-empty value of the row) or `merge`
+  (only fields that are empty on the record). Updates store the old values for rollback.
+- **Guardians**: a row's guardian is linked to an existing guardian with the same CNIC or
+  phone (so siblings share one record), otherwise created; a phone without a name is the
+  father's.
+- **Opening balances**: by student number or legacy ID; each becomes an unpaid voucher dated
+  on the first day of the active year with one line under the "Opening balance" head (created
+  on first use), so later months carry it forward like any other balance.
+- **Batches and rollback**: an import runs in one transaction and is audited; rollback
+  soft-deletes what it created (vouchers are cancelled) and restores the stored old values of
+  what it updated, newest effect first, and is audited too.
+- **Export**: students, staff, fee vouchers, defaulters, absentees, the monthly attendance
+  register and result sheets as `.xlsx` (bold headings, frozen row) or `.csv` (UTF-8 with
+  BOM so Excel shows Urdu), with the same filters, permissions and teacher scope as the list.
+
 ## 6. API conventions
 
 - Base path `/api/v1`. JSON request and response bodies. `snake_case` keys.
@@ -450,6 +494,22 @@ admin has `academics.manage` for setup but not `exams.approve` unless granted.
 | POST | `/backup/unlock` | `backup.manage` | Add the public key to a pre-stage-5 key set |
 
 `/dashboard` now carries the backup status as well.
+
+### 6.7 M1 stage 6 endpoints
+
+| Method | Path | Permission | Purpose |
+| --- | --- | --- | --- |
+| GET | `/imports/fields/{kind}` | kind's permission | Importable fields |
+| GET | `/imports/templates/{kind}` | kind's permission | Template (`format=xlsx|csv`) |
+| POST | `/imports/parse` | kind's permission | Read an uploaded file (base64): sheets, headings, rows, guessed or saved mapping |
+| GET/PUT | `/imports/mappings/{kind}` | kind's permission | Saved column mapping |
+| POST | `/imports/preview` | kind's permission | Dry run: row outcomes and summary |
+| POST | `/imports/apply` | kind's permission | Import as a batch |
+| GET | `/imports/batches` | `students.manage` or `teachers.manage` | Import history |
+| POST | `/imports/batches/{id}/rollback` | kind's permission | Undo a batch |
+| GET | `/export/students`, `/export/staff`, `/export/fees/vouchers`, `/export/fees/defaulters`, `/export/attendance/absentees`, `/export/attendance/register`, `/export/exams/results` | the list's permission | Download as `.xlsx` or `.csv` (`format`), with the list's filters |
+
+Students and opening balances need `students.manage`; staff needs `teachers.manage`.
 
 ## 7. Security
 
