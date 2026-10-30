@@ -15,8 +15,11 @@
 use rust_decimal::{Decimal, RoundingStrategy};
 use serde::{Deserialize, Serialize};
 
+/// Always carries exactly two decimals, so "85" and "85.00" cannot both appear.
 pub fn round2(d: Decimal) -> Decimal {
-    d.round_dp_with_strategy(2, RoundingStrategy::MidpointAwayFromZero)
+    let mut r = d.round_dp_with_strategy(2, RoundingStrategy::MidpointAwayFromZero);
+    r.rescale(2);
+    r
 }
 
 /// Percentage of `obtained` out of `max`, rounded; zero when `max` is zero.
@@ -142,7 +145,7 @@ impl GradingScheme {
         if self.pass_percent < Decimal::ZERO || self.pass_percent > Decimal::ONE_HUNDRED {
             return Err(GradingError::Pass);
         }
-        self.bands.sort_by(|a, b| b.min_percent.cmp(&a.min_percent));
+        self.bands.sort_by_key(|b| std::cmp::Reverse(b.min_percent));
         Ok(self)
     }
 

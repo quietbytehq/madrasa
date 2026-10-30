@@ -44,6 +44,7 @@ pub async fn get_assessment(conn: &mut PgConnection, id: Uuid) -> DbResult<Asses
     .ok_or_else(|| DbError::NotFound("assessment".into()))
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn create_assessment(
     conn: &mut PgConnection,
     hlc: &Hlc,
@@ -299,6 +300,7 @@ pub async fn max_marks(
 
 /// Upsert the maximum of one subject; zero removes it. Refused once marks exist for it in
 /// any section of the class.
+#[allow(clippy::too_many_arguments)]
 pub async fn set_max_marks(
     conn: &mut PgConnection,
     hlc: &Hlc,
