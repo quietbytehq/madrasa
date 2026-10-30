@@ -50,6 +50,7 @@ pub async fn create_batch(
 }
 
 /// Record one effect of the batch.
+#[allow(clippy::too_many_arguments)]
 pub async fn add_row(
     conn: &mut PgConnection,
     hlc: &Hlc,

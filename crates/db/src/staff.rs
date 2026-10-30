@@ -123,6 +123,34 @@ pub async fn update(
     Ok(after)
 }
 
+pub async fn find_by_number(
+    conn: &mut PgConnection,
+    school_id: Uuid,
+    staff_number: &str,
+) -> DbResult<Option<Staff>> {
+    Ok(sqlx::query_as::<_, Staff>(
+        "SELECT * FROM staff WHERE school_id = $1 AND upper(staff_number) = upper($2) AND deleted_at IS NULL",
+    )
+    .bind(school_id)
+    .bind(staff_number.trim())
+    .fetch_optional(conn)
+    .await?)
+}
+
+pub async fn find_by_cnic(
+    conn: &mut PgConnection,
+    school_id: Uuid,
+    cnic: &str,
+) -> DbResult<Option<Staff>> {
+    Ok(sqlx::query_as::<_, Staff>(
+        "SELECT * FROM staff WHERE school_id = $1 AND cnic = $2 AND deleted_at IS NULL ORDER BY created_at LIMIT 1",
+    )
+    .bind(school_id)
+    .bind(cnic)
+    .fetch_optional(conn)
+    .await?)
+}
+
 pub async fn get(conn: &mut PgConnection, id: Uuid) -> DbResult<Staff> {
     sqlx::query_as::<_, Staff>("SELECT * FROM staff WHERE id = $1 AND deleted_at IS NULL")
         .bind(id)
