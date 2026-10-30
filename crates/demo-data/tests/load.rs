@@ -48,6 +48,10 @@ async fn loads_into_an_empty_database_and_marks_everything_demo() {
         "{}",
         report.attendance_sheets
     );
+    assert!(
+        report.mark_sheets > 0,
+        "Test 1 and Mid-year marks for every section and subject"
+    );
     assert_eq!(report.files_written.len(), 6);
     assert!(out.join("students.json").exists());
     std::fs::remove_dir_all(&out).ok();
