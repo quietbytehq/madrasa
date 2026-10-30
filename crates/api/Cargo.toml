@@ -1,0 +1,40 @@
+[package]
+name = "madrasa-api"
+description = "Madrasa REST API (Axum)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[features]
+default = []
+# Bundle PostgreSQL binaries into the executable for all-in-one (Lite) installs.
+embedded-postgres = ["dep:postgresql_embedded"]
+
+[[bin]]
+name = "madrasa-server"
+path = "src/bin/server.rs"
+
+[dependencies]
+madrasa-core = { workspace = true }
+madrasa-db = { workspace = true }
+anyhow = { workspace = true }
+axum = { workspace = true }
+chrono = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sqlx = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+uuid = { workspace = true }
+postgresql_embedded = { version = "0.22", default-features = false, features = ["bundled", "tls-rustls-ring", "tokio"], optional = true }
+dirs = "6"
+
+[dev-dependencies]
+madrasa-db = { workspace = true, features = ["testing"] }
+http-body-util = "0.1"

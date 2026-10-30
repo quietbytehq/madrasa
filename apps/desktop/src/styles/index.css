@@ -1,0 +1,76 @@
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+@import "@fontsource/noto-nastaliq-urdu/400.css";
+@import "@fontsource/noto-nastaliq-urdu/700.css";
+@import "./tokens.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-bg font-sans text-sm text-text antialiased;
+    font-feature-settings: "cv11", "ss01", "tnum";
+  }
+
+  html[lang="ur"] body {
+    @apply font-urdu;
+    /* Nastaliq needs more vertical room than Latin text. */
+    line-height: 1.9;
+  }
+
+  /* Nastaliq descenders extend below the line box; never clip them vertically. */
+  html[lang="ur"] .nav-label {
+    overflow: visible;
+    padding-bottom: 0.25rem;
+  }
+
+  *:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+    border-radius: 4px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--border)) transparent;
+  }
+}
+
+/* Printable recovery key: only the key card is printed, always in light colors. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    inset-inline-start: 0;
+    top: 0;
+    width: 100%;
+    padding: 2rem;
+  }
+}

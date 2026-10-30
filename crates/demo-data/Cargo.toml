@@ -1,0 +1,30 @@
+[package]
+name = "madrasa-demo-data"
+description = "Madrasa demo data generator (fake school, clearly marked DEMO)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "madrasa-demo"
+path = "src/bin/demo.rs"
+
+[dependencies]
+madrasa-core = { workspace = true }
+madrasa-db = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+chrono = { workspace = true }
+rand = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sqlx = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+madrasa-db = { workspace = true, features = ["testing"] }

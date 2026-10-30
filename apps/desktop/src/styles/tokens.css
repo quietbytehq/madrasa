@@ -1,0 +1,78 @@
+/*
+ * Madrasa theme tokens (v1). Single source of truth for colors; Tailwind reads them
+ * through tailwind.config.ts. Values are space-separated RGB so Tailwind can apply
+ * opacity modifiers (bg-blue/10).
+ *
+ * Light palette per docs/spec.md §8.1. Dark palette keeps the same roles.
+ */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: 247 249 252; /* #F7F9FC */
+  --card: 255 255 255; /* #FFFFFF */
+  --navy: 20 47 80; /* #142F50 */
+  --blue: 40 100 197; /* #2864C5 */
+  --selection: 232 241 255; /* #E8F1FF */
+  --success: 25 131 90; /* #19835A */
+  --success-bg: 221 243 232; /* #DDF3E8 */
+  --warning: 217 154 39; /* #D99A27 */
+  --warning-bg: 255 240 213; /* #FFF0D5 */
+  --danger: 198 40 40; /* #C62828 */
+  --danger-bg: 253 232 232; /* #FDE8E8 */
+  --lavender: 232 225 250; /* #E8E1FA */
+  --text: 23 43 77; /* #172B4D */
+  --muted: 100 116 139; /* #64748B */
+  --border: 223 231 241; /* #DFE7F1 */
+  --sidebar: 238 243 249; /* #EEF3F9 light blue-grey */
+  --hover: 241 245 250; /* #F1F5FA */
+
+  --topbar-height: 56px;
+  --sidebar-width: 232px;
+  --focus-ring: 0 0 0 2px rgb(var(--card)), 0 0 0 4px rgb(var(--blue));
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: 15 23 36; /* #0F1724 */
+  --card: 24 33 48; /* #182130 */
+  --navy: 200 214 234; /* text-on-dark variant of navy */
+  --blue: 94 150 240; /* #5E96F0 */
+  --selection: 32 51 82; /* #203352 */
+  --success: 72 190 136; /* #48BE88 */
+  --success-bg: 20 56 42; /* #14382A */
+  --warning: 234 180 72; /* #EAB448 */
+  --warning-bg: 64 48 20; /* #403014 */
+  --danger: 240 108 108; /* #F06C6C */
+  --danger-bg: 66 28 28; /* #421C1C */
+  --lavender: 58 48 92; /* #3A305C */
+  --text: 226 233 244; /* #E2E9F4 */
+  --muted: 148 163 184; /* #94A3B8 */
+  --border: 44 56 76; /* #2C384C */
+  --sidebar: 19 28 42; /* #131C2A */
+  --hover: 30 40 58; /* #1E283A */
+}
+
+/* Printouts are always light. */
+@media print {
+  :root,
+  [data-theme="dark"] {
+    color-scheme: light;
+    --bg: 255 255 255;
+    --card: 255 255 255;
+    --navy: 20 47 80;
+    --blue: 40 100 197;
+    --selection: 232 241 255;
+    --success: 25 131 90;
+    --success-bg: 221 243 232;
+    --warning: 217 154 39;
+    --warning-bg: 255 240 213;
+    --danger: 198 40 40;
+    --danger-bg: 253 232 232;
+    --lavender: 232 225 250;
+    --text: 23 43 77;
+    --muted: 100 116 139;
+    --border: 223 231 241;
+    --sidebar: 255 255 255;
+    --hover: 255 255 255;
+  }
+}
