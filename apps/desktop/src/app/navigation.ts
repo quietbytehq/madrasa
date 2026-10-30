@@ -46,7 +46,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     labelKey: "nav.attendance",
     icon: CalendarCheck,
     feature: "attendance",
-    available: false,
+    available: true,
   },
   {
     path: "/examinations",

@@ -338,7 +338,7 @@ describe("Student profile", () => {
     expect(screen.getByText("Ahmed Khan", { selector: "span" })).toBeInTheDocument();
     expect(screen.getByText("Primary contact")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("tab", { name: /Fees/ }));
-    expect(screen.getAllByText("Coming soon").length).toBeGreaterThan(1);
+    expect(screen.getAllByText("Coming soon").length).toBeGreaterThan(0);
   });
 
   it("withdraws a student with a reason", async () => {
