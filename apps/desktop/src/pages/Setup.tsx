@@ -213,6 +213,7 @@ export function Setup() {
                         { value: "8", label: t("setup.year.august") },
                       ]}
                       className="max-w-xs"
+                      autoFocus
                     />
                     <Input
                       label={t("setup.year.currency")}

@@ -22,9 +22,17 @@ export function useSetupGate(): SetupGateContextValue {
 
 export function SetupGate({ children, skip }: { children: ReactNode; skip?: boolean }) {
   const [needsSetup, setNeedsSetup] = useState<boolean | null>(skip ? false : null);
+  // Set when the wizard finishes in this session: the wizard keeps showing its last page
+  // (the recovery key) and navigates to /login itself once the user has acknowledged it.
+  const [completedHere, setCompletedHere] = useState(false);
   const location = useLocation();
   const ctx = useMemo<SetupGateContextValue>(
-    () => ({ markCompleted: () => setNeedsSetup(false) }),
+    () => ({
+      markCompleted: () => {
+        setCompletedHere(true);
+        setNeedsSetup(false);
+      },
+    }),
     [],
   );
 
@@ -48,6 +56,7 @@ export function SetupGate({ children, skip }: { children: ReactNode; skip?: bool
     );
   }
   if (needsSetup && location.pathname !== "/setup") return <Navigate to="/setup" replace />;
-  if (!needsSetup && location.pathname === "/setup") return <Navigate to="/login" replace />;
+  if (!needsSetup && !completedHere && location.pathname === "/setup")
+    return <Navigate to="/login" replace />;
   return <SetupGateContext.Provider value={ctx}>{children}</SetupGateContext.Provider>;
 }
