@@ -92,8 +92,8 @@ describe("App shell", () => {
 
   it("navigates to a Coming soon module via the sidebar", async () => {
     renderShell();
-    await userEvent.click(screen.getByRole("link", { name: "Students" }));
-    expect(screen.getByRole("heading", { level: 1, name: "Students" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("link", { name: "Attendance" }));
+    expect(screen.getByRole("heading", { level: 1, name: "Attendance" })).toBeInTheDocument();
     expect(screen.getAllByText("Coming soon").length).toBeGreaterThan(0);
   });
 

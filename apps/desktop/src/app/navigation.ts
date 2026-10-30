@@ -39,7 +39,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     labelKey: "nav.students",
     icon: Users,
     feature: "students",
-    available: false,
+    available: true,
   },
   {
     path: "/attendance",
@@ -61,7 +61,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     labelKey: "nav.teachers",
     icon: UserRound,
     feature: "teachers",
-    available: false,
+    available: true,
   },
   {
     path: "/reports",
@@ -82,7 +82,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     labelKey: "nav.settings",
     icon: Settings,
     feature: "settings",
-    available: false,
+    available: true,
   },
   {
     path: "/campuses",

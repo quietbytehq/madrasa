@@ -96,3 +96,222 @@ export interface SchoolSummary {
 export interface ApiErrorBody {
   error: { code: string; message: string };
 }
+
+// ---- M1 stage 1 ---------------------------------------------------------------------------
+
+export type Gender = "male" | "female" | "other";
+export type StudentStatus = "active" | "left" | "graduated";
+export type Relationship = "father" | "mother" | "guardian" | "other";
+
+export interface AcademicYear {
+  id: string;
+  school_id: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+  start_month: 4 | 8;
+  is_active: boolean;
+}
+
+export interface SchoolClass {
+  id: string;
+  school_id: string;
+  name: string;
+  level: number;
+}
+
+export interface Subject {
+  id: string;
+  school_id: string;
+  name: string;
+  code: string;
+}
+
+export interface Section {
+  id: string;
+  school_id: string;
+  class_id: string;
+  academic_year_id: string;
+  name: string;
+  class_teacher_id: string | null;
+  capacity: number | null;
+  class_name: string;
+  class_level: number;
+  class_teacher_name: string | null;
+  student_count: number;
+}
+
+export interface Staff {
+  id: string;
+  school_id: string;
+  user_id: string | null;
+  staff_number: string;
+  full_name: string;
+  father_name: string;
+  gender: Gender;
+  phone: string | null;
+  email: string | null;
+  cnic: string | null;
+  designation: string;
+  joined_on: string | null;
+  status: "active" | "left";
+  custom: Record<string, unknown>;
+  roles: string[];
+  username: string | null;
+}
+
+export interface Assignment {
+  section_id: string;
+  subject_id: string | null;
+}
+
+export interface StudentListRow {
+  id: string;
+  student_number: string;
+  full_name: string;
+  father_name: string;
+  gender: Gender;
+  date_of_birth: string;
+  status: StudentStatus;
+  admission_date: string;
+  class_id: string | null;
+  class_name: string | null;
+  section_id: string | null;
+  section_name: string | null;
+  roll_no: number | null;
+  has_photo: boolean;
+}
+
+export interface Page<T> {
+  items: T[];
+  page: number;
+  page_size: number;
+  total: number;
+}
+
+export interface GuardianLink {
+  id: string;
+  school_id: string;
+  full_name: string;
+  phone: string | null;
+  email: string | null;
+  cnic: string | null;
+  occupation: string;
+  address: string;
+  relationship: Relationship;
+  is_primary: boolean;
+}
+
+export interface EnrollmentView {
+  id: string;
+  student_id: string;
+  academic_year_id: string;
+  section_id: string;
+  roll_no: number | null;
+  academic_year_name: string;
+  class_id: string;
+  class_name: string;
+  section_name: string;
+}
+
+export interface StudentDetail {
+  id: string;
+  school_id: string;
+  student_number: string;
+  legacy_id: string | null;
+  full_name: string;
+  father_name: string;
+  date_of_birth: string;
+  gender: Gender;
+  cnic: string | null;
+  address: string;
+  admission_date: string;
+  status: StudentStatus;
+  left_on: string | null;
+  left_reason: string | null;
+  board_roll_no: string | null;
+  board_registration_no: string | null;
+  has_photo: boolean;
+  custom: Record<string, unknown>;
+  guardians: GuardianLink[];
+  enrollments: EnrollmentView[];
+  current: EnrollmentView | null;
+  siblings: StudentListRow[];
+}
+
+export interface GuardianInput {
+  guardian_id?: string;
+  full_name?: string;
+  relationship: Relationship;
+  phone?: string;
+  email?: string;
+  cnic?: string;
+  occupation?: string;
+  address?: string;
+  is_primary?: boolean;
+}
+
+export interface NewStudentRequest {
+  full_name: string;
+  father_name: string;
+  date_of_birth: string;
+  gender: Gender;
+  cnic?: string;
+  address?: string;
+  admission_date?: string;
+  student_number?: string;
+  legacy_id?: string;
+  board_roll_no?: string;
+  board_registration_no?: string;
+  section_id?: string;
+  roll_no?: number;
+  custom?: Record<string, unknown>;
+  guardians?: GuardianInput[];
+  force?: boolean;
+}
+
+export interface StudentPatch {
+  full_name?: string;
+  father_name?: string;
+  date_of_birth?: string;
+  gender?: Gender;
+  cnic?: string | null;
+  address?: string;
+  admission_date?: string;
+  legacy_id?: string | null;
+  board_roll_no?: string | null;
+  board_registration_no?: string | null;
+  custom?: Record<string, unknown>;
+}
+
+export interface DuplicateMatch {
+  student: StudentDetail;
+  reason: "same_cnic" | "same_name_dob_father";
+}
+
+export interface GuardianView {
+  id: string;
+  school_id: string;
+  full_name: string;
+  phone: string | null;
+  email: string | null;
+  cnic: string | null;
+  occupation: string;
+  address: string;
+  students: StudentListRow[];
+}
+
+export interface StudentListQuery {
+  q?: string;
+  class_id?: string;
+  section_id?: string;
+  status?: StudentStatus | "";
+  sort?: "name" | "number" | "class" | "admission_date";
+  order?: "asc" | "desc";
+  page?: number;
+  page_size?: number;
+}
+
+export interface SchoolSettings {
+  student_number_prefix: string;
+}
