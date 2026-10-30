@@ -49,3 +49,50 @@ of each milestone section. See `docs/TASKS-M0.md` for the checklist.
   anonymous redirect). Playwright screenshots of the built UI at 1366×768 and 1920×1080 in
   en/ur × light/dark: no console errors, no horizontal scroll, RTL mirrored correctly.
 - Left: real setup wizard page (task 8); login against the real API (task 6).
+
+### 2026-10-30 — Tasks 5–7: Backend, database, auth, edition flags (one commit; the crates
+depend on each other and were built together)
+- Done, `crates/core` (pure): `edition` (Edition/Feature flags, soft limits), `permissions`
+  (20 permission codes, built-in roles with default grants, `PermissionSet`), `hlc` (hybrid
+  logical clock stamps), `ids` (UUID v7), `password` (Argon2id, lockout policy 5 tries/15 min),
+  `session_token` (random token, SHA-256 stored), `backup` (DEK wrapped by Argon2id-derived keys
+  from the backup password and a Crockford-base32 recovery key, AES-256-GCM).
+- Done, `crates/db`: migration `0001_foundation.sql` (schools, users, roles, permissions,
+  user_roles, sessions, settings, audit_log, custom_field_definitions; UUID v7 keys,
+  `school_id`, sync columns, soft delete, JSONB custom, append-only triggers on audit_log),
+  repositories that write the audit log in the same transaction, `testing::TestDb` (throwaway
+  database per test, skipped when `MADRASA_TEST_DATABASE_URL` is unset).
+- Done, `crates/api`: Axum router under `/api/v1`: `/health`, `/system/features`,
+  `/setup/status`, `/setup`, `/auth/login|logout|me`, `/users` (admin), `/schools/current`,
+  `/audit`, `/nexus/status` (feature-gated stub). `CurrentUser` extractor loads the session and
+  effective permissions; handlers call `require(permission)`; `AppState::require_feature`.
+  Bootstrap: external `MADRASA_DATABASE_URL` or bundled PostgreSQL (feature
+  `embedded-postgres`, ADR 0001). `madrasa-server` binary for Standard/dev.
+- Done, desktop shell: starts database + API on a background runtime, exposes `api_base_url`
+  command, stops both when the window closes.
+- Tested: core 27 unit tests; db 9 integration tests (schema rules for every table, append-only
+  audit log, create/update/delete audited with old/new values and no secrets, unique school
+  codes, settings upsert + redaction, default roles, sessions, lockout counters); api 6
+  end-to-end tests (health, setup once + validation + key material, login/me/logout, lockout
+  after 5 failures incl. audit, teacher 403 on `/users` and `/audit` while admin 200, inactive
+  account refused and existing session dies, edition flags: `/nexus/status` 403
+  `feature_unavailable` in Lite, 403 `forbidden` without `nexus.admin` after switching to
+  Nexus, 200 once granted). `madrasa-server` built with `embedded-postgres` started bundled
+  PostgreSQL 16.15.1 from scratch, migrated, answered `/health`, completed `/setup` and
+  `/auth/login` (run as a non-root user; PostgreSQL refuses to run as root).
+- Notes: the bundled archive is downloaded by the `postgresql_embedded` build script from
+  GitHub releases (cached under `~/.theseus/postgresql`); this sandbox's proxy blocks the GitHub
+  API, so the archive was pre-seeded into the cache by direct download. CI has normal access.
+- Left: Windows run of the bundled database (CI build only, not executed here).
+
+### 2026-10-30 — Task 8: First-run setup wizard
+- Done: `POST /setup` (one transaction: school, default roles + grants, admin user with
+  principal + admin roles, settings incl. academic year month, currency PKR, wrapped backup
+  keys, setup marker; returns the recovery key once). UI wizard `src/pages/Setup.tsx`: steps
+  School → Academic year → Administrator → Backup security (+ summary) → Recovery key (print
+  button with print-only stylesheet, acknowledgement checkbox, go to login). `SetupGate` routes
+  to `/setup` while setup is needed.
+- Tested: api `setup_runs_once_and_validates_input`; vitest: step validation, request mapping,
+  full wizard walk-through with mocked API (validation messages, recovery key shown, ack gate,
+  navigation to login), server-side error surfaced.
+- Left: nothing for M0.

@@ -26,27 +26,27 @@ Tick `[x]` only when built AND tested. Log progress in docs/PROGRESS.md.
 - [x] Usable at 1366×768 and 1920×1080; keyboard navigation works
 
 ## 5. Backend + database
-- [ ] Axum API under /api/v1 with health endpoint
-- [ ] PostgreSQL + sqlx migrations; app starts and migrates automatically
-- [ ] Foundation tables: schools, users, roles, permissions, user_roles, settings, audit_log, custom_field_definitions — all following CLAUDE.md rules (UUID v7, school_id, sync columns, soft delete)
-- [ ] Audit log writes on every create/update/delete (tested)
-- [ ] Decide bundling approach for PostgreSQL in all-in-one installs; record as ADR
+- [x] Axum API under /api/v1 with health endpoint
+- [x] PostgreSQL + sqlx migrations; app starts and migrates automatically
+- [x] Foundation tables: schools, users, roles, permissions, user_roles, settings, audit_log, custom_field_definitions — all following CLAUDE.md rules (UUID v7, school_id, sync columns, soft delete)
+- [x] Audit log writes on every create/update/delete (tested)
+- [x] Decide bundling approach for PostgreSQL in all-in-one installs; record as ADR
 
 ## 6. Auth + roles
-- [ ] Local accounts, Argon2id password hashing, session tokens
-- [ ] Default roles: principal, admin, accountant, teacher (parent reserved for Nexus)
-- [ ] Backend permission checks on every endpoint (tested: a teacher cannot reach admin endpoints)
-- [ ] Account lockout after repeated failed logins
+- [x] Local accounts, Argon2id password hashing, session tokens
+- [x] Default roles: principal, admin, accountant, teacher (parent reserved for Nexus)
+- [x] Backend permission checks on every endpoint (tested: a teacher cannot reach admin endpoints)
+- [x] Account lockout after repeated failed logins
 
 ## 7. Edition flags
-- [ ] Single feature-flag module; edition stored in settings (default: lite)
-- [ ] UI and API both respect flags (tested)
+- [x] Single feature-flag module; edition stored in settings (default: lite)
+- [x] UI and API both respect flags (tested)
 
 ## 8. First-run setup wizard
-- [ ] School name, school code, city
-- [ ] Academic year start month (April or August), currency PKR
-- [ ] Create admin account
-- [ ] Set backup password; generate and display a printable recovery key (key derivation: Argon2id)
+- [x] School name, school code, city
+- [x] Academic year start month (April or August), currency PKR
+- [x] Create admin account
+- [x] Set backup password; generate and display a printable recovery key (key derivation: Argon2id)
 
 ## 9. Demo data
 - [ ] Generator creates a fake school with ~1,200 students, ~120 staff, classes K-12 — clearly marked DEMO
