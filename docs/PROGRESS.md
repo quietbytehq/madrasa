@@ -304,3 +304,37 @@ depend on each other and were built together)
 - Not done / notes: positions are computed for every assessment (the task list marks them
   optional); report cards and result sheets print through the print dialog, there is no
   server-side PDF; Excel export of result sheets arrives with Stage 6.
+
+### 2026-10-30 — Stage 5: Encrypted backup and restore (branch `m1-stage-5-backup`)
+- Started from `main` after pull request #5 was merged (main `d04630e`).
+- Done, `crates/core`: `backup::archive` (`.mbk` format: readable header, AES-256-GCM payload
+  with the header as associated data, per-file key wrapped for the school's X25519 public key
+  via ephemeral Diffie–Hellman + HKDF-SHA256, SHA-256 trailer), key set v2 with the public key
+  derived from the DEK, `change_password` (recovery key kept; applies to new files only),
+  `with_public_key` for pre-stage-5 key sets. 5 new unit tests (round trip with password and
+  recovery key, wrong password and wrong DEK, byte flips in header/payload/trailer, a forged
+  header with recomputed checksum, truncation, password change semantics).
+- Done, `crates/db`: migration `0006_backup.sql` (audit actions `backup`, `restore`,
+  `backup_password_failed`; `backup_runs`). Repository `backup`: dependency-ordered COPY dump
+  in a repeatable-read transaction, restore that truncates and reloads every table in one
+  transaction with user triggers disabled and re-enabled, schema version check, record counts,
+  run history with audit at start and finish. 2 integration tests.
+- Done, `crates/api`: backup service (settings, manual run, pruning, preview, restore, password
+  change, unlock, status) and `/backup/*` routes (spec §6.6); scheduler task started by
+  `madrasa-server` and the desktop shell (once a minute: run when past the time and none
+  succeeded today; retry failures after an hour); dashboard carries the backup status. 1 unit
+  test for the due rule, 2 end-to-end tests (round trip with data changed in between, wrong
+  password and wrong recovery key audited, tampered and non-backup files refused with 422,
+  password change, pruning, permissions).
+- Done, UI: Backup page (status with 2-day warning and last error, Back up now, schedule and
+  folder settings, file list with Restore → preview dialog showing date, school, app version,
+  counts in the backup versus now and the schema check → confirm with password or recovery key →
+  logout; restore from any path; password change with the "new backups only" warning; run
+  history; one-time unlock form when the key set predates stage 5). Dashboard card "Last
+  backup". English and Urdu. 6 component tests.
+- Tested: core 64 unit tests (5 new); db 31 integration tests (2 new); api 19 (2 new) + 1 unit;
+  demo data 6; vitest 90 (6 new). fmt, clippy, eslint, prettier and tsc clean.
+- Not done / notes: the folder is a path typed or pasted into the settings (no native folder
+  picker yet; the Tauri dialog plugin is not bundled); a restore made with an older app version
+  is refused rather than migrated forward; the scheduler runs only while the app is open (Lite
+  has no system service), which the nightly default assumes.

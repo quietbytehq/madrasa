@@ -285,6 +285,46 @@ away from zero to two places):
   per-subject weighted percentage and grade, per-assessment totals, percentage, grade and
   position, the overall weighted result with remarks and pass/fail, and the year's attendance.
 
+### 5.8 Backup and restore (M1 stage 5)
+
+| Table | Purpose |
+| --- | --- |
+| `backup_runs` | Every manual or scheduled run: `trigger`, `status` (running, ok, failed), `started_at`, `finished_at`, `file_path`, `file_size`, `error`. |
+
+Settings: `backup.schedule` (`enabled`, default true; `time`, local `HH:MM`, default 02:00;
+`directory`, default `Documents/Madrasa Backups`; `keep`, default 30 files) and `backup.keys`
+(the wrapped DEK, see §7, now with the X25519 public key derived from the DEK).
+
+**File format** (`.mbk`, `madrasa_core::backup::archive`): magic, a readable JSON header
+(created at, app version, school, applied migration versions, record counts, the wrapped key
+set, the wrapped file key), the AES-256-GCM payload (gzip of the dump) with the header as
+associated data, and a SHA-256 trailer. The file key is random per backup and wrapped for the
+school's X25519 public key (ephemeral Diffie–Hellman, HKDF-SHA256, AES-256-GCM), so scheduled
+backups never need the password. Any change to the header or payload is detected (checksum,
+then the AEAD tag) and the restore is refused as tampered.
+
+**Dump** (`madrasa_db::backup`): every table except `_sqlx_migrations`, parents before
+children, as `COPY … TO STDOUT` text inside one repeatable-read transaction. **Restore**
+empties every table and reloads the dump in one transaction with user triggers disabled (so the
+append-only audit log and the immutable receipts reload), then re-enables them. A dump made with
+a different migration set is refused: update the app to the version that made the backup first.
+Sessions are part of the data, so everyone logs in again after a restore.
+
+**Rules**
+- Scheduled backups run in the server (and the desktop shell) once a day at the configured time
+  when none succeeded that day; a failed attempt is retried after an hour. Older files beyond
+  `keep` are removed from the folder after each new backup.
+- The dashboard shows the last backup; it is a warning when none succeeded in the last 48 hours.
+- Restore needs `backup.manage` and the backup password or the recovery key from setup; the
+  preview (date, school, app version, counts in the backup and now, schema match) needs no key.
+- Changing the backup password re-wraps the DEK; the recovery key keeps working; backups made
+  before still open with the password in use when they were made.
+- Audit: every run (start and finish), every restore, and every wrong password or recovery key
+  (`backup_password_failed`). A restore replaces the audit log with the backup's and then logs
+  the restore itself.
+- Key sets written before stage 5 have no public key; the Backup page asks for the password once
+  to add it, otherwise scheduled backups are skipped with a warning.
+
 ## 6. API conventions
 
 - Base path `/api/v1`. JSON request and response bodies. `snake_case` keys.
@@ -396,6 +436,21 @@ Role defaults: accountant has `fees.read` + `fees.manage`; admin and principal a
 Role defaults: teachers have `exams.read` and `exams.manage`; principal also `exams.approve`;
 admin has `academics.manage` for setup but not `exams.approve` unless granted.
 
+### 6.6 M1 stage 5 endpoints
+
+| Method | Path | Permission | Purpose |
+| --- | --- | --- | --- |
+| GET | `/backup/status` | any user | Last backup, staleness, schedule, folder, last error |
+| GET/PUT | `/backup/settings` | `backup.manage` | Schedule, folder, files to keep |
+| POST | `/backup/run` | `backup.manage` | Back up now |
+| GET | `/backup/runs`, `/backup/files` | `backup.manage` | Run history; `.mbk` files in the folder |
+| POST | `/backup/preview` | `backup.manage` | Header of a file (`path`), no key needed |
+| POST | `/backup/restore` | `backup.manage` | Restore a file with `password` or `recovery_key` |
+| POST | `/backup/password` | `backup.manage` | Change the backup password (current password or recovery key) |
+| POST | `/backup/unlock` | `backup.manage` | Add the public key to a pre-stage-5 key set |
+
+`/dashboard` now carries the backup status as well.
+
 ## 7. Security
 
 - Passwords: Argon2id (`argon2` crate, OWASP-recommended parameters: m=19 MiB, t=2, p=1),
@@ -407,7 +462,10 @@ admin has `academics.manage` for setup but not `exams.approve` unless granted.
   with a key derived from a random recovery key. The recovery key is shown once, printable, as
   8 groups of 4 Crockford-base32 characters. Only wrapped keys and salts are stored (in
   `settings`); the DEK and the passwords are never stored.
-- All crypto via audited crates: `argon2`, `aes-gcm`, `sha2`, `rand`. No hand-rolled crypto.
+- Backup files: see §5.8. The X25519 key pair for unattended backups is derived from the DEK;
+  only the public key is stored in clear.
+- All crypto via audited crates: `argon2`, `aes-gcm`, `sha2`, `rand`, `x25519-dalek`, `hkdf`.
+  No hand-rolled crypto.
 - No real data in the repository. Tests and screenshots use the demo generator.
 
 ## 8. UI
