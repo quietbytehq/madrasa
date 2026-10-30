@@ -176,6 +176,46 @@ unless the client passes `force: true`.
 Teachers may read only students enrolled in sections they are class teacher of or teach a
 subject in. This is enforced in the API (`students.read` + section scope), not in the UI.
 
+### 5.5 Fees (M1 stage 2)
+
+| Table | Purpose |
+| --- | --- |
+| `fee_heads` | Configurable heads: `name`, `code`, `is_recurring` (monthly, e.g. tuition) or one-time (e.g. admission, charged on a student's first voucher), `position`, `is_active`. |
+| `fee_structures` | Amount per `academic_year_id`, `class_id`, `fee_head_id` (`NUMERIC(14,2)`); a zero amount removes the line. |
+| `fee_concessions` | Per student: `kind` (staff_child, scholarship, custom), `percent` of the net monthly fee or a fixed `amount`, `reason`, `approved_by`, `approved_at`, `valid_from`, `valid_to`. Requires `fees.approve`. |
+| `fee_vouchers` | One per student per `billing_month` (unique while not cancelled): `voucher_no`, `issue_date`, `due_date`, `gross`, `sibling_discount`, `concession_discount`, `net_monthly`, `arrears`, `total_due`, `late_fee`, `late_fee_waived` + `waiver_reason` + `waived_by`, `net_paid`, `status`. |
+| `fee_voucher_lines` | The heads and amounts that make up `gross`. |
+| `fee_receipts` | Immutable (database trigger refuses UPDATE/DELETE): `receipt_no`, `paid_on`, `amount`, `method` (cash, bank, online, one_bill, kuickpay), `reference`, `note`, `received_by`. A reversal is a new row with a negative `amount`, `reverses_id` and `reversal_reason`. |
+
+Numbering uses `school_sequences`: vouchers `V<YYYY><MM>-<5 digits>` per month, receipts
+`R<YYYY>-<6 digits>` per year, both gapless within a school.
+
+**Policy** (`settings` key `fees.policy`, editable with `fees.approve`):
+`sibling_discount_percent` (default 10), `sibling_rule` (`all` or `second_child_onwards`),
+`late_fee_percent` (default 10), `due_day` (default 15). Siblings are students who share a
+guardian; the rank for `second_child_onwards` is by admission date, then date of birth.
+
+**Voucher arithmetic** (`crates/core/src/fees.rs`, exact decimals rounded half away from zero
+to 2 places at each step):
+
+1. `gross` = Σ structure lines for the student's class (one-time heads only on the first voucher).
+2. `sibling_discount` = `gross` × sibling percent when the policy applies to this student.
+3. `concession_discount` = Σ active concessions (percent of `gross`, or a fixed amount), capped so `net_monthly` ≥ 0.
+4. `net_monthly` = `gross − sibling_discount − concession_discount`.
+5. `arrears` = the unpaid balance of the student's earlier vouchers (including late fees). Those vouchers become `carried` and are no longer payable, so a balance is never counted twice. Carry-forward crosses month and academic-year boundaries.
+6. `total_due` = `net_monthly + arrears`.
+7. `late_fee` = `net_monthly` × late percent, assessed once the due date has passed, unless waived. Waiving needs `fees.approve`, a reason, and is audit-logged with the approver.
+
+Voucher status: `unpaid`, `partial`, `paid` (derived from `net_paid` vs `total_due + late_fee`),
+`carried` (balance moved to a later voucher), `cancelled` (only while nothing was paid).
+Ledger totals: billed = Σ gross, discounts = Σ sibling + concession, fines = Σ late fees,
+paid = Σ receipts (reversals net out), balance = billed − discounts + fines − paid.
+
+Every change to money (structure, concession, voucher, waiver, payment, reversal) is written to
+`audit_log`. Printable voucher (school copy and parent copy with a bank/1Bill/Kuickpay reference
+area) and receipt pages render in light colours only; "PDF export" uses the operating system's
+print dialog (Save as PDF), there is no separate PDF generator.
+
 ## 6. API conventions
 
 - Base path `/api/v1`. JSON request and response bodies. `snake_case` keys.
@@ -225,6 +265,28 @@ subject in. This is enforced in the API (`students.read` + section scope), not i
 | POST/DELETE | `/students/{id}/guardians`, `/students/{id}/guardians/{guardian_id}` | `students.manage` | Link/unlink guardians |
 | GET/POST/PATCH | `/guardians`, `/guardians/{id}` | `students.read` / `students.manage` | Guardian search (phone, CNIC, name) and edit |
 | GET/PUT | `/settings/school` | `settings.manage` | Student number prefix |
+
+### 6.3 M1 stage 2 endpoints
+
+| Method | Path | Permission | Purpose |
+| --- | --- | --- | --- |
+| GET/PUT | `/fees/policy` | `fees.read` / `fees.approve` | Sibling discount, sibling rule, late fee percent, due day |
+| GET/POST/PATCH | `/fees/heads`, `/fees/heads/{id}` | `fees.read` / `fees.approve` | Fee heads |
+| GET/PUT | `/fees/structure` | `fees.read` / `fees.approve` | Amounts per class and head for an academic year |
+| GET/POST, DELETE | `/fees/students/{id}/concessions`, `/fees/concessions/{id}` | `fees.read` / `fees.approve` | Concessions with reason and approver |
+| GET | `/fees/vouchers` | `fees.read` | List: `month`, `class_id`, `section_id`, `status`, `q` |
+| POST | `/fees/vouchers/generate` | `fees.manage` | Generate for a month, whole school or a class/section; idempotent |
+| GET | `/fees/vouchers/{id}` | `fees.read` | Voucher with lines, receipts and print header |
+| POST | `/fees/vouchers/{id}/payments` | `fees.manage` | Record a (partial) payment; issues a receipt |
+| POST | `/fees/vouchers/{id}/waive-late-fee`, `/cancel` | `fees.approve` | Waive with reason; cancel an unpaid voucher |
+| GET | `/fees/receipts/{id}` | `fees.read` | Receipt for reprint |
+| POST | `/fees/receipts/{id}/reverse` | `fees.approve` | Reversal entry with reason |
+| GET | `/fees/students/{id}/ledger` | `fees.read` | Totals, vouchers, receipts, concessions |
+| GET | `/fees/defaulters` | `fees.read` | `as_of`, `class_id`, `min_days` |
+| GET | `/fees/collections` | `fees.read` | Daily summary by method and receipts for a `date` |
+
+Role defaults: accountant has `fees.read` + `fees.manage`; admin and principal also have
+`fees.approve`; teachers have no fee permissions.
 
 ## 7. Security
 

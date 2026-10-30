@@ -28,19 +28,19 @@ Pilot school: K-12, ~1,200 students, ~120 staff. Details in docs/spec.md ("Pilot
 - [x] Demo data generator updated for all of the above
 
 ## Stage 2 — Fees
-- [ ] Fee heads (tuition, admission, transport, exam, etc.) configurable
-- [ ] Fee structure per class per academic year; monthly billing
-- [ ] Monthly voucher generation for a class or the whole school; voucher numbers unique and sequential
-- [ ] **Sibling discount:** 10% of the total monthly fee by default; percentage and which siblings qualify (all, or second child onwards) configurable
-- [ ] Other concessions: staff child, scholarship, custom — with approval and reason
-- [ ] **Late fee:** 10% of the monthly fee after the 15th by default (configurable); waivable per voucher with reason and approver, logged
-- [ ] Payment recording: cash, bank, online, 1Bill, Kuickpay (manual entry with reference number); partial payments
-- [ ] Receipts: immutable once issued; corrections only by reversal entries; reprint allowed
-- [ ] Student fee ledger: billed, paid, discounts, fines, balance; unpaid balance carried to next month and next year
-- [ ] Defaulter list (by days overdue, class); daily collection summary
-- [ ] Printable voucher (bank/1Bill/Kuickpay reference area, school copy + parent copy) and receipt templates; English and Urdu; print always light theme; PDF export
-- [ ] Permissions: only admin/accountant collect fees; every money change audit-logged
-- [ ] Tests: discount and late-fee calculations, rounding, reversals, carry-forward (exact decimals)
+- [x] Fee heads (tuition, admission, transport, exam, etc.) configurable
+- [x] Fee structure per class per academic year; monthly billing
+- [x] Monthly voucher generation for a class or the whole school; voucher numbers unique and sequential
+- [x] **Sibling discount:** 10% of the total monthly fee by default; percentage and which siblings qualify (all, or second child onwards) configurable
+- [x] Other concessions: staff child, scholarship, custom — with approval and reason
+- [x] **Late fee:** 10% of the monthly fee after the 15th by default (configurable); waivable per voucher with reason and approver, logged
+- [x] Payment recording: cash, bank, online, 1Bill, Kuickpay (manual entry with reference number); partial payments
+- [x] Receipts: immutable once issued; corrections only by reversal entries; reprint allowed
+- [x] Student fee ledger: billed, paid, discounts, fines, balance; unpaid balance carried to next month and next year
+- [x] Defaulter list (by days overdue, class); daily collection summary
+- [x] Printable voucher (bank/1Bill/Kuickpay reference area, school copy + parent copy) and receipt templates; English and Urdu; print always light theme; PDF export
+- [x] Permissions: only admin/accountant collect fees; every money change audit-logged
+- [x] Tests: discount and late-fee calculations, rounding, reversals, carry-forward (exact decimals)
 
 ## Stage 3 — Attendance
 - [ ] Daily class-wise attendance: everyone present by default, teacher marks only absentees (and late/leave)

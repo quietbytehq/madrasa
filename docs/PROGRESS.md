@@ -184,3 +184,43 @@ depend on each other and were built together)
 - Not done / notes: photos are stored in PostgreSQL (≤ 512 KB) rather than on disk so backups
   stay self-contained; the Fees/Attendance/Results tabs are placeholders by design; the demo
   loader links each student to one guardian (father) only.
+
+### 2026-10-30 — Stage 2: Fees (branch `m1-stage-2-fees`)
+- Branch note: at the time of writing GitHub still showed the Stage 1 pull request open, so this
+  branch was started from the Stage 1 tip (`ae1258f`) rather than `main`; once Stage 1 merges
+  the pull request diff reduces to the fees commits.
+- Done, `crates/core`: `fees` module with exact-decimal arithmetic (`rust_decimal`, 2 places,
+  half away from zero): fee policy (sibling percent + rule, late percent, due day),
+  `compute_voucher` (gross → sibling discount → capped concessions → net monthly → arrears →
+  total due), `late_fee` after the due day unless waived, voucher status derivation incl.
+  `carried`, ledger totals, carry-forward and month helpers, payment methods. New permission
+  `fees.approve` (admin, principal). 12 unit tests covering rounding, both sibling rules,
+  concession caps, the 15th/16th boundary, waiver, partial and reversed payments, carry-forward
+  across months and academic years.
+- Done, `crates/db`: migration `0003_fees.sql` (`fee_heads`, `fee_structures`,
+  `fee_concessions`, `fee_vouchers`, `fee_voucher_lines`, `fee_receipts`; receipts are made
+  immutable by a trigger, reversals are negative rows with a reason). Repository `fees`:
+  policy, heads, structure, concessions, voucher generation under the school sequence lock
+  (`V202605-00001`, one-time heads on the first voucher only, idempotent per student and
+  month), arrears assessment that marks earlier vouchers `carried`, late-fee assessment,
+  waivers, cancellation, payments with over-payment and closed-voucher checks, reversals,
+  ledger, defaulters, daily collection summary. Every money change is audit-logged.
+- Done, `crates/api`: `/fees/*` routes (see spec §6.3); permissions enforced server-side.
+- Done, UI: Fees page with tabs Vouchers (filters, totals footer, generate dialog), Collect
+  (lookup and pay), Defaulters, Collections (daily summary by method), Setup (policy, heads
+  with one-click defaults, structure grid per class). Student profile Fees tab shows the
+  ledger with pay / waive / cancel / reverse / concession actions gated by permission.
+  Printable voucher (school + parent copies, reference box) and receipt pages; print CSS keeps
+  the light theme; "PDF" is the print dialog's Save as PDF. English and Urdu strings.
+- Done, demo data: Tuition/Exam/Admission heads, structure per grade, April and May vouchers
+  with ~55 % paid on time, ~15 % paid late (incl. Kuickpay and half payments): 2,400 vouchers,
+  851 receipts (≈28 s locally).
+- Tested: core 44 unit tests (12 new); db 20 integration tests (4 new: policy/structure/
+  generation/sibling rules, payments/reversals/immutability, late fee/waiver/carry-forward
+  chain, defaulters/collections); api 13 (2 new incl. accountant-cannot-approve and
+  teacher 403); demo-data 6; vitest 69 (15 new: money helpers, ledger permissions and
+  actions, pay dialog validation and late warning, voucher list totals and generation, policy
+  editing). fmt, clippy, eslint, prettier and tsc clean.
+- Not done / notes: the `collections` summary covers one day at a time (no date range yet);
+  voucher PDF files are produced through the print dialog rather than generated server-side;
+  bank/1Bill/Kuickpay integrations are manual reference entry only, as specified.
