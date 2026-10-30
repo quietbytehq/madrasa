@@ -15,6 +15,17 @@ import type {
   UserSummary,
 } from "@/api/types";
 import { Dashboard } from "@/pages/Dashboard";
+
+const backupOk = {
+  last_backup_at: "2026-04-06T02:00:00Z",
+  last_backup_file: "/backups/madrasa-khi-mc-20260406-020000.mbk",
+  stale: false,
+  enabled: true,
+  time: "02:00",
+  directory: "/backups",
+  unattended_ready: true,
+  last_error: null,
+};
 import { MarkTab } from "./tabs/MarkTab";
 import { StaffTab } from "./tabs/StaffTab";
 import { CalendarTab } from "./tabs/CalendarTab";
@@ -366,6 +377,7 @@ describe("Dashboard attendance card", () => {
           { section_id: "sec1", class_name: "1", section_name: "A", class_teacher_name: "Sana" },
         ],
       },
+      backup: backupOk,
     };
     vi.mocked(api.dashboard).mockResolvedValue(dash);
     renderWithProviders(
@@ -390,6 +402,7 @@ describe("Dashboard attendance card", () => {
       date: "2026-04-05",
       day_kind: { kind: "weekend" },
       attendance: { totals: { ...status.totals, percent: null, marked: 0 }, unmarked: [] },
+      backup: { ...backupOk, stale: true, last_backup_at: null, last_backup_file: null },
     });
     renderWithProviders(
       <FeaturesProvider initial={{ edition: "lite", features: ["dashboard", "attendance"] }}>
@@ -399,6 +412,7 @@ describe("Dashboard attendance card", () => {
       </FeaturesProvider>,
     );
     expect(await screen.findByText("No school today: weekend")).toBeInTheDocument();
+    expect(screen.getByText("The last backup is older than 2 days.")).toBeInTheDocument();
   });
 });
 

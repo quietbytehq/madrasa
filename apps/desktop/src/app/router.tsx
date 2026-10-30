@@ -2,6 +2,7 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
 import { AppShell } from "@/layout/AppShell";
 import { AttendancePage } from "@/pages/attendance/AttendancePage";
+import { BackupPage } from "@/pages/backup/BackupPage";
 import { ExamsPage } from "@/pages/exams/ExamsPage";
 import { ReportCardsPrintPage, ResultSheetPrintPage } from "@/pages/exams/PrintPages";
 import { Dashboard } from "@/pages/Dashboard";
@@ -79,6 +80,7 @@ export function AppRoutes({ login, setup }: AppRoutesProps) {
             <Route path="/exams/results/print" element={<ResultSheetPrintPage />} />
           </>
         )}
+        {has("backup") && <Route path="/backup" element={<BackupPage />} />}
         {has("teachers") && <Route path="/teachers" element={<StaffPage />} />}
         {has("settings") && <Route path="/settings" element={<SettingsPage />} />}
         {NAV_ITEMS.filter((item) => item.path !== "/" && !item.available && has(item.feature)).map(

@@ -720,6 +720,7 @@ export interface DashboardView {
   date: string;
   day_kind: DayKind;
   attendance: { totals: StatusTotals; unmarked: UnmarkedSection[] } | null;
+  backup: BackupStatus;
 }
 
 // ---- M1 stage 4: exams ---------------------------------------------------------------------
@@ -934,4 +935,70 @@ export interface ReportCard {
   pass: boolean | null;
   attendance: { present: number; total: number; percent: number | null };
   grading: GradingScheme;
+}
+
+// ---- M1 stage 5: backup --------------------------------------------------------------------
+
+export interface BackupSettings {
+  enabled: boolean;
+  /** Local time of day, HH:MM. */
+  time: string;
+  directory: string | null;
+  keep: number;
+}
+
+export interface BackupRun {
+  id: string;
+  school_id: string;
+  trigger: "manual" | "scheduled";
+  status: "running" | "ok" | "failed";
+  started_at: string;
+  finished_at: string | null;
+  file_path: string | null;
+  file_size: number | null;
+  error: string | null;
+}
+
+export interface BackupFile {
+  path: string;
+  name: string;
+  size: number;
+  modified: string;
+}
+
+export interface BackupMeta {
+  created_at: string;
+  app_version: string;
+  school_id: string;
+  school_name: string;
+  school_code: string;
+  migrations: number[];
+  counts: Record<string, number>;
+}
+
+export interface RestorePreview {
+  path: string;
+  size: number;
+  meta: BackupMeta;
+  schema_matches: boolean;
+  current_counts: Record<string, number>;
+}
+
+export interface RestoreResult {
+  tables: number;
+  rows: number;
+  meta: BackupMeta;
+  relogin: boolean;
+}
+
+/** Mirrors `BackupStatus` in the API. */
+export interface BackupStatus {
+  last_backup_at: string | null;
+  last_backup_file: string | null;
+  stale: boolean;
+  enabled: boolean;
+  time: string;
+  directory: string;
+  unattended_ready: boolean;
+  last_error: string | null;
 }
