@@ -41,6 +41,13 @@ async fn loads_into_an_empty_database_and_marks_everything_demo() {
         "{}",
         report.receipts
     );
+    // April + May 2026 with Sunday off, Labour Day and four Eid days: 26 + 21 school days.
+    assert_eq!(report.staff_attendance_days, 47);
+    assert!(
+        report.attendance_sheets > 0 && report.attendance_sheets % 47 == 0,
+        "{}",
+        report.attendance_sheets
+    );
     assert_eq!(report.files_written.len(), 6);
     assert!(out.join("students.json").exists());
     std::fs::remove_dir_all(&out).ok();
