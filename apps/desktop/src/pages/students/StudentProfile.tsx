@@ -20,6 +20,7 @@ import { cn } from "@/lib/cn";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 import { useSession } from "@/app/session";
 import { PageHeader } from "../PageHeader";
+import { LedgerView } from "../fees/LedgerView";
 import {
   classLabel,
   genderLabel,
@@ -32,7 +33,7 @@ import {
 const TABS: Array<{ key: string; labelKey: TranslationKey; available: boolean }> = [
   { key: "details", labelKey: "students.tabs.details", available: true },
   { key: "guardians", labelKey: "students.tabs.guardians", available: true },
-  { key: "fees", labelKey: "students.tabs.fees", available: false },
+  { key: "fees", labelKey: "students.tabs.fees", available: true },
   { key: "attendance", labelKey: "students.tabs.attendance", available: false },
   { key: "results", labelKey: "students.tabs.results", available: false },
 ];
@@ -154,6 +155,14 @@ export function StudentProfile() {
 
       <div role="tabpanel">
         {tab === "details" && <DetailsTab s={s} />}
+        {tab === "fees" &&
+          (can("fees.read") ? (
+            <LedgerView studentId={s.id} />
+          ) : (
+            <Card>
+              <EmptyState title={t("app.error.generic")} />
+            </Card>
+          ))}
         {tab === "guardians" && (
           <GuardiansTab
             s={s}

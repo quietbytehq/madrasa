@@ -315,3 +315,195 @@ export interface StudentListQuery {
 export interface SchoolSettings {
   student_number_prefix: string;
 }
+
+// ---- M1 stage 2: fees ----------------------------------------------------------------------
+
+/** Money amounts are decimal strings (e.g. "2500.00"); zero may arrive as "0". */
+export type Money = string;
+export type PaymentMethod = "cash" | "bank" | "online" | "one_bill" | "kuickpay";
+export type VoucherStatus = "unpaid" | "partial" | "paid" | "carried" | "cancelled";
+export type ConcessionKind = "staff_child" | "scholarship" | "custom";
+
+export interface FeePolicy {
+  sibling_discount_percent: Money;
+  sibling_rule: "all" | "second_child_onwards";
+  late_fee_percent: Money;
+  due_day: number;
+}
+
+export interface FeeHead {
+  id: string;
+  school_id: string;
+  name: string;
+  code: string;
+  is_recurring: boolean;
+  position: number;
+}
+
+export interface FeeStructureLine {
+  id: string;
+  academic_year_id: string;
+  class_id: string;
+  fee_head_id: string;
+  amount: Money;
+}
+
+export interface FeeConcession {
+  id: string;
+  student_id: string;
+  kind: ConcessionKind;
+  percent: Money | null;
+  amount: Money | null;
+  reason: string;
+  approved_by: string;
+  approved_at: string;
+  valid_from: string;
+  valid_to: string | null;
+}
+
+export interface FeeVoucher {
+  id: string;
+  student_id: string;
+  academic_year_id: string;
+  section_id: string | null;
+  voucher_no: string;
+  billing_month: string;
+  issue_date: string;
+  due_date: string;
+  gross: Money;
+  sibling_discount: Money;
+  concession_discount: Money;
+  net_monthly: Money;
+  arrears: Money;
+  total_due: Money;
+  late_fee: Money;
+  late_fee_waived: boolean;
+  waiver_reason: string | null;
+  waived_by: string | null;
+  net_paid: Money;
+  status: VoucherStatus;
+}
+
+export interface FeeVoucherRow {
+  id: string;
+  voucher_no: string;
+  billing_month: string;
+  due_date: string;
+  student_id: string;
+  student_number: string;
+  student_name: string;
+  class_name: string | null;
+  section_name: string | null;
+  gross: Money;
+  sibling_discount: Money;
+  concession_discount: Money;
+  arrears: Money;
+  total_due: Money;
+  late_fee: Money;
+  late_fee_waived: boolean;
+  net_paid: Money;
+  status: VoucherStatus;
+}
+
+export interface FeeVoucherLine {
+  id: string;
+  fee_head_id: string | null;
+  description: string;
+  amount: Money;
+  position: number;
+}
+
+export interface FeeReceipt {
+  id: string;
+  voucher_id: string;
+  student_id: string;
+  receipt_no: string;
+  paid_on: string;
+  amount: Money;
+  method: PaymentMethod;
+  reference: string | null;
+  note: string | null;
+  reverses_id: string | null;
+  reversal_reason: string | null;
+  received_by: string;
+  created_at: string;
+}
+
+export interface SchoolHeader {
+  name: string;
+  code: string;
+  city: string;
+}
+
+export interface VoucherDetail extends FeeVoucher {
+  balance: Money;
+  lines: FeeVoucherLine[];
+  receipts: FeeReceipt[];
+  student_name: string;
+  student_number: string;
+  father_name: string;
+  class_name: string | null;
+  section_name: string | null;
+  guardian_phone: string | null;
+  school: SchoolHeader;
+  policy: FeePolicy;
+}
+
+export interface ReceiptDetail extends FeeReceipt {
+  voucher_no: string;
+  billing_month: string;
+  student_name: string;
+  student_number: string;
+  father_name: string;
+  class_name: string | null;
+  section_name: string | null;
+  received_by_name: string;
+  reversed_by: FeeReceipt | null;
+  voucher_balance_after: Money;
+  school: SchoolHeader;
+}
+
+export interface LedgerTotals {
+  billed: Money;
+  discounts: Money;
+  fines: Money;
+  paid: Money;
+  balance: Money;
+}
+
+export interface Ledger {
+  student_id: string;
+  totals: LedgerTotals;
+  vouchers: Array<FeeVoucher & { balance: Money }>;
+  receipts: FeeReceipt[];
+  concessions: FeeConcession[];
+  payable: string[];
+}
+
+export interface Defaulter {
+  student_id: string;
+  student_number: string;
+  student_name: string;
+  father_name: string;
+  class_name: string | null;
+  section_name: string | null;
+  guardian_phone: string | null;
+  oldest_due_date: string;
+  days_overdue: number;
+  unpaid_vouchers: number;
+  balance: Money;
+}
+
+export interface Collections {
+  date: string;
+  total: Money;
+  by_method: Array<{ method: PaymentMethod; receipts: number; amount: Money }>;
+  receipts: ReceiptDetail[];
+}
+
+export interface GenerationReport {
+  created: number;
+  skipped_existing: number;
+  skipped_no_structure: number;
+  voucher_ids: string[];
+}

@@ -1,6 +1,19 @@
 import { request } from "./client";
 import type {
   AcademicYear,
+  Collections,
+  Defaulter,
+  FeeConcession,
+  FeeHead,
+  FeePolicy,
+  FeeStructureLine,
+  FeeVoucherRow,
+  GenerationReport,
+  Ledger,
+  PaymentMethod,
+  ReceiptDetail,
+  VoucherDetail,
+  VoucherStatus,
   Assignment,
   DuplicateMatch,
   FeaturesResponse,
@@ -138,4 +151,66 @@ export const api = {
   schoolSettings: () => request<SchoolSettings>("/settings/school"),
   updateSchoolSettings: (body: SchoolSettings) =>
     request<SchoolSettings>("/settings/school", { method: "PUT", body }),
+
+  // Fees
+  feePolicy: () => request<FeePolicy>("/fees/policy"),
+  updateFeePolicy: (body: FeePolicy) => request<FeePolicy>("/fees/policy", { method: "PUT", body }),
+  feeHeads: () => request<FeeHead[]>("/fees/heads"),
+  createFeeHead: (body: { name: string; code: string; is_recurring: boolean; position?: number }) =>
+    request<FeeHead>("/fees/heads", { method: "POST", body }),
+  updateFeeHead: (id: string, body: Partial<FeeHead>) =>
+    request<FeeHead>(`/fees/heads/${id}`, { method: "PATCH", body }),
+  feeStructure: (academic_year_id: string, class_id?: string) =>
+    request<FeeStructureLine[]>(`/fees/structure${qs({ academic_year_id, class_id })}`),
+  setFeeStructure: (body: {
+    academic_year_id: string;
+    class_id: string;
+    lines: Array<{ fee_head_id: string; amount: string }>;
+  }) => request<FeeStructureLine[]>("/fees/structure", { method: "PUT", body }),
+  concessions: (studentId: string) =>
+    request<FeeConcession[]>(`/fees/students/${studentId}/concessions`),
+  createConcession: (
+    studentId: string,
+    body: { kind: string; percent?: string; amount?: string; reason: string; valid_from?: string },
+  ) => request<FeeConcession>(`/fees/students/${studentId}/concessions`, { method: "POST", body }),
+  endConcession: (id: string) => request<void>(`/fees/concessions/${id}`, { method: "DELETE" }),
+  vouchers: (params: {
+    month?: string;
+    class_id?: string;
+    section_id?: string;
+    status?: VoucherStatus | "";
+    student_id?: string;
+    q?: string;
+  }) => request<FeeVoucherRow[]>(`/fees/vouchers${qs(params)}`),
+  generateVouchers: (body: { month: string; class_id?: string; section_id?: string }) =>
+    request<GenerationReport>("/fees/vouchers/generate", { method: "POST", body }),
+  voucher: (id: string) => request<VoucherDetail>(`/fees/vouchers/${id}`),
+  payVoucher: (
+    id: string,
+    body: {
+      amount: string;
+      method: PaymentMethod;
+      reference?: string;
+      note?: string;
+      paid_on?: string;
+    },
+  ) =>
+    request<{ receipt: ReceiptDetail; voucher: VoucherDetail }>(`/fees/vouchers/${id}/payments`, {
+      method: "POST",
+      body,
+    }),
+  waiveLateFee: (id: string, reason: string) =>
+    request<VoucherDetail>(`/fees/vouchers/${id}/waive-late-fee`, {
+      method: "POST",
+      body: { reason },
+    }),
+  cancelVoucher: (id: string, reason: string) =>
+    request<VoucherDetail>(`/fees/vouchers/${id}/cancel`, { method: "POST", body: { reason } }),
+  receipt: (id: string) => request<ReceiptDetail>(`/fees/receipts/${id}`),
+  reverseReceipt: (id: string, reason: string) =>
+    request<ReceiptDetail>(`/fees/receipts/${id}/reverse`, { method: "POST", body: { reason } }),
+  ledger: (studentId: string) => request<Ledger>(`/fees/students/${studentId}/ledger`),
+  defaulters: (params: { as_of?: string; class_id?: string; min_days?: number } = {}) =>
+    request<Defaulter[]>(`/fees/defaulters${qs(params)}`),
+  collections: (date?: string) => request<Collections>(`/fees/collections${qs({ date })}`),
 };
