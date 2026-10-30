@@ -490,3 +490,130 @@ pub struct CollectionByMethod {
     pub receipts: i64,
     pub amount: Decimal,
 }
+
+// ---- M1 stage 3: attendance ----------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct Holiday {
+    pub id: Uuid,
+    pub school_id: Uuid,
+    pub name: String,
+    pub starts_on: chrono::NaiveDate,
+    pub ends_on: chrono::NaiveDate,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub updated_by: Option<Uuid>,
+    pub deleted_at: Option<DateTime<Utc>>,
+    pub hlc: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct AttendanceSheet {
+    pub id: Uuid,
+    pub school_id: Uuid,
+    pub section_id: Uuid,
+    pub academic_year_id: Uuid,
+    pub date: chrono::NaiveDate,
+    pub marked_by: Option<Uuid>,
+    pub submitted_at: DateTime<Utc>,
+    pub present: i32,
+    pub absent: i32,
+    pub late: i32,
+    pub leave: i32,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub updated_by: Option<Uuid>,
+    pub deleted_at: Option<DateTime<Utc>>,
+    pub hlc: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct AttendanceEntry {
+    pub id: Uuid,
+    pub school_id: Uuid,
+    pub sheet_id: Uuid,
+    pub student_id: Uuid,
+    pub date: chrono::NaiveDate,
+    pub status: String,
+    pub note: Option<String>,
+    pub updated_at: DateTime<Utc>,
+    pub updated_by: Option<Uuid>,
+    pub hlc: String,
+}
+
+/// A student of a section with the entry for one day (status is `None` until marked).
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct RosterRow {
+    pub student_id: Uuid,
+    pub student_number: String,
+    pub full_name: String,
+    pub father_name: String,
+    pub roll_no: Option<i32>,
+    pub status: Option<String>,
+    pub note: Option<String>,
+}
+
+/// One day in a student's history.
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct StudentDayRow {
+    pub date: chrono::NaiveDate,
+    pub status: String,
+    pub note: Option<String>,
+    pub section_id: Uuid,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct AbsenteeRow {
+    pub student_id: Uuid,
+    pub student_number: String,
+    pub full_name: String,
+    pub father_name: String,
+    pub class_name: String,
+    pub section_id: Uuid,
+    pub section_name: String,
+    pub roll_no: Option<i32>,
+    pub status: String,
+    pub note: Option<String>,
+    pub guardian_phone: Option<String>,
+}
+
+/// Marking status of one section on one day.
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct SectionDayStatus {
+    pub section_id: Uuid,
+    pub class_id: Uuid,
+    pub class_name: String,
+    pub section_name: String,
+    pub class_teacher_name: Option<String>,
+    pub enrolled: i64,
+    pub sheet_id: Option<Uuid>,
+    pub submitted_at: Option<DateTime<Utc>>,
+    pub present: Option<i32>,
+    pub absent: Option<i32>,
+    pub late: Option<i32>,
+    pub leave: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct StaffAttendance {
+    pub id: Uuid,
+    pub school_id: Uuid,
+    pub staff_id: Uuid,
+    pub date: chrono::NaiveDate,
+    pub status: String,
+    pub note: Option<String>,
+    pub marked_by: Option<Uuid>,
+    pub updated_at: DateTime<Utc>,
+    pub hlc: String,
+}
+
+/// A staff member with the record for one day (status is `None` until marked).
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct StaffDayRow {
+    pub staff_id: Uuid,
+    pub staff_number: String,
+    pub full_name: String,
+    pub designation: String,
+    pub status: Option<String>,
+    pub note: Option<String>,
+}

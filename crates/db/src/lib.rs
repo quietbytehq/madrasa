@@ -4,6 +4,7 @@
 //! transaction. Queries use runtime-checked SQL (no compile-time `DATABASE_URL`).
 
 pub mod academics;
+pub mod attendance;
 pub mod audit;
 pub mod custom_fields;
 pub mod fees;
