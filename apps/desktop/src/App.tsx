@@ -7,6 +7,7 @@ import { SessionProvider } from "@/app/session";
 import { AppRoutes } from "@/app/router";
 import { Login } from "@/pages/Login";
 import { SetupGate } from "@/app/SetupGate";
+import { Setup } from "@/pages/Setup";
 
 export default function App() {
   return (
@@ -17,7 +18,7 @@ export default function App() {
             <FeaturesProvider>
               <SessionProvider>
                 <SetupGate>
-                  <AppRoutes login={<Login />} setup={<SetupPlaceholder />} />
+                  <AppRoutes login={<Login />} setup={<Setup />} />
                 </SetupGate>
               </SessionProvider>
             </FeaturesProvider>
@@ -26,9 +27,4 @@ export default function App() {
       </ThemeProvider>
     </BrowserRouter>
   );
-}
-
-/** Replaced by the real wizard in task 8. */
-function SetupPlaceholder() {
-  return null;
 }

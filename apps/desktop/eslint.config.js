@@ -29,6 +29,7 @@ export default tseslint.config(
       "src/i18n/**",
       "src/theme/**",
       "src/app/**",
+      "src/pages/Setup.tsx",
       "src/components/ui/Toast.tsx",
       "src/test/**",
       "**/*.test.tsx",

@@ -56,3 +56,21 @@
     scrollbar-color: rgb(var(--border)) transparent;
   }
 }
+
+/* Printable recovery key: only the key card is printed, always in light colors. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    inset-inline-start: 0;
+    top: 0;
+    width: 100%;
+    padding: 2rem;
+  }
+}
