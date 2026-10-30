@@ -52,6 +52,17 @@ Database-backed tests need a PostgreSQL server. Set `MADRASA_TEST_DATABASE_URL` 
 `postgres://postgres:postgres@localhost:5432/madrasa_test`) before running `cargo test`;
 without it those tests are skipped.
 
+To try the app with fake data, load the demo school into a database (never run this against a
+real school's database; it refuses if one is present):
+
+```bash
+MADRASA_DATABASE_URL=postgres://postgres:postgres@localhost:5432/madrasa cargo run -p madrasa-demo-data --bin madrasa-demo -- load --yes
+```
+
+Continuous integration (`.github/workflows/ci.yml`) runs lint, type checks, tests and desktop
+builds on Linux and Windows; tagged `v*` releases publish unsigned `.deb`, AppImage and Windows
+NSIS installers as a draft pre-release.
+
 See `docs/spec.md` for the product specification, `docs/TASKS-M0.md` for the current milestone
 and `docs/PROGRESS.md` for what has actually been built and tested.
 

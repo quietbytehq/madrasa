@@ -1,0 +1,138 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "dev/**", "claude/**"]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  # postgresql_embedded's build script uses the GitHub API; a token avoids rate limits.
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  frontend:
+    name: Frontend (lint, types, tests, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+  rust-linux:
+    name: Rust (Linux, with PostgreSQL)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Tauri system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Cache bundled PostgreSQL archive
+        uses: actions/cache@v4
+        with:
+          path: ~/.theseus/postgresql
+          key: theseus-postgresql-${{ runner.os }}-${{ hashFiles('.cargo/config.toml') }}
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Clippy (embedded PostgreSQL feature)
+        run: cargo clippy -p madrasa-api --features embedded-postgres --all-targets -- -D warnings
+      - name: Tests (database-backed tests included)
+        env:
+          MADRASA_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+        run: cargo test --workspace
+      - name: Build server with bundled PostgreSQL
+        run: cargo build -p madrasa-api --features embedded-postgres --bin madrasa-server
+
+  rust-windows:
+    # Windows runners have no service containers; database-backed tests skip themselves.
+    name: Rust (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Cache bundled PostgreSQL archive
+        uses: actions/cache@v4
+        with:
+          path: ~/.theseus/postgresql
+          key: theseus-postgresql-${{ runner.os }}-${{ hashFiles('.cargo/config.toml') }}
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+      - name: Build server with bundled PostgreSQL
+        run: cargo build -p madrasa-api --features embedded-postgres --bin madrasa-server
+
+  desktop:
+    name: Desktop build (${{ matrix.os }})
+    needs: [frontend]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            bundles: deb,appimage
+          - os: windows-latest
+            bundles: nsis
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Tauri system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+      - name: Cache bundled PostgreSQL archive
+        uses: actions/cache@v4
+        with:
+          path: ~/.theseus/postgresql
+          key: theseus-postgresql-${{ runner.os }}-${{ hashFiles('.cargo/config.toml') }}
+      - run: pnpm install --frozen-lockfile
+      - name: Build installers (unsigned)
+        run: pnpm --filter madrasa-desktop tauri build --bundles ${{ matrix.bundles }}
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: madrasa-${{ matrix.os }}
+          if-no-files-found: error
+          path: |
+            target/release/bundle/deb/*.deb
+            target/release/bundle/appimage/*.AppImage
+            target/release/bundle/nsis/*.exe

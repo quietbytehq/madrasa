@@ -53,7 +53,7 @@ Tick `[x]` only when built AND tested. Log progress in docs/PROGRESS.md.
 - [x] Never runs automatically on a real install
 
 ## 10. CI and packaging
-- [ ] GitHub Actions: lint, tests, build on Linux and Windows
+- [x] GitHub Actions: lint, tests, build on Linux and Windows (workflow written; first run pending push, see BLOCKERS)
 - [ ] Release artifacts: .deb, AppImage or Snap, Windows installer (unsigned is fine for now)
 
 ## Done when

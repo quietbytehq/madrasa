@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            bundles: deb,appimage
+          - os: windows-latest
+            bundles: nsis
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Tauri system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Cache bundled PostgreSQL archive
+        uses: actions/cache@v4
+        with:
+          path: ~/.theseus/postgresql
+          key: theseus-postgresql-${{ runner.os }}-${{ hashFiles('.cargo/config.toml') }}
+      - run: pnpm install --frozen-lockfile
+      # Installers are unsigned for now (pre-alpha). Windows SmartScreen and Linux package
+      # managers will warn; signing is tracked for a later milestone.
+      - uses: tauri-apps/tauri-action@v0
+        with:
+          projectPath: apps/desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: "Madrasa ${{ github.ref_name }}"
+          releaseBody: "Pre-alpha build. Unsigned installers; see docs/PROGRESS.md for what works."
+          releaseDraft: true
+          prerelease: true
+          args: --bundles ${{ matrix.bundles }}
