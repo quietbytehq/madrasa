@@ -295,7 +295,7 @@ async fn batch_records_effects_and_rolls_them_back() {
             voucher.total_due,
             voucher.status.as_str()
         ),
-        (dec!(0), dec!(4500.50), dec!(4500.50), "unpaid")
+        (dec!(4500.50), dec!(0), dec!(4500.50), "unpaid")
     );
     assert!(voucher.voucher_no.starts_with("V202604-"));
     imports::add_row(

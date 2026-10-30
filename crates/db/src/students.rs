@@ -251,9 +251,9 @@ pub async fn find_by_number(
     school_id: Uuid,
     student_number: &str,
 ) -> DbResult<Option<Student>> {
-    Ok(sqlx::query_as::<_, Student>(
-        "SELECT * FROM students WHERE school_id = $1 AND upper(student_number) = upper($2) AND deleted_at IS NULL",
-    )
+    Ok(sqlx::query_as::<_, Student>(sqlx::AssertSqlSafe(format!(
+        "SELECT {COLS} FROM students WHERE school_id = $1 AND upper(student_number) = upper($2) AND deleted_at IS NULL"
+    )))
     .bind(school_id)
     .bind(student_number.trim())
     .fetch_optional(conn)
@@ -265,10 +265,10 @@ pub async fn find_by_legacy_id(
     school_id: Uuid,
     legacy_id: &str,
 ) -> DbResult<Option<Student>> {
-    Ok(sqlx::query_as::<_, Student>(
-        "SELECT * FROM students WHERE school_id = $1 AND upper(legacy_id) = upper($2) AND deleted_at IS NULL
-         ORDER BY created_at LIMIT 1",
-    )
+    Ok(sqlx::query_as::<_, Student>(sqlx::AssertSqlSafe(format!(
+        "SELECT {COLS} FROM students WHERE school_id = $1 AND upper(legacy_id) = upper($2) AND deleted_at IS NULL
+         ORDER BY created_at LIMIT 1"
+    )))
     .bind(school_id)
     .bind(legacy_id.trim())
     .fetch_optional(conn)
