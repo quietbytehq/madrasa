@@ -122,3 +122,22 @@ impl CurrentUser {
         ))
     }
 }
+
+impl CurrentUser {
+    /// Sections the caller may mark or view attendance for: `None` means every section of
+    /// the school; teachers get the sections they are class teacher of or teach in.
+    pub async fn section_scope(
+        &self,
+        conn: &mut sqlx::PgConnection,
+    ) -> Result<Option<Vec<uuid::Uuid>>, ApiError> {
+        if self.can(Permission::StudentsManage) || !self.roles.iter().any(|r| r == "teacher") {
+            return Ok(None);
+        }
+        let Some(staff) = madrasa_db::staff::find_by_user(conn, self.user.id).await? else {
+            return Ok(Some(Vec::new()));
+        };
+        Ok(Some(
+            madrasa_db::staff::section_scope(conn, staff.id).await?,
+        ))
+    }
+}

@@ -728,7 +728,7 @@ async fn staff_attendance_upserts_and_audits() {
         f.school.id,
         monday,
         f.admin,
-        &[leave.clone()],
+        std::slice::from_ref(&leave),
     )
     .await
     .unwrap();
@@ -740,7 +740,7 @@ async fn staff_attendance_upserts_and_audits() {
         f.school.id,
         monday,
         f.admin,
-        &[leave.clone()],
+        std::slice::from_ref(&leave),
     )
     .await
     .unwrap();
