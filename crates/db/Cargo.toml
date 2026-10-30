@@ -14,6 +14,7 @@ testing = []
 [dependencies]
 madrasa-core = { workspace = true }
 chrono = { workspace = true }
+rust_decimal = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sqlx = { workspace = true }
@@ -23,4 +24,5 @@ uuid = { workspace = true }
 tokio = { workspace = true }
 
 [dev-dependencies]
+rust_decimal_macros = "1"
 madrasa-db = { path = ".", features = ["testing"] }

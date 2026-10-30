@@ -53,6 +53,9 @@ pub enum Permission {
     FeesRead,
     #[serde(rename = "fees.manage")]
     FeesManage,
+    /// Approve concessions, waive late fees and reverse receipts.
+    #[serde(rename = "fees.approve")]
+    FeesApprove,
     #[serde(rename = "teachers.read")]
     TeachersRead,
     #[serde(rename = "teachers.manage")]
@@ -85,6 +88,7 @@ impl Permission {
         Permission::ExamsManage,
         Permission::FeesRead,
         Permission::FeesManage,
+        Permission::FeesApprove,
         Permission::TeachersRead,
         Permission::TeachersManage,
         Permission::ReportsRead,
@@ -111,6 +115,7 @@ impl Permission {
             Permission::ExamsManage => "exams.manage",
             Permission::FeesRead => "fees.read",
             Permission::FeesManage => "fees.manage",
+            Permission::FeesApprove => "fees.approve",
             Permission::TeachersRead => "teachers.read",
             Permission::TeachersManage => "teachers.manage",
             Permission::ReportsRead => "reports.read",
@@ -224,6 +229,8 @@ impl RoleCode {
                 ExamsRead,
                 ExamsManage,
                 FeesRead,
+                FeesManage,
+                FeesApprove,
                 TeachersRead,
                 TeachersManage,
                 ReportsRead,
@@ -340,6 +347,12 @@ mod tests {
         assert!(!teacher.contains(&Permission::AcademicsManage));
         assert!(teacher.contains(&Permission::AcademicsRead));
         assert!(!teacher.contains(&Permission::FeesManage));
+        let admin = RoleCode::Admin.default_permissions();
+        assert!(admin.contains(&Permission::FeesManage));
+        assert!(admin.contains(&Permission::FeesApprove));
+        let accountant = RoleCode::Accountant.default_permissions();
+        assert!(accountant.contains(&Permission::FeesManage));
+        assert!(!accountant.contains(&Permission::FeesApprove));
         assert!(teacher.contains(&Permission::AttendanceManage));
         let admin = RoleCode::Admin.default_permissions();
         assert!(admin.contains(&Permission::UsersManage));

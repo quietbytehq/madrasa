@@ -326,3 +326,167 @@ pub struct StudentListRow {
     pub roll_no: Option<i32>,
     pub has_photo: bool,
 }
+
+// ---- M1 stage 2: fees ----------------------------------------------------------------------
+
+use rust_decimal::Decimal;
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct FeeHead {
+    pub id: Uuid,
+    pub school_id: Uuid,
+    pub name: String,
+    pub code: String,
+    pub is_recurring: bool,
+    pub position: i32,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub updated_by: Option<Uuid>,
+    pub deleted_at: Option<DateTime<Utc>>,
+    pub hlc: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct FeeStructure {
+    pub id: Uuid,
+    pub school_id: Uuid,
+    pub academic_year_id: Uuid,
+    pub class_id: Uuid,
+    pub fee_head_id: Uuid,
+    pub amount: Decimal,
+    pub hlc: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct FeeConcession {
+    pub id: Uuid,
+    pub school_id: Uuid,
+    pub student_id: Uuid,
+    pub kind: String,
+    pub percent: Option<Decimal>,
+    pub amount: Option<Decimal>,
+    pub reason: String,
+    pub approved_by: Uuid,
+    pub approved_at: DateTime<Utc>,
+    pub valid_from: chrono::NaiveDate,
+    pub valid_to: Option<chrono::NaiveDate>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub updated_by: Option<Uuid>,
+    pub deleted_at: Option<DateTime<Utc>>,
+    pub hlc: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct FeeVoucher {
+    pub id: Uuid,
+    pub school_id: Uuid,
+    pub student_id: Uuid,
+    pub academic_year_id: Uuid,
+    pub section_id: Option<Uuid>,
+    pub voucher_no: String,
+    pub billing_month: chrono::NaiveDate,
+    pub issue_date: chrono::NaiveDate,
+    pub due_date: chrono::NaiveDate,
+    pub gross: Decimal,
+    pub sibling_discount: Decimal,
+    pub concession_discount: Decimal,
+    pub net_monthly: Decimal,
+    pub arrears: Decimal,
+    pub total_due: Decimal,
+    pub late_fee: Decimal,
+    pub late_fee_waived: bool,
+    pub waiver_reason: Option<String>,
+    pub waived_by: Option<Uuid>,
+    pub waived_at: Option<DateTime<Utc>>,
+    pub net_paid: Decimal,
+    pub status: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub updated_by: Option<Uuid>,
+    pub deleted_at: Option<DateTime<Utc>>,
+    pub hlc: String,
+}
+
+impl FeeVoucher {
+    /// Outstanding balance: total due + assessed late fee − net payments.
+    pub fn balance(&self) -> Decimal {
+        madrasa_core::fees::voucher_balance(self.total_due, self.late_fee, self.net_paid)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct FeeVoucherLine {
+    pub id: Uuid,
+    pub voucher_id: Uuid,
+    pub fee_head_id: Option<Uuid>,
+    pub description: String,
+    pub amount: Decimal,
+    pub position: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct FeeReceipt {
+    pub id: Uuid,
+    pub school_id: Uuid,
+    pub voucher_id: Uuid,
+    pub student_id: Uuid,
+    pub receipt_no: String,
+    pub paid_on: chrono::NaiveDate,
+    pub amount: Decimal,
+    pub method: String,
+    pub reference: Option<String>,
+    pub note: Option<String>,
+    pub reverses_id: Option<Uuid>,
+    pub reversal_reason: Option<String>,
+    pub received_by: Uuid,
+    pub created_at: DateTime<Utc>,
+    pub hlc: String,
+}
+
+/// Voucher list row with student and class names.
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct FeeVoucherRow {
+    pub id: Uuid,
+    pub voucher_no: String,
+    pub billing_month: chrono::NaiveDate,
+    pub due_date: chrono::NaiveDate,
+    pub student_id: Uuid,
+    pub student_number: String,
+    pub student_name: String,
+    pub class_name: Option<String>,
+    pub section_name: Option<String>,
+    pub gross: Decimal,
+    pub sibling_discount: Decimal,
+    pub concession_discount: Decimal,
+    pub arrears: Decimal,
+    pub total_due: Decimal,
+    pub late_fee: Decimal,
+    pub late_fee_waived: bool,
+    pub net_paid: Decimal,
+    pub status: String,
+}
+
+/// Defaulter list row.
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct Defaulter {
+    pub student_id: Uuid,
+    pub student_number: String,
+    pub student_name: String,
+    pub father_name: String,
+    pub class_name: Option<String>,
+    pub section_name: Option<String>,
+    pub guardian_phone: Option<String>,
+    pub oldest_due_date: chrono::NaiveDate,
+    pub days_overdue: i32,
+    pub unpaid_vouchers: i64,
+    pub balance: Decimal,
+}
+
+/// Daily collection summary row (per method).
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct CollectionByMethod {
+    pub method: String,
+    pub receipts: i64,
+    pub amount: Decimal,
+}

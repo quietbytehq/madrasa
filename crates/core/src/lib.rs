@@ -5,6 +5,7 @@
 
 pub mod backup;
 pub mod edition;
+pub mod fees;
 pub mod hlc;
 pub mod ids;
 pub mod password;
