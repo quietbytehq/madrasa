@@ -306,7 +306,7 @@ async fn produce(
 /// Remove the oldest Madrasa backup files beyond `keep`.
 fn prune(dir: &Path, keep: usize) {
     let mut files = list_files(dir);
-    files.sort_by(|a, b| b.modified.cmp(&a.modified));
+    files.sort_by_key(|f| std::cmp::Reverse(f.modified));
     for f in files.into_iter().skip(keep.max(1)) {
         let _ = std::fs::remove_file(&f.path);
     }
@@ -351,7 +351,7 @@ fn list_files(dir: &Path) -> Vec<BackupFile> {
                 .unwrap_or_else(|_| Utc::now()),
         });
     }
-    out.sort_by(|a, b| b.modified.cmp(&a.modified));
+    out.sort_by_key(|f| std::cmp::Reverse(f.modified));
     out
 }
 
