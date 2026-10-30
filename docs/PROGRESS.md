@@ -233,3 +233,41 @@ depend on each other and were built together)
 - Not done / notes: the `collections` summary covers one day at a time (no date range yet);
   voucher PDF files are produced through the print dialog rather than generated server-side;
   bank/1Bill/Kuickpay integrations are manual reference entry only, as specified.
+
+### 2026-10-30 — Stage 3: Attendance (branch `m1-stage-3-attendance`)
+- Branch note: GitHub still showed pull requests #1–#3 open and `main` at the initial commit
+  when this stage started, so the branch was cut from the Stage 2 tip (`975a8c0`). Once those
+  merge, the pull request diff reduces to the attendance commits.
+- Done, `crates/core`: `attendance` module (statuses with present as the default, staff
+  statuses, summaries with the attendance percentage, holiday spans, weekend days, day kind,
+  month and school-day helpers, weekend validation); new permission `attendance.correct`
+  (admin, principal). 5 unit tests.
+- Done, `crates/db`: migration `0004_attendance.sql` (`holidays`, `attendance_sheets`,
+  `attendance_entries`, `staff_attendance`, grant of `attendance.correct`). Repository
+  `attendance`: weekend setting, holidays, section roster, sheet submission with one entry per
+  enrolled student in a single bulk insert, corrections that update only what differs and
+  audit each changed entry, sheet history query, student history and summary, monthly section
+  entries, absentee and daily status reports, staff attendance upserts with audit. 5
+  integration tests.
+- Done, `crates/api`: `/attendance/*` and `/dashboard` (spec §6.4). Teachers are limited to
+  their own sections; corrections need `attendance.correct` (teachers get
+  `403 already_submitted`); weekends, holidays and future dates are refused; staff attendance
+  needs `teachers.manage`. 3 end-to-end tests.
+- Done, UI: Attendance page with tabs Mark (section + date, everyone present, keyboard
+  ↑ ↓ / P A L V / Enter, note per exception, summary line, submit or correct, history dialog),
+  Monthly register (students × days, weekends and holidays shaded, totals and %), Absentees
+  (date and class, guardian phone), Staff (present/absent/leave with note), Calendar (weekend
+  days, holidays). Student profile Attendance tab (summary cards and days). Dashboard card
+  shows today's percentage, "x of y sections marked" and chips linking to each unmarked
+  section. English and Urdu strings.
+- Done, demo data: Sunday off, Labour Day and Eid holidays, every section marked on each of
+  the 47 school days of April and May (≈4 % absent, 2 % late, 1 % leave) by its class
+  teacher, staff attendance for the same days.
+- Tested: core 51 unit tests (5 new); db 26 integration tests (5 new); api 16 (3 new); demo
+  data 6; vitest 79 (8 new: keyboard marking and exception-only payload, locked sheet for
+  teachers, admin correction with history, holiday notice, staff save, calendar edits,
+  dashboard card and no-school day, student view). fmt, clippy, eslint, prettier and tsc clean.
+- Not done / notes: per-period attendance is out of scope for Lite v1 (daily only, as the
+  task list specifies); the register and absentee views are on screen only, printing and
+  Excel export arrive with Stage 6; the dashboard's other cards remain placeholders until
+  Stage 7.

@@ -219,6 +219,35 @@ Every change to money (structure, concession, voucher, waiver, payment, reversal
 area) and receipt pages render in light colours only; "PDF export" uses the operating system's
 print dialog (Save as PDF), there is no separate PDF generator.
 
+### 5.6 Attendance (M1 stage 3)
+
+| Table | Purpose |
+| --- | --- |
+| `holidays` | Holidays and closures as inclusive date ranges: `name`, `starts_on`, `ends_on`. Weekly off days are the `settings` key `attendance.weekend_days` (ISO weekday numbers, default `[7]` = Sunday). |
+| `attendance_sheets` | One per `section_id` and `date` (unique while not deleted): `academic_year_id`, `marked_by`, `submitted_at` and the counts `present`, `absent`, `late`, `leave`. |
+| `attendance_entries` | One per enrolled student on a sheet: `student_id`, `date` (copied from the sheet for fast history), `status` (present, absent, late, leave), `note`. |
+| `staff_attendance` | One per `staff_id` and `date`: `status` (present, absent, leave), `note`, `marked_by`. |
+
+Rules:
+
+- **Everyone is present by default.** The marking screen sends only the exceptions; the
+  server stores one entry per active student enrolled in the section so history, the register
+  and corrections are exact.
+- **Submission and corrections.** The first save submits the sheet. A later save is a
+  correction and needs `attendance.correct` (principal and admin by default); the API answers
+  `403 already_submitted` otherwise. Every changed entry is audit-logged with its old and new
+  value (`attendance_entry`), and the sheet's counts change is logged too (`attendance_sheet`).
+  The history endpoint returns this trail with the names of the user and student.
+- **No attendance on weekends or holidays**, and none for a future date. The calendar is
+  checked server-side; the UI explains the reason and hides the submit button.
+- **Teacher scope.** A teacher may read and mark only sections they are class teacher of or
+  teach in (`CurrentUser::section_scope`); the status, absentee and student history views are
+  filtered the same way. Admin and principal see every section.
+- **Attendance percentage** = (present + late) / (present + absent + late + leave), one
+  decimal; `null` until something is marked. Late counts as attended; leave does not.
+- **Staff attendance** is simple daily present / absent / leave, saved by users with
+  `teachers.manage` (admin, principal) and audited per staff member.
+
 ## 6. API conventions
 
 - Base path `/api/v1`. JSON request and response bodies. `snake_case` keys.
@@ -290,6 +319,24 @@ print dialog (Save as PDF), there is no separate PDF generator.
 
 Role defaults: accountant has `fees.read` + `fees.manage`; admin and principal also have
 `fees.approve`; teachers have no fee permissions.
+
+### 6.4 M1 stage 3 endpoints
+
+| Method | Path | Permission | Purpose |
+| --- | --- | --- | --- |
+| GET | `/attendance/calendar` | `attendance.read` | Weekend days and holidays (`from`, `to`) |
+| PUT | `/attendance/calendar/weekend` | `academics.manage` | Set weekend days (1 = Monday … 7 = Sunday) |
+| POST, DELETE | `/attendance/calendar/holidays`, `/attendance/calendar/holidays/{id}` | `academics.manage` | Holidays and closures |
+| GET | `/attendance/sheet` | `attendance.read` + section scope | Roster with the day's entries, day kind, `can_edit`, `is_correction` |
+| PUT | `/attendance/sheet` | `attendance.manage` + scope; corrections `attendance.correct` | Submit or correct a sheet (exceptions only) |
+| GET | `/attendance/sheet/history` | `attendance.read` + scope | Audit trail of a sheet |
+| GET | `/attendance/status` | `attendance.read` | Every section's marking state for a date, with totals and percentage |
+| GET | `/attendance/absentees` | `attendance.read` | Absent, late and on-leave students for a date (`class_id`), with guardian phone |
+| GET | `/attendance/register` | `attendance.read` + scope | Students × days of a month for a section |
+| GET | `/attendance/students/{id}` | `attendance.read` + scope | Summary and days for a student (`from`, `to`; default from the year start) |
+| GET/PUT | `/attendance/staff` | `teachers.read` / `teachers.manage` | Staff attendance for a date |
+| GET | `/attendance/staff/{id}` | `teachers.read` | Staff history |
+| GET | `/dashboard` | any user | Today's day kind and, with `attendance.read`, the attendance totals and the sections not yet marked |
 
 ## 7. Security
 
