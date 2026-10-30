@@ -64,14 +64,14 @@ Pilot school: K-12, ~1,200 students, ~120 staff. Details in docs/spec.md ("Pilot
 - [x] Tests: weighted calculation, grading boundaries, rounding
 
 ## Stage 5 — Encrypted backup and restore
-- [ ] Scheduled automatic backup (default nightly) to local folder, USB or network path
-- [ ] AES-256-GCM encryption; key from backup password via Argon2id; recovery key from setup wizard works
-- [ ] Signed/verified backups; restore refuses tampered files
-- [ ] One-click restore with password; restore preview (backup date, school, record counts)
-- [ ] Backup status on dashboard; warning if last backup is older than 2 days
-- [ ] Password change applies to new backups only, with clear warning
-- [ ] Audit log for every backup, restore and failed password attempt
-- [ ] Tests: backup → restore round trip, wrong password, tampered file
+- [x] Scheduled automatic backup (default nightly) to local folder, USB or network path
+- [x] AES-256-GCM encryption; key from backup password via Argon2id; recovery key from setup wizard works
+- [x] Signed/verified backups; restore refuses tampered files
+- [x] One-click restore with password; restore preview (backup date, school, record counts)
+- [x] Backup status on dashboard; warning if last backup is older than 2 days
+- [x] Password change applies to new backups only, with clear warning
+- [x] Audit log for every backup, restore and failed password attempt
+- [x] Tests: backup → restore round trip, wrong password, tampered file
 
 ## Stage 6 — Excel/CSV import wizard
 - [ ] Downloadable templates: students + guardians, staff, opening fee balances

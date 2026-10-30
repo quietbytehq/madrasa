@@ -1,4 +1,4 @@
-import { CalendarCheck, Coins, UserRound, Users } from "lucide-react";
+import { CalendarCheck, Coins, DatabaseBackup, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api } from "@/api/endpoints";
 import { Badge } from "@/components/ui/Badge";
@@ -11,8 +11,8 @@ import { useSession } from "@/app/session";
 import { PageHeader } from "./PageHeader";
 
 export function Dashboard() {
-  const { t } = useI18n();
-  const { user } = useSession();
+  const { t, formatDate } = useI18n();
+  const { user, can } = useSession();
   const { edition } = useFeatures();
   const dash = useAsync(() => api.dashboard(), []);
   const att = dash.data?.attendance ?? null;
@@ -27,8 +27,8 @@ export function Dashboard() {
   const cards = [
     { key: "students", icon: Users, label: t("dashboard.card.students") },
     { key: "fees", icon: Coins, label: t("dashboard.card.feesCollected") },
-    { key: "staff", icon: UserRound, label: t("dashboard.card.staff") },
   ];
+  const backup = dash.data?.backup ?? null;
 
   return (
     <>
@@ -65,6 +65,31 @@ export function Dashboard() {
                     total: att.totals.sections,
                   })
                 : t("dashboard.card.placeholder")}
+          </p>
+        </Card>
+        <Card padded={false} className="p-3" data-testid="backup-card">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted">
+              {t("dashboard.card.backup")}
+            </span>
+            <DatabaseBackup className="h-4 w-4 text-muted" aria-hidden />
+          </div>
+          <div
+            className={`mt-2 text-2xl font-semibold tabular-nums ${backup?.stale ? "text-danger" : "text-navy"}`}
+          >
+            {backup?.last_backup_at ? formatDate(backup.last_backup_at) : "—"}
+          </div>
+          <p className={`mt-1 text-xs ${backup?.stale ? "text-danger" : "text-muted"}`}>
+            {backup
+              ? backup.stale
+                ? t("backup.status.stale")
+                : t("backup.status.ok")
+              : t("dashboard.card.placeholder")}{" "}
+            {can("backup.manage") && (
+              <Link to="/backup" className="text-blue hover:underline">
+                {t("dashboard.backup.open")}
+              </Link>
+            )}
           </p>
         </Card>
         {cards.map(({ key, icon: Icon, label }) => (

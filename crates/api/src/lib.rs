@@ -4,6 +4,7 @@
 //! `madrasa-server` binary (Standard). Permission checks happen here, never only in the UI.
 
 pub mod auth;
+pub mod backup;
 pub mod bootstrap;
 pub mod error;
 pub mod routes;
@@ -38,6 +39,7 @@ pub fn router(state: AppState) -> Router {
         .merge(routes::fees::router())
         .merge(routes::attendance::router())
         .merge(routes::exams::router())
+        .merge(routes::backup::router())
         .with_state(state);
 
     // The UI is served from a different origin in `vite dev` (http://localhost:1420) and from

@@ -837,6 +837,7 @@ pub struct DashboardView {
     pub date: NaiveDate,
     pub day_kind: DayKind,
     pub attendance: Option<DashboardAttendance>,
+    pub backup: crate::backup::BackupStatus,
 }
 
 #[derive(Debug, Serialize)]
@@ -872,9 +873,11 @@ async fn dashboard(
     } else {
         None
     };
+    let backup = crate::backup::status(&mut c, user.user.school_id).await?;
     Ok(Json(DashboardView {
         date,
         day_kind,
         attendance,
+        backup,
     }))
 }

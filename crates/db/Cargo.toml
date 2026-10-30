@@ -12,6 +12,7 @@ rust-version.workspace = true
 testing = []
 
 [dependencies]
+futures-util = "0.3"
 madrasa-core = { workspace = true }
 chrono = { workspace = true }
 rust_decimal = { workspace = true }

@@ -1,5 +1,11 @@
 import { request } from "./client";
 import type {
+  BackupFile,
+  BackupRun,
+  BackupSettings,
+  BackupStatus,
+  RestorePreview,
+  RestoreResult,
   AssessmentType,
   GradingScheme,
   MarksSheetView,
@@ -319,4 +325,24 @@ export const api = {
     request<ReportCard[]>(`/exams/results/section/report-cards${qs({ section_id })}`),
   studentReportCard: (studentId: string, academic_year_id?: string) =>
     request<ReportCard>(`/exams/results/student/${studentId}${qs({ academic_year_id })}`),
+
+  // Backup
+  backupStatus: () => request<BackupStatus>("/backup/status"),
+  backupSettings: () => request<BackupSettings>("/backup/settings"),
+  saveBackupSettings: (body: BackupSettings) =>
+    request<BackupSettings>("/backup/settings", { method: "PUT", body }),
+  runBackup: () => request<BackupRun>("/backup/run", { method: "POST", body: {} }),
+  backupRuns: (limit = 20) => request<BackupRun[]>(`/backup/runs${qs({ limit })}`),
+  backupFiles: () => request<BackupFile[]>("/backup/files"),
+  previewRestore: (path: string) =>
+    request<RestorePreview>("/backup/preview", { method: "POST", body: { path } }),
+  restoreBackup: (body: { path: string; password?: string; recovery_key?: string }) =>
+    request<RestoreResult>("/backup/restore", { method: "POST", body }),
+  changeBackupPassword: (body: {
+    current_password?: string;
+    recovery_key?: string;
+    new_password: string;
+  }) => request<void>("/backup/password", { method: "POST", body }),
+  unlockBackups: (body: { password?: string; recovery_key?: string }) =>
+    request<void>("/backup/unlock", { method: "POST", body }),
 };

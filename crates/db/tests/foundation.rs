@@ -74,6 +74,7 @@ async fn migrations_apply_and_tables_follow_the_rules() {
             "attendance_entries",
             "attendance_sheets",
             "audit_log",
+            "backup_runs",
             "class_subjects",
             "classes",
             "custom_field_definitions",

@@ -75,7 +75,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     labelKey: "nav.backup",
     icon: DatabaseBackup,
     feature: "backup",
-    available: false,
+    available: true,
   },
   {
     path: "/settings",
