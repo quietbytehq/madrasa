@@ -53,8 +53,8 @@ Tick `[x]` only when built AND tested. Log progress in docs/PROGRESS.md.
 - [x] Never runs automatically on a real install
 
 ## 10. CI and packaging
-- [x] GitHub Actions: lint, tests, build on Linux and Windows (workflow written; first run pending push, see BLOCKERS)
-- [x] Release artifacts: .deb, AppImage or Snap, Windows installer (unsigned is fine for now) — .deb and AppImage built and installed locally; NSIS only via the Windows CI job (not yet run)
+- [x] GitHub Actions: lint, tests, build on Linux and Windows
+- [x] Release artifacts: .deb, AppImage or Snap, Windows installer (unsigned is fine for now) — .deb/AppImage built locally, NSIS built in CI
 
 ## Done when
 Fresh install → setup wizard → login → themed dashboard, on both Linux and Windows CI builds, with all tests passing and docs/PROGRESS.md up to date.

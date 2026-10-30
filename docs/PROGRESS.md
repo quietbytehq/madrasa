@@ -126,15 +126,17 @@ depend on each other and were built together)
   desktop entry, icons). Full flow driven with xdotool under Xvfb on a fresh data directory:
   bundled PostgreSQL starts → setup wizard (5 steps) → recovery key page → login → themed
   dashboard. Screenshots reviewed at 1366×768.
-- Not verified: the Windows job, NSIS installer and the release workflow have not executed
-  because the branch cannot be pushed from this session (docs/BLOCKERS.md).
+- Verified in CI after the push: all jobs green on Linux and Windows, NSIS installer
+  artifact produced. The release workflow (tag `v*`) has not been exercised yet.
 
 ### M0 status
 - Linux: "fresh install → setup wizard → login → themed dashboard" works in the packaged app;
   all tests pass (core 27, db 9, api 6, demo-data 5, vitest 45); fmt, clippy, eslint,
   prettier and tsc are clean.
-- Windows: builds are configured in CI but have not run. Until they do, M0's "both Linux and
-  Windows CI builds" condition is open.
+- Windows: CI run 41022747057 passed: fmt, clippy, unit tests, the bundled-PostgreSQL server
+  build and the NSIS desktop installer all succeed on windows-latest. Together with the Linux
+  verification this meets M0's "both Linux and Windows CI builds" condition. (The installed
+  Windows app has not been exercised by hand; that is the first thing to do on a Windows PC.)
 - Fixes found during verification: the setup gate used to redirect to login before the
   recovery key could be read (fixed and tested); the embedded database start now stops a
   stale or orphaned server first; `madrasa-server` handles SIGTERM so the bundled database

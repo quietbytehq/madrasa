@@ -16,8 +16,10 @@ Each entry: date, task, what is blocked, what was done instead.
 - Done instead: work continues as local commits on `claude/kind-franklin-ac2vjh`; the push is
   retried after each task.
 
-## 2026-10-30 — Task 10: CI has not run; Windows build and installer unverified
-- Update: the first CI run is now queued (see above); its Windows jobs decide this item.
+## 2026-10-30 — Task 10: CI has not run; Windows build and installer unverified (RESOLVED)
+- Resolved: CI run https://github.com/quietbytehq/madrasa/actions/runs/41022747057 passed all
+  five jobs (frontend; Rust on Linux with PostgreSQL and on Windows; desktop bundles on
+  Linux and Windows, NSIS installer uploaded as an artifact).
 - Blocked (original): the workflows in `.github/workflows/` cannot be executed from this session because
   the branch cannot be pushed (see above) and there is no Windows machine here. The Linux CI
   steps were mirrored locally (fmt, clippy, tests against PostgreSQL 16, `tauri build`), but
