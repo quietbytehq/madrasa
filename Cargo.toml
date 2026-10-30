@@ -1,0 +1,48 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/core",
+  "crates/db",
+  "crates/api",
+  "crates/demo-data",
+  "apps/desktop/src-tauri",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/quietbytehq/madrasa"
+rust-version = "1.85"
+
+[workspace.dependencies]
+madrasa-core = { path = "crates/core" }
+madrasa-db = { path = "crates/db" }
+madrasa-api = { path = "crates/api" }
+madrasa-demo-data = { path = "crates/demo-data" }
+
+anyhow = "1"
+thiserror = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v7", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+rust_decimal = { version = "1", features = ["serde", "db-postgres"] }
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres", "migrate", "macros", "uuid", "chrono", "json", "rust_decimal"] }
+axum = "0.8"
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+argon2 = { version = "0.5", features = ["std"] }
+aes-gcm = "0.10"
+rand = "0.8"
+sha2 = "0.10"
+base64 = "0.22"
+hex = "0.4"
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+strip = true

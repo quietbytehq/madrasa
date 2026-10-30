@@ -1,0 +1,10 @@
+[package]
+name = "madrasa-demo-data"
+description = "Madrasa demo data generator (fake school, clearly marked DEMO)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]

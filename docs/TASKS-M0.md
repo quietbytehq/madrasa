@@ -5,9 +5,9 @@ Goal: Madrasa installs on a fresh Linux or Windows PC, runs a setup wizard, lets
 Tick `[x]` only when built AND tested. Log progress in docs/PROGRESS.md.
 
 ## 1. Repo
-- [ ] Apache 2.0 LICENSE, README (what Madrasa is, editions, status: pre-alpha), .gitignore, CONTRIBUTING.md stub
-- [ ] Folder layout per CLAUDE.md; Cargo workspace + pnpm workspace
-- [ ] docs/spec.md present
+- [x] Apache 2.0 LICENSE, README (what Madrasa is, editions, status: pre-alpha), .gitignore, CONTRIBUTING.md stub
+- [x] Folder layout per CLAUDE.md; Cargo workspace + pnpm workspace
+- [x] docs/spec.md present
 
 ## 2. App skeleton
 - [ ] Tauri 2 + React + TS + Vite + Tailwind app builds and launches

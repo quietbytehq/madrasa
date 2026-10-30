@@ -1,0 +1,10 @@
+[package]
+name = "madrasa-core"
+description = "Madrasa domain logic: permissions, editions, crypto helpers, clocks"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
