@@ -10,20 +10,20 @@ Tick `[x]` only when built AND tested. Log progress in docs/PROGRESS.md.
 - [x] docs/spec.md present
 
 ## 2. App skeleton
-- [ ] Tauri 2 + React + TS + Vite + Tailwind app builds and launches
-- [ ] Lint, format and type-check scripts (eslint, prettier, clippy, rustfmt)
+- [x] Tauri 2 + React + TS + Vite + Tailwind app builds and launches
+- [x] Lint, format and type-check scripts (eslint, prettier, clippy, rustfmt)
 
 ## 3. Design system
-- [ ] Theme tokens (light + dark) as CSS variables and Tailwind config
-- [ ] Inter + Noto Nastaliq Urdu fonts bundled locally (app must work offline)
-- [ ] Components: Button, Input, Select, Table (sort/filter/paginate), Card, Badge, Dialog, Toast, EmptyState, Spinner, Breadcrumbs
-- [ ] i18n layer with English and Urdu; RTL switch verified on all components
+- [x] Theme tokens (light + dark) as CSS variables and Tailwind config
+- [x] Inter + Noto Nastaliq Urdu fonts bundled locally (app must work offline)
+- [x] Components: Button, Input, Select, Table (sort/filter/paginate), Card, Badge, Dialog, Toast, EmptyState, Spinner, Breadcrumbs
+- [x] i18n layer with English and Urdu; RTL switch verified on all components
 
 ## 4. App shell
-- [ ] Sidebar: Dashboard, Students, Attendance, Examinations, Fees & Finance, Teachers, Reports, Backup, Settings (others hidden by edition flag)
-- [ ] Top bar: search (Ctrl+K, stub), notifications (stub), help, user menu with logout and language switch
-- [ ] Empty dashboard with placeholder cards; unfinished modules show "Coming soon"
-- [ ] Usable at 1366×768 and 1920×1080; keyboard navigation works
+- [x] Sidebar: Dashboard, Students, Attendance, Examinations, Fees & Finance, Teachers, Reports, Backup, Settings (others hidden by edition flag)
+- [x] Top bar: search (Ctrl+K, stub), notifications (stub), help, user menu with logout and language switch
+- [x] Empty dashboard with placeholder cards; unfinished modules show "Coming soon"
+- [x] Usable at 1366×768 and 1920×1080; keyboard navigation works
 
 ## 5. Backend + database
 - [ ] Axum API under /api/v1 with health endpoint
