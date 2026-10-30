@@ -113,3 +113,29 @@ depend on each other and were built together)
   refuses with a real school present and inserts nothing). CLI run manually against a
   scratch database: refused without `--yes`, loaded 120 accounts with it.
 - Left: persisting students/classes once M1 adds their tables.
+
+### 2026-10-30 — Task 10: CI and packaging
+- Done: `.github/workflows/ci.yml` (frontend lint/format/types/tests/build; Rust fmt, clippy
+  incl. the `embedded-postgres` feature, tests with a PostgreSQL 16 service on Linux and
+  skipped DB tests on Windows; desktop bundles `deb,appimage` on Linux and `nsis` on Windows
+  uploaded as artifacts) and `release.yml` (tag `v*` → draft pre-release with unsigned
+  installers via `tauri-apps/tauri-action`). Bundled-PostgreSQL archive cached in CI.
+- Tested locally (Linux): `pnpm tauri build --bundles deb,appimage` produced
+  `Madrasa_0.1.0_amd64.deb` (45 MiB, depends on libwebkit2gtk-4.1-0 and libgtk-3-0) and
+  `Madrasa_0.1.0_amd64.AppImage` (120 MiB); the `.deb` installs with `dpkg -i` (binary,
+  desktop entry, icons). Full flow driven with xdotool under Xvfb on a fresh data directory:
+  bundled PostgreSQL starts → setup wizard (5 steps) → recovery key page → login → themed
+  dashboard. Screenshots reviewed at 1366×768.
+- Not verified: the Windows job, NSIS installer and the release workflow have not executed
+  because the branch cannot be pushed from this session (docs/BLOCKERS.md).
+
+### M0 status
+- Linux: "fresh install → setup wizard → login → themed dashboard" works in the packaged app;
+  all tests pass (core 27, db 9, api 6, demo-data 5, vitest 45); fmt, clippy, eslint,
+  prettier and tsc are clean.
+- Windows: builds are configured in CI but have not run. Until they do, M0's "both Linux and
+  Windows CI builds" condition is open.
+- Fixes found during verification: the setup gate used to redirect to login before the
+  recovery key could be read (fixed and tested); the embedded database start now stops a
+  stale or orphaned server first; `madrasa-server` handles SIGTERM so the bundled database
+  shuts down cleanly.
