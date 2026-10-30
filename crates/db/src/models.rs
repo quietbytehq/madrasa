@@ -712,3 +712,33 @@ pub struct BackupRun {
     pub file_size: Option<i64>,
     pub error: Option<String>,
 }
+
+// ---- M1 stage 6: imports -------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ImportBatch {
+    pub id: Uuid,
+    pub school_id: Uuid,
+    pub kind: String,
+    pub file_name: String,
+    pub status: String,
+    pub options: Value,
+    pub total_rows: i32,
+    pub created_rows: i32,
+    pub updated_rows: i32,
+    pub skipped_rows: i32,
+    pub applied_by: Option<Uuid>,
+    pub applied_at: DateTime<Utc>,
+    pub rolled_back_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ImportBatchRow {
+    pub id: Uuid,
+    pub batch_id: Uuid,
+    pub row_no: i32,
+    pub action: String,
+    pub entity: String,
+    pub entity_id: Option<Uuid>,
+    pub old_value: Option<Value>,
+}

@@ -42,6 +42,71 @@ pub async fn set_policy(
     Ok(())
 }
 
+/// A voucher that carries an opening balance brought over from the old register: no charge
+/// lines, the amount as arrears, due on issue. Later months carry it forward like any other
+/// unpaid balance.
+#[allow(clippy::too_many_arguments)]
+pub async fn create_opening_balance(
+    conn: &mut PgConnection,
+    hlc: &Hlc,
+    actor: Actor,
+    school_id: Uuid,
+    student_id: Uuid,
+    academic_year_id: Uuid,
+    billing_month: NaiveDate,
+    amount: Decimal,
+    note: Option<&str>,
+) -> DbResult<FeeVoucher> {
+    if amount <= Decimal::ZERO || fees::money(amount) != amount {
+        return Err(DbError::Conflict(
+            "opening balance must be a positive amount with at most two decimals".into(),
+        ));
+    }
+    let section_id = students::section_in_year(&mut *conn, student_id, academic_year_id).await?;
+    let seq = students::next_sequence(
+        &mut *conn,
+        hlc,
+        school_id,
+        &format!("voucher_no:{}", billing_month.year()),
+    )
+    .await?;
+    let voucher_no = format!(
+        "V{}{:02}-{:05}",
+        billing_month.year(),
+        billing_month.month(),
+        seq
+    );
+    let voucher = sqlx::query_as::<_, FeeVoucher>(
+        "INSERT INTO fee_vouchers (id, school_id, student_id, academic_year_id, section_id, voucher_no, billing_month, issue_date, due_date,
+            gross, sibling_discount, concession_discount, net_monthly, arrears, total_due, status, updated_by, hlc)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $7, $7, 0, 0, 0, 0, $8, $8, 'unpaid', $9, $10) RETURNING *",
+    )
+    .bind(new_id())
+    .bind(school_id)
+    .bind(student_id)
+    .bind(academic_year_id)
+    .bind(section_id)
+    .bind(&voucher_no)
+    .bind(billing_month)
+    .bind(amount)
+    .bind(actor.user_id)
+    .bind(hlc.now().to_string())
+    .fetch_one(&mut *conn)
+    .await?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Create,
+        "fee_voucher",
+        Some(voucher.id),
+        None,
+        Some(serde_json::json!({ "opening_balance": amount, "note": note, "voucher_no": voucher_no })),
+    )
+    .await?;
+    Ok(voucher)
+}
+
 // ---- heads --------------------------------------------------------------------------------
 
 #[allow(clippy::too_many_arguments)]

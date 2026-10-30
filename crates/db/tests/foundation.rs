@@ -87,6 +87,8 @@ async fn migrations_apply_and_tables_follow_the_rules() {
             "fee_vouchers",
             "guardians",
             "holidays",
+            "import_batch_rows",
+            "import_batches",
             "mark_sheets",
             "marks",
             "permissions",
