@@ -74,6 +74,12 @@ async fn migrations_apply_and_tables_follow_the_rules() {
             "classes",
             "custom_field_definitions",
             "enrollments",
+            "fee_concessions",
+            "fee_heads",
+            "fee_receipts",
+            "fee_structures",
+            "fee_voucher_lines",
+            "fee_vouchers",
             "guardians",
             "permissions",
             "roles",
@@ -129,7 +135,7 @@ async fn migrations_apply_and_tables_follow_the_rules() {
 
         // Rule 2: sync columns on every mutable table; hlc everywhere.
         assert_eq!(col("hlc").unwrap().1, "text", "{table}.hlc");
-        if table != "audit_log" {
+        if table != "audit_log" && table != "fee_receipts" {
             for name in ["created_at", "updated_at", "deleted_at"] {
                 assert_eq!(
                     col(name)

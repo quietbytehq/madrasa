@@ -55,7 +55,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     feature: "examinations",
     available: false,
   },
-  { path: "/fees", labelKey: "nav.fees", icon: Coins, feature: "fees", available: false },
+  { path: "/fees", labelKey: "nav.fees", icon: Coins, feature: "fees", available: true },
   {
     path: "/teachers",
     labelKey: "nav.teachers",

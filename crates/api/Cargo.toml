@@ -23,6 +23,7 @@ anyhow = { workspace = true }
 axum = { workspace = true }
 base64 = { workspace = true }
 chrono = { workspace = true }
+rust_decimal = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sqlx = { workspace = true }
@@ -39,3 +40,4 @@ dirs = "6"
 [dev-dependencies]
 madrasa-db = { workspace = true, features = ["testing"] }
 http-body-util = "0.1"
+rust_decimal_macros = "1"

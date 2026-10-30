@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import { AppShell } from "@/layout/AppShell";
 import { Dashboard } from "@/pages/Dashboard";
 import { ComingSoon } from "@/pages/ComingSoon";
+import { FeesPage } from "@/pages/fees/FeesPage";
+import { ReceiptPrintPage, VoucherPrintPage } from "@/pages/fees/PrintPages";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { StaffPage } from "@/pages/staff/StaffPage";
 import { StudentFormPage } from "@/pages/students/StudentForm";
@@ -57,6 +59,13 @@ export function AppRoutes({ login, setup }: AppRoutesProps) {
             <Route path="/students/new" element={<StudentFormPage />} />
             <Route path="/students/:id" element={<StudentProfile />} />
             <Route path="/students/:id/edit" element={<StudentFormPage />} />
+          </>
+        )}
+        {has("fees") && (
+          <>
+            <Route path="/fees" element={<FeesPage />} />
+            <Route path="/fees/vouchers/:id/print" element={<VoucherPrintPage />} />
+            <Route path="/fees/receipts/:id/print" element={<ReceiptPrintPage />} />
           </>
         )}
         {has("teachers") && <Route path="/teachers" element={<StaffPage />} />}

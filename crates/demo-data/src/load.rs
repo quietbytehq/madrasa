@@ -5,11 +5,15 @@ use crate::generate::DemoSchool;
 use crate::DEMO_PASSWORD;
 use chrono::{NaiveDate, Utc};
 use madrasa_core::edition::Edition;
+use madrasa_core::fees::PaymentMethod;
 use madrasa_core::hlc::Hlc;
 use madrasa_core::password::hash_password;
 use madrasa_db::{
-    academics, guardians, roles, schools, settings, staff, students, users, Actor, PgPool,
+    academics, fees, guardians, roles, schools, settings, staff, students, users, Actor, PgPool,
 };
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
+use rust_decimal_macros::dec;
 use serde::Serialize;
 use serde_json::json;
 use std::collections::HashMap;
@@ -32,6 +36,8 @@ pub struct LoadReport {
     pub sections: usize,
     pub students: usize,
     pub guardians: usize,
+    pub vouchers: usize,
+    pub receipts: usize,
     pub files_written: Vec<PathBuf>,
 }
 
@@ -293,6 +299,121 @@ pub async fn load(
         }
     }
 
+    // Fees: heads, a structure per class, April and May vouchers, ~70% of April paid (some late).
+    let principal_user = users::find_by_username(&mut tx, school.id, &demo.staff[0].username)
+        .await?
+        .map(|u| u.id)
+        .ok_or_else(|| anyhow::anyhow!("principal missing"))?;
+    let tuition =
+        fees::create_head(&mut tx, hlc, actor, school.id, "Tuition", "TUI", true, 0).await?;
+    let exam = fees::create_head(&mut tx, hlc, actor, school.id, "Exam", "EXM", true, 1).await?;
+    let admission =
+        fees::create_head(&mut tx, hlc, actor, school.id, "Admission", "ADM", false, 2).await?;
+    for grade in 0..=12u8 {
+        let class_id = class_ids[&grade];
+        let tuition_amount = dec!(2500) + rust_decimal::Decimal::from(grade) * dec!(150);
+        fees::set_structure(
+            &mut tx,
+            hlc,
+            actor,
+            school.id,
+            year.id,
+            class_id,
+            tuition.id,
+            tuition_amount,
+        )
+        .await?;
+        fees::set_structure(
+            &mut tx,
+            hlc,
+            actor,
+            school.id,
+            year.id,
+            class_id,
+            exam.id,
+            dec!(300),
+        )
+        .await?;
+        fees::set_structure(
+            &mut tx,
+            hlc,
+            actor,
+            school.id,
+            year.id,
+            class_id,
+            admission.id,
+            dec!(5000),
+        )
+        .await?;
+    }
+    let mut vouchers = 0usize;
+    let mut receipts = 0usize;
+    let mut rng = StdRng::seed_from_u64(77);
+    let april = chrono::NaiveDate::from_ymd_opt(demo.academic_year_start, 4, 1).expect("date");
+    let rep = fees::generate_vouchers(&mut tx, hlc, actor, school.id, year.id, april, None, april)
+        .await?;
+    vouchers += rep.created;
+    let policy = fees::policy(&mut tx, school.id).await?;
+    for vid in &rep.voucher_ids {
+        let roll: f64 = rng.gen();
+        if roll < 0.55 {
+            // Paid in full on time.
+            let v = fees::get_voucher(&mut tx, *vid).await?;
+            let paid_on = april + chrono::Duration::days(rng.gen_range(1..=14));
+            fees::record_payment(
+                &mut tx,
+                hlc,
+                actor,
+                &policy,
+                fees::NewPayment {
+                    voucher_id: *vid,
+                    amount: v.balance(),
+                    method: if rng.gen_bool(0.7) {
+                        PaymentMethod::Cash
+                    } else {
+                        PaymentMethod::Bank
+                    },
+                    reference: Some(format!("DEMO-{}", rng.gen_range(1000..9999))),
+                    note: None,
+                    paid_on,
+                    received_by: principal_user,
+                },
+            )
+            .await?;
+            receipts += 1;
+        } else if roll < 0.70 {
+            // Paid late (late fee assessed), sometimes partially.
+            let v = fees::get_voucher(&mut tx, *vid).await?;
+            let paid_on = april + chrono::Duration::days(rng.gen_range(16..=28));
+            let amount = if rng.gen_bool(0.5) {
+                v.balance()
+            } else {
+                (v.balance() / dec!(2)).round_dp(2)
+            };
+            fees::record_payment(
+                &mut tx,
+                hlc,
+                actor,
+                &policy,
+                fees::NewPayment {
+                    voucher_id: *vid,
+                    amount,
+                    method: PaymentMethod::Kuickpay,
+                    reference: Some(format!("KP{}", rng.gen_range(100000..999999))),
+                    note: None,
+                    paid_on,
+                    received_by: principal_user,
+                },
+            )
+            .await?;
+            receipts += 1;
+        }
+    }
+    let may = chrono::NaiveDate::from_ymd_opt(demo.academic_year_start, 5, 1).expect("date");
+    let rep =
+        fees::generate_vouchers(&mut tx, hlc, actor, school.id, year.id, may, None, may).await?;
+    vouchers += rep.created;
+
     settings::set_edition(&mut tx, hlc, Actor::SYSTEM, Edition::Lite).await?;
     settings::set(
         &mut tx,
@@ -336,6 +457,8 @@ pub async fn load(
         sections: demo.classes.len(),
         students: demo.students.len(),
         guardians: demo.guardians.len(),
+        vouchers,
+        receipts,
         files_written,
     })
 }

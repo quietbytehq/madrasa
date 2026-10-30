@@ -6,6 +6,7 @@
 pub mod academics;
 pub mod audit;
 pub mod custom_fields;
+pub mod fees;
 pub mod guardians;
 pub mod models;
 pub mod roles;
