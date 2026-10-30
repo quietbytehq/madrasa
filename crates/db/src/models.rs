@@ -617,3 +617,83 @@ pub struct StaffDayRow {
     pub status: Option<String>,
     pub note: Option<String>,
 }
+
+// ---- M1 stage 4: exams ---------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct AssessmentType {
+    pub id: Uuid,
+    pub school_id: Uuid,
+    pub academic_year_id: Uuid,
+    pub name: String,
+    pub position: i32,
+    pub weight: Decimal,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub updated_by: Option<Uuid>,
+    pub deleted_at: Option<DateTime<Utc>>,
+    pub hlc: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct AssessmentMaxMark {
+    pub id: Uuid,
+    pub assessment_type_id: Uuid,
+    pub class_id: Uuid,
+    pub subject_id: Uuid,
+    pub max_marks: Decimal,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct MarkSheet {
+    pub id: Uuid,
+    pub school_id: Uuid,
+    pub assessment_type_id: Uuid,
+    pub section_id: Uuid,
+    pub subject_id: Uuid,
+    pub status: String,
+    pub submitted_by: Option<Uuid>,
+    pub submitted_at: Option<DateTime<Utc>>,
+    pub approved_by: Option<Uuid>,
+    pub approved_at: Option<DateTime<Utc>>,
+    pub updated_at: DateTime<Utc>,
+    pub updated_by: Option<Uuid>,
+    pub hlc: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct Mark {
+    pub id: Uuid,
+    pub sheet_id: Uuid,
+    pub student_id: Uuid,
+    pub obtained: Option<Decimal>,
+    pub is_absent: bool,
+    pub updated_at: DateTime<Utc>,
+    pub updated_by: Option<Uuid>,
+}
+
+/// One subject of a section in an assessment: its maximum and the sheet state.
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct SheetSummaryRow {
+    pub subject_id: Uuid,
+    pub subject_name: String,
+    pub subject_code: String,
+    pub max_marks: Option<Decimal>,
+    pub sheet_id: Option<Uuid>,
+    pub status: Option<String>,
+    pub submitted_at: Option<DateTime<Utc>>,
+    pub approved_at: Option<DateTime<Utc>>,
+    pub entered: i64,
+}
+
+/// A mark of one student in one subject of one assessment, with its sheet state.
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct MarkRow {
+    pub assessment_type_id: Uuid,
+    pub subject_id: Uuid,
+    pub student_id: Uuid,
+    pub max_marks: Decimal,
+    pub obtained: Option<Decimal>,
+    pub is_absent: bool,
+    pub sheet_status: String,
+}

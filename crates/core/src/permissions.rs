@@ -52,6 +52,9 @@ pub enum Permission {
     ExamsRead,
     #[serde(rename = "exams.manage")]
     ExamsManage,
+    /// Approve (lock) or reopen submitted marks sheets.
+    #[serde(rename = "exams.approve")]
+    ExamsApprove,
     #[serde(rename = "fees.read")]
     FeesRead,
     #[serde(rename = "fees.manage")]
@@ -90,6 +93,7 @@ impl Permission {
         Permission::AttendanceCorrect,
         Permission::ExamsRead,
         Permission::ExamsManage,
+        Permission::ExamsApprove,
         Permission::FeesRead,
         Permission::FeesManage,
         Permission::FeesApprove,
@@ -118,6 +122,7 @@ impl Permission {
             Permission::AttendanceCorrect => "attendance.correct",
             Permission::ExamsRead => "exams.read",
             Permission::ExamsManage => "exams.manage",
+            Permission::ExamsApprove => "exams.approve",
             Permission::FeesRead => "fees.read",
             Permission::FeesManage => "fees.manage",
             Permission::FeesApprove => "fees.approve",
