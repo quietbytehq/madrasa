@@ -23,6 +23,7 @@ async fn main() -> anyhow::Result<()> {
         .parse()?;
     let db = Database::open(DatabaseSource::from_env()).await?;
     let state = AppState::new(db.pool.clone()).await?;
+    madrasa_api::backup::spawn_scheduler(state.clone());
     let (addr, fut) = server::bind(bind, state, shutdown_signal()).await?;
     tracing::info!(%addr, edition = "see /system/features", "madrasa-server listening");
     fut.await?;

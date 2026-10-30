@@ -87,6 +87,7 @@ async fn run(
 ) -> anyhow::Result<()> {
     let db = Database::open(DatabaseSource::from_env()).await?;
     let state = AppState::new(db.pool.clone()).await?;
+    madrasa_api::backup::spawn_scheduler(state.clone());
     let bind: SocketAddr = "127.0.0.1:0".parse()?;
     let (addr, fut) = server::bind(bind, state, async {
         let _ = shutdown_rx.await;

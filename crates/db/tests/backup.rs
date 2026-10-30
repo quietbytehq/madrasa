@@ -207,6 +207,10 @@ async fn run_history_and_audit() {
         .filter(|e| e.entity == "backup")
         .map(|e| e.action)
         .collect();
-    assert_eq!(trail, ["backup", "backup"]);
+    assert_eq!(
+        trail,
+        ["backup", "backup", "backup", "backup"],
+        "start and finish of both runs"
+    );
     assert_eq!(backup::fail_stale_runs(&mut c, &hlc()).await.unwrap(), 0);
 }

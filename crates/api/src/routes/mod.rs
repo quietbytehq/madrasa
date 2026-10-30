@@ -2,6 +2,7 @@ pub mod academics;
 pub mod attendance;
 pub mod audit;
 pub mod auth;
+pub mod backup;
 pub mod exams;
 pub mod fees;
 pub mod health;

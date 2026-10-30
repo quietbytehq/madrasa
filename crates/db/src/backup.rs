@@ -280,7 +280,7 @@ pub async fn start_run(
     school_id: Uuid,
     trigger: &str,
 ) -> DbResult<BackupRun> {
-    Ok(sqlx::query_as::<_, BackupRun>(
+    let run = sqlx::query_as::<_, BackupRun>(
         "INSERT INTO backup_runs (id, school_id, trigger, status, updated_by, hlc)
          VALUES ($1, $2, $3, 'running', $4, $5)
          RETURNING id, school_id, trigger, status, started_at, finished_at, file_path, file_size, error",
@@ -290,8 +290,22 @@ pub async fn start_run(
     .bind(trigger)
     .bind(actor.user_id)
     .bind(hlc.now().to_string())
-    .fetch_one(conn)
-    .await?)
+    .fetch_one(&mut *conn)
+    .await?;
+    // Audited at the start as well, so the entry is inside the dump the run produces and
+    // survives a later restore of that backup.
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Backup,
+        "backup",
+        Some(run.id),
+        None,
+        Some(serde_json::json!({ "trigger": run.trigger, "status": "running" })),
+    )
+    .await?;
+    Ok(run)
 }
 
 pub async fn finish_run(
