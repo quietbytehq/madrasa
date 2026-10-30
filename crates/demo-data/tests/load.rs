@@ -33,8 +33,9 @@ async fn loads_into_an_empty_database_and_marks_everything_demo() {
     .await
     .unwrap();
     assert_eq!(report.staff_accounts, 8);
-    assert_eq!(report.students_generated, 50);
-    assert_eq!(report.files_written.len(), 4);
+    assert_eq!(report.students, 50);
+    assert_eq!(report.sections, 39);
+    assert_eq!(report.files_written.len(), 6);
     assert!(out.join("students.json").exists());
     std::fs::remove_dir_all(&out).ok();
 

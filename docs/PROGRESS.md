@@ -141,3 +141,46 @@ depend on each other and were built together)
   recovery key could be read (fixed and tested); the embedded database start now stops a
   stale or orphaned server first; `madrasa-server` handles SIGTERM so the bundled database
   shuts down cleanly.
+
+## M1 — Lite core
+
+### 2026-10-30 — Stage 1: Academic structure, students and guardians (branch `m1-stage-1-academic-students`)
+- Done, `crates/core`: `students` module (student number format `<prefix>-<year>-<5 digits>`,
+  CNIC/B-Form and phone normalisation, duplicate rules, status/relationship enums); new
+  permissions `academics.read` / `academics.manage` with role defaults (teachers also get
+  `teachers.read`).
+- Done, `crates/db`: migration `0002_academics_students.sql` (academic_years, classes,
+  subjects, class_subjects, staff, sections, section_teachers, students, enrollments,
+  guardians, student_guardians, school_sequences; all with UUID v7 keys, `school_id`, sync
+  columns, soft delete; `custom` JSONB on students, guardians, staff; grants the new
+  permissions to existing system roles). Repositories `academics`, `staff`, `students`
+  (numbering under a row lock, directory query with filters/sort/paging/teacher scope,
+  duplicate finder, photo stored in the DB and never selected with the row), `guardians`
+  (shared records, sibling query, search by name or digit prefix). Every mutation audited.
+- Done, `crates/api`: `/academic-years`, `/classes` (+ `/subjects`), `/sections`,
+  `/subjects`, `/staff` (+ `/assignments`), `/students` (list, create with guardians and
+  enrollment, `check-duplicates`, get, patch, `withdraw`, `enrol`, `photo`, guardian
+  link/unlink), `/guardians`, `/settings/school` (student number prefix). Teacher section
+  scope enforced in `CurrentUser::student_scope`: a teacher sees only sections they are class
+  teacher of or teach in, and gets 403 on other students. School codes may now contain hyphens
+  (so `KHI-MC` works as the number prefix).
+- Done, UI: Students directory (server-side search/filter/sort/paging, 50 per page), add/edit
+  form (inline validation, live duplicate warning, 409 dialog with "Save anyway", guardians
+  sub-form that links existing records by phone/CNIC), profile page (tabs Details, Guardians,
+  Fees/Attendance/Results "Coming soon"; enrollment history, siblings, photo upload/remove,
+  withdraw/re-admit dialog), Teachers & staff page (list, edit dialog with assignments),
+  Settings page (student number prefix + academic structure: years, classes with subjects,
+  sections with class teacher, subjects). All strings in English and Urdu.
+- Done, demo data: generator adds guardians shared by siblings (~900 for 1,200 students),
+  subjects per grade, B-Forms, addresses, admission dates, staff phones/CNICs; loader writes
+  the academic year, 13 classes, 39 sections with class teachers, subject assignments, 1,200
+  students with enrollments and guardian links (≈18 s locally).
+- Tested: core 32 unit tests; db 16 integration tests (7 new: years, classes/sections/
+  subjects/assignments, numbering, duplicates/withdraw/photo/audit, guardians/siblings/
+  directory, staff logins, migration grants); api 11 end-to-end tests (5 new incl.
+  `teachers_read_only_their_own_sections`); demo-data 6; vitest 54 (9 new for directory,
+  form, duplicate dialog, profile, withdraw). Screenshots of the new pages in en/ur at
+  1366×768 with a mocked API: no console errors, no horizontal scroll.
+- Not done / notes: photos are stored in PostgreSQL (≤ 512 KB) rather than on disk so backups
+  stay self-contained; the Fees/Attendance/Results tabs are placeholders by design; the demo
+  loader links each student to one guardian (father) only.

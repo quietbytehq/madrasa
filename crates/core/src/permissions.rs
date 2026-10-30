@@ -31,6 +31,11 @@ pub enum Permission {
     // Audit
     #[serde(rename = "audit.read")]
     AuditRead,
+    // Academic structure (years, classes, sections, subjects)
+    #[serde(rename = "academics.read")]
+    AcademicsRead,
+    #[serde(rename = "academics.manage")]
+    AcademicsManage,
     // Modules (M1+ will add finer grains)
     #[serde(rename = "students.read")]
     StudentsRead,
@@ -70,6 +75,8 @@ impl Permission {
         Permission::UsersManage,
         Permission::RolesManage,
         Permission::AuditRead,
+        Permission::AcademicsRead,
+        Permission::AcademicsManage,
         Permission::StudentsRead,
         Permission::StudentsManage,
         Permission::AttendanceRead,
@@ -94,6 +101,8 @@ impl Permission {
             Permission::UsersManage => "users.manage",
             Permission::RolesManage => "roles.manage",
             Permission::AuditRead => "audit.read",
+            Permission::AcademicsRead => "academics.read",
+            Permission::AcademicsManage => "academics.manage",
             Permission::StudentsRead => "students.read",
             Permission::StudentsManage => "students.manage",
             Permission::AttendanceRead => "attendance.read",
@@ -206,6 +215,8 @@ impl RoleCode {
                 UsersManage,
                 RolesManage,
                 AuditRead,
+                AcademicsRead,
+                AcademicsManage,
                 StudentsRead,
                 StudentsManage,
                 AttendanceRead,
@@ -219,11 +230,20 @@ impl RoleCode {
                 BackupManage,
             ],
             RoleCode::Accountant => {
-                vec![SchoolRead, StudentsRead, FeesRead, FeesManage, ReportsRead]
+                vec![
+                    SchoolRead,
+                    AcademicsRead,
+                    StudentsRead,
+                    FeesRead,
+                    FeesManage,
+                    ReportsRead,
+                ]
             }
             RoleCode::Teacher => vec![
                 SchoolRead,
+                AcademicsRead,
                 StudentsRead,
+                TeachersRead,
                 AttendanceRead,
                 AttendanceManage,
                 ExamsRead,
@@ -316,6 +336,9 @@ mod tests {
     fn teacher_cannot_manage_users_but_admin_can() {
         let teacher = RoleCode::Teacher.default_permissions();
         assert!(!teacher.contains(&Permission::UsersManage));
+        assert!(!teacher.contains(&Permission::StudentsManage));
+        assert!(!teacher.contains(&Permission::AcademicsManage));
+        assert!(teacher.contains(&Permission::AcademicsRead));
         assert!(!teacher.contains(&Permission::FeesManage));
         assert!(teacher.contains(&Permission::AttendanceManage));
         let admin = RoleCode::Admin.default_permissions();

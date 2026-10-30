@@ -66,23 +66,26 @@ impl Drop for TestDb {
         if self.cleaned {
             return;
         }
+        // Best effort from a separate thread with its own runtime; the pool's connections belong
+        // to the (possibly panicking) test runtime, so we never close the pool here: dropping
+        // the database WITH (FORCE) terminates them server-side.
         let admin_url = self.admin_url.clone();
         let name = self.name.clone();
-        let pool = self.pool.clone();
-        // Run on a separate thread with its own runtime so this works from any test context.
-        std::thread::spawn(move || {
+        let handle = std::thread::spawn(move || {
             if let Ok(rt) = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
             {
                 rt.block_on(async move {
-                    pool.close().await;
-                    drop_database(&admin_url, &name).await;
+                    let _ = tokio::time::timeout(
+                        std::time::Duration::from_secs(15),
+                        drop_database(&admin_url, &name),
+                    )
+                    .await;
                 });
             }
-        })
-        .join()
-        .ok();
+        });
+        let _ = handle.join();
     }
 }
 

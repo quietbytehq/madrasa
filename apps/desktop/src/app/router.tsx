@@ -3,6 +3,11 @@ import type { ReactNode } from "react";
 import { AppShell } from "@/layout/AppShell";
 import { Dashboard } from "@/pages/Dashboard";
 import { ComingSoon } from "@/pages/ComingSoon";
+import { SettingsPage } from "@/pages/SettingsPage";
+import { StaffPage } from "@/pages/staff/StaffPage";
+import { StudentFormPage } from "@/pages/students/StudentForm";
+import { StudentProfile } from "@/pages/students/StudentProfile";
+import { StudentsPage } from "@/pages/students/StudentsPage";
 import { Spinner } from "@/components/ui/Spinner";
 import { NAV_ITEMS } from "./navigation";
 import { useFeatures } from "./features";
@@ -46,13 +51,25 @@ export function AppRoutes({ login, setup }: AppRoutesProps) {
         }
       >
         <Route index element={<Dashboard />} />
-        {NAV_ITEMS.filter((item) => item.path !== "/" && has(item.feature)).map((item) => (
-          <Route
-            key={item.path}
-            path={item.path}
-            element={<ComingSoon labelKey={item.labelKey} />}
-          />
-        ))}
+        {has("students") && (
+          <>
+            <Route path="/students" element={<StudentsPage />} />
+            <Route path="/students/new" element={<StudentFormPage />} />
+            <Route path="/students/:id" element={<StudentProfile />} />
+            <Route path="/students/:id/edit" element={<StudentFormPage />} />
+          </>
+        )}
+        {has("teachers") && <Route path="/teachers" element={<StaffPage />} />}
+        {has("settings") && <Route path="/settings" element={<SettingsPage />} />}
+        {NAV_ITEMS.filter((item) => item.path !== "/" && !item.available && has(item.feature)).map(
+          (item) => (
+            <Route
+              key={item.path}
+              path={item.path}
+              element={<ComingSoon labelKey={item.labelKey} />}
+            />
+          ),
+        )}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

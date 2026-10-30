@@ -64,9 +64,14 @@ pub fn validate(req: &SetupRequest) -> Result<(), ApiError> {
     if req.school_name.trim().is_empty() {
         return Err(ApiError::validation("School name is required."));
     }
-    if code.len() < 2 || code.len() > 12 || !code.chars().all(|c| c.is_ascii_alphanumeric()) {
+    let code_ok = code.len() >= 2
+        && code.len() <= 12
+        && code.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+        && !code.starts_with('-')
+        && !code.ends_with('-');
+    if !code_ok {
         return Err(ApiError::validation(
-            "School code must be 2–12 letters or digits.",
+            "School code must be 2–12 letters, digits or hyphens.",
         ));
     }
     if !matches!(req.academic_year_start_month, 4 | 8) {

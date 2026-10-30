@@ -20,7 +20,14 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
-      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+      // Data-loading effects set state after awaiting the API; the hook keeps the latest
+      // loader in a ref. Both patterns are intentional here.
+      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/refs": "off",
     },
   },
   {
@@ -29,7 +36,7 @@ export default tseslint.config(
       "src/i18n/**",
       "src/theme/**",
       "src/app/**",
-      "src/pages/Setup.tsx",
+      "src/pages/**",
       "src/components/ui/Toast.tsx",
       "src/test/**",
       "**/*.test.tsx",

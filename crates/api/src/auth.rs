@@ -83,3 +83,42 @@ impl FromRequestParts<AppState> for CurrentUser {
         })
     }
 }
+
+/// What a caller may see of the student directory.
+#[derive(Debug, Clone)]
+pub enum StudentScope {
+    /// All students of the school (`students.manage`, or `students.read` without a staff link
+    /// restriction, i.e. principal/admin/accountant).
+    All,
+    /// Only students enrolled in these sections (teachers).
+    Sections(Vec<uuid::Uuid>),
+}
+
+impl StudentScope {
+    pub fn allows_section(&self, section_id: Option<uuid::Uuid>) -> bool {
+        match self {
+            StudentScope::All => true,
+            StudentScope::Sections(ids) => section_id.is_some_and(|s| ids.contains(&s)),
+        }
+    }
+}
+
+impl CurrentUser {
+    /// Resolve the caller's student scope. Teachers (no `students.manage`, holding the
+    /// `teacher` role) are limited to sections they are class teacher of or teach in.
+    pub async fn student_scope(
+        &self,
+        conn: &mut sqlx::PgConnection,
+    ) -> Result<StudentScope, ApiError> {
+        self.require(Permission::StudentsRead)?;
+        if self.can(Permission::StudentsManage) || !self.roles.iter().any(|r| r == "teacher") {
+            return Ok(StudentScope::All);
+        }
+        let Some(staff) = madrasa_db::staff::find_by_user(conn, self.user.id).await? else {
+            return Ok(StudentScope::Sections(Vec::new()));
+        };
+        Ok(StudentScope::Sections(
+            madrasa_db::staff::section_scope(conn, staff.id).await?,
+        ))
+    }
+}
