@@ -10,6 +10,7 @@ import { cn } from "@/lib/cn";
 import { monthLabel, monthStart } from "@/lib/money";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 import { percentLabel } from "../common";
+import { ExportMenu } from "@/components/ExportMenu";
 
 /** Students × days for one section and month; weekends and holidays are shaded. */
 export function RegisterTab() {
@@ -50,6 +51,10 @@ export function RegisterTab() {
           <span className="pb-2 text-xs text-muted">
             {monthLabel(r.month)} · {t("attendance.register.schoolDays", { count: r.school_days })}
           </span>
+        )}
+        <span className="flex-1" />
+        {sectionId && (
+          <ExportMenu path="attendance/register" params={{ section_id: sectionId, month }} />
         )}
       </div>
       <Card padded={false} className="overflow-x-auto">

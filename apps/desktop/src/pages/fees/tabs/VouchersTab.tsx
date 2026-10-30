@@ -16,6 +16,7 @@ import { monthLabel, monthStart } from "@/lib/money";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 import { useSession } from "@/app/session";
 import { Amount, VoucherStatusBadge } from "../common";
+import { ExportMenu } from "@/components/ExportMenu";
 
 const STATUSES: VoucherStatus[] = ["unpaid", "partial", "paid", "carried", "cancelled"];
 
@@ -87,6 +88,15 @@ export function VouchersTab() {
           className="w-64"
         />
         <span className="flex-1" />
+        <ExportMenu
+          path="fees/vouchers"
+          params={{
+            month,
+            class_id: classId || undefined,
+            status: status || undefined,
+            q: q || undefined,
+          }}
+        />
         {can("fees.manage") && (
           <Button onClick={() => setGenerating(true)}>{t("fees.generate")}</Button>
         )}

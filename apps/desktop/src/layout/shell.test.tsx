@@ -64,6 +64,7 @@ describe("App shell", () => {
     expect(labels).toEqual([
       "Dashboard",
       "Students",
+      "Import",
       "Attendance",
       "Examinations",
       "Fees & Finance",

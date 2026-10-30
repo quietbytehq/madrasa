@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { AppShell } from "@/layout/AppShell";
 import { AttendancePage } from "@/pages/attendance/AttendancePage";
 import { BackupPage } from "@/pages/backup/BackupPage";
+import { ImportPage } from "@/pages/import/ImportPage";
 import { ExamsPage } from "@/pages/exams/ExamsPage";
 import { ReportCardsPrintPage, ResultSheetPrintPage } from "@/pages/exams/PrintPages";
 import { Dashboard } from "@/pages/Dashboard";
@@ -63,6 +64,7 @@ export function AppRoutes({ login, setup }: AppRoutesProps) {
             <Route path="/students/new" element={<StudentFormPage />} />
             <Route path="/students/:id" element={<StudentProfile />} />
             <Route path="/students/:id/edit" element={<StudentFormPage />} />
+            <Route path="/import" element={<ImportPage />} />
           </>
         )}
         {has("fees") && (

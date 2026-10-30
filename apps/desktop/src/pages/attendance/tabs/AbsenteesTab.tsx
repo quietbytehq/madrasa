@@ -9,6 +9,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { useI18n } from "@/i18n";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 import { StatusBadge, todayIso } from "../common";
+import { ExportMenu } from "@/components/ExportMenu";
 
 export function AbsenteesTab() {
   const { t } = useI18n();
@@ -45,6 +46,8 @@ export function AbsenteesTab() {
             {t("common.results", { count: list.data.length })}
           </span>
         )}
+        <span className="flex-1" />
+        <ExportMenu path="attendance/absentees" params={{ date, class_id: classId || undefined }} />
       </div>
       <Card padded={false}>
         {list.loading && !list.data ? (
