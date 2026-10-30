@@ -21,6 +21,13 @@ Design goals, in priority order:
    designed for the largest case from day one.
 4. **Fast for clerks.** Compact, information-dense, keyboard-friendly UI.
 
+## 1.1 Pilot school profile
+
+The first deployment target (assumed from `docs/TASKS-M1.md`; adjust when the real profile is
+known): a K–12 school in Karachi with ~1,200 students in 13 grades (KG, 1–12) of up to three
+sections each, ~120 staff, fees in PKR billed monthly, academic year starting in April (August
+also supported), Urdu and English speaking staff, one office PC and intermittent internet.
+
 ## 2. Editions
 
 | Edition | Deployment | Scope |
@@ -140,6 +147,35 @@ same transaction. `old_value`/`new_value` are JSON snapshots of the row (secrets
 password hashes are redacted before logging). Money changes are additionally required to
 reference the financial document they touch (M1+).
 
+### 5.4 Academic structure, students and guardians (M1 stage 1)
+
+| Table | Purpose |
+| --- | --- |
+| `academic_years` | `name` (e.g. `2026-27`), `start_date`, `end_date`, `start_month` (4 or 8), `is_active` (at most one live active year per school). |
+| `classes` | Grade levels: `name` (configurable, defaults KG, 1–12), `level` for ordering. |
+| `sections` | A class in an academic year: `class_id`, `academic_year_id`, `name` (A, B, C), `class_teacher_id` (staff). |
+| `subjects` | `name`, `code`; `class_subjects` maps subjects to classes. |
+| `staff` | Staff profile: `staff_number`, names, contact, `cnic`, `designation`, `joined_on`, `status`, optional `user_id` link to a login. |
+| `section_teachers` | Teaching assignments: `staff_id`, `section_id`, optional `subject_id`. |
+| `students` | Profile fields listed in TASKS-M1 stage 1; `student_number` unique per school; `legacy_id` alias; `status` active/left/graduated with `left_on`/`left_reason`; `photo` stored in the database (≤ 512 KB); `custom` JSONB. |
+| `enrollments` | Student ↔ section per academic year with `roll_no`; the enrollment in the active year is the current class/section. |
+| `guardians` | Shared guardian records (`full_name`, `relationship`-independent contact data, `cnic`, `occupation`). Siblings are students linked to the same guardian. |
+| `student_guardians` | Link with `relationship` (father, mother, guardian, other) and `is_primary`. |
+| `school_sequences` | Per-school counters, e.g. `student_number:2026`, incremented under a row lock. |
+
+Student numbers are `<prefix>-<year>-<5-digit sequence>`; the prefix defaults to the school code
+and is configurable (`settings` key `student_number.prefix`), the year is the admission year.
+
+Identifiers are normalised before storage and matching: CNIC/B-Form to 13 digits
+(`#####-#######-#`), phone numbers to digits with a leading `0` or `+92`.
+
+Duplicate warning on create: a match on normalised B-Form/CNIC, or on (name, date of birth,
+father's name) case-insensitively. The API answers `409 possible_duplicate` with the matches
+unless the client passes `force: true`.
+
+Teachers may read only students enrolled in sections they are class teacher of or teach a
+subject in. This is enforced in the API (`students.read` + section scope), not in the UI.
+
 ## 6. API conventions
 
 - Base path `/api/v1`. JSON request and response bodies. `snake_case` keys.
@@ -170,6 +206,25 @@ reference the financial document they touch (M1+).
 | GET | `/schools/current` | `school.read` | School profile |
 | GET | `/audit` | `audit.read` | Recent audit entries |
 | GET | `/nexus/status` | `nexus.admin`, feature `nexus_hub` | Stub, proves feature gating |
+
+### 6.2 M1 stage 1 endpoints
+
+| Method | Path | Permission | Purpose |
+| --- | --- | --- | --- |
+| GET/POST | `/academic-years`, POST `/academic-years/{id}/activate` | `academics.read` / `academics.manage` | Academic years |
+| GET/POST/PATCH | `/classes`, `/classes/{id}`; GET/PUT `/classes/{id}/subjects` | `academics.read` / `academics.manage` | Classes and their subjects |
+| GET/POST/PATCH | `/sections`, `/sections/{id}` | `academics.read` / `academics.manage` | Sections, class teacher |
+| GET/POST/PATCH | `/subjects`, `/subjects/{id}` | `academics.read` / `academics.manage` | Subjects |
+| GET/POST/PATCH | `/staff`, `/staff/{id}`; GET/PUT `/staff/{id}/assignments` | `teachers.read` / `teachers.manage` | Staff profiles and teaching assignments |
+| GET | `/students` | `students.read` (teachers: own sections) | Directory: `q`, `class_id`, `section_id`, `status`, `sort`, `page`, `page_size` |
+| POST | `/students` | `students.manage` | Create with guardians and enrollment; duplicate check |
+| POST | `/students/check-duplicates` | `students.manage` | Matches for the add form |
+| GET/PATCH | `/students/{id}` | `students.read` scope / `students.manage` | Profile (guardians, enrollment, siblings) |
+| POST | `/students/{id}/withdraw` | `students.manage` | Status left/graduated (no hard delete) |
+| GET/PUT | `/students/{id}/photo` | scope / `students.manage` | Photo (JSON base64, ≤ 512 KB) |
+| POST/DELETE | `/students/{id}/guardians`, `/students/{id}/guardians/{guardian_id}` | `students.manage` | Link/unlink guardians |
+| GET/POST/PATCH | `/guardians`, `/guardians/{id}` | `students.read` / `students.manage` | Guardian search (phone, CNIC, name) and edit |
+| GET/PUT | `/settings/school` | `settings.manage` | Student number prefix |
 
 ## 7. Security
 

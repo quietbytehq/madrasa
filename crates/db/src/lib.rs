@@ -3,13 +3,17 @@
 //! All mutations go through repository functions that write the audit log inside the same
 //! transaction. Queries use runtime-checked SQL (no compile-time `DATABASE_URL`).
 
+pub mod academics;
 pub mod audit;
 pub mod custom_fields;
+pub mod guardians;
 pub mod models;
 pub mod roles;
 pub mod schools;
 pub mod sessions;
 pub mod settings;
+pub mod staff;
+pub mod students;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 pub mod users;

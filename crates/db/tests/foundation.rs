@@ -68,13 +68,25 @@ async fn migrations_apply_and_tables_follow_the_rules() {
     assert_eq!(
         tables,
         [
+            "academic_years",
             "audit_log",
+            "class_subjects",
+            "classes",
             "custom_field_definitions",
+            "enrollments",
+            "guardians",
             "permissions",
             "roles",
+            "school_sequences",
             "schools",
+            "section_teachers",
+            "sections",
             "sessions",
             "settings",
+            "staff",
+            "student_guardians",
+            "students",
+            "subjects",
             "user_roles",
             "users",
         ]
@@ -131,7 +143,7 @@ async fn migrations_apply_and_tables_follow_the_rules() {
     }
 
     // Rule 5: core entities carry a JSONB custom column.
-    for table in ["schools", "users"] {
+    for table in ["schools", "users", "students", "guardians", "staff"] {
         let t: String = sqlx::query_scalar(
             "SELECT data_type FROM information_schema.columns WHERE table_name = $1 AND column_name = 'custom'",
         )
