@@ -44,6 +44,7 @@ pub async fn set_policy(
 
 // ---- heads --------------------------------------------------------------------------------
 
+#[allow(clippy::too_many_arguments)]
 pub async fn create_head(
     conn: &mut PgConnection,
     hlc: &Hlc,
@@ -152,6 +153,7 @@ pub async fn list_structure(
 }
 
 /// Set the amount of one head for a class/year (upsert; zero removes the line). Audited.
+#[allow(clippy::too_many_arguments)]
 pub async fn set_structure(
     conn: &mut PgConnection,
     hlc: &Hlc,
