@@ -7,6 +7,8 @@ pub mod auth;
 pub mod backup;
 pub mod bootstrap;
 pub mod error;
+pub mod export;
+pub mod imports;
 pub mod routes;
 pub mod server;
 pub mod state;
@@ -40,6 +42,8 @@ pub fn router(state: AppState) -> Router {
         .merge(routes::attendance::router())
         .merge(routes::exams::router())
         .merge(routes::backup::router())
+        .merge(routes::imports::router())
+        .merge(routes::export::router())
         .with_state(state);
 
     // The UI is served from a different origin in `vite dev` (http://localhost:1420) and from
