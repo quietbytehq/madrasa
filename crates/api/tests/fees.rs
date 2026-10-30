@@ -385,7 +385,10 @@ async fn generate_collect_waive_reverse_ledger_defaulters_collections() {
         .unwrap()
         .clone();
     assert_eq!(
-        (v_omar["concession_discount"].as_str(), v_omar["total_due"].as_str()),
+        (
+            v_omar["concession_discount"].as_str(),
+            v_omar["total_due"].as_str()
+        ),
         (Some("1666.67"), Some("1666.66"))
     );
     let (_, only_c2) = app

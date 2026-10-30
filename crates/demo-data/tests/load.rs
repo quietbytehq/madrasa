@@ -35,6 +35,12 @@ async fn loads_into_an_empty_database_and_marks_everything_demo() {
     assert_eq!(report.staff_accounts, 8);
     assert_eq!(report.students, 50);
     assert_eq!(report.sections, 39);
+    assert_eq!(report.vouchers, 100, "April and May for 50 students");
+    assert!(
+        report.receipts > 20 && report.receipts < 45,
+        "{}",
+        report.receipts
+    );
     assert_eq!(report.files_written.len(), 6);
     assert!(out.join("students.json").exists());
     std::fs::remove_dir_all(&out).ok();
