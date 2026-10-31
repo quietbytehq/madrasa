@@ -378,6 +378,14 @@ describe("Dashboard attendance card", () => {
         ],
       },
       backup: backupOk,
+      students_active: 1200,
+      staff_active: 120,
+      fees: {
+        collected_this_month: "245000.00",
+        month_start: "2026-04-01",
+        defaulters: 37,
+        outstanding: "412500.00",
+      },
     };
     vi.mocked(api.dashboard).mockResolvedValue(dash);
     renderWithProviders(
@@ -395,6 +403,10 @@ describe("Dashboard attendance card", () => {
       "href",
       "/attendance?tab=mark&section=sec1",
     );
+    expect(screen.getByTestId("students-card")).toHaveTextContent("1200");
+    expect(screen.getByTestId("fees-card")).toHaveTextContent("245,000.00");
+    expect(screen.getByTestId("defaulters-card")).toHaveTextContent("37");
+    expect(screen.getByTestId("defaulters-card")).toHaveTextContent("412,500.00 outstanding");
   });
 
   it("says when there is no school today", async () => {
@@ -403,6 +415,9 @@ describe("Dashboard attendance card", () => {
       day_kind: { kind: "weekend" },
       attendance: { totals: { ...status.totals, percent: null, marked: 0 }, unmarked: [] },
       backup: { ...backupOk, stale: true, last_backup_at: null, last_backup_file: null },
+      students_active: null,
+      staff_active: null,
+      fees: null,
     });
     renderWithProviders(
       <FeaturesProvider initial={{ edition: "lite", features: ["dashboard", "attendance"] }}>

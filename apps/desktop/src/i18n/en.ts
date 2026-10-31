@@ -769,6 +769,33 @@ export const en = {
   "export.excel": "Export to Excel",
   "export.csv": "Export to CSV",
   "export.started": "Your download is starting.",
+  // Year rollover and dashboard figures (M1 stage 7)
+  "rollover.title": "Roll over to the next year",
+  "rollover.button": "Roll over year",
+  "rollover.intro":
+    "Every active student moves up one class; the top class graduates. Sections keep their class teachers, the fee structure and assessment types are copied, and unpaid balances carry into the first voucher of the new year. The current year stays readable.",
+  "rollover.newYear": "New year",
+  "rollover.young":
+    "The current year started only {months} months ago. Roll over only at the end of the year.",
+  "rollover.exists": "The year {name} already exists; the rollover was already done.",
+  "rollover.section": "Section",
+  "rollover.students": "Students",
+  "rollover.goesTo": "Goes to",
+  "rollover.graduates": "Graduates",
+  "rollover.summary": "{promoted} students promoted, {graduating} graduate",
+  "rollover.balances": "{students} students carry {amount} of unpaid fees into the new year",
+  "rollover.exceptions": "Exceptions (student numbers, one per line)",
+  "rollover.retain": "Repeat the class",
+  "rollover.leave": "Leave the school instead",
+  "rollover.confirm": "Roll over now",
+  "rollover.done":
+    "Rolled over to {name}: {promoted} promoted, {retained} repeating, {graduated} graduated, {sections} sections created.",
+  "rollover.unknownNumbers": "Unknown student numbers: {numbers}",
+  "dashboard.card.defaulters": "Fee defaulters",
+  "dashboard.students.active": "active students",
+  "dashboard.fees.sinceMonthStart": "since {date}",
+  "dashboard.fees.outstanding": "{amount} outstanding",
+  "dashboard.staff.active": "active staff",
 } as const;
 
 export type TranslationKey = keyof typeof en;

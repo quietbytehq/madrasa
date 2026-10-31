@@ -16,6 +16,7 @@ import { useToast } from "@/components/ui/Toast";
 import { useI18n } from "@/i18n";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 import { useSession } from "@/app/session";
+import { RolloverDialog } from "./RolloverDialog";
 
 const DEFAULT_CLASSES = ["KG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
 const DEFAULT_SUBJECTS: Array<[string, string]> = [
@@ -103,7 +104,9 @@ interface CardProps {
 
 function YearsCard({ years, manage, onChange, onError }: CardProps & { years: AcademicYear[] }) {
   const { t, formatDate } = useI18n();
+  const toast = useToast();
   const [open, setOpen] = useState(false);
+  const [rollover, setRollover] = useState(false);
   const [startYear, setStartYear] = useState(String(new Date().getFullYear()));
   const [startMonth, setStartMonth] = useState<"4" | "8">("4");
   const [busy, setBusy] = useState(false);
@@ -141,13 +144,20 @@ function YearsCard({ years, manage, onChange, onError }: CardProps & { years: Ac
       title={t("academics.years")}
       actions={
         manage && (
-          <Button
-            size="sm"
-            icon={<Plus className="h-3.5 w-3.5" aria-hidden />}
-            onClick={() => setOpen(true)}
-          >
-            {t("academics.years.new")}
-          </Button>
+          <div className="flex gap-2">
+            {years.some((y) => y.is_active) && (
+              <Button size="sm" variant="secondary" onClick={() => setRollover(true)}>
+                {t("rollover.button")}
+              </Button>
+            )}
+            <Button
+              size="sm"
+              icon={<Plus className="h-3.5 w-3.5" aria-hidden />}
+              onClick={() => setOpen(true)}
+            >
+              {t("academics.years.new")}
+            </Button>
+          </div>
         )
       }
       padded={false}
@@ -175,6 +185,17 @@ function YearsCard({ years, manage, onChange, onError }: CardProps & { years: Ac
             </li>
           ))}
         </ul>
+      )}
+      {rollover && (
+        <RolloverDialog
+          onClose={() => setRollover(false)}
+          onDone={(message) => {
+            setRollover(false);
+            toast.push({ kind: "success", title: message });
+            onChange();
+          }}
+          onError={onError}
+        />
       )}
       <Dialog open={open} onClose={() => setOpen(false)} title={t("academics.years.new")} size="sm">
         <form onSubmit={create} className="flex flex-col gap-3">

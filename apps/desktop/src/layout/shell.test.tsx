@@ -87,7 +87,7 @@ describe("App shell", () => {
     renderShell();
     expect(screen.getByRole("heading", { level: 1, name: "Dashboard" })).toBeInTheDocument();
     expect(screen.getByText("Welcome, Ayesha Khan")).toBeInTheDocument();
-    expect(screen.getAllByText("Data will appear once the module is available.")).toHaveLength(4);
+    expect(screen.getAllByText("Data will appear once the module is available.")).toHaveLength(5);
     expect(screen.getByText("Edition: Lite")).toBeInTheDocument();
   });
 
