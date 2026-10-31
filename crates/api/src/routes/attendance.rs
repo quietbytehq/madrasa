@@ -6,7 +6,7 @@ use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use chrono::{Duration, NaiveDate};
+use chrono::{Datelike, Duration, NaiveDate};
 use madrasa_core::attendance::{self, AttendanceStatus, AttendanceSummary, DayKind, StaffStatus};
 use madrasa_core::permissions::Permission;
 use madrasa_db::models::{
@@ -831,13 +831,27 @@ pub struct UnmarkedSection {
     pub class_teacher_name: Option<String>,
 }
 
-/// Mirrored by `DashboardView` in the UI. Attendance is `None` when the caller cannot read it.
+/// Mirrored by `DashboardView` in the UI. Attendance is `None` when the caller cannot read it;
+/// students, staff and fees figures are `None` without the matching read permission.
 #[derive(Debug, Serialize)]
 pub struct DashboardView {
     pub date: NaiveDate,
     pub day_kind: DayKind,
     pub attendance: Option<DashboardAttendance>,
     pub backup: crate::backup::BackupStatus,
+    pub students_active: Option<i64>,
+    pub staff_active: Option<i64>,
+    pub fees: Option<DashboardFees>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DashboardFees {
+    /// Net receipts from the first of this month to today.
+    pub collected_this_month: rust_decimal::Decimal,
+    pub month_start: NaiveDate,
+    /// Students with a balance past its due date today.
+    pub defaulters: usize,
+    pub outstanding: rust_decimal::Decimal,
 }
 
 #[derive(Debug, Serialize)]
@@ -874,10 +888,39 @@ async fn dashboard(
         None
     };
     let backup = crate::backup::status(&mut c, user.user.school_id).await?;
+    let students_active = if user.can(Permission::StudentsRead) {
+        Some(students::count(&mut c, user.user.school_id, Some("active")).await?)
+    } else {
+        None
+    };
+    let staff_active = if user.can(Permission::TeachersRead) {
+        Some(madrasa_db::staff::count(&mut c, user.user.school_id).await?)
+    } else {
+        None
+    };
+    let fees = if user.can(Permission::FeesRead) {
+        let month_start = NaiveDate::from_ymd_opt(date.year(), date.month(), 1).unwrap_or(date);
+        let collected =
+            madrasa_db::fees::collected_between(&mut c, user.user.school_id, month_start, date)
+                .await?;
+        let defaulters =
+            madrasa_db::fees::defaulters(&mut c, user.user.school_id, date, None, 1).await?;
+        Some(DashboardFees {
+            collected_this_month: collected,
+            month_start,
+            defaulters: defaulters.len(),
+            outstanding: madrasa_core::fees::money(defaulters.iter().map(|d| d.balance).sum()),
+        })
+    } else {
+        None
+    };
     Ok(Json(DashboardView {
         date,
         day_kind,
         attendance,
         backup,
+        students_active,
+        staff_active,
+        fees,
     }))
 }

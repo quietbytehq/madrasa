@@ -35,6 +35,7 @@ pub fn router(state: AppState) -> Router {
         .merge(routes::audit::router())
         .merge(routes::nexus::router())
         .merge(routes::academics::router())
+        .merge(routes::rollover::router())
         .merge(routes::staff::router())
         .merge(routes::students::router())
         .merge(routes::school_settings::router())
