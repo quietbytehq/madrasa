@@ -367,3 +367,101 @@ depend on each other and were built together)
 - Not done / notes: files are read in the browser and sent as base64 (fine up to the 5,000-row
   limit; no streaming); a merged duplicate does not change the student's section; exports are
   one list at a time (no "export everything").
+
+### 2026-10-31 — Stage 7: Pilot readiness (branch `m1-stage-7-pilot`)
+- Started from `main` after pull request #7 was merged (main `1905ca8`).
+- Done, year rollover: `madrasa_db::rollover` (preview and apply: promote one class up, top
+  class graduates, chosen students repeat or leave, sections recreated with class teachers,
+  fee structure and assessment types copied, new year activated, old year kept, audited;
+  unpaid balances carry into the new year's first voucher as before), `/academic-years/rollover`
+  endpoints, and a "Roll over year" dialog under Settings → Academic years (preview table,
+  carried balance, warning when the year is young, exceptions by student number). 1 db test,
+  1 api test, 2 vitest tests.
+- Done, permissions: `docs/permissions.md` lists every permission against the four roles and
+  a core unit test (`matrix_matches_docs`) fails if the document and the code ever differ.
+- Done, dashboard: active students and staff, fees collected since the first of the month
+  (net of reversals), defaulters past their due date with the outstanding total, today's
+  attendance and the last backup, each shown only with the matching read permission.
+- Done, performance check: `madrasa-demo load --yes --full-year` and the ignored test
+  `crates/demo-data/tests/perf.rs` load the pilot profile (1,200 students, 120 staff, a full
+  year of fees and attendance) and time the key queries. Measured on this build machine
+  (debug build, local PostgreSQL 16):
+
+  | Data loaded | Count |
+  | --- | --- |
+  | Students / staff | 1,200 / 120 |
+  | Fee vouchers / receipts | 8,400 / 5,071 |
+  | Attendance sheets (179 school days × 39 sections) | 6,981 |
+  | Marks sheets | 642 |
+  | Load time | 140 s |
+
+  | Query | Time |
+  | --- | --- |
+  | Students directory, page of 50 | 17 ms |
+  | Students search by name | 10 ms |
+  | Fee vouchers for a month, all classes | 49 ms |
+  | Defaulters as of today | 80 ms |
+  | Student ledger totals / vouchers | 2 ms / 1 ms |
+  | Daily collection summary | 1 ms |
+  | Attendance status of every section | 60 ms |
+  | Register entries for a section and month | 14 ms |
+  | Absentees today | 69 ms |
+  | Student attendance summary for the year | 1 ms |
+  | Section marks / student marks for the year | 5 ms / 6 ms |
+  | Full backup dump | 2.1 s |
+
+  Every key screen is served by queries well under the one-second target; the UI adds only
+  rendering time.
+- Done, user guide: `docs/user-guide/en.md` and `docs/user-guide/ur.md` (setup, students and
+  import, fees, attendance, exams, backup, year end).
+- Done, release build: the existing tag-triggered Release workflow builds the Linux `.deb`
+  and AppImage and the Windows NSIS installer; it now also runs manually
+  (`workflow_dispatch`) and uploads the installers as artifacts. The procedure is in
+  `docs/RELEASING.md`. CI still builds all bundles on every push.
+- Tested: core 71 unit tests (1 new); db 33 integration tests (1 new); api 22 (1 new) + 1
+  unit; demo data 6 + 1 ignored performance test; vitest 94 (2 new). fmt, clippy, eslint,
+  prettier and tsc clean.
+- Not done / notes: the rollover keeps section names and class teachers but does not move
+  subject assignments to the new sections (teachers reassign them under Teachers); a
+  rollover cannot be undone (restore a backup instead); installers are unsigned.
+
+## Summary for the owner — Stages 5, 6 and 7 (night run of 2026-10-30/31)
+
+All three stages are merged into `main` in order (pull requests #6, #7 and the Stage 7 one),
+each from a clean `main` with CI green on Linux and Windows. What changed, in short:
+
+- **Stage 5 — Backup and restore.** Nightly encrypted backups (`.mbk`, AES-256-GCM, per-file
+  key wrapped for the school's key pair so no password is needed at night), restore with the
+  backup password or the recovery key, preview before restore, tamper detection, password
+  change that applies to new backups only, dashboard warning after two days, everything
+  audited.
+- **Stage 6 — Import and export.** Excel/CSV import wizard for students + guardians, staff and
+  opening fee balances with templates, automatic column matching (English and Urdu
+  headings), cleanup of messy data, row-level checks, duplicate handling, batches with
+  one-click rollback; Excel/CSV export on every list.
+- **Stage 7 — Pilot readiness.** Year rollover, permission matrix document, dashboard with
+  real figures, performance check with the pilot profile, user guide in both languages,
+  manual installer builds.
+
+**Please test by hand** (things that cannot be proven in CI):
+
+1. Install the Windows build from the Release workflow artifacts on a school PC; run the
+   setup wizard; confirm the bundled database starts and the nightly backup lands in
+   `Documents\Madrasa Backups`. Point the backup folder at a USB drive and a network share.
+2. Restore a backup on a second PC with the recovery key (the pilot's disaster scenario).
+3. Import the pilot school's real student register through the wizard (on a copy, not on the
+   production install) and look at the preview errors; the column matching is built for
+   varied headings but real files will show gaps.
+4. Walk one month of the real routine: generate vouchers, collect fees, mark attendance,
+   enter and approve marks, print a report card and a voucher, in Urdu as well as English.
+5. On the last day of the year, run the rollover preview and check the destinations.
+
+**Decisions for you:**
+
+- Who should hold `exams.approve` and `attendance.correct` at the pilot school (the defaults
+  are principal, and principal + admin). The matrix is in `docs/permissions.md`.
+- Whether the dashboard's defaulter rule (any balance past its due date) matches how the
+  school talks about defaulters, or whether a minimum of days overdue should be the default.
+- Whether the scheduled backup time (02:00) suits a PC that is switched off at night; if so,
+  set it to a time in the school day (the status card shows when it last ran).
+- Code signing for the installers before the pilot (SmartScreen warnings otherwise).
