@@ -4,7 +4,7 @@
 //! left alone, and each fee is audited as `late_fee` (by the system actor when automatic, by the
 //! user when run by hand from `POST /fees/late-fees/run`).
 
-use chrono::{Local, NaiveDate};
+use chrono::NaiveDate;
 use madrasa_db::fees::{self, LateFeeReport};
 use madrasa_db::{schools, Actor};
 use std::time::{Duration, Instant};
@@ -41,7 +41,7 @@ pub fn spawn_scheduler(state: AppState) {
         let mut last_run: Option<NaiveDate> = None;
         let mut last_failure: Option<Instant> = None;
         loop {
-            let today = Local::now().date_naive();
+            let today = crate::clock::today();
             let backing_off = last_failure.is_some_and(|f| f.elapsed() < RETRY_AFTER);
             if should_run(last_run, today) && !backing_off {
                 match tick(&state, today).await {

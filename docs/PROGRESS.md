@@ -447,9 +447,16 @@ depend on each other and were built together)
   teacher, future date refused, same figures through the API, `/audit` holds two `late_fee`
   entries); api unit `runs_at_start_and_once_per_day`. fmt, clippy, eslint, prettier and
   tsc clean.
+- Done: every "today" in the API now comes from one place, `madrasa_api::clock::today()`
+  (the PC's local calendar date, which is the school's in Lite): dashboard, defaulters,
+  collections, absentees, attendance edit limits, payment and reversal dates, default
+  admission and leaving dates, import defaults, and the late fee pass. Before this the
+  routes used the UTC date, which is yesterday until 05:00 in Pakistan. The UI's date defaults
+  (`src/lib/dates.ts` `todayIso`) use the local date too instead of `toISOString()`, which
+  had the same fault. A school time zone setting will replace the machine's zone in `clock`
+  without touching the callers. vitest test for `todayIso`.
 - Not done / notes: no UI button for the manual run (the pass runs on its own; the endpoint is
-  there if one is wanted). The dashboard and the defaulters list use "today" in UTC while the
-  pass uses the PC's local date; at most the hours around midnight differ.
+  there if one is wanted).
 
 ## Summary for the owner — Stages 5, 6 and 7 (night run of 2026-10-30/31)
 

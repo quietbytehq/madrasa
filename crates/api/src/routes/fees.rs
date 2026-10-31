@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::auth::CurrentUser;
+use crate::clock::today;
 use crate::{ApiError, ApiResult, AppState};
 
 pub fn router() -> Router<AppState> {
@@ -48,10 +49,6 @@ pub fn router() -> Router<AppState> {
 }
 
 type JsonBody<T> = Result<Json<T>, axum::extract::rejection::JsonRejection>;
-
-fn today() -> NaiveDate {
-    chrono::Utc::now().date_naive()
-}
 
 fn first_of_month(d: NaiveDate) -> NaiveDate {
     NaiveDate::from_ymd_opt(d.year(), d.month(), 1).unwrap_or(d)

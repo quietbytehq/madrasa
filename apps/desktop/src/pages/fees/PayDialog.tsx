@@ -1,3 +1,4 @@
+import { todayIso } from "@/lib/dates";
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { api } from "@/api/endpoints";
@@ -25,7 +26,7 @@ export function PayDialog({
   const [amount, setAmount] = useState(voucher.balance);
   const [method, setMethod] = useState<PaymentMethod>("cash");
   const [reference, setReference] = useState("");
-  const [paidOn, setPaidOn] = useState(new Date().toISOString().slice(0, 10));
+  const [paidOn, setPaidOn] = useState(todayIso());
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -114,7 +115,7 @@ export function PayDialog({
           type="date"
           value={paidOn}
           onChange={(e) => setPaidOn(e.target.value)}
-          max={new Date().toISOString().slice(0, 10)}
+          max={todayIso()}
         />
         <Input
           label={t("fees.pay.note")}

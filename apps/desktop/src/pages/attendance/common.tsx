@@ -44,10 +44,7 @@ export function DayKindNotice({ kind, t }: { kind: DayKind; t: TFunction }) {
   );
 }
 
-export function todayIso(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+export { todayIso } from "@/lib/dates";
 
 export function percentLabel(p: number | null | undefined): string {
   return p === null || p === undefined ? "—" : `${p.toFixed(1)}%`;

@@ -1,3 +1,4 @@
+import { todayIso } from "@/lib/dates";
 import { useState } from "react";
 import { ExportMenu } from "@/components/ExportMenu";
 import { Link } from "react-router-dom";
@@ -14,7 +15,7 @@ import { Amount } from "../common";
 
 export function DefaultersTab() {
   const { t, formatDate } = useI18n();
-  const [asOf, setAsOf] = useState(new Date().toISOString().slice(0, 10));
+  const [asOf, setAsOf] = useState(todayIso());
   const [classId, setClassId] = useState("");
   const [minDays, setMinDays] = useState("0");
   const classes = useAsync(() => api.classes(), []);

@@ -209,6 +209,11 @@ to 2 places at each step):
 6. `total_due` = `net_monthly + arrears`.
 7. `late_fee` = `net_monthly` × late percent, assessed once the due date has passed, unless waived. Waiving needs `fees.approve`, a reason, and is audit-logged with the approver. Assessment is automatic: a background pass in the server (and the desktop shell) runs at start and again after every local midnight, adding the fee to every `unpaid` or `partial` voucher whose due date has passed and that has no fee yet (`madrasa_db::fees::assess_due_late_fees`), so dashboards, defaulter lists and ledgers show the amount actually owed without anyone touching the voucher. The same pass runs when a payment or a carry-forward touches an overdue voucher, and by hand from `POST /fees/late-fees/run`. A waived voucher is never re-assessed; a zero late fee percent switches the pass off. Every assessment is an audit entry with action `late_fee` (actor empty when automatic) holding the voucher before and after.
 
+Every "today" in the API (dashboard, defaulters, collections, absentees, attendance edit limits,
+default dates, the late fee pass) is `madrasa_api::clock::today()`: the school's calendar date,
+which in Lite is the local date of the PC the school runs Madrasa on. The UI's date defaults use
+the local calendar date as well (`todayIso` in `src/lib/dates.ts`), never the UTC date.
+
 Voucher status: `unpaid`, `partial`, `paid` (derived from `net_paid` vs `total_due + late_fee`),
 `carried` (balance moved to a later voucher), `cancelled` (only while nothing was paid).
 Ledger totals: billed = Σ gross, discounts = Σ sibling + concession, fines = Σ late fees,
