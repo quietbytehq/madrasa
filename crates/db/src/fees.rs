@@ -1103,6 +1103,24 @@ pub async fn receipts_for_student(
 }
 
 /// Receipts of one day (collections), newest first.
+/// Net amount received between two dates inclusive (reversals are negative receipts).
+pub async fn collected_between(
+    conn: &mut PgConnection,
+    school_id: Uuid,
+    from: NaiveDate,
+    to: NaiveDate,
+) -> DbResult<Decimal> {
+    let total: Option<Decimal> = sqlx::query_scalar(
+        "SELECT sum(amount) FROM fee_receipts WHERE school_id = $1 AND paid_on BETWEEN $2 AND $3",
+    )
+    .bind(school_id)
+    .bind(from)
+    .bind(to)
+    .fetch_one(conn)
+    .await?;
+    Ok(fees::money(total.unwrap_or_default()))
+}
+
 pub async fn receipts_on(
     conn: &mut PgConnection,
     school_id: Uuid,

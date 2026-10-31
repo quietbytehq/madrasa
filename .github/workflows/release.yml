@@ -3,6 +3,9 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  # Manual run: builds the installers and uploads them as workflow artifacts without
+  # creating a GitHub release (useful to hand a build to the pilot school before tagging).
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -45,7 +48,21 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # Installers are unsigned for now (pre-alpha). Windows SmartScreen and Linux package
       # managers will warn; signing is tracked for a later milestone.
+      - name: Build installers (manual run)
+        if: github.event_name == 'workflow_dispatch'
+        run: pnpm --dir apps/desktop tauri build --bundles ${{ matrix.bundles }}
+      - name: Upload installers (manual run)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: madrasa-${{ matrix.os }}
+          path: |
+            target/release/bundle/deb/*.deb
+            target/release/bundle/appimage/*.AppImage
+            target/release/bundle/nsis/*.exe
+          if-no-files-found: error
       - uses: tauri-apps/tauri-action@v0
+        if: github.event_name == 'push'
         with:
           projectPath: apps/desktop
           tagName: ${{ github.ref_name }}

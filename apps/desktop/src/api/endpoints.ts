@@ -1,5 +1,7 @@
 import { download, request } from "./client";
 import type {
+  RolloverPreview,
+  RolloverReport,
   ImportBatch,
   ImportField,
   ImportKind,
@@ -374,4 +376,9 @@ export const api = {
     request<ImportBatch>(`/imports/batches/${id}/rollback`, { method: "POST", body: {} }),
   exportList: (path: string, params: Record<string, string | number | undefined>) =>
     download(`/export/${path}${qs(params)}`),
+
+  // Year rollover
+  rolloverPreview: () => request<RolloverPreview>("/academic-years/rollover/preview"),
+  rollover: (body: { retain: string[]; graduate: string[] }) =>
+    request<RolloverReport>("/academic-years/rollover", { method: "POST", body }),
 };

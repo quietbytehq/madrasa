@@ -716,11 +716,21 @@ export interface UnmarkedSection {
   class_teacher_name: string | null;
 }
 
+export interface DashboardFees {
+  collected_this_month: Money;
+  month_start: string;
+  defaulters: number;
+  outstanding: Money;
+}
+
 export interface DashboardView {
   date: string;
   day_kind: DayKind;
   attendance: { totals: StatusTotals; unmarked: UnmarkedSection[] } | null;
   backup: BackupStatus;
+  students_active: number | null;
+  staff_active: number | null;
+  fees: DashboardFees | null;
 }
 
 // ---- M1 stage 4: exams ---------------------------------------------------------------------
@@ -1090,4 +1100,40 @@ export interface ImportResult {
   batch: ImportBatch;
   summary: ImportSummary;
   rows: RowOutcome[];
+}
+
+// ---- M1 stage 7: year rollover ----------------------------------------------------------
+
+export interface SectionMove {
+  section_id: string;
+  class_name: string;
+  section_name: string;
+  students: number;
+  target_class_id: string | null;
+  target_class_name: string | null;
+}
+
+/** Mirrors `RolloverPreview` in the API. */
+export interface RolloverPreview {
+  old_year: AcademicYear;
+  new_year_name: string;
+  new_start_year: number;
+  moves: SectionMove[];
+  promoted: number;
+  graduating: number;
+  students_with_balance: number;
+  balance_carried: Money;
+  new_year_exists: boolean;
+  months_into_year: number;
+}
+
+export interface RolloverReport {
+  new_year: AcademicYear;
+  sections_created: number;
+  promoted: number;
+  retained: number;
+  graduated: number;
+  structure_lines_copied: number;
+  assessments_created: number;
+  balance_carried: Money;
 }

@@ -1,10 +1,11 @@
-import { CalendarCheck, Coins, DatabaseBackup, Users } from "lucide-react";
+import { AlertTriangle, CalendarCheck, Coins, DatabaseBackup, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api } from "@/api/endpoints";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useI18n } from "@/i18n";
+import { formatMoney } from "@/lib/money";
 import { useAsync } from "@/lib/useAsync";
 import { useFeatures } from "@/app/features";
 import { useSession } from "@/app/session";
@@ -24,11 +25,44 @@ export function Dashboard() {
         : dayKind.name
       : null;
 
-  const cards = [
-    { key: "students", icon: Users, label: t("dashboard.card.students") },
-    { key: "fees", icon: Coins, label: t("dashboard.card.feesCollected") },
-  ];
   const backup = dash.data?.backup ?? null;
+  const fees = dash.data?.fees ?? null;
+  const cards: Array<{
+    key: string;
+    icon: typeof Users;
+    label: string;
+    value: string;
+    note: string;
+  }> = [
+    {
+      key: "students",
+      icon: Users,
+      label: t("dashboard.card.students"),
+      value: dash.data?.students_active != null ? String(dash.data.students_active) : "—",
+      note:
+        dash.data?.students_active != null
+          ? `${t("dashboard.students.active")}${dash.data.staff_active != null ? ` · ${dash.data.staff_active} ${t("dashboard.staff.active")}` : ""}`
+          : t("dashboard.card.placeholder"),
+    },
+    {
+      key: "fees",
+      icon: Coins,
+      label: t("dashboard.card.feesCollected"),
+      value: fees ? formatMoney(fees.collected_this_month) : "—",
+      note: fees
+        ? t("dashboard.fees.sinceMonthStart", { date: formatDate(fees.month_start) })
+        : t("dashboard.card.placeholder"),
+    },
+    {
+      key: "defaulters",
+      icon: AlertTriangle,
+      label: t("dashboard.card.defaulters"),
+      value: fees ? String(fees.defaulters) : "—",
+      note: fees
+        ? t("dashboard.fees.outstanding", { amount: formatMoney(fees.outstanding) })
+        : t("dashboard.card.placeholder"),
+    },
+  ];
 
   return (
     <>
@@ -43,7 +77,7 @@ export function Dashboard() {
       <p className="mb-4 text-sm text-muted">
         {t("dashboard.welcome", { name: user?.full_name ?? "" })}
       </p>
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
         <Card padded={false} className="p-3" data-testid="attendance-card">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium uppercase tracking-wide text-muted">
@@ -92,16 +126,20 @@ export function Dashboard() {
             )}
           </p>
         </Card>
-        {cards.map(({ key, icon: Icon, label }) => (
-          <Card key={key} padded={false} className="p-3">
+        {cards.map(({ key, icon: Icon, label, value, note }) => (
+          <Card key={key} padded={false} className="p-3" data-testid={`${key}-card`}>
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium uppercase tracking-wide text-muted">
                 {label}
               </span>
               <Icon className="h-4 w-4 text-muted" aria-hidden />
             </div>
-            <div className="mt-2 text-2xl font-semibold tabular-nums text-navy">—</div>
-            <p className="mt-1 text-xs text-muted">{t("dashboard.card.placeholder")}</p>
+            <div
+              className={`mt-2 text-2xl font-semibold tabular-nums ${key === "defaulters" && value !== "—" && value !== "0" ? "text-danger" : "text-navy"}`}
+            >
+              {value}
+            </div>
+            <p className="mt-1 text-xs text-muted">{note}</p>
           </Card>
         ))}
       </div>

@@ -28,6 +28,7 @@ async fn loads_into_an_empty_database_and_marks_everything_demo() {
         &LoadOptions {
             confirmed: true,
             out_dir: Some(out.clone()),
+            full_year: false,
         },
     )
     .await
@@ -84,6 +85,7 @@ async fn loads_into_an_empty_database_and_marks_everything_demo() {
         &LoadOptions {
             confirmed: true,
             out_dir: None,
+            full_year: false,
         },
     )
     .await
@@ -125,6 +127,7 @@ async fn refuses_when_a_real_school_exists() {
         &LoadOptions {
             confirmed: true,
             out_dir: None,
+            full_year: false,
         },
     )
     .await

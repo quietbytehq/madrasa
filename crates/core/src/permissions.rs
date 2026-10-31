@@ -404,4 +404,38 @@ mod tests {
         let from_codes = PermissionSet::from_codes(["fees.read", "bogus"]);
         assert_eq!(from_codes.codes(), vec!["fees.read"]);
     }
+
+    /// `docs/permissions.md` must list exactly the default grants of the code.
+    #[test]
+    fn matrix_matches_docs() {
+        let doc = include_str!("../../../docs/permissions.md");
+        let roles = [
+            RoleCode::Principal,
+            RoleCode::Admin,
+            RoleCode::Accountant,
+            RoleCode::Teacher,
+        ];
+        let mut seen = 0;
+        for line in doc.lines().filter(|l| l.starts_with("| `")) {
+            let cells: Vec<&str> = line.split('|').map(str::trim).collect();
+            let code = cells[1].trim_matches('`');
+            let perm: Permission = code
+                .parse()
+                .unwrap_or_else(|_| panic!("unknown permission in docs: {code}"));
+            for (i, role) in roles.iter().enumerate() {
+                let documented = cells[3 + i] == "✓";
+                let actual = role.default_permissions().contains(&perm);
+                assert_eq!(
+                    documented, actual,
+                    "{code} for {role}: docs say {documented}, code says {actual}"
+                );
+            }
+            seen += 1;
+        }
+        assert_eq!(
+            seen,
+            Permission::ALL.len(),
+            "every permission is documented"
+        );
+    }
 }

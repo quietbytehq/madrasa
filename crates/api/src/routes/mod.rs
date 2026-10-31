@@ -9,6 +9,7 @@ pub mod fees;
 pub mod health;
 pub mod imports;
 pub mod nexus;
+pub mod rollover;
 pub mod school_settings;
 pub mod schools;
 pub mod setup;

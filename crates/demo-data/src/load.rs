@@ -29,6 +29,9 @@ pub struct LoadOptions {
     pub confirmed: bool,
     /// Also write the generated data as JSON files here.
     pub out_dir: Option<PathBuf>,
+    /// Fees and attendance for the whole academic year up to today (performance checks)
+    /// instead of April and May only.
+    pub full_year: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -420,11 +423,59 @@ pub async fn load(
     let rep =
         fees::generate_vouchers(&mut tx, hlc, actor, school.id, year.id, may, None, may).await?;
     vouchers += rep.created;
+    if options.full_year {
+        // June onwards up to the current month: generated, and ~70% paid in full on time.
+        let last = Utc::now().date_naive();
+        let mut month = madrasa_core::fees::add_months(may, 1);
+        while month <= last {
+            let rep = fees::generate_vouchers(
+                &mut tx, hlc, actor, school.id, year.id, month, None, month,
+            )
+            .await?;
+            vouchers += rep.created;
+            for vid in &rep.voucher_ids {
+                if !rng.gen_bool(0.7) {
+                    continue;
+                }
+                let v = fees::get_voucher(&mut tx, *vid).await?;
+                let balance = v.balance();
+                if balance <= rust_decimal::Decimal::ZERO {
+                    continue;
+                }
+                let paid_on = (month + chrono::Duration::days(rng.gen_range(1..=14))).min(last);
+                fees::record_payment(
+                    &mut tx,
+                    hlc,
+                    actor,
+                    &policy,
+                    fees::NewPayment {
+                        voucher_id: *vid,
+                        amount: balance,
+                        method: PaymentMethod::Cash,
+                        reference: None,
+                        note: None,
+                        paid_on,
+                        received_by: principal_user,
+                    },
+                )
+                .await?;
+                receipts += 1;
+            }
+            month = madrasa_core::fees::add_months(month, 1);
+        }
+    }
 
     // Attendance: Sunday off, two holidays, every section marked on each school day of April
     // and May (≈4% absent, 2% late, 1% leave), and staff attendance for the same days.
     let april1 = chrono::NaiveDate::from_ymd_opt(demo.academic_year_start, 4, 1).expect("date");
-    let may31 = chrono::NaiveDate::from_ymd_opt(demo.academic_year_start, 5, 31).expect("date");
+    let may31 = if options.full_year {
+        let today = Utc::now().date_naive();
+        let year_end =
+            chrono::NaiveDate::from_ymd_opt(demo.academic_year_start + 1, 3, 31).expect("date");
+        today.min(year_end).max(april1)
+    } else {
+        chrono::NaiveDate::from_ymd_opt(demo.academic_year_start, 5, 31).expect("date")
+    };
     attendance::create_holiday(
         &mut tx,
         hlc,
