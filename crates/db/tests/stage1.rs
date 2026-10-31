@@ -32,6 +32,8 @@ async fn school(pool: &PgPool) -> School {
             is_demo: false,
             academic_year_start_month: 4,
             currency: "PKR".into(),
+            country: "PK".into(),
+            time_zone: "Asia/Karachi".into(),
         },
     )
     .await

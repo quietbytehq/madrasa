@@ -458,6 +458,42 @@ depend on each other and were built together)
 - Not done / notes: no UI button for the manual run (the pass runs on its own; the endpoint is
   there if one is wanted).
 
+### 2026-10-31 — Schools outside Pakistan (branch `m1-international`)
+- Started from the head of pull request #9 (`bf5224c`); to be rebased onto `main` once #9 is
+  merged (the branch carries no other changes).
+- Done, school profile: `country`, `time_zone` columns on `schools` (migration 0009, which
+  also allows any academic year start month 1–12), `madrasa_core::locale` tables of
+  countries (25), currencies (25, two minor units only) and IANA time zones (`chrono-tz`),
+  `GET /system/locale`, `PATCH /schools/current`, Settings → School profile card. The API
+  keeps the profile in `AppState` and the clock takes the school's zone from it.
+- Done, setup wizard: country select (sets currency, time zone and the usual year start),
+  month select 1–12, currency and time zone selects; the country's school weekend is written
+  at setup.
+- Done, country rules: Pakistan keeps the 13-digit CNIC / B-Form and 11-digit phone rules;
+  elsewhere the ID field takes the country's name (`National ID`, `Emirates ID`…) and 3–40
+  characters, phones 7–15 digits with optional `+`. Applied in the student and staff
+  endpoints and in the import. The ID field was already optional.
+- Done, grades and imports: `K`, `KG`, `Kindergarten`, `Grade N` share class keys; the class
+  preset is K–12 for US/CA; imports accept first + last name columns, a single
+  parent/guardian column (stands in for the father's name), month-first numeric dates for
+  the US, "Homeroom", "Enrollment date", "Job title", "Hire date" and similar headings;
+  guardian email is imported. Required-field checks (API and wizard) know the alternatives.
+- Done, printing: vouchers and receipts show the school's currency code instead of `PKR`.
+- Tested: core 78 unit tests (locale 4, imports 3 new); api `international.rs`:
+  `us_school_setup_defaults_and_country_rules` (country validation, US defaults, weekend
+  Sat+Sun, free-form ID and US phone accepted, bad phone refused, profile change, locale
+  lists) and `maple_ridge_register_imports_in_full` (a generated US-style register of 1,123
+  students and 40 staff: every column auto-mapped, preview 1,123 creates and 0 errors, apply
+  creates all, month-first dates, names joined, parent as father, K and "Grade 10" matched,
+  staff titles, +1 phones and hire dates); vitest 96 (setup wizard country logic). fmt,
+  clippy, eslint, prettier and tsc clean.
+- Not done / notes: the owner's `Madrasa_Demo_MapleRidge_USA.xlsx` did not reach this session
+  (no attachment arrived in the sandbox), so the test builds an equivalent workbook with the
+  same shape and counts (`crates/api/tests/international.rs`); run the wizard on the real
+  file and look at the preview before trusting the mapping. UI labels still say "Class" and
+  "CNIC" in Urdu for Pakistani schools; only the ID label follows the country. Currency
+  symbols are not yet used in list screens (amounts stay unlabelled there).
+
 ## Summary for the owner — Stages 5, 6 and 7 (night run of 2026-10-30/31)
 
 All three stages are merged into `main` in order (pull requests #6, #7 and #8),

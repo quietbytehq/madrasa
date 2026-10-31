@@ -124,7 +124,7 @@ const detail: VoucherDetail = {
   class_name: "1",
   section_name: "A",
   guardian_phone: null,
-  school: { name: "Gulshan High", code: "GHS", city: "Karachi" },
+  school: { name: "Gulshan High", code: "GHS", city: "Karachi", currency: "PKR" },
   policy,
 };
 

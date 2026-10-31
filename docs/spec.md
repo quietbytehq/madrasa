@@ -166,7 +166,7 @@ reference the financial document they touch (M1+).
 Student numbers are `<prefix>-<year>-<5-digit sequence>`; the prefix defaults to the school code
 and is configurable (`settings` key `student_number.prefix`), the year is the admission year.
 
-Identifiers are normalised before storage and matching: CNIC/B-Form to 13 digits
+Identifiers are normalised before storage and matching: CNIC/B-Form to 13 digits for a Pakistani school (elsewhere the national ID is kept as typed, 3–40 characters, upper case, and the phone keeps 7–15 digits with an optional `+`; see §9.1)
 (`#####-#######-#`), phone numbers to digits with a leading `0` or `+92`.
 
 Duplicate warning on create: a match on normalised B-Form/CNIC, or on (name, date of birth,
@@ -348,7 +348,7 @@ Rules (`madrasa_core::imports` for cleanup, `madrasa_api::imports` for the datab
   downloadable for each kind.
 - **Cleanup**: trim and collapse spaces, strip zero-width characters, Urdu and Arabic-Indic
   digits → Latin; dates in `YYYY-MM-DD`, `DD/MM/YYYY`, `DD-MM-YYYY`, `D.M.YYYY`, `DD Mon YYYY`,
-  `Month D, YYYY` and Excel serial numbers (day first for numeric dates); phone and CNIC/B-Form
+  `Month D, YYYY` and Excel serial numbers (day first for numeric dates, month first for a country that reads them that way, e.g. the US; `madrasa_core::locale`); phone and CNIC/B-Form
   normalised as in §5.4; gender and relationship words in English and Urdu; money with `Rs`
   and thousands separators; class names matched tolerantly (`Class 1`, `Grade 1`, `1st`, `I`,
   `One`, `جماعت 1`, `KG`, `Nursery`, `Prep`) and `1-A` / `1 A` / `Class 7 (B)` split into class
@@ -552,6 +552,16 @@ Students and opening balances need `students.manage`; staff needs `teachers.mana
 | POST | `/academic-years/rollover` | `academics.manage` | Roll over (`retain`, `graduate`: student ids) |
 | GET | `/dashboard` | any user | Now also students, staff, fees collected this month, defaulters |
 
+### 6.9 International (after M1)
+
+| Method | Path | Permission | Purpose |
+| --- | --- | --- | --- |
+| GET | `/system/locale` | none | Countries, currencies and time zones to choose from |
+| PATCH | `/schools/current` | `settings.manage` | Change name, city, country, currency or time zone; the summary now carries `country`, `time_zone`, `currency_symbol`, `id_label`, `date_order` |
+
+`POST /setup` takes `country` (default `PK`), optional `currency` and `time_zone` (country
+defaults), and any `academic_year_start_month` 1–12.
+
 ## 7. Security
 
 - Passwords: Argon2id (`argon2` crate, OWASP-recommended parameters: m=19 MiB, t=2, p=1),
@@ -623,6 +633,41 @@ Shown when `/setup/status` reports `needs_setup`. Steps:
 Completing the wizard creates the school, settings, default roles with permissions, the admin
 user (roles `principal` and `admin`) and the wrapped backup keys, all in one transaction, and
 audit-logs the creation.
+
+### 9.1 Schools outside Pakistan
+
+Pakistan is the first market, but nothing is hard-coded to it. The school row carries
+`country` (ISO 3166-1 alpha-2, default `PK`), `currency` (ISO 4217) and `time_zone` (IANA
+name), chosen in the setup wizard and editable under Settings → School profile
+(`PATCH /schools/current`, `settings.manage`). `GET /system/locale` (public) lists the
+countries, currencies and time zones to choose from; the tables live in
+`madrasa_core::locale` and a new country is one row there.
+
+What the country decides, each changeable afterwards:
+
+- **Currency** default (`PKR` for Pakistan, `USD` for the US…). Only currencies with two
+  minor units are offered because money is `NUMERIC(14,2)`. Printed vouchers and receipts
+  show the school's currency code.
+- **Time zone** default (`Asia/Karachi`, `America/New_York`…). `madrasa_api::clock::today()`
+  uses it for every "today" (dashboard, defaulters, attendance limits, the late fee pass).
+- **Weekend**: setup writes the country's usual school weekend into
+  `attendance.weekend_days` (Sunday for Pakistan; Saturday and Sunday for the US, UK, India…;
+  Friday and Saturday for the Gulf and Bangladesh; Saturday for Nepal; Friday for
+  Afghanistan). Attendance → Calendar edits it as before.
+- **Identity numbers**: Pakistan keeps the 13-digit CNIC / B-Form rule; elsewhere the field
+  is labelled with the country's name for it (`National ID`, `Emirates ID`, `Aadhaar`…) and
+  accepts 3–40 characters. The field is optional everywhere.
+- **Phones**: Pakistan keeps the 11-digit rule; elsewhere 7–15 digits with an optional `+`.
+- **Dates in imports**: numeric dates are read month-first for the US and the Philippines.
+- **Academic year start** may be any month (1–12); the wizard suggests August for the US
+  and Canada, April for Pakistan.
+
+Grade names are free text; the class preset is `KG`, `1`–`12` or, for the US and Canada,
+`K`, `1`–`12`. The import treats `K`, `KG`, `Kindergarten` and `Grade N` / `N` as the same
+class keys, so a US register with a "Grade" column and a "Homeroom" column maps onto classes
+named `K`–`12` with sections. Western registers are also accepted with separate first and
+last name columns (joined into the full name) and a single "Parent/Guardian Name" column
+(which stands in for the father's name, which the data model keeps as the primary contact).
 
 ## 10. Demo data
 

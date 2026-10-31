@@ -4,18 +4,21 @@ import { Route, Routes } from "react-router-dom";
 import { renderWithProviders } from "@/test/render";
 import { api } from "@/api/endpoints";
 import { ApiError } from "@/api/client";
-import { Setup, toRequest, validateStep } from "./Setup";
+import { FALLBACK_LISTS, Setup, applyCountry, toRequest, validateStep } from "./Setup";
 import type { SetupForm } from "./Setup";
 
 vi.mock("@/api/endpoints", () => ({
-  api: { setup: vi.fn() },
+  api: { setup: vi.fn(), localeLists: vi.fn() },
 }));
 
 const filled: SetupForm = {
   schoolName: "Gulshan High",
   schoolCode: "ghs01",
   city: "Karachi",
+  country: "PK",
   startMonth: "8",
+  currency: "PKR",
+  timeZone: "Asia/Karachi",
   adminFullName: "Ayesha Khan",
   adminUsername: "ayesha",
   adminPassword: "admin-password-1",
@@ -51,12 +54,26 @@ describe("setup validation", () => {
       school_code: "GHS01",
       city: "Karachi",
       academic_year_start_month: 8,
+      country: "PK",
       currency: "PKR",
+      time_zone: "Asia/Karachi",
       admin_full_name: "Ayesha Khan",
       admin_username: "ayesha",
       admin_password: "admin-password-1",
       backup_password: "backup-password-1",
     });
+  });
+  it("choosing a country sets its currency, time zone and year start", () => {
+    const us = applyCountry(filled, "US", FALLBACK_LISTS);
+    expect([us.country, us.currency, us.timeZone, us.startMonth]).toEqual([
+      "US",
+      "USD",
+      "America/New_York",
+      "8",
+    ]);
+    const back = applyCountry(us, "PK", FALLBACK_LISTS);
+    expect([back.currency, back.timeZone, back.startMonth]).toEqual(["PKR", "Asia/Karachi", "4"]);
+    expect(applyCountry(filled, "ZZ", FALLBACK_LISTS).country).toBe("ZZ");
   });
 });
 
@@ -77,6 +94,9 @@ async function fillStep1() {
 }
 
 describe("Setup wizard", () => {
+  beforeEach(() => {
+    vi.mocked(api.localeLists).mockResolvedValue(FALLBACK_LISTS);
+  });
   // Note: vi.fn().mockReset() makes vitest report later rejections from the mock as
   // unhandled, so each test installs its own implementation instead.
 
@@ -122,7 +142,9 @@ describe("Setup wizard", () => {
       school_code: "GHS01",
       city: "",
       academic_year_start_month: 8,
+      country: "PK",
       currency: "PKR",
+      time_zone: "Asia/Karachi",
       admin_full_name: "Ayesha Khan",
       admin_username: "ayesha",
       admin_password: "admin-password-1",

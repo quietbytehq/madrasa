@@ -8,8 +8,10 @@ This guide covers the daily work. Press **Ctrl+K** anywhere to search.
 
 1. Install Madrasa (Windows installer or Linux `.deb`/AppImage) and open it. The bundled
    database starts on its own.
-2. The setup wizard asks for the school name and code, the academic year's start month (April
-   or August), the administrator account, and a **backup password**.
+2. The setup wizard asks for the school name, code and country, the academic year's start
+   month, the currency and time zone (filled in from the country), the administrator account,
+   and a **backup password**. The country also sets the weekend and how ID numbers and phone
+   numbers are checked; all of this can be changed later under **Settings**.
 3. Write down the **recovery key** shown once at the end and keep it somewhere safe. It opens
    your backups if the backup password is ever lost. Madrasa never shows it again.
 4. Log in as the administrator. Under **Settings** add the academic year, classes, sections

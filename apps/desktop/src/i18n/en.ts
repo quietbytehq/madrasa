@@ -123,6 +123,10 @@ export const en = {
   "setup.year.april": "April",
   "setup.year.august": "August",
   "setup.year.currency": "Currency",
+  "setup.year.timeZone": "Time zone",
+  "setup.school.country": "Country",
+  "setup.school.countryHint":
+    "Sets the currency, time zone, weekend and ID number format. Each can be changed later.",
   "setup.admin.fullName": "Full name",
   "setup.admin.username": "Username",
   "setup.admin.password": "Password",
@@ -199,6 +203,7 @@ export const en = {
   "academics.classes.new": "New class",
   "academics.classes.level": "Order",
   "academics.classes.addDefaults": "Add KG–12",
+  "academics.classes.addK12": "Add K–12",
   "academics.sections": "Sections",
   "academics.sections.empty": "No sections in this academic year yet.",
   "academics.sections.new": "New section",
@@ -317,6 +322,14 @@ export const en = {
   // Settings
   "settings.title": "Settings",
   "settings.school": "School",
+  "settings.profile": "School profile",
+  "settings.profile.name": "School name",
+  "settings.profile.city": "City",
+  "settings.profile.country": "Country",
+  "settings.profile.currency": "Currency",
+  "settings.profile.timeZone": "Time zone",
+  "settings.profile.hint":
+    "The country sets the ID number and phone formats; the time zone sets what counts as today.",
   "settings.studentNumberPrefix": "Student number prefix",
   "settings.studentNumberPrefix.hint":
     "Numbers look like {example}. Changing the prefix affects new students only.",

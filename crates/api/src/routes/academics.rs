@@ -60,9 +60,9 @@ async fn create_year(
 ) -> ApiResult<Json<AcademicYear>> {
     user.require(Permission::AcademicsManage)?;
     let Json(b) = body?;
-    if !matches!(b.start_month, 4 | 8) {
+    if !(1..=12).contains(&b.start_month) {
         return Err(ApiError::validation(
-            "Academic year must start in April (4) or August (8).",
+            "Academic year start month must be between 1 and 12.",
         ));
     }
     if !(2000..=2100).contains(&b.start_year) {

@@ -29,10 +29,16 @@ pub const KEY_WEEKEND_DAYS: &str = "attendance.weekend_days";
 
 /// Weekly off days as ISO weekday numbers (1 = Monday … 7 = Sunday).
 pub async fn weekend_days(conn: &mut PgConnection, school_id: Uuid) -> DbResult<Vec<u32>> {
-    Ok(settings::get(conn, Some(school_id), KEY_WEEKEND_DAYS)
+    let saved: Option<Vec<u32>> = settings::get(&mut *conn, Some(school_id), KEY_WEEKEND_DAYS)
         .await?
-        .and_then(|v| serde_json::from_value(v).ok())
-        .unwrap_or_else(attendance::default_weekend))
+        .and_then(|v| serde_json::from_value(v).ok());
+    match saved {
+        Some(days) => Ok(days),
+        // Not set yet: the country's usual school weekend.
+        None => Ok(madrasa_core::locale::default_weekend(
+            &crate::schools::get(conn, school_id).await?.country,
+        )),
+    }
 }
 
 pub async fn set_weekend_days(

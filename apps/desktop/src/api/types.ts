@@ -42,8 +42,14 @@ export interface SetupRequest {
   school_name: string;
   school_code: string;
   city: string;
-  academic_year_start_month: 4 | 8;
-  currency: "PKR";
+  /** 1–12. */
+  academic_year_start_month: number;
+  /** ISO 3166-1 alpha-2. */
+  country: string;
+  /** ISO 4217. */
+  currency: string;
+  /** IANA name. */
+  time_zone: string;
   admin_full_name: string;
   admin_username: string;
   admin_password: string;
@@ -83,6 +89,8 @@ export interface MeResponse {
   permissions: string[];
 }
 
+export type DateOrder = "day_first" | "month_first";
+
 export interface SchoolSummary {
   id: string;
   name: string;
@@ -91,6 +99,45 @@ export interface SchoolSummary {
   is_demo: boolean;
   academic_year_start_month: number;
   currency: string;
+  currency_symbol: string;
+  country: string;
+  country_name: string;
+  time_zone: string;
+  /** What the national identity number is called here. */
+  id_label: string;
+  date_order: DateOrder;
+}
+
+/** Mirrors `ProfileBody` (PATCH /schools/current); omitted fields stay as they are. */
+export interface SchoolProfileUpdate {
+  name?: string;
+  city?: string;
+  currency?: string;
+  country?: string;
+  time_zone?: string;
+}
+
+export interface CountryInfo {
+  code: string;
+  name: string;
+  time_zone: string;
+  currency: string;
+  weekend: number[];
+  id_label: string;
+  date_order: DateOrder;
+}
+
+export interface CurrencyInfo {
+  code: string;
+  name: string;
+  symbol: string;
+}
+
+/** Mirrors `LocaleLists` (GET /system/locale). */
+export interface LocaleLists {
+  countries: CountryInfo[];
+  currencies: CurrencyInfo[];
+  time_zones: string[];
 }
 
 export interface ApiErrorBody {
@@ -437,6 +484,7 @@ export interface SchoolHeader {
   name: string;
   code: string;
   city: string;
+  currency: string;
 }
 
 export interface VoucherDetail extends FeeVoucher {

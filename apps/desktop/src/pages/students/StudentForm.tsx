@@ -23,6 +23,8 @@ import { Spinner } from "@/components/ui/Spinner";
 import { useToast } from "@/components/ui/Toast";
 import { useI18n } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
+import { useSchool } from "@/app/session";
+import { placeholders } from "@/lib/school";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 import { PageHeader } from "../PageHeader";
 import { GENDERS, genderLabel, RELATIONSHIPS, relationshipLabel, today } from "./common";
@@ -149,6 +151,8 @@ export function StudentFormPage() {
   const { id } = useParams();
   const editing = Boolean(id);
   const { t } = useI18n();
+  const school = useSchool();
+  const example = placeholders(school);
   const navigate = useNavigate();
   const toast = useToast();
   const existing = useAsync(() => (id ? api.student(id) : Promise.resolve(null)), [id]);
@@ -317,10 +321,10 @@ export function StudentFormPage() {
                 options={GENDERS.map((g) => ({ value: g, label: genderLabel(t, g) }))}
               />
               <Input
-                label={t("common.bform")}
+                label={school.country === "PK" ? t("common.bform") : school.id_label}
                 value={form.cnic}
                 onChange={set("cnic")}
-                placeholder="42101-1234567-1"
+                placeholder={example.id}
               />
               <Input
                 label={t("students.admissionDate")}
@@ -504,6 +508,8 @@ export function GuardiansEditor({
   onChange: (g: GuardianDraft[]) => void;
 }) {
   const { t } = useI18n();
+  const school = useSchool();
+  const example = placeholders(school);
   const [search, setSearch] = useState("");
   const results = useAsync(
     () => (search.trim().length >= 2 ? api.searchGuardians(search.trim()) : Promise.resolve([])),
@@ -587,13 +593,13 @@ export function GuardiansEditor({
                       label={t("common.phone")}
                       value={g.phone ?? ""}
                       onChange={(e) => update(i, { phone: e.target.value })}
-                      placeholder="0300-1234567"
+                      placeholder={example.phone}
                     />
                     <Input
-                      label={t("common.cnic")}
+                      label={school.country === "PK" ? t("common.cnic") : school.id_label}
                       value={g.cnic ?? ""}
                       onChange={(e) => update(i, { cnic: e.target.value })}
-                      placeholder="42101-1234567-1"
+                      placeholder={example.id}
                     />
                     <Input
                       label={t("common.email")}

@@ -184,7 +184,7 @@ async fn setup_runs_once_and_validates_input() {
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert_eq!(body["error"]["code"], "validation");
     let mut bad = TestApp::setup_body();
-    bad["academic_year_start_month"] = json!(9);
+    bad["academic_year_start_month"] = json!(13);
     assert_eq!(
         app.post("/setup", None, bad).await.0,
         StatusCode::BAD_REQUEST

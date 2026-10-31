@@ -11,6 +11,7 @@ pub mod fees;
 pub mod hlc;
 pub mod ids;
 pub mod imports;
+pub mod locale;
 pub mod password;
 pub mod permissions;
 pub mod session_token;

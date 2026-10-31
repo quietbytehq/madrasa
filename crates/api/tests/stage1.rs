@@ -228,7 +228,7 @@ async fn academic_structure_crud_and_validation() {
         .post(
             "/academic-years",
             &admin,
-            json!({ "start_year": 2026, "start_month": 5 }),
+            json!({ "start_year": 2026, "start_month": 13 }),
         )
         .await;
     assert_eq!(

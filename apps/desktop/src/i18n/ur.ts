@@ -113,6 +113,10 @@ export const ur: Translation = {
   "setup.year.april": "اپریل",
   "setup.year.august": "اگست",
   "setup.year.currency": "کرنسی",
+  "setup.year.timeZone": "ٹائم زون",
+  "setup.school.country": "ملک",
+  "setup.school.countryHint":
+    "کرنسی، ٹائم زون، ہفتہ وار چھٹی اور شناختی نمبر کی ساخت طے کرتا ہے۔ ہر ایک بعد میں بدلا جا سکتا ہے۔",
   "setup.admin.fullName": "پورا نام",
   "setup.admin.username": "صارف نام",
   "setup.admin.password": "پاس ورڈ",
@@ -187,6 +191,7 @@ export const ur: Translation = {
   "academics.classes.new": "نئی جماعت",
   "academics.classes.level": "ترتیب",
   "academics.classes.addDefaults": "KG–12 شامل کریں",
+  "academics.classes.addK12": "K–12 شامل کریں",
   "academics.sections": "سیکشنز",
   "academics.sections.empty": "اس تعلیمی سال میں ابھی کوئی سیکشن نہیں۔",
   "academics.sections.new": "نیا سیکشن",
@@ -305,6 +310,14 @@ export const ur: Translation = {
 
   "settings.title": "ترتیبات",
   "settings.school": "اسکول",
+  "settings.profile": "اسکول کی تفصیلات",
+  "settings.profile.name": "اسکول کا نام",
+  "settings.profile.city": "شہر",
+  "settings.profile.country": "ملک",
+  "settings.profile.currency": "کرنسی",
+  "settings.profile.timeZone": "ٹائم زون",
+  "settings.profile.hint":
+    "ملک شناختی نمبر اور فون کی ساخت طے کرتا ہے؛ ٹائم زون طے کرتا ہے کہ آج کون سا دن ہے۔",
   "settings.studentNumberPrefix": "طالب علم نمبر کا سابقہ",
   "settings.studentNumberPrefix.hint":
     "نمبر {example} جیسے ہوتے ہیں۔ سابقہ بدلنے کا اثر صرف نئے طلبہ پر ہوتا ہے۔",

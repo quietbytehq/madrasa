@@ -136,13 +136,11 @@ async fn put_mapping(
 }
 
 fn check_mapping(req: &ImportRequest) -> ApiResult<()> {
-    for f in rules::fields(req.kind).iter().filter(|f| f.required) {
-        if !req.mapping.contains_key(f.key) {
-            return Err(ApiError::validation(format!(
-                "Choose a column for \"{}\" before continuing.",
-                f.label
-            )));
-        }
+    if let Some(f) = rules::missing_required(req.kind, &req.mapping).first() {
+        return Err(ApiError::validation(format!(
+            "Choose a column for \"{}\" before continuing.",
+            f.label
+        )));
     }
     if req.mapping.values().any(|i| *i >= req.headers.len()) {
         return Err(ApiError::validation(

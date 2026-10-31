@@ -14,6 +14,10 @@ pub struct School {
     pub is_demo: bool,
     pub academic_year_start_month: i16,
     pub currency: String,
+    /// ISO 3166-1 alpha-2, e.g. `PK`, `US`.
+    pub country: String,
+    /// IANA time zone, e.g. `Asia/Karachi`.
+    pub time_zone: String,
     pub custom: Value,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,

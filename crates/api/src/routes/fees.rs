@@ -483,6 +483,8 @@ pub struct SchoolHeader {
     pub name: String,
     pub code: String,
     pub city: String,
+    /// ISO 4217 code printed next to amounts.
+    pub currency: String,
 }
 
 impl From<School> for SchoolHeader {
@@ -491,6 +493,7 @@ impl From<School> for SchoolHeader {
             name: s.name,
             code: s.code,
             city: s.city,
+            currency: s.currency,
         }
     }
 }

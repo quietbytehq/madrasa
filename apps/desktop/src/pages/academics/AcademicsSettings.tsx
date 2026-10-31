@@ -14,11 +14,19 @@ import { Spinner } from "@/components/ui/Spinner";
 import { Table } from "@/components/ui/Table";
 import { useToast } from "@/components/ui/Toast";
 import { useI18n } from "@/i18n";
+import { useSchool } from "@/app/session";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 import { useSession } from "@/app/session";
 import { RolloverDialog } from "./RolloverDialog";
 
 const DEFAULT_CLASSES = ["KG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
+/** North American naming: kindergarten is "K". */
+const K12_CLASSES = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
+
+/** The class preset for a country: K–12 in North America, KG–12 elsewhere. */
+export function classPreset(country: string): string[] {
+  return country === "US" || country === "CA" ? K12_CLASSES : DEFAULT_CLASSES;
+}
 const DEFAULT_SUBJECTS: Array<[string, string]> = [
   ["English", "ENG"],
   ["Urdu", "URD"],
@@ -239,6 +247,7 @@ function ClassesCard({
   onError,
 }: CardProps & { classes: SchoolClass[]; subjects: Subject[] }) {
   const { t } = useI18n();
+  const school = useSchool();
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<SchoolClass | null>(null);
@@ -265,7 +274,7 @@ function ClassesCard({
     setBusy(true);
     try {
       const existing = new Set(classes.map((c) => c.name.toLowerCase()));
-      for (const [i, n] of DEFAULT_CLASSES.entries()) {
+      for (const [i, n] of classPreset(school.country).entries()) {
         if (!existing.has(n.toLowerCase())) await api.createClass({ name: n, level: i });
       }
       onChange();
@@ -311,7 +320,11 @@ function ClassesCard({
         manage &&
         classes.length === 0 && (
           <Button size="sm" variant="secondary" onClick={() => void addDefaults()} loading={busy}>
-            {t("academics.classes.addDefaults")}
+            {t(
+              school.country === "US" || school.country === "CA"
+                ? "academics.classes.addK12"
+                : "academics.classes.addDefaults",
+            )}
           </Button>
         )
       }

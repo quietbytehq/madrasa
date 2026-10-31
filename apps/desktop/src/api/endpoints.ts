@@ -47,6 +47,8 @@ import type {
   FeeVoucherRow,
   GenerationReport,
   LateFeeReport,
+  LocaleLists,
+  SchoolProfileUpdate,
   Ledger,
   PaymentMethod,
   ReceiptDetail,
@@ -98,6 +100,9 @@ export const api = {
   logout: () => request<void>("/auth/logout", { method: "POST" }),
   me: () => request<MeResponse>("/auth/me"),
   currentSchool: () => request<SchoolSummary>("/schools/current"),
+  updateSchool: (body: SchoolProfileUpdate) =>
+    request<SchoolSummary>("/schools/current", { method: "PATCH", body }),
+  localeLists: () => request<LocaleLists>("/system/locale"),
 
   // Academic structure
   academicYears: () => request<AcademicYear[]>("/academic-years"),

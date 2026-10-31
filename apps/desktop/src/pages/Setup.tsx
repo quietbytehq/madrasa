@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { Check, Printer } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ApiError, NetworkError } from "@/api/client";
 import { api } from "@/api/endpoints";
-import type { SetupRequest } from "@/api/types";
+import type { LocaleLists, SetupRequest } from "@/api/types";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -27,7 +27,14 @@ export interface SetupForm {
   schoolName: string;
   schoolCode: string;
   city: string;
-  startMonth: "4" | "8";
+  /** ISO 3166-1 alpha-2. */
+  country: string;
+  /** 1–12 as a string (select value). */
+  startMonth: string;
+  /** ISO 4217. */
+  currency: string;
+  /** IANA name. */
+  timeZone: string;
   adminFullName: string;
   adminUsername: string;
   adminPassword: string;
@@ -36,11 +43,65 @@ export interface SetupForm {
   backupPasswordConfirm: string;
 }
 
+/** Enough to run setup when the lists cannot be fetched. */
+export const FALLBACK_LISTS: LocaleLists = {
+  countries: [
+    {
+      code: "PK",
+      name: "Pakistan",
+      time_zone: "Asia/Karachi",
+      currency: "PKR",
+      weekend: [7],
+      id_label: "CNIC / B-Form",
+      date_order: "day_first",
+    },
+    {
+      code: "US",
+      name: "United States",
+      time_zone: "America/New_York",
+      currency: "USD",
+      weekend: [6, 7],
+      id_label: "National ID",
+      date_order: "month_first",
+    },
+  ],
+  currencies: [
+    { code: "PKR", name: "Pakistani rupee", symbol: "Rs" },
+    { code: "USD", name: "US dollar", symbol: "$" },
+  ],
+  time_zones: ["Asia/Karachi", "America/New_York"],
+};
+
+/** Month names 1–12 in the UI language. */
+export function monthOptions(locale: string): Array<{ value: string; label: string }> {
+  const fmt = new Intl.DateTimeFormat(locale === "ur" ? "ur-PK" : "en", { month: "long" });
+  return Array.from({ length: 12 }, (_, i) => ({
+    value: String(i + 1),
+    label: fmt.format(new Date(2026, i, 1)),
+  }));
+}
+
+/** Choosing a country sets its currency, time zone and the usual academic year start. */
+export function applyCountry(f: SetupForm, code: string, lists: LocaleLists): SetupForm {
+  const c = lists.countries.find((x) => x.code === code);
+  if (!c) return { ...f, country: code };
+  return {
+    ...f,
+    country: c.code,
+    currency: c.currency,
+    timeZone: c.time_zone,
+    startMonth: code === "PK" ? "4" : code === "US" || code === "CA" ? "8" : f.startMonth,
+  };
+}
+
 const EMPTY: SetupForm = {
   schoolName: "",
   schoolCode: "",
   city: "",
+  country: "PK",
   startMonth: "4",
+  currency: "PKR",
+  timeZone: "Asia/Karachi",
   adminFullName: "",
   adminUsername: "",
   adminPassword: "",
@@ -77,8 +138,10 @@ export function toRequest(f: SetupForm): SetupRequest {
     school_name: f.schoolName.trim(),
     school_code: f.schoolCode.trim().toUpperCase(),
     city: f.city.trim(),
-    academic_year_start_month: f.startMonth === "8" ? 8 : 4,
-    currency: "PKR",
+    academic_year_start_month: Number(f.startMonth),
+    country: f.country,
+    currency: f.currency,
+    time_zone: f.timeZone,
     admin_full_name: f.adminFullName.trim(),
     admin_username: f.adminUsername.trim(),
     admin_password: f.adminPassword,
@@ -97,6 +160,23 @@ export function Setup() {
   const [busy, setBusy] = useState(false);
   const [recoveryKey, setRecoveryKey] = useState<string | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
+  const [lists, setLists] = useState<LocaleLists>(FALLBACK_LISTS);
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .localeLists()
+      .then((l) => {
+        if (!cancelled) setLists(l);
+      })
+      .catch(() => {
+        // The fallback lists cover Pakistan and the US; the server validates the rest.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const { locale } = useI18n();
+  const months = useMemo(() => monthOptions(locale), [locale]);
 
   const set = (key: keyof SetupForm) => (e: { target: { value: string } }) => {
     setForm((f) => ({ ...f, [key]: e.target.value }));
@@ -201,6 +281,14 @@ export function Setup() {
                       onChange={set("city")}
                       className="max-w-xs"
                     />
+                    <Select
+                      label={t("setup.school.country")}
+                      hint={t("setup.school.countryHint")}
+                      value={form.country}
+                      onChange={(e) => setForm((f) => applyCountry(f, e.target.value, lists))}
+                      options={lists.countries.map((c) => ({ value: c.code, label: c.name }))}
+                      className="max-w-xs"
+                    />
                   </>
                 )}
                 {step === 1 && (
@@ -209,17 +297,25 @@ export function Setup() {
                       label={t("setup.year.startMonth")}
                       value={form.startMonth}
                       onChange={set("startMonth")}
-                      options={[
-                        { value: "4", label: t("setup.year.april") },
-                        { value: "8", label: t("setup.year.august") },
-                      ]}
+                      options={months}
                       className="max-w-xs"
                       autoFocus
                     />
-                    <Input
+                    <Select
                       label={t("setup.year.currency")}
-                      value="PKR"
-                      readOnly
+                      value={form.currency}
+                      onChange={set("currency")}
+                      options={lists.currencies.map((c) => ({
+                        value: c.code,
+                        label: `${c.code} — ${c.name} (${c.symbol})`,
+                      }))}
+                      className="max-w-xs"
+                    />
+                    <Select
+                      label={t("setup.year.timeZone")}
+                      value={form.timeZone}
+                      onChange={set("timeZone")}
+                      options={lists.time_zones.map((z) => ({ value: z, label: z }))}
                       className="max-w-xs"
                     />
                   </>
