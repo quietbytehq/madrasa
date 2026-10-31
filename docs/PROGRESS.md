@@ -425,9 +425,35 @@ depend on each other and were built together)
   subject assignments to the new sections (teachers reassign them under Teachers); a
   rollover cannot be undone (restore a backup instead); installers are unsigned.
 
+### 2026-10-31 — Automatic late fees (branch `m1-auto-late-fees`)
+- Started from `main` after pull request #8 was merged (main `4c5ba9e`).
+- Done: `fees::assess_due_late_fees` adds the policy's late fee to every unpaid or partly paid
+  voucher past its due date that has no fee yet, in one pass per school, idempotent; the
+  api `late_fees` module runs it at start and after every local midnight (date checked once a
+  minute so a PC that slept through midnight catches up; a failed pass retries after ten
+  minutes), from the server binary and the desktop shell; `POST /fees/late-fees/run`
+  (`fees.manage`, optional `as_of`, never in the future) runs it by hand and returns the count
+  and total. Waived vouchers are never re-assessed; paid, carried and cancelled ones are left
+  alone; a zero late fee percent switches the pass off.
+- Done: every late fee assessment (automatic, at payment or at carry-forward) is now its own
+  audit action `late_fee` with the voucher before and after; automatic ones have no actor.
+  Migration 0008 extends the audit CHECK and adds a partial index for the daily scan.
+- Done: spec §5.5 and §6.3, user guide (en, ur), TS client (`runLateFees`, `LateFeeReport`).
+- Tested: db `automatic_late_fees_apply_once_after_the_due_date_and_respect_waivers` (due day
+  adds nothing, day after adds 10% to both vouchers, second pass adds nothing, audit trail
+  `create, late_fee` by the system actor with old and new amounts, defaulters and ledger show
+  the fee, waiver stands through later passes, partial payment keeps its one fee, zero percent
+  adds nothing); api `late_fee_pass_adds_fees_once_keeps_waivers_and_is_audited` (403 for a
+  teacher, future date refused, same figures through the API, `/audit` holds two `late_fee`
+  entries); api unit `runs_at_start_and_once_per_day`. fmt, clippy, eslint, prettier and
+  tsc clean.
+- Not done / notes: no UI button for the manual run (the pass runs on its own; the endpoint is
+  there if one is wanted). The dashboard and the defaulters list use "today" in UTC while the
+  pass uses the PC's local date; at most the hours around midnight differ.
+
 ## Summary for the owner — Stages 5, 6 and 7 (night run of 2026-10-30/31)
 
-All three stages are merged into `main` in order (pull requests #6, #7 and the Stage 7 one),
+All three stages are merged into `main` in order (pull requests #6, #7 and #8),
 each from a clean `main` with CI green on Linux and Windows. What changed, in short:
 
 - **Stage 5 — Backup and restore.** Nightly encrypted backups (`.mbk`, AES-256-GCM, per-file
@@ -455,6 +481,8 @@ each from a clean `main` with CI green on Linux and Windows. What changed, in sh
 4. Walk one month of the real routine: generate vouchers, collect fees, mark attendance,
    enter and approve marks, print a report card and a voucher, in Urdu as well as English.
 5. On the last day of the year, run the rollover preview and check the destinations.
+6. Leave the app running past midnight with an overdue voucher and confirm the late fee
+   appears on its own (and that a waived one stays waived).
 
 **Decisions for you:**
 

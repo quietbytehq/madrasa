@@ -39,6 +39,7 @@ pub fn router() -> Router<AppState> {
         .route("/fees/vouchers/{id}/payments", post(pay))
         .route("/fees/vouchers/{id}/waive-late-fee", post(waive))
         .route("/fees/vouchers/{id}/cancel", post(cancel))
+        .route("/fees/late-fees/run", post(run_late_fees))
         .route("/fees/receipts/{id}", get(get_receipt))
         .route("/fees/receipts/{id}/reverse", post(reverse))
         .route("/fees/students/{id}/ledger", get(ledger))
@@ -435,6 +436,30 @@ async fn generate(
     )
     .await?;
     tx.commit().await?;
+    Ok(Json(report))
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct LateFeeRunBody {
+    /// Date to check the vouchers against; today when omitted. Never in the future.
+    pub as_of: Option<NaiveDate>,
+}
+
+/// Run the automatic late fee pass now (the daily job does this on its own; here for an
+/// operator who wants the figures current at once, and for tests).
+async fn run_late_fees(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    body: Option<Json<LateFeeRunBody>>,
+) -> ApiResult<Json<fees::LateFeeReport>> {
+    user.require(Permission::FeesManage)?;
+    let as_of = body.and_then(|Json(b)| b.as_of).unwrap_or_else(today);
+    if as_of > today() {
+        return Err(ApiError::validation(
+            "Late fees cannot be applied for a date in the future.",
+        ));
+    }
+    let report = crate::late_fees::run(&state, user.actor(), user.user.school_id, as_of).await?;
     Ok(Json(report))
 }
 

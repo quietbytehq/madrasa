@@ -44,6 +44,10 @@ list is in `docs/permissions.md`.
 - **Collect**: find the voucher and record the payment (cash, bank, online, 1Bill, Kuickpay
   with the reference number). Partial payments are fine. A receipt is issued and can be
   reprinted; corrections are reversals, never edits.
+- **Late fees are added on their own.** Every day (and whenever Madrasa starts) the late fee
+  is added to each voucher that is still unpaid after its due day, so the dashboard, the
+  defaulters list and every ledger show what is really owed. A waived late fee stays waived.
+  Each added fee is in the audit log. Set the late fee percent to 0 to switch this off.
 - Concessions, late-fee waivers, cancellations and reversals need the admin or principal and
   a reason; everything is in the audit log.
 - **Defaulters** lists who owes what and for how long; **Collections** shows a day's takings.

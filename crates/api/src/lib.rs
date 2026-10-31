@@ -9,6 +9,7 @@ pub mod bootstrap;
 pub mod error;
 pub mod export;
 pub mod imports;
+pub mod late_fees;
 pub mod routes;
 pub mod server;
 pub mod state;

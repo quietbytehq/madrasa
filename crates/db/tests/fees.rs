@@ -601,7 +601,7 @@ async fn generation_applies_structure_sibling_discount_concessions_and_is_idempo
         .unwrap();
     assert_eq!(
         trail.iter().map(|e| e.action.as_str()).collect::<Vec<_>>(),
-        ["create", "update", "update"]
+        ["create", "late_fee", "update"]
     );
     assert_eq!(trail[1].new_value.as_ref().unwrap()["late_fee"], "747.00");
     assert_eq!(trail[2].new_value.as_ref().unwrap()["status"], "carried");
@@ -1293,4 +1293,149 @@ async fn concession_base_changes_what_a_percent_concession_is_taken_on() {
         fees::ledger_totals(&mut c, sara).await.unwrap().discounts,
         dec!(333.33) + dec!(833.33) + dec!(333.33) + dec!(750.00)
     );
+}
+
+#[tokio::test]
+async fn automatic_late_fees_apply_once_after_the_due_date_and_respect_waivers() {
+    let db: TestDb = test_db!();
+    let f = fixture(&db.pool).await;
+    let actor = Actor::user(f.admin, f.school.id);
+    let system = Actor::system_for(f.school.id);
+    let omar = student(&db.pool, &f, "Omar", "Tariq", &f.sec2, d(2026, 4, 1)).await;
+    let zain = student(&db.pool, &f, "Zain", "Bilal", &f.sec2, d(2026, 4, 1)).await;
+    let mut c = db.pool.acquire().await.unwrap();
+    let policy = FeePolicy::default();
+    fees::generate_vouchers(
+        &mut c,
+        &hlc(),
+        actor,
+        f.school.id,
+        f.year.id,
+        d(2026, 4, 1),
+        None,
+        d(2026, 4, 1),
+    )
+    .await
+    .unwrap();
+    async fn voucher(c: &mut sqlx::PgConnection, s: Uuid) -> madrasa_db::models::FeeVoucher {
+        fees::vouchers_for_student(c, s).await.unwrap().remove(0)
+    }
+    assert_eq!(voucher(&mut c, omar).await.due_date, d(2026, 4, 15));
+
+    // On the due day nothing is owed yet; the day after, every overdue voucher gets 10%.
+    let r = fees::assess_due_late_fees(&mut c, &hlc(), system, f.school.id, d(2026, 4, 15))
+        .await
+        .unwrap();
+    assert_eq!((r.assessed, r.total), (0, dec!(0)));
+    let r = fees::assess_due_late_fees(&mut c, &hlc(), system, f.school.id, d(2026, 4, 16))
+        .await
+        .unwrap();
+    assert_eq!((r.assessed, r.total), (2, dec!(666.66)));
+    let v_omar = voucher(&mut c, omar).await;
+    assert_eq!(
+        (v_omar.late_fee, v_omar.status.as_str(), v_omar.balance()),
+        (dec!(333.33), "unpaid", dec!(3666.66))
+    );
+    // Idempotent: the next day's pass adds nothing.
+    let r = fees::assess_due_late_fees(&mut c, &hlc(), system, f.school.id, d(2026, 4, 17))
+        .await
+        .unwrap();
+    assert_eq!(r.assessed, 0);
+    assert_eq!(voucher(&mut c, omar).await.late_fee, dec!(333.33));
+
+    // Each automatic fee is audited as `late_fee` by the system actor, old and new values kept.
+    let trail = audit::for_entity(&mut c, "fee_voucher", v_omar.id)
+        .await
+        .unwrap();
+    assert_eq!(
+        trail.iter().map(|e| e.action.as_str()).collect::<Vec<_>>(),
+        ["create", "late_fee"]
+    );
+    assert_eq!(trail[1].actor_user_id, None);
+    assert_eq!(trail[1].old_value.as_ref().unwrap()["late_fee"], "0");
+    assert_eq!(trail[1].new_value.as_ref().unwrap()["late_fee"], "333.33");
+
+    // Defaulters and ledgers show the amount owed with the fee.
+    let defs = fees::defaulters(&mut c, f.school.id, d(2026, 4, 17), None, 0)
+        .await
+        .unwrap();
+    assert_eq!(defs.len(), 2);
+    assert!(defs.iter().all(|x| x.balance == dec!(3666.66)));
+    assert_eq!(
+        fees::ledger_totals(&mut c, zain).await.unwrap().fines,
+        dec!(333.33)
+    );
+
+    // A waiver stands: the pass never puts the fee back.
+    let v = fees::waive_late_fee(&mut c, &hlc(), actor, v_omar.id, "Hardship", f.admin)
+        .await
+        .unwrap();
+    assert_eq!((v.late_fee, v.late_fee_waived), (dec!(0), true));
+    let r = fees::assess_due_late_fees(&mut c, &hlc(), system, f.school.id, d(2026, 5, 1))
+        .await
+        .unwrap();
+    assert_eq!(r.assessed, 0);
+    let v = voucher(&mut c, omar).await;
+    assert_eq!(
+        (v.late_fee, v.late_fee_waived, v.balance()),
+        (dec!(0), true, dec!(3333.33))
+    );
+
+    // A partly paid voucher keeps its one fee; a fully paid one is left alone.
+    let zain_voucher = voucher(&mut c, zain).await.id;
+    let (_, v) = fees::record_payment(
+        &mut c,
+        &hlc(),
+        actor,
+        &policy,
+        fees::NewPayment {
+            voucher_id: zain_voucher,
+            amount: dec!(1000),
+            method: PaymentMethod::Cash,
+            reference: None,
+            note: None,
+            paid_on: d(2026, 4, 20),
+            received_by: f.admin,
+        },
+    )
+    .await
+    .unwrap();
+    assert_eq!((v.status.as_str(), v.balance()), ("partial", dec!(2666.66)));
+    let r = fees::assess_due_late_fees(&mut c, &hlc(), system, f.school.id, d(2026, 5, 1))
+        .await
+        .unwrap();
+    assert_eq!(r.assessed, 0);
+    assert_eq!(voucher(&mut c, zain).await.late_fee, dec!(333.33));
+
+    // With the late fee percent at zero the pass does nothing.
+    fees::set_policy(
+        &mut c,
+        &hlc(),
+        actor,
+        f.school.id,
+        &FeePolicy {
+            late_fee_percent: dec!(0),
+            ..FeePolicy::default()
+        },
+    )
+    .await
+    .unwrap();
+    fees::generate_vouchers(
+        &mut c,
+        &hlc(),
+        actor,
+        f.school.id,
+        f.year.id,
+        d(2026, 5, 1),
+        None,
+        d(2026, 5, 1),
+    )
+    .await
+    .unwrap();
+    let r = fees::assess_due_late_fees(&mut c, &hlc(), system, f.school.id, d(2026, 6, 1))
+        .await
+        .unwrap();
+    assert_eq!((r.assessed, r.total), (0, dec!(0)));
+    drop(c);
+    db.cleanup().await;
 }

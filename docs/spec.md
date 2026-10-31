@@ -207,7 +207,7 @@ to 2 places at each step):
 4. `net_monthly` = `gross − sibling_discount − concession_discount`.
 5. `arrears` = the unpaid balance of the student's earlier vouchers (including late fees). Those vouchers become `carried` and are no longer payable, so a balance is never counted twice. Carry-forward crosses month and academic-year boundaries.
 6. `total_due` = `net_monthly + arrears`.
-7. `late_fee` = `net_monthly` × late percent, assessed once the due date has passed, unless waived. Waiving needs `fees.approve`, a reason, and is audit-logged with the approver.
+7. `late_fee` = `net_monthly` × late percent, assessed once the due date has passed, unless waived. Waiving needs `fees.approve`, a reason, and is audit-logged with the approver. Assessment is automatic: a background pass in the server (and the desktop shell) runs at start and again after every local midnight, adding the fee to every `unpaid` or `partial` voucher whose due date has passed and that has no fee yet (`madrasa_db::fees::assess_due_late_fees`), so dashboards, defaulter lists and ledgers show the amount actually owed without anyone touching the voucher. The same pass runs when a payment or a carry-forward touches an overdue voucher, and by hand from `POST /fees/late-fees/run`. A waived voucher is never re-assessed; a zero late fee percent switches the pass off. Every assessment is an audit entry with action `late_fee` (actor empty when automatic) holding the voucher before and after.
 
 Voucher status: `unpaid`, `partial`, `paid` (derived from `net_paid` vs `total_due + late_fee`),
 `carried` (balance moved to a later voucher), `cancelled` (only while nothing was paid).
@@ -459,6 +459,7 @@ key query answers in under one second (results in `docs/PROGRESS.md`).
 | GET | `/fees/vouchers/{id}` | `fees.read` | Voucher with lines, receipts and print header |
 | POST | `/fees/vouchers/{id}/payments` | `fees.manage` | Record a (partial) payment; issues a receipt |
 | POST | `/fees/vouchers/{id}/waive-late-fee`, `/cancel` | `fees.approve` | Waive with reason; cancel an unpaid voucher |
+| POST | `/fees/late-fees/run` | `fees.manage` | Run the automatic late fee pass now (`as_of`, never in the future); returns vouchers assessed and the total |
 | GET | `/fees/receipts/{id}` | `fees.read` | Receipt for reprint |
 | POST | `/fees/receipts/{id}/reverse` | `fees.approve` | Reversal entry with reason |
 | GET | `/fees/students/{id}/ledger` | `fees.read` | Totals, vouchers, receipts, concessions |
