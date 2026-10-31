@@ -16,7 +16,7 @@ pub mod server;
 pub mod state;
 
 pub use error::{ApiError, ApiResult};
-pub use state::AppState;
+pub use state::{AppState, SchoolProfile};
 
 use axum::Router;
 use tower_http::cors::{Any, CorsLayer};

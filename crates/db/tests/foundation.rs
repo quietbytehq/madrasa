@@ -30,6 +30,8 @@ async fn make_school(pool: &PgPool) -> School {
             is_demo: false,
             academic_year_start_month: 4,
             currency: "PKR".into(),
+            country: "PK".into(),
+            time_zone: "Asia/Karachi".into(),
         },
     )
     .await
@@ -291,6 +293,8 @@ async fn school_codes_are_unique_case_insensitively() {
             is_demo: false,
             academic_year_start_month: 8,
             currency: "PKR".into(),
+            country: "PK".into(),
+            time_zone: "Asia/Karachi".into(),
         },
     )
     .await;

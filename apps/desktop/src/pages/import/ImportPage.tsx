@@ -179,8 +179,17 @@ export function ImportPage() {
     setResult(null);
   };
 
+  // Mirrors `missing_required` in the backend: first + last name stand in for the full name,
+  // a parent/guardian name for the father's name.
   const requiredMissing = useMemo(
-    () => (fields.data ?? []).filter((f) => f.required && mapping[f.key] === undefined),
+    () =>
+      (fields.data ?? []).filter((f) => {
+        if (!f.required || mapping[f.key] !== undefined) return false;
+        if (f.key === "full_name")
+          return mapping.first_name === undefined || mapping.last_name === undefined;
+        if (f.key === "father_name") return mapping.guardian_name === undefined;
+        return true;
+      }),
     [fields.data, mapping],
   );
 

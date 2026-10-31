@@ -94,6 +94,8 @@ pub async fn load(
             is_demo: true,
             academic_year_start_month: demo.school.academic_year_start_month,
             currency: demo.school.currency.clone(),
+            country: "PK".into(),
+            time_zone: "Asia/Karachi".into(),
         },
     )
     .await?;

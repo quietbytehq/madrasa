@@ -4,8 +4,10 @@ use axum::extract::{Path, Query, State};
 use axum::routing::get;
 use axum::{Json, Router};
 use chrono::NaiveDate;
+use madrasa_core::locale;
 use madrasa_core::permissions::Permission;
-use madrasa_core::students::{normalise_cnic, normalise_phone};
+
+use crate::routes::students::{id_error, phone_error};
 use madrasa_db::models::{SectionTeacher, Staff};
 use madrasa_db::{academics, roles, staff};
 use serde::{Deserialize, Serialize};
@@ -108,25 +110,21 @@ pub struct StaffBody {
     pub user_id: Option<Option<Uuid>>,
 }
 
-fn clean_phone(v: Option<Option<String>>) -> ApiResult<Option<Option<String>>> {
+fn clean_phone(country: &str, v: Option<Option<String>>) -> ApiResult<Option<Option<String>>> {
     match v {
-        Some(Some(p)) if !p.trim().is_empty() => {
-            Ok(Some(Some(normalise_phone(&p).ok_or_else(|| {
-                ApiError::validation("Phone number must have 11 digits, e.g. 0300-1234567.")
-            })?)))
-        }
+        Some(Some(p)) if !p.trim().is_empty() => Ok(Some(Some(
+            locale::normalise_phone_for(country, &p).ok_or_else(|| phone_error(country))?,
+        ))),
         Some(_) => Ok(Some(None)),
         None => Ok(None),
     }
 }
 
-fn clean_cnic(v: Option<Option<String>>) -> ApiResult<Option<Option<String>>> {
+fn clean_cnic(country: &str, v: Option<Option<String>>) -> ApiResult<Option<Option<String>>> {
     match v {
-        Some(Some(p)) if !p.trim().is_empty() => {
-            Ok(Some(Some(normalise_cnic(&p).ok_or_else(|| {
-                ApiError::validation("CNIC / B-Form must have 13 digits, e.g. 42101-1234567-1.")
-            })?)))
-        }
+        Some(Some(p)) if !p.trim().is_empty() => Ok(Some(Some(
+            locale::normalise_national_id(country, &p).ok_or_else(|| id_error(country))?,
+        ))),
         Some(_) => Ok(Some(None)),
         None => Ok(None),
     }
@@ -160,6 +158,7 @@ async fn create(
     user: CurrentUser,
     body: JsonBody<StaffBody>,
 ) -> ApiResult<Json<StaffView>> {
+    let country = state.profile().country;
     user.require(Permission::TeachersManage)?;
     let Json(b) = body?;
     let full_name = b
@@ -197,9 +196,9 @@ async fn create(
             full_name: full_name.to_string(),
             father_name: b.father_name.unwrap_or_default(),
             gender,
-            phone: clean_phone(b.phone)?.flatten(),
+            phone: clean_phone(&country, b.phone)?.flatten(),
             email: b.email.flatten().filter(|e| !e.trim().is_empty()),
-            cnic: clean_cnic(b.cnic)?.flatten(),
+            cnic: clean_cnic(&country, b.cnic)?.flatten(),
             designation: b.designation.unwrap_or_default(),
             joined_on: b.joined_on.flatten(),
         },
@@ -216,6 +215,7 @@ async fn update(
     Path(id): Path<Uuid>,
     body: JsonBody<StaffBody>,
 ) -> ApiResult<Json<StaffView>> {
+    let country = state.profile().country;
     user.require(Permission::TeachersManage)?;
     let Json(b) = body?;
     let mut c = state.pool.acquire().await?;
@@ -246,9 +246,9 @@ async fn update(
             full_name: b.full_name,
             father_name: b.father_name,
             gender: b.gender,
-            phone: clean_phone(b.phone)?,
+            phone: clean_phone(&country, b.phone)?,
             email: b.email.map(|e| e.filter(|e| !e.trim().is_empty())),
-            cnic: clean_cnic(b.cnic)?,
+            cnic: clean_cnic(&country, b.cnic)?,
             designation: b.designation,
             joined_on: b.joined_on,
             status: b.status,

@@ -208,7 +208,7 @@ export function ReceiptPrintPage() {
           <span
             className={`text-xl font-bold tabular-nums ${reversal ? "text-danger" : "text-navy"}`}
           >
-            PKR {formatMoney(d.amount)}
+            {d.school.currency} {formatMoney(d.amount)}
           </span>
         </div>
         <div className="mt-1 flex justify-between text-xs text-muted">

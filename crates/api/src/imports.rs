@@ -7,9 +7,10 @@ use base64::Engine;
 use calamine::{Data, Reader};
 use chrono::NaiveDate;
 use madrasa_core::imports::{self as rules, CleanRow, ImportKind, Issue};
-use madrasa_core::students::normalise_cnic;
 use madrasa_db::models::{Class, ImportBatch, Section, Student};
-use madrasa_db::{academics, fees, guardians, imports as repo, settings, staff, students, Actor};
+use madrasa_db::{
+    academics, fees, guardians, imports as repo, schools, settings, staff, students, Actor,
+};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -331,6 +332,7 @@ pub struct ImportResult {
 
 struct Ctx {
     school_id: Uuid,
+    rules: rules::RowRules,
     year_id: Option<Uuid>,
     year_start: Option<NaiveDate>,
     classes: Vec<Class>,
@@ -344,8 +346,10 @@ async fn ctx(conn: &mut sqlx::PgConnection, school_id: Uuid) -> Result<Ctx, ApiE
         Some(y) => academics::list_sections(conn, school_id, Some(y.id), None).await?,
         None => Vec::new(),
     };
+    let school = schools::get(conn, school_id).await?;
     Ok(Ctx {
         school_id,
+        rules: rules::RowRules::new(&school.country, crate::clock::today()),
         year_id: year.as_ref().map(|y| y.id),
         year_start: year.as_ref().map(|y| y.start_date),
         classes,
@@ -414,7 +418,7 @@ async fn plan_rows(
     let mut seen_numbers: HashMap<String, usize> = HashMap::new();
     for (i, raw) in req.rows.iter().enumerate() {
         let row_no = i + 2; // 1 is the heading row
-        let mut row = rules::clean_row(req.kind, row_no, raw, &req.mapping);
+        let mut row = rules::clean_row(req.kind, row_no, raw, &req.mapping, &c.rules);
         let mut matched = None;
         let mut existing_student = None;
         let mut existing_staff = None;
@@ -1045,7 +1049,8 @@ async fn attach_guardian(
     let Some(name) = r.get("guardian_name") else {
         return Ok(());
     };
-    let cnic = r.get("guardian_cnic").and_then(normalise_cnic);
+    // Already normalised for the school's country by `clean_row`.
+    let cnic = pick(r, "guardian_cnic");
     let phone = pick(r, "guardian_phone");
     let existing =
         guardians::find_matching(tx, school_id, cnic.as_deref(), phone.as_deref()).await?;
@@ -1060,7 +1065,7 @@ async fn attach_guardian(
                     school_id,
                     full_name: name.to_string(),
                     phone,
-                    email: None,
+                    email: pick(r, "guardian_email"),
                     cnic,
                     occupation: r.get("guardian_occupation").unwrap_or("").into(),
                     address: r.get("address").unwrap_or("").into(),

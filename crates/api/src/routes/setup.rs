@@ -5,9 +5,10 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use chrono::Utc;
 use madrasa_core::backup;
+use madrasa_core::locale;
 use madrasa_core::password::{hash_password, validate_password};
 use madrasa_core::permissions::RoleCode;
-use madrasa_db::{roles, schools, settings, users, Actor};
+use madrasa_db::{attendance, roles, schools, settings, users, Actor};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use uuid::Uuid;
@@ -27,16 +28,47 @@ pub struct SetupRequest {
     #[serde(default)]
     pub city: String,
     pub academic_year_start_month: i16,
-    #[serde(default = "default_currency")]
-    pub currency: String,
+    /// ISO 3166-1 alpha-2; decides the default currency, time zone, weekend and ID format.
+    #[serde(default = "default_country")]
+    pub country: String,
+    /// ISO 4217; the country's currency when omitted.
+    #[serde(default)]
+    pub currency: Option<String>,
+    /// IANA name; the country's main zone when omitted.
+    #[serde(default)]
+    pub time_zone: Option<String>,
     pub admin_full_name: String,
     pub admin_username: String,
     pub admin_password: String,
     pub backup_password: String,
 }
 
-fn default_currency() -> String {
-    "PKR".into()
+impl SetupRequest {
+    fn country_info(&self) -> &'static locale::CountryInfo {
+        locale::country_or_default(&self.country)
+    }
+    /// The chosen currency, or the country's.
+    pub fn currency(&self) -> String {
+        self.currency
+            .as_deref()
+            .map(str::trim)
+            .filter(|c| !c.is_empty())
+            .map(str::to_uppercase)
+            .unwrap_or_else(|| self.country_info().currency.into())
+    }
+    /// The chosen time zone, or the country's main one.
+    pub fn time_zone(&self) -> String {
+        self.time_zone
+            .as_deref()
+            .map(str::trim)
+            .filter(|z| !z.is_empty())
+            .map(str::to_owned)
+            .unwrap_or_else(|| self.country_info().time_zone.into())
+    }
+}
+
+fn default_country() -> String {
+    locale::DEFAULT_COUNTRY.into()
 }
 
 #[derive(Debug, Serialize)]
@@ -74,16 +106,36 @@ pub fn validate(req: &SetupRequest) -> Result<(), ApiError> {
             "School code must be 2–12 letters, digits or hyphens.",
         ));
     }
-    if !matches!(req.academic_year_start_month, 4 | 8) {
+    if !(1..=12).contains(&req.academic_year_start_month) {
         return Err(ApiError::validation(
-            "Academic year must start in April (4) or August (8).",
+            "Academic year start month must be between 1 and 12.",
         ));
     }
-    if req.currency.trim().to_uppercase() != "PKR" {
-        return Err(ApiError::validation(
-            "Only PKR is supported in this release.",
-        ));
+    let country = locale::country(&req.country)
+        .ok_or_else(|| ApiError::validation("Choose a country from the list."))?;
+    if let Some(c) = req
+        .currency
+        .as_deref()
+        .map(str::trim)
+        .filter(|c| !c.is_empty())
+    {
+        if locale::currency(c).is_none() {
+            return Err(ApiError::validation("Choose a currency from the list."));
+        }
     }
+    if let Some(z) = req
+        .time_zone
+        .as_deref()
+        .map(str::trim)
+        .filter(|z| !z.is_empty())
+    {
+        if locale::time_zone(z).is_none() {
+            return Err(ApiError::validation(
+                "Time zone must be an IANA name such as Asia/Karachi or America/New_York.",
+            ));
+        }
+    }
+    let _ = country;
     if req.admin_full_name.trim().is_empty() {
         return Err(ApiError::validation("Administrator name is required."));
     }
@@ -134,11 +186,22 @@ async fn run_setup(
             city: req.city.clone(),
             is_demo: false,
             academic_year_start_month: req.academic_year_start_month,
-            currency: req.currency.clone(),
+            currency: req.currency(),
+            country: req.country.trim().to_uppercase(),
+            time_zone: req.time_zone(),
         },
     )
     .await?;
     let actor = Actor::system_for(school.id);
+    // The country's usual school weekend; editable later under Attendance → Calendar.
+    attendance::set_weekend_days(
+        &mut tx,
+        &state.hlc,
+        actor,
+        school.id,
+        &locale::default_weekend(&req.country),
+    )
+    .await?;
     let created_roles =
         roles::create_defaults(&mut tx, &state.hlc, actor, school.id, edition).await?;
     let admin = users::create(
@@ -200,6 +263,9 @@ async fn run_setup(
     )
     .await?;
     tx.commit().await?;
+    if let Err(e) = state.reload_profile().await {
+        tracing::warn!(error = %e, "school profile not reloaded after setup");
+    }
 
     tracing::info!(school = %school.code, "first-run setup completed");
     Ok(Json(SetupResponse {

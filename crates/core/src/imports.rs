@@ -2,7 +2,7 @@
 //! cleanup (trim, dates in several formats, phone/CNIC, gender, class names, Urdu digits)
 //! and row validation. Pure; the API reads the files and talks to the database.
 
-use crate::students::{normalise_cnic, normalise_phone};
+use crate::locale::{self, DateOrder};
 use chrono::{Datelike, NaiveDate};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -111,6 +111,26 @@ pub const STUDENT_FIELDS: &[FieldDef] = &[
         "Ali Khan",
     ),
     f(
+        "first_name",
+        "First name",
+        false,
+        &[
+            "first name",
+            "given name",
+            "given names",
+            "forename",
+            "پہلا نام",
+        ],
+        "Ali",
+    ),
+    f(
+        "last_name",
+        "Last name",
+        false,
+        &["last name", "surname", "family name", "خاندانی نام"],
+        "Khan",
+    ),
+    f(
         "father_name",
         "Father's name",
         true,
@@ -133,6 +153,7 @@ pub const STUDENT_FIELDS: &[FieldDef] = &[
             "dob",
             "birth date",
             "birthday",
+            "birthdate",
             "تاریخ پیدائش",
         ],
         "2015-03-04",
@@ -158,7 +179,13 @@ pub const STUDENT_FIELDS: &[FieldDef] = &[
         "address",
         "Address",
         false,
-        &["address", "home address", "پتہ"],
+        &[
+            "address",
+            "home address",
+            "street address",
+            "address line 1",
+            "پتہ",
+        ],
         "House 12, Gulshan",
     ),
     f(
@@ -169,6 +196,12 @@ pub const STUDENT_FIELDS: &[FieldDef] = &[
             "admission date",
             "date of admission",
             "joined",
+            "enrollment date",
+            "enrolment date",
+            "date of enrollment",
+            "enrolled",
+            "entry date",
+            "start date",
             "تاریخ داخلہ",
         ],
         "2026-04-01",
@@ -177,14 +210,30 @@ pub const STUDENT_FIELDS: &[FieldDef] = &[
         "class",
         "Class",
         true,
-        &["class", "grade", "class name", "standard", "جماعت", "کلاس"],
+        &[
+            "class",
+            "grade",
+            "grade level",
+            "class name",
+            "standard",
+            "year group",
+            "جماعت",
+            "کلاس",
+        ],
         "1",
     ),
     f(
         "section",
         "Section",
         false,
-        &["section", "sec", "سیکشن"],
+        &[
+            "section",
+            "sec",
+            "homeroom",
+            "home room",
+            "division",
+            "سیکشن",
+        ],
         "A",
     ),
     f(
@@ -209,6 +258,11 @@ pub const STUDENT_FIELDS: &[FieldDef] = &[
             "guardian name",
             "guardian",
             "parent name",
+            "parent",
+            "parent/guardian",
+            "parent/guardian name",
+            "parent guardian name",
+            "guardian/parent name",
             "mother name",
             "سرپرست کا نام",
             "سرپرست",
@@ -233,7 +287,11 @@ pub const STUDENT_FIELDS: &[FieldDef] = &[
             "guardian phone",
             "father phone",
             "parent phone",
+            "parent/guardian phone",
             "phone number",
+            "cell",
+            "cell phone",
+            "home phone",
             "فون",
             "موبائل",
             "رابطہ نمبر",
@@ -259,6 +317,20 @@ pub const STUDENT_FIELDS: &[FieldDef] = &[
         &["occupation", "profession", "guardian occupation", "پیشہ"],
         "Trader",
     ),
+    f(
+        "guardian_email",
+        "Guardian email",
+        false,
+        &[
+            "email",
+            "e-mail",
+            "guardian email",
+            "parent email",
+            "parent/guardian email",
+            "ای میل",
+        ],
+        "ahmed@example.com",
+    ),
 ];
 
 pub const STAFF_FIELDS: &[FieldDef] = &[
@@ -283,6 +355,26 @@ pub const STAFF_FIELDS: &[FieldDef] = &[
         true,
         &["name", "full name", "staff name", "employee name", "نام"],
         "Sana Malik",
+    ),
+    f(
+        "first_name",
+        "First name",
+        false,
+        &[
+            "first name",
+            "given name",
+            "given names",
+            "forename",
+            "پہلا نام",
+        ],
+        "Sana",
+    ),
+    f(
+        "last_name",
+        "Last name",
+        false,
+        &["last name", "surname", "family name", "خاندانی نام"],
+        "Malik",
     ),
     f(
         "father_name",
@@ -330,7 +422,14 @@ pub const STAFF_FIELDS: &[FieldDef] = &[
         "designation",
         "Designation",
         false,
-        &["designation", "role", "position", "title", "عہدہ"],
+        &[
+            "designation",
+            "role",
+            "position",
+            "title",
+            "job title",
+            "عہدہ",
+        ],
         "Teacher",
     ),
     f(
@@ -342,6 +441,10 @@ pub const STAFF_FIELDS: &[FieldDef] = &[
             "joining date",
             "date of joining",
             "joined",
+            "hire date",
+            "date of hire",
+            "hired",
+            "start date",
             "تاریخ تقرری",
         ],
         "2020-08-01",
@@ -416,6 +519,24 @@ pub fn normalize_header(h: &str) -> String {
     s.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
+/// Required fields the mapping does not cover. A full name is covered by first + last name
+/// columns, and a father's name by a parent/guardian name column (Western registers).
+pub fn missing_required(
+    kind: ImportKind,
+    mapping: &BTreeMap<String, usize>,
+) -> Vec<&'static FieldDef> {
+    let has = |k: &str| mapping.contains_key(k);
+    fields(kind)
+        .iter()
+        .filter(|f| f.required && !has(f.key))
+        .filter(|f| match f.key {
+            "full_name" => !(has("first_name") && has("last_name")),
+            "father_name" => !has("guardian_name"),
+            _ => true,
+        })
+        .collect()
+}
+
 /// Field key → column index, matched by alias or by the field key itself.
 pub fn auto_map(kind: ImportKind, headers: &[String]) -> BTreeMap<String, usize> {
     let normalized: Vec<String> = headers.iter().map(|h| normalize_header(h)).collect();
@@ -456,6 +577,12 @@ pub fn clean_text(s: &str) -> String {
 /// Accepts `2015-03-04`, `04/03/2015`, `04-03-2015`, `4.3.2015`, `04 Mar 2015`,
 /// `March 4, 2015` and Excel serial numbers (e.g. `42067`). Day-first for numeric dates.
 pub fn parse_date(input: &str) -> Option<NaiveDate> {
+    parse_date_with(input, DateOrder::DayFirst)
+}
+
+/// [`parse_date`] with the country's reading of ambiguous numeric dates: `03/04/2015` is
+/// 3 April day-first and 4 March month-first. ISO and spelled-out months are never ambiguous.
+pub fn parse_date_with(input: &str, order: DateOrder) -> Option<NaiveDate> {
     let s = clean_text(input);
     if s.is_empty() {
         return None;
@@ -466,14 +593,18 @@ pub fn parse_date(input: &str) -> Option<NaiveDate> {
             return base.checked_add_signed(chrono::Duration::days(serial as i64));
         }
     }
+    let numeric: &[&str] = match order {
+        DateOrder::DayFirst => &["%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y", "%d/%m/%y", "%d-%m-%y"],
+        DateOrder::MonthFirst => &["%m/%d/%Y", "%m-%d-%Y", "%m.%d.%Y", "%m/%d/%y", "%m-%d-%y"],
+    };
+    for fmt in numeric {
+        if let Ok(d) = NaiveDate::parse_from_str(&s, fmt) {
+            return Some(d);
+        }
+    }
     let formats = [
         "%Y-%m-%d",
         "%Y/%m/%d",
-        "%d/%m/%Y",
-        "%d-%m-%Y",
-        "%d.%m.%Y",
-        "%d/%m/%y",
-        "%d-%m-%y",
         "%d %b %Y",
         "%d %B %Y",
         "%b %d, %Y",
@@ -547,7 +678,10 @@ pub fn class_key(input: &str) -> String {
         .replace(['.', '-', '_'], " ");
     let s = s.split_whitespace().collect::<Vec<_>>().join(" ");
     let word = match s.as_str() {
-        "k g" | "kg" | "kindergarten" | "kgarten" | "ک جی" => return "kg".into(),
+        "k" | "k g" | "kg" | "kindergarten" | "kinder" | "kgarten" | "ک جی" => {
+            return "kg".into()
+        }
+        "pre k" | "prek" | "pre kindergarten" | "pre kg" => return "prek".into(),
         "nursery" | "nur" | "نرسری" => return "nursery".into(),
         "prep" | "preparatory" | "پریپ" => return "prep".into(),
         "playgroup" | "play group" | "pg" => return "playgroup".into(),
@@ -668,11 +802,36 @@ impl CleanRow {
 
 /// Pick the mapped cells of a raw row, clean them and validate the formats. Database checks
 /// (class exists, duplicates, student found) happen in the API on top of this.
+/// What the school's country decides while a row is cleaned.
+#[derive(Debug, Clone)]
+pub struct RowRules {
+    /// ISO 3166-1 alpha-2; drives the ID number, phone and numeric date formats.
+    pub country: String,
+    /// The school's date; dates after it are refused.
+    pub today: NaiveDate,
+}
+
+impl RowRules {
+    pub fn new(country: &str, today: NaiveDate) -> Self {
+        Self {
+            country: country.trim().to_ascii_uppercase(),
+            today,
+        }
+    }
+    fn date_order(&self) -> DateOrder {
+        locale::country_or_default(&self.country).date_order
+    }
+    fn id_label(&self) -> &'static str {
+        locale::country_or_default(&self.country).id_label
+    }
+}
+
 pub fn clean_row(
     kind: ImportKind,
     row_no: usize,
     raw: &[String],
     mapping: &BTreeMap<String, usize>,
+    rules: &RowRules,
 ) -> CleanRow {
     let mut row = CleanRow {
         row_no,
@@ -686,6 +845,30 @@ pub fn clean_row(
             .unwrap_or_default();
         row.values.insert(field.key.to_string(), value);
     }
+    // First and last name columns (Western registers) make the full name.
+    if row.values.get("full_name").is_some_and(String::is_empty) {
+        let joined = ["first_name", "last_name"]
+            .iter()
+            .filter_map(|k| row.values.get(*k))
+            .filter(|v| !v.is_empty())
+            .cloned()
+            .collect::<Vec<_>>()
+            .join(" ");
+        if !joined.is_empty() {
+            row.values.insert("full_name".into(), joined);
+        }
+    }
+    // A register with a parent/guardian column but no father column: the guardian stands in.
+    if kind == ImportKind::Students && row.values.get("father_name").is_some_and(String::is_empty) {
+        if let Some(g) = row
+            .values
+            .get("guardian_name")
+            .filter(|v| !v.is_empty())
+            .cloned()
+        {
+            row.values.insert("father_name".into(), g);
+        }
+    }
     for field in fields(kind) {
         let value = row.values[field.key].clone();
         if value.is_empty() {
@@ -695,45 +878,66 @@ pub fn clean_row(
             continue;
         }
         match field.key {
-            "date_of_birth" | "admission_date" | "joined_on" => match parse_date(&value) {
-                Some(d) => {
-                    if d > chrono::Utc::now().date_naive() {
-                        row.err(field.key, format!("{} is in the future", field.label));
-                    } else if field.key == "date_of_birth" && d.year() < 1990 {
-                        row.warn(field.key, "Date of birth looks too old for a student");
+            "date_of_birth" | "admission_date" | "joined_on" => {
+                match parse_date_with(&value, rules.date_order()) {
+                    Some(d) => {
+                        if d > rules.today {
+                            row.err(field.key, format!("{} is in the future", field.label));
+                        } else if field.key == "date_of_birth" && d.year() < 1990 {
+                            row.warn(field.key, "Date of birth looks too old for a student");
+                        }
+                        row.values
+                            .insert(field.key.into(), d.format("%Y-%m-%d").to_string());
                     }
-                    row.values
-                        .insert(field.key.into(), d.format("%Y-%m-%d").to_string());
-                }
-                None => row.err(
-                    field.key,
-                    format!(
-                        "{} is not a date (use YYYY-MM-DD or DD/MM/YYYY)",
-                        field.label
+                    None => row.err(
+                        field.key,
+                        format!(
+                            "{} is not a date (use YYYY-MM-DD or {})",
+                            field.label,
+                            match rules.date_order() {
+                                DateOrder::DayFirst => "DD/MM/YYYY",
+                                DateOrder::MonthFirst => "MM/DD/YYYY",
+                            }
+                        ),
                     ),
-                ),
-            },
+                }
+            }
             "gender" => match parse_gender(&value) {
                 Some(g) => {
                     row.values.insert("gender".into(), g.into());
                 }
                 None => row.err("gender", "Gender must be male or female"),
             },
-            "cnic" | "guardian_cnic" => match normalise_cnic(&value) {
-                Some(c) => {
-                    row.values.insert(field.key.into(), c);
+            "cnic" | "guardian_cnic" => {
+                match locale::normalise_national_id(&rules.country, &value) {
+                    Some(c) => {
+                        row.values.insert(field.key.into(), c);
+                    }
+                    None if rules.country == "PK" => {
+                        row.err(field.key, format!("{} must have 13 digits", field.label))
+                    }
+                    None => row.err(
+                        field.key,
+                        format!(
+                            "{} ({}) must be 3–40 characters",
+                            field.label,
+                            rules.id_label()
+                        ),
+                    ),
                 }
-                None => row.err(field.key, format!("{} must have 13 digits", field.label)),
-            },
-            "phone" | "guardian_phone" => match normalise_phone(&value) {
-                Some(p) => {
-                    row.values.insert(field.key.into(), p);
+            }
+            "phone" | "guardian_phone" => {
+                match locale::normalise_phone_for(&rules.country, &value) {
+                    Some(p) => {
+                        row.values.insert(field.key.into(), p);
+                    }
+                    None if rules.country == "PK" => row.err(
+                        field.key,
+                        format!("{} must have 11 digits, e.g. 0300-1234567", field.label),
+                    ),
+                    None => row.err(field.key, format!("{} must have 7–15 digits", field.label)),
                 }
-                None => row.err(
-                    field.key,
-                    format!("{} must have 11 digits, e.g. 0300-1234567", field.label),
-                ),
-            },
+            }
             "guardian_relationship" => match parse_relationship(&value) {
                 Some(r) => {
                     row.values.insert(field.key.into(), r.into());
@@ -769,7 +973,9 @@ pub fn clean_row(
             "section" => {
                 row.values.insert("section".into(), value.to_uppercase());
             }
-            "email" if !value.contains('@') => row.err("email", "Email looks wrong"),
+            "email" | "guardian_email" if !value.contains('@') => {
+                row.err(field.key, "Email looks wrong")
+            }
             _ => {}
         }
     }
@@ -827,6 +1033,11 @@ pub fn student_file_key(row: &CleanRow) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Rules for a Pakistani school on a fixed day.
+    fn pk() -> RowRules {
+        RowRules::new("PK", NaiveDate::from_ymd_opt(2026, 10, 31).unwrap())
+    }
     use rust_decimal_macros::dec;
 
     fn d(y: i32, m: u32, day: u32) -> NaiveDate {
@@ -968,6 +1179,7 @@ mod tests {
                 "7",
             ]),
             &m,
+            &pk(),
         );
         assert!(good.errors.is_empty(), "{:?}", good.errors);
         assert_eq!(good.get("full_name"), Some("Ali Khan"));
@@ -995,6 +1207,7 @@ mod tests {
             3,
             &raw(&["", "Ahmed", "2015-13-40", "?", "123", "", "12", "x"]),
             &m,
+            &pk(),
         );
         let fields: Vec<&str> = bad.errors.iter().map(|e| e.field.as_str()).collect();
         assert_eq!(
@@ -1016,6 +1229,7 @@ mod tests {
             4,
             &raw(&["Sara", "Ahmed", "2099-01-01", "F", "", "KG", "", ""]),
             &m,
+            &pk(),
         );
         assert_eq!(future.errors.len(), 1);
         assert_eq!(future.errors[0].field, "date_of_birth");
@@ -1024,6 +1238,7 @@ mod tests {
             5,
             &raw(&["Sara", "Ahmed", "1985-01-01", "F", "", "KG", "", ""]),
             &m,
+            &pk(),
         );
         assert!(old.errors.is_empty());
         assert_eq!(old.warnings[0].field, "date_of_birth");
@@ -1053,6 +1268,7 @@ mod tests {
                 "Female".into(),
             ],
             &m,
+            &pk(),
         );
         assert!(row.errors.is_empty(), "{:?}", row.errors);
         assert_eq!(row.get("phone"), Some("03001234567"));
@@ -1062,6 +1278,7 @@ mod tests {
             3,
             &["".into(), "12".into(), "nope".into(), "".into(), "".into()],
             &m,
+            &pk(),
         );
         assert_eq!(
             bad.errors
@@ -1077,6 +1294,7 @@ mod tests {
             2,
             &["KHI-MC-2026-00001".into(), "Rs 4,500.50".into()],
             &m,
+            &pk(),
         );
         assert!(row.errors.is_empty());
         assert_eq!(row.get("amount"), Some("4500.50"));
@@ -1085,6 +1303,7 @@ mod tests {
             3,
             &["".into(), "abc".into()],
             &m,
+            &pk(),
         );
         assert_eq!(
             bad.errors
@@ -1093,6 +1312,130 @@ mod tests {
                 .collect::<Vec<_>>(),
             ["amount", "student_number"]
         );
+    }
+
+    #[test]
+    fn western_registers_join_names_read_month_first_and_take_the_parent_as_father() {
+        // A US-style file: first/last name, a parent column, month-first dates, a US phone.
+        let m = mapping(&[
+            ("first_name", 0),
+            ("last_name", 1),
+            ("date_of_birth", 2),
+            ("gender", 3),
+            ("class", 4),
+            ("guardian_name", 5),
+            ("guardian_relationship", 6),
+            ("guardian_phone", 7),
+            ("guardian_email", 8),
+            ("cnic", 9),
+        ]);
+        assert!(missing_required(ImportKind::Students, &m).is_empty());
+        let raw = |cells: &[&str]| cells.iter().map(|c| c.to_string()).collect::<Vec<_>>();
+        let us = RowRules::new("us", NaiveDate::from_ymd_opt(2026, 10, 31).unwrap());
+        let row = clean_row(
+            ImportKind::Students,
+            2,
+            &raw(&[
+                "Olivia",
+                "Nguyen",
+                "03/04/2015",
+                "F",
+                "Grade 3",
+                "Emily Nguyen",
+                "Mother",
+                "(503) 555-0142",
+                "emily@example.com",
+                "OR-4471",
+            ]),
+            &m,
+            &us,
+        );
+        assert!(row.errors.is_empty(), "{:?}", row.errors);
+        assert_eq!(row.get("full_name"), Some("Olivia Nguyen"));
+        assert_eq!(row.get("father_name"), Some("Emily Nguyen"));
+        assert_eq!(row.get("date_of_birth"), Some("2015-03-04"), "month-first");
+        assert_eq!(row.get("class"), Some("3"));
+        assert_eq!(row.get("guardian_relationship"), Some("mother"));
+        assert_eq!(row.get("guardian_phone"), Some("5035550142"));
+        assert_eq!(
+            row.get("cnic"),
+            Some("OR-4471"),
+            "no 13-digit rule outside Pakistan"
+        );
+        // The same text read for a Pakistani school is 3 April, and the ID is refused.
+        let row = clean_row(
+            ImportKind::Students,
+            2,
+            &raw(&[
+                "Olivia",
+                "Nguyen",
+                "03/04/2015",
+                "F",
+                "3",
+                "Emily Nguyen",
+                "Mother",
+                "0300 1234567",
+                "",
+                "OR-4471",
+            ]),
+            &m,
+            &pk(),
+        );
+        assert_eq!(row.get("date_of_birth"), Some("2015-04-03"));
+        assert_eq!(
+            row.errors
+                .iter()
+                .map(|e| e.field.as_str())
+                .collect::<Vec<_>>(),
+            ["cnic"]
+        );
+        // Without a full name or a parent column the usual required fields apply.
+        let m = mapping(&[("first_name", 0), ("date_of_birth", 2)]);
+        let missing: Vec<&str> = missing_required(ImportKind::Students, &m)
+            .iter()
+            .map(|f| f.key)
+            .collect();
+        assert_eq!(missing, ["full_name", "father_name", "gender", "class"]);
+    }
+
+    #[test]
+    fn kindergarten_spellings_and_grade_prefixes_share_a_key() {
+        for k in ["K", "k", "KG", "K.G.", "Kindergarten", "Kinder", "ک جی"] {
+            assert_eq!(class_key(k), "kg", "{k}");
+        }
+        assert_eq!(class_key("Pre-K"), "prek");
+        assert_eq!(class_key("Grade 10"), "10");
+        assert_eq!(split_class_section("K-A"), ("kg".into(), Some("A".into())));
+        assert_eq!(
+            split_class_section("Grade 12 (B)"),
+            ("12".into(), Some("B".into()))
+        );
+    }
+
+    #[test]
+    fn numeric_dates_follow_the_date_order() {
+        let d = |y, m, d| NaiveDate::from_ymd_opt(y, m, d).unwrap();
+        assert_eq!(
+            parse_date_with("03/04/2015", DateOrder::DayFirst),
+            Some(d(2015, 4, 3))
+        );
+        assert_eq!(
+            parse_date_with("03/04/2015", DateOrder::MonthFirst),
+            Some(d(2015, 3, 4))
+        );
+        assert_eq!(
+            parse_date_with("12/25/2015", DateOrder::MonthFirst),
+            Some(d(2015, 12, 25))
+        );
+        assert_eq!(
+            parse_date_with("25/12/2015", DateOrder::DayFirst),
+            Some(d(2015, 12, 25))
+        );
+        // ISO and spelled-out months are the same either way.
+        for order in [DateOrder::DayFirst, DateOrder::MonthFirst] {
+            assert_eq!(parse_date_with("2015-03-04", order), Some(d(2015, 3, 4)));
+            assert_eq!(parse_date_with("March 4, 2015", order), Some(d(2015, 3, 4)));
+        }
     }
 
     #[test]

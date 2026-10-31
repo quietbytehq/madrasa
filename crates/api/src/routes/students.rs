@@ -7,10 +7,9 @@ use axum::{Json, Router};
 use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine;
 use chrono::NaiveDate;
+use madrasa_core::locale;
 use madrasa_core::permissions::Permission;
-use madrasa_core::students::{
-    normalise_cnic, normalise_phone, DuplicateProbe, Relationship, StudentStatus, MAX_PHOTO_BYTES,
-};
+use madrasa_core::students::{DuplicateProbe, Relationship, StudentStatus, MAX_PHOTO_BYTES};
 use madrasa_db::models::{Enrollment, Guardian, GuardianLink, Student, StudentListRow};
 use madrasa_db::students::{DuplicateMatch, Page, StudentFilter, StudentSort};
 use madrasa_db::{academics, guardians, students};
@@ -44,20 +43,41 @@ type JsonBody<T> = Result<Json<T>, axum::extract::rejection::JsonRejection>;
 
 // ---- helpers ------------------------------------------------------------------------------
 
-fn clean_cnic(v: Option<String>) -> ApiResult<Option<String>> {
+/// The message for an identity number that does not fit the school's country.
+pub(crate) fn id_error(country: &str) -> ApiError {
+    if locale::country_or_default(country).code == "PK" {
+        ApiError::validation("CNIC / B-Form must have 13 digits, e.g. 42101-1234567-1.")
+    } else {
+        ApiError::validation(format!(
+            "{} must be 3–40 characters.",
+            locale::country_or_default(country).id_label
+        ))
+    }
+}
+
+/// The message for a phone number that does not fit the school's country.
+pub(crate) fn phone_error(country: &str) -> ApiError {
+    if locale::country_or_default(country).code == "PK" {
+        ApiError::validation("Phone number must have 11 digits, e.g. 0300-1234567.")
+    } else {
+        ApiError::validation("Phone number must have 7–15 digits.")
+    }
+}
+
+fn clean_cnic(country: &str, v: Option<String>) -> ApiResult<Option<String>> {
     match v.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
-        Some(s) => normalise_cnic(s).map(Some).ok_or_else(|| {
-            ApiError::validation("CNIC / B-Form must have 13 digits, e.g. 42101-1234567-1.")
-        }),
+        Some(s) => locale::normalise_national_id(country, s)
+            .map(Some)
+            .ok_or_else(|| id_error(country)),
         None => Ok(None),
     }
 }
 
-fn clean_phone(v: Option<String>) -> ApiResult<Option<String>> {
+fn clean_phone(country: &str, v: Option<String>) -> ApiResult<Option<String>> {
     match v.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
-        Some(s) => normalise_phone(s).map(Some).ok_or_else(|| {
-            ApiError::validation("Phone number must have 11 digits, e.g. 0300-1234567.")
-        }),
+        Some(s) => locale::normalise_phone_for(country, s)
+            .map(Some)
+            .ok_or_else(|| phone_error(country)),
         None => Ok(None),
     }
 }
@@ -273,6 +293,7 @@ async fn attach_guardian(
     student_id: Uuid,
     g: GuardianInput,
 ) -> ApiResult<()> {
+    let country = state.profile().country;
     g.relationship.parse::<Relationship>().map_err(|_| {
         ApiError::validation("Relationship must be father, mother, guardian or other.")
     })?;
@@ -291,8 +312,8 @@ async fn attach_guardian(
                 .map(str::trim)
                 .filter(|n| !n.is_empty())
                 .ok_or_else(|| ApiError::validation("Guardian name is required."))?;
-            let cnic = clean_cnic(g.cnic)?;
-            let phone = clean_phone(g.phone)?;
+            let cnic = clean_cnic(&country, g.cnic)?;
+            let phone = clean_phone(&country, g.phone)?;
             match guardians::find_matching(c, sid, cnic.as_deref(), phone.as_deref()).await? {
                 Some(existing) => existing.id,
                 None => {
@@ -334,6 +355,7 @@ async fn create(
     user: CurrentUser,
     body: JsonBody<NewStudentBody>,
 ) -> ApiResult<(StatusCode, Json<StudentDetail>)> {
+    let country = state.profile().country;
     user.require(Permission::StudentsManage)?;
     let Json(b) = body?;
     if b.full_name.trim().is_empty() || b.father_name.trim().is_empty() {
@@ -342,7 +364,7 @@ async fn create(
         ));
     }
     check_gender(&b.gender)?;
-    let cnic = clean_cnic(b.cnic)?;
+    let cnic = clean_cnic(&country, b.cnic)?;
     let sid = user.user.school_id;
     let mut tx = state.pool.begin().await?;
     if !b.force {
@@ -444,9 +466,13 @@ async fn check_duplicates(
     user: CurrentUser,
     body: JsonBody<DuplicateQuery>,
 ) -> ApiResult<Json<Vec<DuplicateMatch>>> {
+    let country = state.profile().country;
     user.require(Permission::StudentsManage)?;
     let Json(b) = body?;
-    let cnic = b.cnic.as_deref().and_then(normalise_cnic);
+    let cnic = b
+        .cnic
+        .as_deref()
+        .and_then(|c| locale::normalise_national_id(&country, c));
     let mut c = state.pool.acquire().await?;
     Ok(Json(
         students::find_duplicates(
@@ -499,6 +525,7 @@ async fn update(
     Path(id): Path<Uuid>,
     body: JsonBody<StudentPatch>,
 ) -> ApiResult<Json<StudentDetail>> {
+    let country = state.profile().country;
     user.require(Permission::StudentsManage)?;
     let Json(b) = body?;
     if b.full_name.as_deref().is_some_and(|n| n.trim().is_empty())
@@ -514,7 +541,7 @@ async fn update(
         check_gender(g)?;
     }
     let cnic = match b.cnic {
-        Some(v) => Some(clean_cnic(v)?),
+        Some(v) => Some(clean_cnic(&country, v)?),
         None => None,
     };
     let mut tx = state.pool.begin().await?;
@@ -785,6 +812,7 @@ async fn create_guardian(
     user: CurrentUser,
     body: JsonBody<GuardianBody>,
 ) -> ApiResult<(StatusCode, Json<GuardianView>)> {
+    let country = state.profile().country;
     user.require(Permission::StudentsManage)?;
     let Json(b) = body?;
     let full_name = b
@@ -801,9 +829,9 @@ async fn create_guardian(
         guardians::NewGuardian {
             school_id: user.user.school_id,
             full_name: full_name.into(),
-            phone: clean_phone(b.phone.flatten())?,
+            phone: clean_phone(&country, b.phone.flatten())?,
             email: clean_opt(b.email.flatten()),
-            cnic: clean_cnic(b.cnic.flatten())?,
+            cnic: clean_cnic(&country, b.cnic.flatten())?,
             occupation: b.occupation.unwrap_or_default(),
             address: b.address.unwrap_or_default(),
         },
@@ -842,6 +870,7 @@ async fn update_guardian(
     Path(id): Path<Uuid>,
     body: JsonBody<GuardianBody>,
 ) -> ApiResult<Json<GuardianView>> {
+    let country = state.profile().country;
     user.require(Permission::StudentsManage)?;
     let Json(b) = body?;
     if b.full_name.as_deref().is_some_and(|n| n.trim().is_empty()) {
@@ -852,11 +881,11 @@ async fn update_guardian(
         return Err(ApiError::not_found("guardian"));
     }
     let phone = match b.phone {
-        Some(v) => Some(clean_phone(v)?),
+        Some(v) => Some(clean_phone(&country, v)?),
         None => None,
     };
     let cnic = match b.cnic {
-        Some(v) => Some(clean_cnic(v)?),
+        Some(v) => Some(clean_cnic(&country, v)?),
         None => None,
     };
     let g = guardians::update(
