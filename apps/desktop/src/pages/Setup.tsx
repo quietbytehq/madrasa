@@ -13,6 +13,7 @@ import { Select } from "@/components/ui/Select";
 import { useI18n } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
 import { cn } from "@/lib/cn";
+import { monthOptions } from "@/lib/months";
 import { useSetupGate } from "@/app/SetupGate";
 
 const STEPS: TranslationKey[] = [
@@ -35,6 +36,8 @@ export interface SetupForm {
   currency: string;
   /** IANA name. */
   timeZone: string;
+  /** Create the usual classes (KG–12 or K–12) with a section A each. */
+  defaultClasses: boolean;
   adminFullName: string;
   adminUsername: string;
   adminPassword: string;
@@ -72,15 +75,6 @@ export const FALLBACK_LISTS: LocaleLists = {
   time_zones: ["Asia/Karachi", "America/New_York"],
 };
 
-/** Month names 1–12 in the UI language. */
-export function monthOptions(locale: string): Array<{ value: string; label: string }> {
-  const fmt = new Intl.DateTimeFormat(locale === "ur" ? "ur-PK" : "en", { month: "long" });
-  return Array.from({ length: 12 }, (_, i) => ({
-    value: String(i + 1),
-    label: fmt.format(new Date(2026, i, 1)),
-  }));
-}
-
 /** Choosing a country sets its currency, time zone and the usual academic year start. */
 export function applyCountry(f: SetupForm, code: string, lists: LocaleLists): SetupForm {
   const c = lists.countries.find((x) => x.code === code);
@@ -102,6 +96,7 @@ const EMPTY: SetupForm = {
   startMonth: "4",
   currency: "PKR",
   timeZone: "Asia/Karachi",
+  defaultClasses: true,
   adminFullName: "",
   adminUsername: "",
   adminPassword: "",
@@ -142,6 +137,8 @@ export function toRequest(f: SetupForm): SetupRequest {
     country: f.country,
     currency: f.currency,
     time_zone: f.timeZone,
+    first_year: true,
+    default_classes: f.defaultClasses,
     admin_full_name: f.adminFullName.trim(),
     admin_username: f.adminUsername.trim(),
     admin_password: f.adminPassword,
@@ -318,6 +315,24 @@ export function Setup() {
                       options={lists.time_zones.map((z) => ({ value: z, label: z }))}
                       className="max-w-xs"
                     />
+                    <label className="flex items-start gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        className="mt-1"
+                        checked={form.defaultClasses}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, defaultClasses: e.target.checked }))
+                        }
+                      />
+                      <span>
+                        {t("setup.year.defaultClasses", {
+                          first: form.country === "US" || form.country === "CA" ? "K" : "KG",
+                        })}
+                        <span className="block text-xs text-muted">
+                          {t("setup.year.defaultClasses.hint")}
+                        </span>
+                      </span>
+                    </label>
                   </>
                 )}
                 {step === 2 && (
@@ -397,7 +412,8 @@ export function Setup() {
                         <dd className="text-text">{form.schoolCode.toUpperCase()}</dd>
                         <dt>{t("setup.year.startMonth")}</dt>
                         <dd className="text-text">
-                          {form.startMonth === "8" ? t("setup.year.august") : t("setup.year.april")}
+                          {months.find((m) => m.value === form.startMonth)?.label ??
+                            form.startMonth}
                         </dd>
                         <dt>{t("setup.admin.username")}</dt>
                         <dd className="text-text">{form.adminUsername}</dd>

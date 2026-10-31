@@ -50,6 +50,10 @@ export interface SetupRequest {
   currency: string;
   /** IANA name. */
   time_zone: string;
+  /** Create and activate the current academic year. */
+  first_year: boolean;
+  /** Also create the usual classes with a section A each. */
+  default_classes: boolean;
   admin_full_name: string;
   admin_username: string;
   admin_password: string;
@@ -156,7 +160,7 @@ export interface AcademicYear {
   name: string;
   start_date: string;
   end_date: string;
-  start_month: 4 | 8;
+  start_month: number;
   is_active: boolean;
 }
 
@@ -1150,6 +1154,8 @@ export interface ImportSummary {
 export interface ImportPreview {
   rows: RowOutcome[];
   summary: ImportSummary;
+  /** File columns mapped to nothing; shown so no column is dropped unseen. */
+  unmapped: string[];
 }
 
 export interface ImportBatch {

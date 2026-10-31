@@ -153,7 +153,7 @@ describe("LedgerView", () => {
     renderLedger();
     expect(await screen.findByText("V202605-00001")).toBeInTheDocument();
     // Balance appears in the totals card and in the voucher row.
-    expect(screen.getAllByText("2,300.00")).toHaveLength(2);
+    expect(screen.getAllByText("Rs 2,300.00")).toHaveLength(2);
     expect(screen.getByText("R2026-000001")).toBeInTheDocument();
     expect(screen.getByText(/Kuickpay · KP-123/)).toBeInTheDocument();
     expect(screen.getByText("Partial")).toBeInTheDocument();
@@ -323,8 +323,8 @@ describe("VouchersTab", () => {
     expect(await screen.findByText("Ali Khan")).toBeInTheDocument();
     expect(screen.getByText("2 results", { exact: false })).toBeInTheDocument();
     // Footer: 3000 + 300 + 3000 due, 1000 + 3000 paid.
-    expect(screen.getByText("6,300.00")).toBeInTheDocument();
-    expect(screen.getByText("4,000.00")).toBeInTheDocument();
+    expect(screen.getByText("Rs 6,300.00")).toBeInTheDocument();
+    expect(screen.getByText("Rs 4,000.00")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Generate vouchers" }));
     const dialog = screen.getByRole("dialog");
@@ -390,19 +390,23 @@ describe("SetupTab policy", () => {
     // Worked example follows the sibling percent: 10% of 3,000 = 300; 25% of 3,000 vs 2,700.
     expect(
       screen.getByText(
-        "Example: monthly fee 3,000.00, sibling discount 10% = 300.00, scholarship 25%.",
+        "Example: monthly fee Rs 3,000.00, sibling discount 10% = Rs 300.00, scholarship 25%.",
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("On gross fee: 25% of 3,000.00 = 750.00; student pays 1,950.00."),
+      screen.getByText("On gross fee: 25% of Rs 3,000.00 = Rs 750.00; student pays Rs 1,950.00."),
     ).toHaveClass("font-semibold");
     expect(
-      screen.getByText("After sibling discount: 25% of 2,700.00 = 675.00; student pays 2,025.00."),
+      screen.getByText(
+        "After sibling discount: 25% of Rs 2,700.00 = Rs 675.00; student pays Rs 2,025.00.",
+      ),
     ).not.toHaveClass("font-semibold");
 
     await userEvent.selectOptions(select, "after_sibling_discount");
     expect(
-      screen.getByText("After sibling discount: 25% of 2,700.00 = 675.00; student pays 2,025.00."),
+      screen.getByText(
+        "After sibling discount: 25% of Rs 2,700.00 = Rs 675.00; student pays Rs 2,025.00.",
+      ),
     ).toHaveClass("font-semibold");
     await userEvent.click(screen.getAllByRole("button", { name: "Save" })[0]!);
     await waitFor(() =>
@@ -421,7 +425,7 @@ describe("SetupTab policy", () => {
       { locale: "ur" },
     );
     expect(await screen.findByLabelText("فیصدی رعایت کس رقم پر لگے")).toHaveValue("gross");
-    expect(screen.getByText(/مجموعی فیس پر: 3,000.00 کا 25%/)).toBeInTheDocument();
+    expect(screen.getByText(/مجموعی فیس پر: Rs 3,000.00 کا 25%/)).toBeInTheDocument();
   });
 
   it("is read-only without the approve permission", async () => {

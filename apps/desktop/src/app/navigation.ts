@@ -24,6 +24,8 @@ export interface NavItem {
   feature: Feature;
   /** True once the module is actually built; otherwise the route shows "Coming soon". */
   available: boolean;
+  /** Permission needed to use the module; items the user lacks are hidden from the sidebar. */
+  permission?: string;
 }
 
 /** Sidebar modules in display order. Items whose feature is off for the edition are hidden. */
@@ -41,6 +43,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: Users,
     feature: "students",
     available: true,
+    permission: "students.read",
   },
   {
     path: "/import",
@@ -48,6 +51,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: FileSpreadsheet,
     feature: "students",
     available: true,
+    permission: "students.manage",
   },
   {
     path: "/attendance",
@@ -55,6 +59,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: CalendarCheck,
     feature: "attendance",
     available: true,
+    permission: "attendance.read",
   },
   {
     path: "/exams",
@@ -62,14 +67,23 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: GraduationCap,
     feature: "examinations",
     available: true,
+    permission: "exams.read",
   },
-  { path: "/fees", labelKey: "nav.fees", icon: Coins, feature: "fees", available: true },
+  {
+    path: "/fees",
+    labelKey: "nav.fees",
+    icon: Coins,
+    feature: "fees",
+    available: true,
+    permission: "fees.read",
+  },
   {
     path: "/teachers",
     labelKey: "nav.teachers",
     icon: UserRound,
     feature: "teachers",
     available: true,
+    permission: "teachers.read",
   },
   {
     path: "/reports",
@@ -84,6 +98,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: DatabaseBackup,
     feature: "backup",
     available: true,
+    permission: "backup.manage",
   },
   {
     path: "/settings",
@@ -91,6 +106,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: Settings,
     feature: "settings",
     available: true,
+    permission: "academics.manage",
   },
   {
     path: "/campuses",
@@ -115,6 +131,15 @@ export const NAV_ITEMS: readonly NavItem[] = [
   },
 ];
 
-export function visibleNavItems(has: (feature: Feature) => boolean): NavItem[] {
-  return NAV_ITEMS.filter((item) => has(item.feature));
+/**
+ * Sidebar items for this user: the edition must enable the feature and, where an item names
+ * a permission, the role must hold it (teachers see no Fees, Settings, Backup or Import).
+ */
+export function visibleNavItems(
+  has: (feature: Feature) => boolean,
+  can: (permission: string) => boolean = () => true,
+): NavItem[] {
+  return NAV_ITEMS.filter(
+    (item) => has(item.feature) && (!item.permission || can(item.permission)),
+  );
 }

@@ -22,6 +22,8 @@ pub struct NewStaff {
     pub cnic: Option<String>,
     pub designation: String,
     pub joined_on: Option<NaiveDate>,
+    /// Extra fields (staff type, department, grades from an import); `{}` when none.
+    pub custom: serde_json::Value,
 }
 
 pub async fn create(
@@ -32,8 +34,8 @@ pub async fn create(
 ) -> DbResult<Staff> {
     let id = new_id();
     let row = sqlx::query_as::<_, Staff>(
-        "INSERT INTO staff (id, school_id, user_id, staff_number, full_name, father_name, gender, phone, email, cnic, designation, joined_on, updated_by, hlc)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *",
+        "INSERT INTO staff (id, school_id, user_id, staff_number, full_name, father_name, gender, phone, email, cnic, designation, joined_on, custom, updated_by, hlc)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING *",
     )
     .bind(id)
     .bind(input.school_id)
@@ -47,6 +49,11 @@ pub async fn create(
     .bind(input.cnic)
     .bind(input.designation.trim())
     .bind(input.joined_on)
+    .bind(if input.custom.is_object() {
+        input.custom
+    } else {
+        serde_json::json!({})
+    })
     .bind(actor.user_id)
     .bind(hlc.now().to_string())
     .fetch_one(&mut *conn)
@@ -78,6 +85,7 @@ pub struct StaffUpdate {
     pub designation: Option<String>,
     pub joined_on: Option<Option<NaiveDate>>,
     pub status: Option<String>,
+    pub custom: Option<serde_json::Value>,
 }
 
 pub async fn update(
@@ -90,7 +98,7 @@ pub async fn update(
     let b = get(&mut *conn, id).await?;
     let after = sqlx::query_as::<_, Staff>(
         "UPDATE staff SET user_id = $2, full_name = $3, father_name = $4, gender = $5, phone = $6, email = $7, cnic = $8,
-           designation = $9, joined_on = $10, status = $11, updated_at = now(), updated_by = $12, hlc = $13
+           designation = $9, joined_on = $10, status = $11, custom = $12, updated_at = now(), updated_by = $13, hlc = $14
          WHERE id = $1 RETURNING *",
     )
     .bind(id)
@@ -104,6 +112,7 @@ pub async fn update(
     .bind(p.designation.map(|s| s.trim().to_string()).unwrap_or_else(|| b.designation.clone()))
     .bind(p.joined_on.unwrap_or(b.joined_on))
     .bind(p.status.unwrap_or_else(|| b.status.clone()))
+    .bind(p.custom.unwrap_or_else(|| b.custom.clone()))
     .bind(actor.user_id)
     .bind(hlc.now().to_string())
     .fetch_one(&mut *conn)

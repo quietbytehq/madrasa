@@ -527,6 +527,48 @@ depend on each other and were built together)
   managed from the staff record only. Family IDs link siblings only when the guardian name
   matches across rows (a misspelt name makes a second guardian record).
 
+### 2026-10-31 — Second alpha test report (v0.1.0) fixes (branch `dev/alpha2-test-report`)
+- Started from `main` after #12 was merged (`8fad981`).
+- 1 Guardian matching: `guardians::find_matching` now needs the name with the phone (ID
+  number alone still matches); family id + name first; `find_by_phone` feeds a preview
+  warning when a phone is on file under another name (database or earlier rows of the same
+  file); the student form uses the same rule. Test: `guardians_never_merge_on_phone_alone`
+  (four students, one phone: family and name+phone link, a different name does not; the
+  warning appears; siblings and the sibling discount follow the corrected guardians; the
+  student form does the same).
+- 2 Setup: `first_year` creates and activates the running academic year
+  (`first_year_start`), `default_classes` the country's classes with section A; the wizard
+  ticks the classes box by default; the year dialog offers all months and defaults to the
+  school's start month and the current year (`src/lib/months.ts`). Tests: api
+  `setup_creates_the_first_year_and_default_classes_so_import_works_at_once` (import right
+  after setup), `setup_without_the_flags_creates_no_year`, unit tests for the year rule and
+  the preset, vitest for the month helpers and the wizard request.
+- 3 Teacher UI: `NavItem.permission` hides Fees, Settings, Backup and Import (and anything else
+  the role lacks) from the sidebar; routes are wrapped in `RequirePermission` showing a "You
+  don't have access" page; the staff API blanks phone, email and ID for callers without
+  `teachers.manage`. Tests: api `teachers_do_not_see_colleagues_contact_details`, vitest
+  `visibleNavItems`.
+- 4 Currency: `useMoney()` formats every amount with the school's symbol (`Rs 2,500.00`,
+  `$ 40.00`); the `Amount` component, dashboard, pay dialog, policy example, rollover dialog
+  and printouts use it. Tests: `withCurrency` unit test; the fee screen tests now expect the
+  symbol.
+- 5 Import: rollback asks for confirmation (dialog); new fields status, city, state, postal
+  code (students) and staff type, subject/department, grades (staff) are stored (status on
+  the row, the rest in `custom`); the preview lists unmapped columns; the wizard's state
+  lives in `importDraft` and survives navigating away; the problem-row filter and the error
+  download keep their tests. Tests: api
+  `new_import_fields_are_stored_and_unmapped_columns_are_reported`, core field test, vitest
+  for the draft store and the confirmation dialog.
+- 6 "No policy yet": not present on `main` (the policy card loads the defaults); nothing to
+  change.
+- 7 Small items: linked guardians are editable on the student form (`guardianDrafts`,
+  `guardianPatches`, PATCHed on save; new guardians added while editing are linked); the
+  desktop shell refuses to start as root with a plain message (`root_check`); TESTING.md no
+  longer says PKR only and follows the wizard's steps and the classes checkbox.
+- Not done / notes: no Settings → Users list; the import draft is kept for the app session
+  only (not across restarts); teacher redaction applies to the staff API, the attendance
+  screens never showed contact details.
+
 ## Summary for the owner — Stages 5, 6 and 7 (night run of 2026-10-30/31)
 
 All three stages are merged into `main` in order (pull requests #6, #7 and #8),

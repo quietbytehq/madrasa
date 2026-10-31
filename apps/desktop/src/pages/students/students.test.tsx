@@ -8,11 +8,13 @@ import { SessionProvider } from "@/app/session";
 import type { StudentDetail, StudentListRow, UserSummary } from "@/api/types";
 import { StudentsPage } from "./StudentsPage";
 import {
+  EMPTY_FORM,
   StudentFormPage,
+  guardianDrafts,
+  guardianPatches,
   toCreateRequest,
   toPatch,
   validateStudent,
-  EMPTY_FORM,
 } from "./StudentForm";
 import { StudentProfile } from "./StudentProfile";
 
@@ -166,6 +168,45 @@ function renderAt(route: string, permissions = perms) {
     { route },
   );
 }
+
+describe("guardian editing", () => {
+  it("turns linked guardians into drafts and patches only what changed", () => {
+    const detail = {
+      guardians: [
+        {
+          id: "g1",
+          school_id: "s",
+          full_name: "Ahmed Khan",
+          phone: "03001234567",
+          email: null,
+          cnic: null,
+          occupation: "Trader",
+          address: "",
+          relationship: "father",
+          is_primary: true,
+        },
+      ],
+    } as unknown as Parameters<typeof guardianDrafts>[0];
+    const drafts = guardianDrafts(detail);
+    expect(drafts[0]).toMatchObject({
+      guardian_id: "g1",
+      full_name: "Ahmed Khan",
+      phone: "03001234567",
+    });
+    expect(guardianPatches(drafts, drafts)).toEqual([]);
+    const edited = [
+      { ...drafts[0]!, phone: "0300 7654321", email: "ahmed@example.com", occupation: "Trader" },
+    ];
+    expect(guardianPatches(drafts, edited)).toEqual([
+      { id: "g1", patch: { phone: "0300 7654321", email: "ahmed@example.com" } },
+    ]);
+    // Clearing a field sends null; a new draft without an id is not a patch.
+    expect(guardianPatches(drafts, [{ ...drafts[0]!, phone: "" }])[0]?.patch).toEqual({
+      phone: null,
+    });
+    expect(guardianPatches(drafts, [{ relationship: "mother", full_name: "Sara" }])).toEqual([]);
+  });
+});
 
 describe("student form helpers", () => {
   it("validates required fields", () => {

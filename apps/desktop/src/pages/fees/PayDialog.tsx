@@ -8,7 +8,8 @@ import { Dialog } from "@/components/ui/Dialog";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { useI18n } from "@/i18n";
-import { formatMoney, parseMoney } from "@/lib/money";
+import { parseMoney } from "@/lib/money";
+import { useMoney } from "@/lib/useMoney";
 import { errorMessage } from "@/lib/useAsync";
 import { METHODS, methodLabel } from "./common";
 
@@ -23,6 +24,7 @@ export function PayDialog({
   onPaid: (r: ReceiptDetail, v: VoucherDetail) => void;
 }) {
   const { t } = useI18n();
+  const money = useMoney();
   const [amount, setAmount] = useState(voucher.balance);
   const [method, setMethod] = useState<PaymentMethod>("cash");
   const [reference, setReference] = useState("");
@@ -67,7 +69,7 @@ export function PayDialog({
       open
       onClose={onClose}
       title={t("fees.pay")}
-      description={`${voucher.voucher_no} · ${voucher.student_name} · ${t("fees.balance")} ${formatMoney(voucher.balance)}`}
+      description={`${voucher.voucher_no} · ${voucher.student_name} · ${t("fees.balance")} ${money(voucher.balance)}`}
       size="sm"
     >
       <form onSubmit={submit} noValidate className="flex flex-col gap-3">
@@ -76,7 +78,7 @@ export function PayDialog({
             role="status"
             className="rounded border border-warning bg-warning-bg px-2.5 py-2 text-xs text-text"
           >
-            {t("fees.pay.lateWarning", { amount: formatMoney(lateFee.toFixed(2)) })}
+            {t("fees.pay.lateWarning", { amount: money(lateFee.toFixed(2)) })}
           </p>
         )}
         <div className="flex items-end gap-2">

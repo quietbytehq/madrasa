@@ -260,6 +260,7 @@ async fn batch_records_effects_and_rolls_them_back() {
             cnic: None,
             designation: "Teacher".into(),
             joined_on: None,
+            custom: serde_json::json!({}),
         },
     )
     .await
