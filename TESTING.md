@@ -82,9 +82,9 @@ release includes two small spreadsheets of made-up Pakistani names for the impor
 1. **Settings → Academic years**: make sure a year is active (the wizard created one).
 2. **Settings → Classes**: click **Add KG–12**. Then add **sections A and B** to KG, 1, 2, 3, 4
    and 5 for the active year (the import needs them to exist).
-3. **Settings → Fee heads / Fee structure**: add a head "Tuition" and give each class an
-   amount (for example 2,500 for KG rising to 4,000 for class 5). This is enough for
-   vouchers later.
+3. **Fees & Finance → Setup**: under *Fee heads* click **Add common heads** (or add
+   "Tuition" yourself), then under the fee structure give each class an amount (for example
+   2,500 for KG rising to 4,000 for class 5). This is enough for vouchers later.
 4. Sidebar → **Import** → **Students**: choose `sample-students.xlsx`. The wizard should match
    every column on its own; the preview should say **72 rows to create, 0 errors**. Click
    **Import**.
@@ -102,32 +102,35 @@ Note anything that was unclear, slow, wrong or ugly.
    name. Open the student. Add a photo if you have any picture to hand.
 2. **Add a student by hand**, with a father/guardian. Then add a sibling for the same guardian
    (search for the guardian by phone when adding the second child).
-3. **Change the fee rules.** Fees → Setup: set a sibling discount of 10% and a late fee of 10%
-   after the 15th. Give one student a 50% scholarship with a reason.
-4. **Generate this month's vouchers** (Fees → Vouchers → Generate). Open a voucher for a
+3. **Change the fee rules.** Fees & Finance → Setup → Policy: set a sibling discount of 10%
+   and a late fee of 10% after the 15th. On a student's page, give them a 50% scholarship
+   with a reason.
+4. **Generate this month's vouchers** (Fees & Finance → Vouchers → Generate). Open a voucher for a
    student who has a sibling and check the sibling discount; check the scholarship on the
    other student. Print a voucher (use "Save as PDF" in the print dialog).
 5. **Collect fees.** Record a full payment on one voucher and a partial payment on another.
    Print a receipt. Then reverse one receipt with a reason and see the ledger.
-6. **Defaulters.** Fees → Defaulters: set the date to next month to see who still owes.
+6. **Defaulters.** Fees & Finance → Defaulters: set the date to next month to see who still owes.
    Try the Excel export button.
 7. **Mark attendance** for one section today (everyone present by default; mark two absent,
    one late). Try to mark attendance for a Sunday: it should be refused as a weekend.
 8. **Add a holiday** (Attendance → Calendar), then look at the attendance register for the
    month.
-9. **Enter marks.** Settings → Assessments shows the exam types for the year. Enter marks for
-   one subject in one section, submit the sheet, then (as the principal/admin) approve it.
-10. **Print a report card** for a student in that section.
+9. **Enter marks.** Examinations → Setup: click **Add default assessments** (the exam types
+   and their weights for the year). Then enter marks for one subject in one section, submit
+   the sheet, and approve it (the administrator can).
+10. **Print a report card** (Examinations → Report cards) for a student in that section.
 11. **Make a backup** (Backup → Back up now) and look at the file in Documents → Madrasa
     Backups. Then change a student's name, **restore** that backup, and check the name is
     back. You will need the backup password you set in the wizard.
-12. **Switch to Urdu** (the language switch in the top bar) and repeat one of the tasks above
+12. **Switch to Urdu** (the **Language** switch in the top bar) and repeat one of the tasks above
     in Urdu; check the layout reads right-to-left and nothing is cut off. Switch back.
-13. **Dark mode and a small screen.** Turn on dark mode (Settings), and if you can, try the
-    app on a 1366×768 laptop screen or a window that size.
-14. **Create a teacher login.** Teachers → pick a staff member → create a login with the
-    Teacher role, assign them as class teacher of one section, log out and log in as them:
-    they should see only their own section's attendance and marks.
+13. **Dark mode and a small screen.** Use the **Theme** switch in the top bar to turn on dark
+    mode, and if you can, try the app on a 1366×768 laptop screen or a window that size.
+14. **Create a teacher login.** Teachers → pick a staff member → **Login account**: create a
+    login with the Teacher role. In Settings → Sections make them class teacher of one
+    section. Log out and log in as them: they should see only that section's attendance and
+    marks.
 15. **End of year (preview only).** Settings → Academic years → **Roll over year**: read the
     preview of who moves where, but you can cancel without applying it.
 
