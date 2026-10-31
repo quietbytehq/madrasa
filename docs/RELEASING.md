@@ -10,7 +10,7 @@ Installers are built by GitHub Actions (`.github/workflows/release.yml`):
   `madrasa-windows-latest`) without creating a release.
 
 Every CI run on `main` and on `m1-*`/`dev/*` branches also builds the bundles and keeps them as
-artifacts for 14 days, so a build of any merged stage is always available.
+artifacts (GitHub's default retention), so a build of any merged stage is available for a while.
 
 Before tagging:
 
