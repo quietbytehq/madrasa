@@ -369,6 +369,33 @@ Rules (`madrasa_core::imports` for cleanup, `madrasa_api::imports` for the datab
   register and result sheets as `.xlsx` (bold headings, frozen row) or `.csv` (UTF-8 with
   BOM so Excel shows Urdu), with the same filters, permissions and teacher scope as the list.
 
+### 5.10 Year rollover and dashboard (M1 stage 7)
+
+**Rollover** (`madrasa_db::rollover`, `academics.manage`): from the active year, open the
+next one (same start month) and, in one transaction:
+
+- promote every active student to the class with the next level, into a section of the same
+  name (created on demand with the old section's class teacher and capacity); students of the
+  top class are marked `graduated` with `left_on` = old year end; students listed as
+  *retain* repeat their class, students listed as *graduate* leave instead;
+- copy the fee structure of every class and the assessment types (names, weights, order);
+- activate the new year (the old one stays, inactive, with all its data);
+- audit the run with the counts.
+
+Unpaid balances need no step of their own: the first voucher of the new year carries them
+forward (§5.5). The preview shows each section's destination, the graduating count, the
+students with a balance and its total, whether the next year already exists (then the
+rollover is refused) and how many months the current year has run (the UI warns under nine).
+
+**Dashboard** (`/dashboard`): today's day kind and attendance (sections marked, percentage,
+unmarked sections), active students and staff, fees collected since the first of the month
+(net of reversals), defaulters past their due date with the outstanding total, and the backup
+status. Each figure is present only for callers with the matching read permission.
+
+**Pilot profile check**: `cargo test -p madrasa-demo-data --test perf -- --ignored --nocapture`
+loads 1,200 students, 120 staff and a full year of fees and attendance and asserts that every
+key query answers in under one second (results in `docs/PROGRESS.md`).
+
 ## 6. API conventions
 
 - Base path `/api/v1`. JSON request and response bodies. `snake_case` keys.
@@ -510,6 +537,14 @@ admin has `academics.manage` for setup but not `exams.approve` unless granted.
 | GET | `/export/students`, `/export/staff`, `/export/fees/vouchers`, `/export/fees/defaulters`, `/export/attendance/absentees`, `/export/attendance/register`, `/export/exams/results` | the list's permission | Download as `.xlsx` or `.csv` (`format`), with the list's filters |
 
 Students and opening balances need `students.manage`; staff needs `teachers.manage`.
+
+### 6.8 M1 stage 7 endpoints
+
+| Method | Path | Permission | Purpose |
+| --- | --- | --- | --- |
+| GET | `/academic-years/rollover/preview` | `academics.manage` | What the rollover will do |
+| POST | `/academic-years/rollover` | `academics.manage` | Roll over (`retain`, `graduate`: student ids) |
+| GET | `/dashboard` | any user | Now also students, staff, fees collected this month, defaulters |
 
 ## 7. Security
 

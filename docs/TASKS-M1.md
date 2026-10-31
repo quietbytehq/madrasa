@@ -84,12 +84,12 @@ Pilot school: K-12, ~1,200 students, ~120 staff. Details in docs/spec.md ("Pilot
 - [x] Tests: messy sample files (generated, fake data)
 
 ## Stage 7 — Pilot readiness
-- [ ] Academic year rollover: promote students, carry forward unpaid fees, archive previous year
-- [ ] Default roles reviewed: principal, admin, accountant, teacher — permission matrix documented in docs/
-- [ ] Dashboard wired to real data: students, today's attendance, fees collected this month, defaulters, backup status
-- [ ] Performance check with 1,200 students, 120 staff and a full year of demo fees/attendance: key screens load in under 1 second
-- [ ] Short Urdu + English user guide in docs/user-guide/ (setup, students, fees, attendance, exams, backup)
-- [ ] Release build: Linux .deb/AppImage and Windows installer via CI
+- [x] Academic year rollover: promote students, carry forward unpaid fees, archive previous year
+- [x] Default roles reviewed: principal, admin, accountant, teacher — permission matrix documented in docs/
+- [x] Dashboard wired to real data: students, today's attendance, fees collected this month, defaulters, backup status
+- [x] Performance check with 1,200 students, 120 staff and a full year of demo fees/attendance: key screens load in under 1 second
+- [x] Short Urdu + English user guide in docs/user-guide/ (setup, students, fees, attendance, exams, backup)
+- [x] Release build: Linux .deb/AppImage and Windows installer via CI
 
 ## Done when
 A fresh Lite install can be set up for the pilot school, students imported from Excel, a month of fees billed and collected, daily attendance taken, a full exam cycle entered and approved, report cards printed, and data backed up and restored — on Linux and Windows, all tests passing.
