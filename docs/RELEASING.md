@@ -21,6 +21,10 @@ Before tagging:
    Settings and writes it into every backup file.
 3. Update `docs/PROGRESS.md` with what the build contains and what to test by hand.
 
+The Linux bundles are built on `ubuntu-22.04` so they run on Debian 12 and 13 and on Ubuntu
+22.04 or newer (glibc 2.35); CI fails if the binary ever needs a newer glibc. Building on a
+newer runner would silently raise that floor.
+
 Installers are **unsigned** for now; Windows SmartScreen and Linux package tools warn about
 that. Code signing is tracked for a later milestone.
 

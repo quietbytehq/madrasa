@@ -329,6 +329,7 @@ async fn attach_guardian(
                             cnic,
                             occupation: g.occupation.unwrap_or_default(),
                             address: g.address.unwrap_or_default(),
+                            custom: serde_json::json!({}),
                         },
                     )
                     .await?
@@ -834,6 +835,7 @@ async fn create_guardian(
             cnic: clean_cnic(&country, b.cnic.flatten())?,
             occupation: b.occupation.unwrap_or_default(),
             address: b.address.unwrap_or_default(),
+            custom: serde_json::json!({}),
         },
     )
     .await?;

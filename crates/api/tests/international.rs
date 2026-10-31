@@ -246,11 +246,31 @@ fn dob(i: usize) -> (String, String) {
     )
 }
 
-/// A US-style student register as a school office would export it from a spreadsheet:
-/// first and last names, month-first dates, "Grade" and "Homeroom", one parent/guardian
-/// column with a relationship, US phone formatting, an email and a street address.
-fn maple_ridge_students_xlsx() -> Vec<u8> {
+/// Every 10th student (i % 10 == 9) is the younger sibling of the one before: same family id,
+/// same guardians, same last name.
+fn family_of(i: usize) -> usize {
+    if i % 10 == 9 {
+        i - 1
+    } else {
+        i
+    }
+}
+
+/// The Maple Ridge demo workbook as the test report described it: a "Read Me" sheet first,
+/// then "Students" and "Staff". The student register has first and last names, month-first
+/// dates, "Grade" and "Homeroom", two numbered guardian column groups, a Family ID that
+/// links siblings, US phone formatting, emails and a street address.
+fn maple_ridge_xlsx() -> Vec<u8> {
     let mut wb = rust_xlsxwriter::Workbook::new();
+    let readme = wb.add_worksheet();
+    readme.set_name("Read Me").unwrap();
+    readme
+        .write_string(
+            0,
+            0,
+            "Maple Ridge demo export. Data on the Students and Staff sheets.",
+        )
+        .unwrap();
     let ws = wb.add_worksheet();
     ws.set_name("Students").unwrap();
     let headers = [
@@ -261,10 +281,15 @@ fn maple_ridge_students_xlsx() -> Vec<u8> {
         "Gender",
         "Grade",
         "Homeroom",
-        "Parent/Guardian Name",
-        "Relationship",
-        "Parent Phone",
-        "Parent Email",
+        "Guardian 1 Name",
+        "Guardian 1 Relationship",
+        "Guardian 1 Phone",
+        "Guardian 1 Email",
+        "Guardian 2 Name",
+        "Guardian 2 Relationship",
+        "Guardian 2 Phone",
+        "Guardian 2 Email",
+        "Family ID",
         "Street Address",
         "Enrollment Date",
     ];
@@ -272,8 +297,9 @@ fn maple_ridge_students_xlsx() -> Vec<u8> {
         ws.write_string(0, c as u16, *h).unwrap();
     }
     for i in 0..STUDENTS {
+        let fam = family_of(i);
         let first = FIRST[i % 40];
-        let last = LAST[(i / 40) % 40];
+        let last = LAST[(fam / 40) % 40];
         let grade = GRADES[i % 13];
         let grade_text = if i % 10 == 0 && grade != "K" {
             format!("Grade {grade}")
@@ -281,9 +307,14 @@ fn maple_ridge_students_xlsx() -> Vec<u8> {
             grade.to_string()
         };
         let section = ["A", "B", "C"][(i / 13) % 3];
-        let parent_first = FIRST[(i + 17) % 40];
-        let relationship = ["Mother", "Father", "Guardian"][i % 3];
+        let parent_first = FIRST[(fam + 17) % 40];
+        let parent2_first = FIRST[(fam + 23) % 40];
+        let relationship = ["Mother", "Father", "Guardian"][fam % 3];
+        let relationship2 = ["Father", "Mother", "Grandmother"][fam % 3];
         let (dob_text, _) = dob(i);
+        // Every third family has no second guardian.
+        let has_second = fam % 3 != 2;
+        let second = |v: String| if has_second { v } else { String::new() };
         let row = [
             format!("MR-{:05}", i + 1),
             first.to_string(),
@@ -294,25 +325,30 @@ fn maple_ridge_students_xlsx() -> Vec<u8> {
             section.to_string(),
             format!("{parent_first} {last}"),
             relationship.to_string(),
-            format!("(503) 555-{:04}", (i * 37) % 10000),
+            format!("(503) 555-{:04}", (fam * 37) % 10000),
             format!(
                 "{}.{}{}@example.com",
-                first.to_lowercase(),
+                parent_first.to_lowercase(),
                 last.to_lowercase(),
-                i
+                fam
             ),
-            format!("{} NE Maple St, Portland, OR 97211", 100 + i),
+            second(format!("{parent2_first} {last}")),
+            second(relationship2.to_string()),
+            second(format!("503-555-{:04}", (fam * 53 + 1) % 10000)),
+            second(format!(
+                "{}.{}{}@example.com",
+                parent2_first.to_lowercase(),
+                last.to_lowercase(),
+                fam
+            )),
+            format!("FAM-{fam:04}"),
+            format!("{} NE Maple St, Portland, OR 97211", 100 + fam),
             "08/24/2026".to_string(),
         ];
         for (c, v) in row.iter().enumerate() {
             ws.write_string((i + 1) as u32, c as u16, v).unwrap();
         }
     }
-    wb.save_to_buffer().unwrap()
-}
-
-fn maple_ridge_staff_xlsx() -> Vec<u8> {
-    let mut wb = rust_xlsxwriter::Workbook::new();
     let ws = wb.add_worksheet();
     ws.set_name("Staff").unwrap();
     let headers = [
@@ -490,7 +526,7 @@ async fn maple_ridge_register_imports_in_full() {
     let (admin, _school_id) = app.seed_us().await;
 
     // Students: headers map on their own, including first/last name and parent columns.
-    let content = STANDARD.encode(maple_ridge_students_xlsx());
+    let content = STANDARD.encode(maple_ridge_xlsx());
     let (s, parsed) = app
         .post(
             "/imports/parse",
@@ -499,6 +535,8 @@ async fn maple_ridge_register_imports_in_full() {
         )
         .await;
     assert_eq!(s, StatusCode::OK, "{parsed}");
+    assert_eq!(parsed["sheets"], json!(["Read Me", "Students", "Staff"]));
+    assert_eq!(parsed["sheet"], "Students");
     assert_eq!(parsed["rows"].as_array().unwrap().len(), STUDENTS);
     let mapping = parsed["mapping"].as_object().unwrap();
     for key in [
@@ -513,6 +551,11 @@ async fn maple_ridge_register_imports_in_full() {
         "guardian_relationship",
         "guardian_phone",
         "guardian_email",
+        "guardian2_name",
+        "guardian2_relationship",
+        "guardian2_phone",
+        "guardian2_email",
+        "family_id",
         "address",
         "admission_date",
     ] {
@@ -568,10 +611,59 @@ async fn maple_ridge_register_imports_in_full() {
         detail["guardians"][0]["email"],
         format!(
             "{}.{}3@example.com",
-            FIRST[3].to_lowercase(),
+            FIRST[20].to_lowercase(),
             LAST[0].to_lowercase()
         )
     );
+    // Family 3 has a second guardian (3 % 3 == 0): linked, not primary, own phone.
+    let gs = detail["guardians"].as_array().unwrap();
+    assert_eq!(gs.len(), 2, "{gs:?}");
+    assert_eq!(
+        (
+            gs[1]["relationship"].as_str(),
+            gs[1]["is_primary"].as_bool(),
+            gs[1]["phone"].as_str()
+        ),
+        (Some("father"), Some(false), Some("5035550160")),
+        "{gs:?}"
+    );
+    // Rows 8 and 9 are siblings (FAM-0008): one guardian record for the family, so each
+    // lists the other as a sibling and the sibling discount can apply.
+    let (_, older) = app.get("/students?q=MR-00009&page_size=5", &admin).await;
+    let (_, older) = app
+        .get(
+            &format!("/students/{}", older["items"][0]["id"].as_str().unwrap()),
+            &admin,
+        )
+        .await;
+    let (_, younger) = app.get("/students?q=MR-00010&page_size=5", &admin).await;
+    let (_, younger) = app
+        .get(
+            &format!("/students/{}", younger["items"][0]["id"].as_str().unwrap()),
+            &admin,
+        )
+        .await;
+    assert_eq!(older["custom"]["family_id"], "FAM-0008");
+    assert_eq!(younger["custom"]["family_id"], "FAM-0008");
+    assert_eq!(
+        older["guardians"][0]["id"], younger["guardians"][0]["id"],
+        "one guardian record for the family"
+    );
+    assert_eq!(
+        younger["siblings"].as_array().unwrap().len(),
+        1,
+        "{younger}"
+    );
+    assert_eq!(younger["siblings"][0]["id"], older["id"]);
+    // Family 2 (2 % 3 == 2) has one guardian only.
+    let (_, solo) = app.get("/students?q=MR-00003&page_size=5", &admin).await;
+    let (_, solo) = app
+        .get(
+            &format!("/students/{}", solo["items"][0]["id"].as_str().unwrap()),
+            &admin,
+        )
+        .await;
+    assert_eq!(solo["guardians"].as_array().unwrap().len(), 1);
     assert_eq!(detail["current"]["class_name"], GRADES[3]);
     assert_eq!(detail["current"]["section_name"], "A");
     // Row 0 is in kindergarten ("K"), row 10 was written as "Grade 10".
@@ -594,8 +686,8 @@ async fn maple_ridge_register_imports_in_full() {
     let (_, all) = app.get("/students?page_size=1", &admin).await;
     assert_eq!(all["total"].as_i64(), Some(STUDENTS as i64));
 
-    // Staff: job titles, +1 phones and hire dates.
-    let content = STANDARD.encode(maple_ridge_staff_xlsx());
+    // Staff: the same workbook; "Staff" is picked for a staff import, and a sheet can also be
+    // named explicitly.
     let (s, parsed) = app
         .post(
             "/imports/parse",
@@ -604,6 +696,19 @@ async fn maple_ridge_register_imports_in_full() {
         )
         .await;
     assert_eq!(s, StatusCode::OK, "{parsed}");
+    assert_eq!(parsed["sheet"], "Staff");
+    let (s, explicit) = app
+        .post(
+            "/imports/parse",
+            &admin,
+            json!({ "kind": "staff", "file_name": "Madrasa_Demo_MapleRidge_USA.xlsx", "content_base64": content, "sheet": "Read Me" }),
+        )
+        .await;
+    assert_eq!(
+        (s, explicit["sheet"].as_str()),
+        (StatusCode::OK, Some("Read Me"))
+    );
+    assert_eq!(explicit["rows"].as_array().unwrap().len(), 0, "{explicit}");
     let mapping = parsed["mapping"].as_object().unwrap();
     for key in [
         "staff_number",

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Plus } from "lucide-react";
 import { api } from "@/api/endpoints";
-import type { Assignment, Gender, Section, Staff, Subject } from "@/api/types";
+import type { Assignment, Gender, LoginRole, Section, Staff, Subject } from "@/api/types";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -281,14 +281,8 @@ function StaffDialog({
             onChange={set("joined_on")}
             disabled={!manage}
           />
-          <Input
-            label={t("staff.login")}
-            value={staff?.username ?? ""}
-            readOnly
-            disabled
-            className="col-span-2"
-          />
         </div>
+        {staff && <LoginSection staff={staff} onChanged={onSaved} />}
         {classTeacherOf.length > 0 && (
           <p className="text-xs text-muted">
             {t("staff.classTeacherOf")}:{" "}
@@ -383,5 +377,188 @@ function StaffDialog({
         </div>
       </form>
     </Dialog>
+  );
+}
+
+const ROLES: LoginRole[] = ["principal", "admin", "accountant", "teacher"];
+
+/** "Login account" block of the staff dialog: create, change role, enable/disable, reset. */
+export function LoginSection({ staff, onChanged }: { staff: Staff; onChanged: () => void }) {
+  const { t } = useI18n();
+  const { can, user } = useSession();
+  const toast = useToast();
+  const manage = can("users.manage");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState<LoginRole>((staff.roles[0] as LoginRole) ?? "teacher");
+  const [creating, setCreating] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const isSelf = staff.user_id !== null && staff.user_id === user?.id;
+
+  const run = async (work: () => Promise<unknown>, done: string) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await work();
+      toast.push({ kind: "success", title: done });
+      setCreating(false);
+      setResetting(false);
+      setPassword("");
+      onChanged();
+    } catch (err) {
+      setError(errorMessage(err, t("app.error.generic")));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const roleOptions = ROLES.map((r) => ({ value: r, label: t(`staff.login.role.${r}`) }));
+
+  return (
+    <fieldset className="rounded border border-border p-3">
+      <legend className="px-1 text-xs font-medium text-text">{t("staff.login")}</legend>
+      {!staff.user_id ? (
+        <div className="flex flex-col gap-2">
+          {!creating ? (
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-muted">{t("staff.login.none")}</span>
+              {manage && (
+                <Button size="sm" variant="secondary" onClick={() => setCreating(true)}>
+                  {t("staff.login.create")}
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <p className="text-xs text-muted">{t("staff.login.hint")}</p>
+              <div className="grid grid-cols-3 gap-3">
+                <Input
+                  label={t("staff.login.username")}
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  autoComplete="off"
+                  required
+                />
+                <Input
+                  label={t("staff.login.password")}
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="new-password"
+                  required
+                />
+                <Select
+                  label={t("staff.login.role")}
+                  value={role}
+                  onChange={(e) => setRole(e.target.value as LoginRole)}
+                  options={roleOptions}
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  loading={busy}
+                  onClick={() =>
+                    void run(
+                      () => api.createStaffLogin(staff.id, { username, password, role }),
+                      t("staff.login.created"),
+                    )
+                  }
+                >
+                  {t("staff.login.create")}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setCreating(false)}>
+                  {t("action.cancel")}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <div className="grid grid-cols-3 items-end gap-3">
+            <Input
+              label={t("staff.login.username")}
+              value={staff.username ?? ""}
+              readOnly
+              disabled
+            />
+            <Select
+              label={t("staff.login.role")}
+              value={role}
+              onChange={(e) => {
+                const next = e.target.value as LoginRole;
+                setRole(next);
+                void run(
+                  () => api.updateStaffLogin(staff.id, { role: next }),
+                  t("staff.login.saved"),
+                );
+              }}
+              options={roleOptions}
+              disabled={!manage || busy}
+            />
+            <label className="flex items-center gap-2 pb-2 text-sm">
+              <input
+                type="checkbox"
+                checked={staff.login_active ?? false}
+                disabled={!manage || busy || isSelf}
+                onChange={(e) =>
+                  void run(
+                    () => api.updateStaffLogin(staff.id, { is_active: e.target.checked }),
+                    t("staff.login.saved"),
+                  )
+                }
+              />
+              {staff.login_active === false ? (
+                <Badge tone="warning">{t("staff.login.disabled")}</Badge>
+              ) : (
+                t("staff.login.active")
+              )}
+            </label>
+          </div>
+          {manage &&
+            (!resetting ? (
+              <div>
+                <Button size="sm" variant="secondary" onClick={() => setResetting(true)}>
+                  {t("staff.login.reset")}
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-end gap-2">
+                <Input
+                  label={t("staff.login.newPassword")}
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="new-password"
+                  className="max-w-xs"
+                />
+                <Button
+                  size="sm"
+                  loading={busy}
+                  onClick={() =>
+                    void run(
+                      () => api.resetStaffPassword(staff.id, password),
+                      t("staff.login.resetDone"),
+                    )
+                  }
+                >
+                  {t("staff.login.reset")}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setResetting(false)}>
+                  {t("action.cancel")}
+                </Button>
+              </div>
+            ))}
+        </div>
+      )}
+      {error && (
+        <p role="alert" className="mt-2 text-sm text-danger">
+          {error}
+        </p>
+      )}
+    </fieldset>
   );
 }

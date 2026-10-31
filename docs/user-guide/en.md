@@ -17,6 +17,11 @@ This guide covers the daily work. Press **Ctrl+K** anywhere to search.
 4. Log in as the administrator. Under **Settings** add the academic year, classes, sections
    (with a class teacher each) and subjects. Under **Teachers** add staff and assign them to
    sections and subjects; teachers who log in see only their own sections.
+5. **Logins for staff**: open a staff member under **Teachers** and use **Create login** in
+   the *Login account* box: choose a username, a password (at least 10 characters) and a role
+   (principal, administrator, accountant or teacher). The same box changes the role, switches
+   the login off and on, and resets a forgotten password. Only the principal and
+   administrators can do this, and every change is in the audit log.
 
 Roles: **principal** (everything, approves marks), **admin** (everything except approving
 marks), **accountant** (fees), **teacher** (attendance and marks for own sections). The full

@@ -301,6 +301,7 @@ pub async fn load(
                 cnic: Some(g.cnic.clone()),
                 occupation: g.occupation.clone(),
                 address: String::new(),
+                custom: serde_json::json!({}),
             },
         )
         .await?;

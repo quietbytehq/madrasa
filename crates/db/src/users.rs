@@ -139,6 +139,40 @@ pub async fn update(
     Ok(after)
 }
 
+/// Replace the password hash (administrator reset). Audited as `password_reset`; the hash is
+/// never written to the log (`User` skips it when serialised).
+pub async fn set_password(
+    conn: &mut PgConnection,
+    hlc: &Hlc,
+    actor: Actor,
+    id: Uuid,
+    password_hash: &str,
+) -> DbResult<User> {
+    let before = get(&mut *conn, id).await?;
+    let after = sqlx::query_as::<_, User>(
+        "UPDATE users SET password_hash = $2, failed_login_count = 0, locked_until = NULL,
+            updated_at = now(), updated_by = $3, hlc = $4 WHERE id = $1 RETURNING *",
+    )
+    .bind(id)
+    .bind(password_hash)
+    .bind(actor.user_id)
+    .bind(hlc.now().to_string())
+    .fetch_one(&mut *conn)
+    .await?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::PasswordReset,
+        "user",
+        Some(id),
+        Some(snapshot(&before)),
+        Some(snapshot(&after)),
+    )
+    .await?;
+    Ok(after)
+}
+
 pub async fn soft_delete(
     conn: &mut PgConnection,
     hlc: &Hlc,

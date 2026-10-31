@@ -17,6 +17,8 @@ pub struct NewGuardian {
     pub cnic: Option<String>,
     pub occupation: String,
     pub address: String,
+    /// Extra fields (e.g. `family_id` from an imported register); `{}` when none.
+    pub custom: serde_json::Value,
 }
 
 pub async fn create(
@@ -27,8 +29,8 @@ pub async fn create(
 ) -> DbResult<Guardian> {
     let id = new_id();
     let row = sqlx::query_as::<_, Guardian>(
-        "INSERT INTO guardians (id, school_id, full_name, phone, email, cnic, occupation, address, updated_by, hlc)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *",
+        "INSERT INTO guardians (id, school_id, full_name, phone, email, cnic, occupation, address, custom, updated_by, hlc)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *",
     )
     .bind(id)
     .bind(input.school_id)
@@ -38,6 +40,11 @@ pub async fn create(
     .bind(input.cnic)
     .bind(input.occupation.trim())
     .bind(input.address.trim())
+    .bind(if input.custom.is_object() {
+        input.custom
+    } else {
+        serde_json::json!({})
+    })
     .bind(actor.user_id)
     .bind(hlc.now().to_string())
     .fetch_one(&mut *conn)
@@ -140,6 +147,26 @@ pub async fn search(
 }
 
 /// Existing guardian with the same CNIC or phone, used to share records between siblings.
+/// A guardian recorded under a family id (from an imported register) with this name, so
+/// siblings in the same family share one guardian record even without a phone or ID number.
+pub async fn find_by_family(
+    conn: &mut PgConnection,
+    school_id: Uuid,
+    family_id: &str,
+    full_name: &str,
+) -> DbResult<Option<Guardian>> {
+    Ok(sqlx::query_as::<_, Guardian>(
+        "SELECT * FROM guardians WHERE school_id = $1 AND deleted_at IS NULL
+           AND custom ->> 'family_id' = $2 AND lower(full_name) = lower($3)
+         ORDER BY created_at LIMIT 1",
+    )
+    .bind(school_id)
+    .bind(family_id)
+    .bind(full_name.trim())
+    .fetch_optional(conn)
+    .await?)
+}
+
 pub async fn find_matching(
     conn: &mut PgConnection,
     school_id: Uuid,
