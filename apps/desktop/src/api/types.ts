@@ -205,6 +205,8 @@ export interface Staff {
   custom: Record<string, unknown>;
   roles: string[];
   username: string | null;
+  /** Whether the login may sign in; null without a login. */
+  login_active: boolean | null;
 }
 
 export interface Assignment {
@@ -1079,6 +1081,21 @@ export interface ImportField {
   required: boolean;
   aliases: string[];
   example: string;
+}
+
+/** Mirrors `CreateLoginBody` (POST /staff/{id}/login). */
+export interface CreateLoginBody {
+  username: string;
+  password: string;
+  role: LoginRole;
+}
+
+export type LoginRole = "principal" | "admin" | "accountant" | "teacher";
+
+/** Mirrors `UpdateLoginBody` (PATCH /staff/{id}/login); omitted fields stay as they are. */
+export interface UpdateLoginBody {
+  role?: LoginRole;
+  is_active?: boolean;
 }
 
 export interface ParsedFile {

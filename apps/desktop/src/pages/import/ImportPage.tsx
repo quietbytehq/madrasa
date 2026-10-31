@@ -23,6 +23,7 @@ import { useToast } from "@/components/ui/Toast";
 import { useI18n } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
 import { cn } from "@/lib/cn";
+import { pickSheet } from "@/lib/sheets";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 import { useSession } from "@/app/session";
 import { PageHeader } from "../PageHeader";
@@ -68,6 +69,10 @@ export function ImportPage() {
   const [step, setStep] = useState(0);
   const [kind, setKind] = useState<ImportKind>("students");
   const [parsed, setParsed] = useState<ParsedFile | null>(null);
+  /** A workbook with several sheets waits here until the user confirms which one to read. */
+  const [pending, setPending] = useState<{ file: File; parsed: ParsedFile; sheet: string } | null>(
+    null,
+  );
   const [mapping, setMapping] = useState<Record<string, number>>({});
   const [remember, setRemember] = useState(true);
   const [policy, setPolicy] = useState<DuplicatePolicy>("skip");
@@ -91,16 +96,49 @@ export function ImportPage() {
     try {
       const content_base64 = await readAsBase64(file);
       const p = await api.parseImport({ kind, file_name: file.name, content_base64 });
-      setParsed(p);
-      setMapping(p.mapping);
-      setEdited(null);
-      setPreview(null);
-      setStep(2);
+      if (p.sheets.length > 1) {
+        setPending({ file, parsed: p, sheet: pickSheet(kind, p.sheets) ?? p.sheet });
+        return;
+      }
+      accept(p);
     } catch (err) {
       fail(err);
     } finally {
       setBusy(false);
       e.target.value = "";
+    }
+  };
+
+  const accept = (p: ParsedFile) => {
+    setPending(null);
+    setParsed(p);
+    setMapping(p.mapping);
+    setEdited(null);
+    setPreview(null);
+    setStep(2);
+  };
+
+  const confirmSheet = async () => {
+    if (!pending) return;
+    if (pending.sheet === pending.parsed.sheet) {
+      accept(pending.parsed);
+      return;
+    }
+    setBusy(true);
+    try {
+      const content_base64 = await readAsBase64(pending.file);
+      accept(
+        await api.parseImport({
+          kind,
+          file_name: pending.file.name,
+          content_base64,
+          sheet: pending.sheet,
+        }),
+      );
+    } catch (err) {
+      fail(err);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -245,7 +283,37 @@ export function ImportPage() {
         </div>
       )}
 
-      {step === 1 && (
+      {step === 1 && pending && (
+        <Card title={t("import.sheet.title")}>
+          <div className="flex flex-col gap-3">
+            <p className="text-sm text-muted">{t("import.sheet.hint")}</p>
+            <Select
+              label={t("import.file.sheet")}
+              value={pending.sheet}
+              onChange={(e) => setPending({ ...pending, sheet: e.target.value })}
+              options={pending.parsed.sheets.map((name) => ({
+                value: name,
+                label:
+                  name === pending.parsed.sheet
+                    ? `${name} (${t("import.sheet.rows", { rows: pending.parsed.rows.length })})`
+                    : name,
+              }))}
+              className="max-w-xs"
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <Button onClick={() => void confirmSheet()} loading={busy}>
+                {t("action.continue")}
+              </Button>
+              <Button variant="ghost" onClick={() => setPending(null)}>
+                {t("action.back")}
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {step === 1 && !pending && (
         <Card title={t(`import.kind.${kind}`)}>
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-2">

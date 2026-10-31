@@ -264,6 +264,17 @@ pub const STUDENT_FIELDS: &[FieldDef] = &[
             "parent guardian name",
             "guardian/parent name",
             "mother name",
+            "guardian 1 name",
+            "guardian 1",
+            "guardian name 1",
+            "guardian1 name",
+            "parent 1 name",
+            "parent 1",
+            "parent/guardian 1 name",
+            "parent/guardian 1",
+            "primary guardian name",
+            "primary guardian",
+            "primary contact name",
             "سرپرست کا نام",
             "سرپرست",
         ],
@@ -273,7 +284,18 @@ pub const STUDENT_FIELDS: &[FieldDef] = &[
         "guardian_relationship",
         "Guardian relationship",
         false,
-        &["relationship", "relation", "guardian relationship", "رشتہ"],
+        &[
+            "relationship",
+            "relation",
+            "guardian relationship",
+            "guardian 1 relationship",
+            "guardian 1 relation",
+            "relationship 1",
+            "parent 1 relationship",
+            "parent/guardian 1 relationship",
+            "primary guardian relationship",
+            "رشتہ",
+        ],
         "father",
     ),
     f(
@@ -292,6 +314,12 @@ pub const STUDENT_FIELDS: &[FieldDef] = &[
             "cell",
             "cell phone",
             "home phone",
+            "guardian 1 phone",
+            "guardian phone 1",
+            "parent 1 phone",
+            "parent/guardian 1 phone",
+            "primary guardian phone",
+            "primary contact phone",
             "فون",
             "موبائل",
             "رابطہ نمبر",
@@ -306,6 +334,10 @@ pub const STUDENT_FIELDS: &[FieldDef] = &[
             "guardian cnic",
             "father cnic",
             "parent cnic",
+            "guardian 1 cnic",
+            "guardian 1 id",
+            "parent 1 cnic",
+            "parent 1 id",
             "سرپرست شناختی کارڈ",
         ],
         "42101-7654321-1",
@@ -327,9 +359,108 @@ pub const STUDENT_FIELDS: &[FieldDef] = &[
             "guardian email",
             "parent email",
             "parent/guardian email",
+            "guardian 1 email",
+            "parent 1 email",
+            "parent/guardian 1 email",
+            "primary guardian email",
             "ای میل",
         ],
         "ahmed@example.com",
+    ),
+    f(
+        "guardian2_name",
+        "Second guardian name",
+        false,
+        &[
+            "guardian 2 name",
+            "guardian 2",
+            "guardian name 2",
+            "guardian2 name",
+            "parent 2 name",
+            "parent 2",
+            "parent/guardian 2 name",
+            "parent/guardian 2",
+            "secondary guardian name",
+            "secondary guardian",
+            "second guardian name",
+            "second guardian",
+            "secondary contact name",
+            "دوسرے سرپرست کا نام",
+        ],
+        "Fatima Khan",
+    ),
+    f(
+        "guardian2_relationship",
+        "Second guardian relationship",
+        false,
+        &[
+            "guardian 2 relationship",
+            "guardian 2 relation",
+            "relationship 2",
+            "parent 2 relationship",
+            "parent/guardian 2 relationship",
+            "secondary guardian relationship",
+            "second guardian relationship",
+        ],
+        "mother",
+    ),
+    f(
+        "guardian2_phone",
+        "Second guardian phone",
+        false,
+        &[
+            "guardian 2 phone",
+            "guardian phone 2",
+            "parent 2 phone",
+            "parent/guardian 2 phone",
+            "secondary guardian phone",
+            "second guardian phone",
+            "secondary contact phone",
+        ],
+        "0301-7654321",
+    ),
+    f(
+        "guardian2_email",
+        "Second guardian email",
+        false,
+        &[
+            "guardian 2 email",
+            "parent 2 email",
+            "parent/guardian 2 email",
+            "secondary guardian email",
+            "second guardian email",
+        ],
+        "fatima@example.com",
+    ),
+    f(
+        "guardian2_cnic",
+        "Second guardian CNIC",
+        false,
+        &[
+            "guardian 2 cnic",
+            "guardian 2 id",
+            "parent 2 cnic",
+            "parent 2 id",
+            "secondary guardian cnic",
+        ],
+        "42101-7654321-2",
+    ),
+    f(
+        "family_id",
+        "Family ID",
+        false,
+        &[
+            "family id",
+            "family",
+            "family no",
+            "family number",
+            "family code",
+            "household id",
+            "household",
+            "sibling group",
+            "خاندان نمبر",
+        ],
+        "FAM-0042",
     ),
 ];
 
@@ -908,7 +1039,7 @@ pub fn clean_row(
                 }
                 None => row.err("gender", "Gender must be male or female"),
             },
-            "cnic" | "guardian_cnic" => {
+            "cnic" | "guardian_cnic" | "guardian2_cnic" => {
                 match locale::normalise_national_id(&rules.country, &value) {
                     Some(c) => {
                         row.values.insert(field.key.into(), c);
@@ -926,7 +1057,7 @@ pub fn clean_row(
                     ),
                 }
             }
-            "phone" | "guardian_phone" => {
+            "phone" | "guardian_phone" | "guardian2_phone" => {
                 match locale::normalise_phone_for(&rules.country, &value) {
                     Some(p) => {
                         row.values.insert(field.key.into(), p);
@@ -938,15 +1069,17 @@ pub fn clean_row(
                     None => row.err(field.key, format!("{} must have 7–15 digits", field.label)),
                 }
             }
-            "guardian_relationship" => match parse_relationship(&value) {
-                Some(r) => {
-                    row.values.insert(field.key.into(), r.into());
+            "guardian_relationship" | "guardian2_relationship" => {
+                match parse_relationship(&value) {
+                    Some(r) => {
+                        row.values.insert(field.key.into(), r.into());
+                    }
+                    None => row.warn(
+                        field.key,
+                        "Relationship not recognised; recorded as guardian",
+                    ),
                 }
-                None => row.warn(
-                    field.key,
-                    "Relationship not recognised; recorded as guardian",
-                ),
-            },
+            }
             "roll_no" => {
                 if value.parse::<u32>().is_err() {
                     row.err("roll_no", "Roll no. must be a whole number");
@@ -973,7 +1106,10 @@ pub fn clean_row(
             "section" => {
                 row.values.insert("section".into(), value.to_uppercase());
             }
-            "email" | "guardian_email" if !value.contains('@') => {
+            "family_id" => {
+                row.values.insert("family_id".into(), value.to_uppercase());
+            }
+            "email" | "guardian_email" | "guardian2_email" if !value.contains('@') => {
                 row.err(field.key, "Email looks wrong")
             }
             _ => {}
@@ -996,6 +1132,13 @@ pub fn clean_row(
     {
         row.values
             .insert("guardian_relationship".into(), "father".into());
+    }
+    if kind == ImportKind::Students
+        && row.get("guardian2_relationship").is_none()
+        && row.get("guardian2_name").is_some()
+    {
+        row.values
+            .insert("guardian2_relationship".into(), "guardian".into());
     }
     if kind == ImportKind::OpeningBalances
         && row.get("student_number").is_none()
@@ -1396,6 +1539,84 @@ mod tests {
             .map(|f| f.key)
             .collect();
         assert_eq!(missing, ["full_name", "father_name", "gender", "class"]);
+    }
+
+    #[test]
+    fn numbered_guardian_headers_second_guardian_and_family_id_map() {
+        let headers: Vec<String> = [
+            "Student ID",
+            "First Name",
+            "Last Name",
+            "DOB",
+            "Gender",
+            "Grade",
+            "Guardian 1 Name",
+            "Guardian 1 Relationship",
+            "Guardian 1 Phone",
+            "Guardian 1 Email",
+            "Guardian 2 Name",
+            "Guardian 2 Relationship",
+            "Guardian 2 Phone",
+            "Guardian 2 Email",
+            "Family ID",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        let m = auto_map(ImportKind::Students, &headers);
+        let col = |k: &str| m.get(k).copied();
+        assert_eq!(col("guardian_name"), Some(6));
+        assert_eq!(col("guardian_relationship"), Some(7));
+        assert_eq!(col("guardian_phone"), Some(8));
+        assert_eq!(col("guardian_email"), Some(9));
+        assert_eq!(col("guardian2_name"), Some(10));
+        assert_eq!(col("guardian2_relationship"), Some(11));
+        assert_eq!(col("guardian2_phone"), Some(12));
+        assert_eq!(col("guardian2_email"), Some(13));
+        assert_eq!(col("family_id"), Some(14));
+        assert!(missing_required(ImportKind::Students, &m).is_empty());
+        let raw = |cells: &[&str]| cells.iter().map(|c| c.to_string()).collect::<Vec<_>>();
+        let us = RowRules::new("US", NaiveDate::from_ymd_opt(2026, 10, 31).unwrap());
+        let row = clean_row(
+            ImportKind::Students,
+            2,
+            &raw(&[
+                "MR-1",
+                "Ava",
+                "Kim",
+                "03/04/2015",
+                "F",
+                "2",
+                "Min Kim",
+                "Father",
+                "(503) 555-0101",
+                "min@example.com",
+                "Joy Kim",
+                "",
+                "503 555 0102",
+                "joy@example.com",
+                "fam-7",
+            ]),
+            &m,
+            &us,
+        );
+        assert!(row.errors.is_empty(), "{:?}", row.errors);
+        assert_eq!(row.get("guardian2_name"), Some("Joy Kim"));
+        assert_eq!(row.get("guardian2_relationship"), Some("guardian"));
+        assert_eq!(row.get("guardian2_phone"), Some("5035550102"));
+        assert_eq!(row.get("family_id"), Some("FAM-7"));
+        assert_eq!(row.get("father_name"), Some("Min Kim"));
+        // Unnumbered headings still map to the first guardian.
+        let plain: Vec<String> = ["Name", "Guardian Name", "Phone"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        let m = auto_map(ImportKind::Students, &plain);
+        assert_eq!(
+            (m.get("guardian_name"), m.get("guardian_phone")),
+            (Some(&1), Some(&2))
+        );
+        assert!(!m.contains_key("guardian2_name"));
     }
 
     #[test]

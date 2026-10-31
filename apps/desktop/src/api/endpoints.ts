@@ -45,10 +45,12 @@ import type {
   FeePolicy,
   FeeStructureLine,
   FeeVoucherRow,
+  CreateLoginBody,
   GenerationReport,
   LateFeeReport,
   LocaleLists,
   SchoolProfileUpdate,
+  UpdateLoginBody,
   Ledger,
   PaymentMethod,
   ReceiptDetail,
@@ -147,6 +149,12 @@ export const api = {
   // Staff
   staff: (q?: string) => request<Staff[]>(`/staff${qs({ q })}`),
   staffMember: (id: string) => request<Staff>(`/staff/${id}`),
+  createStaffLogin: (id: string, body: CreateLoginBody) =>
+    request<Staff>(`/staff/${id}/login`, { method: "POST", body }),
+  updateStaffLogin: (id: string, body: UpdateLoginBody) =>
+    request<Staff>(`/staff/${id}/login`, { method: "PATCH", body }),
+  resetStaffPassword: (id: string, password: string) =>
+    request<Staff>(`/staff/${id}/login/password`, { method: "POST", body: { password } }),
   createStaff: (body: Partial<Staff>) => request<Staff>("/staff", { method: "POST", body }),
   updateStaff: (id: string, body: Partial<Staff>) =>
     request<Staff>(`/staff/${id}`, { method: "PATCH", body }),

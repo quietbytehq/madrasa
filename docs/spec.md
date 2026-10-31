@@ -361,6 +361,14 @@ Rules (`madrasa_core::imports` for cleanup, `madrasa_api::imports` for the datab
   fix cells or download the error rows as CSV.
 - **Duplicates**: `skip` (default), `update` (every non-empty value of the row) or `merge`
   (only fields that are empty on the record). Updates store the old values for rollback.
+- **Two guardians and families**: a register may carry two numbered guardian column groups
+  (`Guardian 1 Name/Relationship/Phone/Email/ID`, `Guardian 2 …`; `Parent 1`, `Primary
+  guardian`, `Secondary guardian` and unnumbered headings map to the first) and a `Family ID`
+  (`family_id`, also "household", "family no"). The second guardian is linked as a
+  non-primary contact. A family id is stored in `custom.family_id` on the student and on the
+  guardians created for that family; a later row with the same family id and guardian name
+  reuses the guardian record (before the CNIC/phone match), so siblings arrive linked and the
+  sibling discount applies.
 - **Guardians**: a row's guardian is linked to an existing guardian with the same CNIC or
   phone (so siblings share one record), otherwise created; a phone without a name is the
   father's.
@@ -561,6 +569,20 @@ Students and opening balances need `students.manage`; staff needs `teachers.mana
 
 `POST /setup` takes `country` (default `PK`), optional `currency` and `time_zone` (country
 defaults), and any `academic_year_start_month` 1–12.
+
+### 6.10 Alpha test report fixes
+
+| Method | Path | Permission | Purpose |
+| --- | --- | --- | --- |
+| POST | `/staff/{id}/login` | `users.manage` | Create a login for a staff member: `username`, `password`, `role` (principal, admin, accountant, teacher). The account takes the staff member's name and email |
+| PATCH | `/staff/{id}/login` | `users.manage` | `role` (replaces the user's roles) and/or `is_active`; nobody can disable their own account |
+| POST | `/staff/{id}/login/password` | `users.manage` | Set a new password; clears lockouts; audited as `password_reset` (hashes never reach the log) |
+
+`StaffView` carries `username`, `roles` and `login_active`. `POST /imports/parse` takes an
+optional `sheet`; without one the sheet named after the import kind is read ("Students",
+"Staff", "Opening balances"), else the first sheet that is not a read-me or instructions
+sheet. The response lists `sheets` and the `sheet` read, and the wizard asks the user to
+confirm when there are several.
 
 ## 7. Security
 

@@ -97,6 +97,37 @@ beforeEach(() => {
 });
 
 describe("ImportPage", () => {
+  it("asks which sheet to read when a workbook has several, preselecting Students over Read Me", async () => {
+    const multi: ParsedFile = {
+      ...parsed,
+      sheets: ["Read Me", "Students", "Staff"],
+      sheet: "Students",
+    };
+    vi.mocked(api.parseImport).mockClear();
+    vi.mocked(api.parseImport).mockResolvedValue(multi);
+    render();
+    await userEvent.click(await screen.findByRole("button", { name: /Students and guardians/ }));
+    const file = new File(["x"], "MapleRidge.xlsx", {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    await userEvent.upload(screen.getByLabelText("Choose a .xlsx or .csv file"), file);
+    // The picker appears before the mapping step, with the data sheet already chosen.
+    expect(await screen.findByText("Which sheet holds the data?")).toBeInTheDocument();
+    const picker = screen.getByLabelText("Sheet");
+    expect(picker).toHaveValue("Students");
+    expect(api.parseImport).toHaveBeenCalledTimes(1);
+    // Keeping the choice needs no second parse; choosing another sheet parses again with it.
+    await userEvent.selectOptions(picker, "Staff");
+    vi.mocked(api.parseImport).mockResolvedValue({ ...multi, sheet: "Staff" });
+    await userEvent.click(screen.getByRole("button", { name: "Continue" }));
+    await waitFor(() => expect(api.parseImport).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(api.parseImport).mock.calls[1]?.[0]).toMatchObject({
+      file_name: "MapleRidge.xlsx",
+      sheet: "Staff",
+    });
+    expect(await screen.findByText("2 rows found in students.xlsx")).toBeInTheDocument();
+  });
+
   it("walks through type, file, columns, check and import", async () => {
     vi.mocked(api.applyImport).mockResolvedValue({
       batch: {

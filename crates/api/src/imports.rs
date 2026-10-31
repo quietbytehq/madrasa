@@ -63,7 +63,47 @@ fn cell_to_string(cell: &Data) -> String {
 pub type Parsed = (Vec<String>, Vec<String>, Vec<String>, Vec<Vec<String>>);
 
 /// Parse an uploaded file (base64) into headers and string cells.
+/// The sheet to read when the user has not chosen one: a sheet named after the import kind
+/// ("Students", "Staff", "Opening balances"…) first, then the first sheet that is not a
+/// read-me or instructions sheet, then the first sheet.
+pub fn pick_sheet(kind: ImportKind, names: &[String]) -> Option<&str> {
+    let norm = |s: &str| {
+        s.to_lowercase()
+            .chars()
+            .filter(|c| c.is_alphanumeric())
+            .collect::<String>()
+    };
+    let wanted: &[&str] = match kind {
+        ImportKind::Students => &["students", "student", "pupils", "learners", "studentdata"],
+        ImportKind::Staff => &["staff", "employees", "teachers", "staffdata"],
+        ImportKind::OpeningBalances => {
+            &["openingbalances", "balances", "opening", "fees", "arrears"]
+        }
+    };
+    let skip = [
+        "readme",
+        "read",
+        "instructions",
+        "notes",
+        "about",
+        "help",
+        "info",
+        "guide",
+    ];
+    names
+        .iter()
+        .find(|n| wanted.contains(&norm(n).as_str()))
+        .or_else(|| {
+            names
+                .iter()
+                .find(|n| !skip.iter().any(|s| norm(n).starts_with(s)))
+        })
+        .or_else(|| names.first())
+        .map(String::as_str)
+}
+
 pub fn parse_file(
+    kind: ImportKind,
     file_name: &str,
     content_base64: &str,
     sheet: Option<&str>,
@@ -85,8 +125,8 @@ pub fn parse_file(
         let names = wb.sheet_names().to_vec();
         let chosen = sheet
             .filter(|s| names.iter().any(|n| n == s))
+            .or_else(|| pick_sheet(kind, &names))
             .map(str::to_owned)
-            .or_else(|| names.first().cloned())
             .ok_or_else(|| ApiError::validation("The workbook has no sheets."))?;
         let range = wb
             .worksheet_range(&chosen)
@@ -208,7 +248,7 @@ pub async fn parsed(
     content_base64: &str,
     sheet: Option<&str>,
 ) -> Result<ParsedFile, ApiError> {
-    let (sheets, chosen, headers, rows) = parse_file(file_name, content_base64, sheet)?;
+    let (sheets, chosen, headers, rows) = parse_file(kind, file_name, content_base64, sheet)?;
     if headers.is_empty() {
         return Err(ApiError::validation(
             "The first row must hold the column headings.",
@@ -745,7 +785,10 @@ pub async fn apply(
                             .unwrap_or_else(crate::clock::today),
                         board_roll_no: pick(r, "board_roll_no"),
                         board_registration_no: None,
-                        custom: serde_json::json!({ "imported": true }),
+                        custom: match r.get("family_id") {
+                            Some(f) => serde_json::json!({ "imported": true, "family_id": f }),
+                            None => serde_json::json!({ "imported": true }),
+                        },
                     },
                 )
                 .await?;
@@ -1034,6 +1077,7 @@ pub async fn apply(
     })
 }
 
+/// Link the row's guardians: the first (primary) and, when the register has one, the second.
 #[allow(clippy::too_many_arguments)]
 async fn attach_guardian(
     tx: &mut sqlx::PgConnection,
@@ -1046,14 +1090,48 @@ async fn attach_guardian(
     r: &CleanRow,
     used: &mut HashSet<Uuid>,
 ) -> Result<(), ApiError> {
-    let Some(name) = r.get("guardian_name") else {
+    for (slot, primary) in [("guardian", true), ("guardian2", false)] {
+        attach_guardian_slot(
+            tx, state, actor, batch, row_no, school_id, student_id, r, used, slot, primary,
+        )
+        .await?;
+    }
+    Ok(())
+}
+
+/// One guardian column group (`guardian_*` or `guardian2_*`). An existing guardian is reused
+/// when the family id and name match (siblings in one register), else when the ID number
+/// or phone matches; otherwise one is created, carrying the family id for later rows.
+#[allow(clippy::too_many_arguments)]
+async fn attach_guardian_slot(
+    tx: &mut sqlx::PgConnection,
+    state: &AppState,
+    actor: Actor,
+    batch: &ImportBatch,
+    row_no: i32,
+    school_id: Uuid,
+    student_id: Uuid,
+    r: &CleanRow,
+    used: &mut HashSet<Uuid>,
+    slot: &str,
+    primary: bool,
+) -> Result<(), ApiError> {
+    let key = |field: &str| format!("{slot}_{field}");
+    let Some(name) = r.get(&key("name")) else {
         return Ok(());
     };
+    let family_id = r.get("family_id");
     // Already normalised for the school's country by `clean_row`.
-    let cnic = pick(r, "guardian_cnic");
-    let phone = pick(r, "guardian_phone");
-    let existing =
-        guardians::find_matching(tx, school_id, cnic.as_deref(), phone.as_deref()).await?;
+    let cnic = pick(r, &key("cnic"));
+    let phone = pick(r, &key("phone"));
+    let mut existing = match family_id {
+        Some(f) => guardians::find_by_family(tx, school_id, f, name).await?,
+        None => None,
+    };
+    if existing.is_none() && (cnic.is_some() || phone.is_some()) {
+        existing =
+            guardians::find_matching(tx, school_id, cnic.as_deref(), phone.as_deref()).await?;
+    }
     let guardian_id = match existing {
         Some(g) => g.id,
         None => {
@@ -1065,10 +1143,14 @@ async fn attach_guardian(
                     school_id,
                     full_name: name.to_string(),
                     phone,
-                    email: pick(r, "guardian_email"),
+                    email: pick(r, &key("email")),
                     cnic,
-                    occupation: r.get("guardian_occupation").unwrap_or("").into(),
+                    occupation: r.get(&key("occupation")).unwrap_or("").into(),
                     address: r.get("address").unwrap_or("").into(),
+                    custom: match family_id {
+                        Some(f) => serde_json::json!({ "family_id": f }),
+                        None => serde_json::json!({}),
+                    },
                 },
             )
             .await?;
@@ -1088,7 +1170,9 @@ async fn attach_guardian(
             g.id
         }
     };
-    let relationship = r.get("guardian_relationship").unwrap_or("father");
+    let relationship =
+        r.get(&key("relationship"))
+            .unwrap_or(if primary { "father" } else { "guardian" });
     let link = guardians::link(
         tx,
         &state.hlc,
@@ -1096,7 +1180,7 @@ async fn attach_guardian(
         student_id,
         guardian_id,
         relationship,
-        true,
+        primary,
     )
     .await?;
     repo::add_row(
@@ -1128,4 +1212,30 @@ pub async fn rollback(
     let n = repo::rollback(&mut tx, &state.hlc, actor, batch_id).await?;
     tx.commit().await?;
     Ok(n)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn names(list: &[&str]) -> Vec<String> {
+        list.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn sheet_named_after_the_kind_wins_over_a_read_me() {
+        let wb = names(&["Read Me", "Students", "Staff"]);
+        assert_eq!(pick_sheet(ImportKind::Students, &wb), Some("Students"));
+        assert_eq!(pick_sheet(ImportKind::Staff, &wb), Some("Staff"));
+        let wb = names(&["README", "Instructions", "Data"]);
+        assert_eq!(pick_sheet(ImportKind::Students, &wb), Some("Data"));
+        let wb = names(&["Read me"]);
+        assert_eq!(pick_sheet(ImportKind::Students, &wb), Some("Read me"));
+        assert_eq!(pick_sheet(ImportKind::Students, &[]), None);
+        let wb = names(&["Sheet1", "Opening Balances"]);
+        assert_eq!(
+            pick_sheet(ImportKind::OpeningBalances, &wb),
+            Some("Opening Balances")
+        );
+    }
 }

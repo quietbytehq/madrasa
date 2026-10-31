@@ -26,6 +26,8 @@ pub enum Action {
     /// A late fee was assessed on an overdue voucher (by the daily job, at app start or on a
     /// late payment).
     LateFee,
+    /// An administrator set a new password for an account.
+    PasswordReset,
 }
 
 impl Action {
@@ -42,6 +44,7 @@ impl Action {
             Action::Restore => "restore",
             Action::BackupPasswordFailed => "backup_password_failed",
             Action::LateFee => "late_fee",
+            Action::PasswordReset => "password_reset",
         }
     }
 }

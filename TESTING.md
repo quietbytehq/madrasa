@@ -4,8 +4,9 @@ Thank you for trying Madrasa. This is an early build for a small group of tester
 not ready for a school's real records yet: use made-up data, expect rough edges, and tell us
 about everything that confuses you. Nothing you do in the app leaves your computer.
 
-**What you need:** a Windows 10/11 PC or a Linux PC (Ubuntu 22.04 or newer, or similar),
-about 1 GB of free disk space, and 20–40 minutes. No internet connection is needed after the
+**What you need:** a 64-bit Windows 10 or 11 PC, or a 64-bit Linux PC running Debian 12 or
+13, Ubuntu 22.04 or newer, Linux Mint 21 or newer, or another distribution from 2022 or later
+(the build needs glibc 2.35), about 1 GB of free disk space, and 20–40 minutes. No internet connection is needed after the
 download.
 
 ## 1. Install
@@ -15,8 +16,8 @@ Download the file for your computer from the release page (the "Assets" list):
 | Computer | File |
 | --- | --- |
 | Windows 10/11 (64-bit) | `Madrasa_0.1.0_x64-setup.exe` |
-| Ubuntu, Debian, Linux Mint | `Madrasa_0.1.0_amd64.deb` |
-| Any other Linux | `Madrasa_0.1.0_amd64.AppImage` |
+| Debian 12/13, Ubuntu 22.04+, Linux Mint 21+ | `Madrasa_0.1.0_amd64.deb` |
+| Any other 64-bit Linux from 2022 or later | `Madrasa_0.1.0_amd64.AppImage` |
 
 ### Windows
 
@@ -85,9 +86,11 @@ release includes two small spreadsheets of made-up Pakistani names for the impor
 3. **Fees & Finance → Setup**: under *Fee heads* click **Add common heads** (or add
    "Tuition" yourself), then under the fee structure give each class an amount (for example
    2,500 for KG rising to 4,000 for class 5). This is enough for vouchers later.
-4. Sidebar → **Import** → **Students**: choose `sample-students.xlsx`. The wizard should match
-   every column on its own; the preview should say **72 rows to create, 0 errors**. Click
-   **Import**.
+4. Sidebar → **Import** → **Students**: choose `sample-students.xlsx`. If a workbook has
+   several sheets the wizard first asks which one to read (it preselects a sheet named
+   "Students" or "Staff" over a "Read Me" sheet). The wizard should match every column on its
+   own, including "Guardian 1 …", "Guardian 2 …" and "Family ID" columns if your file has
+   them; the preview should say **72 rows to create, 0 errors**. Click **Import**.
 5. **Import** → **Staff**: choose `sample-staff.xlsx`; 8 rows to create. Import.
 
 If the preview shows errors, that is worth reporting (see section 5), with a screenshot of
@@ -127,10 +130,11 @@ Note anything that was unclear, slow, wrong or ugly.
     in Urdu; check the layout reads right-to-left and nothing is cut off. Switch back.
 13. **Dark mode and a small screen.** Use the **Theme** switch in the top bar to turn on dark
     mode, and if you can, try the app on a 1366×768 laptop screen or a window that size.
-14. **Create a teacher login.** Teachers → pick a staff member → **Login account**: create a
-    login with the Teacher role. In Settings → Sections make them class teacher of one
-    section. Log out and log in as them: they should see only that section's attendance and
-    marks.
+14. **Create a teacher login.** Teachers → pick a staff member → in the **Login account** box
+    click **Create login**: choose a username, a password and the Teacher role. Assign them a
+    section and subject in the same dialog. Log out and log in as them: they should be able
+    to enter marks for that section but see no Fees or Settings. Back as the administrator,
+    try **Reset password** and the **Can log in** switch.
 15. **End of year (preview only).** Settings → Academic years → **Roll over year**: read the
     preview of who moves where, but you can cancel without applying it.
 

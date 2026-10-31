@@ -64,10 +64,10 @@ async fn tables_are_ordered_parents_first_and_dump_round_trips() {
     assert!(pos("mark_sheets") < pos("marks"));
     assert!(!order.iter().any(|t| t == "_sqlx_migrations"));
     let versions = backup::migration_versions(&mut c).await.unwrap();
-    assert_eq!(versions.len(), 9);
+    assert_eq!(versions.len(), 10);
     backup::check_schema(&versions, &versions).unwrap();
     assert!(matches!(
-        backup::check_schema(&versions, &versions[..8]),
+        backup::check_schema(&versions, &versions[..9]),
         Err(DbError::Conflict(_))
     ));
 

@@ -494,6 +494,39 @@ depend on each other and were built together)
   "CNIC" in Urdu for Pakistani schools; only the ID label follows the country. Currency
   symbols are not yet used in list screens (amounts stay unlabelled there).
 
+### 2026-10-31 — v0.1.0-alpha test report fixes (branch `fix/alpha-test-report`)
+- Started from `main` after #9, #10 and #11 were merged (`da005a8`, tagged v0.1.0-alpha).
+- Done, staff logins: `POST /staff/{id}/login` (username, password, role), `PATCH` (role,
+  on/off) and `POST …/login/password`, all behind `users.manage` (principal, admin); the
+  Staff dialog's *Login account* box offers Create login, role select, "Can log in" switch
+  and Reset password. `roles::set_role` replaces a user's roles (soft-deletes the others,
+  audited); `users::set_password` is audited as `password_reset` (migration 0010); a user
+  cannot disable their own account. `StaffView` gains `login_active`.
+- Done, imports: numbered guardian headings (`Guardian 1 …`, `Parent 1 …`, `Primary
+  guardian …`) map to the first guardian and `Guardian 2 …` / `Secondary …` to a new second
+  guardian (linked as non-primary); `Family ID` is a field, stored in `custom.family_id` on
+  the student and the guardians it creates, and a later row with the same family id and
+  guardian name reuses the guardian, so siblings arrive linked (index in migration 0010).
+- Done, sheet selection: `POST /imports/parse` picks the sheet named after the import kind
+  over a read-me sheet (`pick_sheet`); with several sheets the wizard shows a picker before
+  the mapping step, preselected the same way (`src/lib/sheets.ts`), and re-parses if the
+  user picks another sheet.
+- Done, Linux compatibility: CI and Release build the Linux bundles on `ubuntu-22.04` so
+  they run on Debian 12/13 and Ubuntu 22.04+; a workflow step fails if the binary needs a
+  glibc newer than 2.35. TESTING.md states the minimum versions.
+- Tested: api `staff_logins` (accountant refused; validation of role/username/password;
+  teacher enters marks but 403 on fees, settings and users; role change to accountant flips
+  that; principal resets the password, old one fails; disable blocks login, self-disable
+  refused; audit holds `password_reset` and never a hash); `international` Maple Ridge test
+  rebuilt with a Read Me sheet first, Guardian 1/2 groups and Family IDs (1,123 students,
+  "Students" sheet picked, every column mapped, 0 errors, second guardian linked
+  non-primary, siblings share one guardian record and list each other, staff read from the
+  same workbook, explicit `sheet` honoured); core `numbered_guardian_headers_…` and api
+  `pick_sheet` unit tests; vitest `pickSheet` and an ImportPage sheet-picker test.
+- Not done / notes: no UI for listing all user accounts (Settings → Users) yet; logins are
+  managed from the staff record only. Family IDs link siblings only when the guardian name
+  matches across rows (a misspelt name makes a second guardian record).
+
 ## Summary for the owner — Stages 5, 6 and 7 (night run of 2026-10-30/31)
 
 All three stages are merged into `main` in order (pull requests #6, #7 and #8),

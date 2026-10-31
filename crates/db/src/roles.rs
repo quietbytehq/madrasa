@@ -166,6 +166,42 @@ pub async fn assign(
     Ok(ur)
 }
 
+/// Give a user exactly one role: every other role link is soft-deleted (audited), then the
+/// role is assigned (or restored).
+pub async fn set_role(
+    conn: &mut PgConnection,
+    hlc: &Hlc,
+    actor: Actor,
+    user_id: Uuid,
+    role: &Role,
+) -> DbResult<UserRole> {
+    let removed = sqlx::query_as::<_, UserRole>(
+        "UPDATE user_roles SET deleted_at = now(), updated_at = now(), updated_by = $3, hlc = $4
+         WHERE user_id = $1 AND role_id <> $2 AND deleted_at IS NULL
+         RETURNING id, school_id, user_id, role_id, hlc",
+    )
+    .bind(user_id)
+    .bind(role.id)
+    .bind(actor.user_id)
+    .bind(hlc.now().to_string())
+    .fetch_all(&mut *conn)
+    .await?;
+    for ur in removed {
+        audit::record(
+            &mut *conn,
+            hlc,
+            actor,
+            Action::Delete,
+            "user_role",
+            Some(ur.id),
+            Some(snapshot(&ur)),
+            None,
+        )
+        .await?;
+    }
+    assign(conn, hlc, actor, user_id, role).await
+}
+
 /// Role codes of a user.
 pub async fn codes_for_user(conn: &mut PgConnection, user_id: Uuid) -> DbResult<Vec<String>> {
     Ok(sqlx::query_scalar(
