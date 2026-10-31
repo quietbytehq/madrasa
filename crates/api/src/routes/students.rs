@@ -381,9 +381,7 @@ async fn create(
             gender: b.gender,
             cnic,
             address: b.address.unwrap_or_default(),
-            admission_date: b
-                .admission_date
-                .unwrap_or_else(|| chrono::Utc::now().date_naive()),
+            admission_date: b.admission_date.unwrap_or_else(crate::clock::today),
             board_roll_no: clean_opt(b.board_roll_no),
             board_registration_no: clean_opt(b.board_registration_no),
             custom: if b.custom.is_object() {
@@ -575,7 +573,7 @@ async fn withdraw(
     }
     let mut tx = state.pool.begin().await?;
     let (_, current) = load_scoped(&mut tx, &user, id).await?;
-    let left_on = b.left_on.unwrap_or_else(|| chrono::Utc::now().date_naive());
+    let left_on = b.left_on.unwrap_or_else(crate::clock::today);
     let student = students::set_status(
         &mut tx,
         &state.hlc,

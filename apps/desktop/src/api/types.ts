@@ -484,6 +484,13 @@ export interface Ledger {
   payable: string[];
 }
 
+/** Result of the automatic late fee pass (`POST /fees/late-fees/run`). */
+export interface LateFeeReport {
+  as_of: string | null;
+  assessed: number;
+  total: string;
+}
+
 export interface Defaulter {
   student_id: string;
   student_number: string;

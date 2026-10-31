@@ -259,7 +259,7 @@ async fn defaulters(
     let list = fees::defaulters(
         &mut c,
         user.user.school_id,
-        q.as_of.unwrap_or_else(|| chrono::Utc::now().date_naive()),
+        q.as_of.unwrap_or_else(crate::clock::today),
         q.class_id,
         q.min_days.unwrap_or(0),
     )
@@ -317,7 +317,7 @@ async fn absentees(
     user.require(Permission::AttendanceRead)?;
     let mut c = state.pool.acquire().await?;
     let scope = user.section_scope(&mut c).await?;
-    let date = q.date.unwrap_or_else(|| chrono::Utc::now().date_naive());
+    let date = q.date.unwrap_or_else(crate::clock::today);
     let list = att_repo::absentees(
         &mut c,
         user.user.school_id,

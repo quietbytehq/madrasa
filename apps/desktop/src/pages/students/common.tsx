@@ -1,4 +1,5 @@
 import type { Gender, Relationship, StudentStatus } from "@/api/types";
+import { todayIso } from "@/lib/dates";
 import { Badge } from "@/components/ui/Badge";
 import type { BadgeTone } from "@/components/ui/Badge";
 import type { TFunction } from "@/i18n";
@@ -37,7 +38,7 @@ export function classLabel(
   return sectionName ? `${className}-${sectionName}` : className;
 }
 
-/** Today as YYYY-MM-DD for date inputs. */
+/** Today as YYYY-MM-DD for date inputs (local calendar date). */
 export function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayIso();
 }

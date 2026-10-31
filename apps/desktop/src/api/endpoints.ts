@@ -46,6 +46,7 @@ import type {
   FeeStructureLine,
   FeeVoucherRow,
   GenerationReport,
+  LateFeeReport,
   Ledger,
   PaymentMethod,
   ReceiptDetail,
@@ -222,6 +223,8 @@ export const api = {
   generateVouchers: (body: { month: string; class_id?: string; section_id?: string }) =>
     request<GenerationReport>("/fees/vouchers/generate", { method: "POST", body }),
   voucher: (id: string) => request<VoucherDetail>(`/fees/vouchers/${id}`),
+  runLateFees: (as_of?: string) =>
+    request<LateFeeReport>("/fees/late-fees/run", { method: "POST", body: { as_of } }),
   payVoucher: (
     id: string,
     body: {

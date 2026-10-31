@@ -738,7 +738,7 @@ pub async fn apply(
                             .get("admission_date")
                             .and_then(|d| d.parse().ok())
                             .or(ctx.year_start)
-                            .unwrap_or_else(|| chrono::Utc::now().date_naive()),
+                            .unwrap_or_else(crate::clock::today),
                         board_roll_no: pick(r, "board_roll_no"),
                         board_registration_no: None,
                         custom: serde_json::json!({ "imported": true }),
@@ -965,9 +965,7 @@ pub async fn apply(
                     .get("amount")
                     .and_then(|a| a.parse().ok())
                     .unwrap_or_default();
-                let month = ctx
-                    .year_start
-                    .unwrap_or_else(|| chrono::Utc::now().date_naive());
+                let month = ctx.year_start.unwrap_or_else(crate::clock::today);
                 let v = fees::create_opening_balance(
                     &mut tx,
                     &state.hlc,

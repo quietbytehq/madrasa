@@ -1,3 +1,4 @@
+import { todayIso } from "@/lib/dates";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/api/endpoints";
@@ -13,7 +14,7 @@ import { Amount, methodLabel } from "../common";
 
 export function CollectionsTab() {
   const { t, formatDate } = useI18n();
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(todayIso());
   const data = useAsync(() => api.collections(date), [date]);
   return (
     <div className="flex flex-col gap-3">

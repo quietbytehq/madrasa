@@ -23,6 +23,9 @@ pub enum Action {
     Restore,
     /// A wrong backup password or recovery key was offered (restore or password change).
     BackupPasswordFailed,
+    /// A late fee was assessed on an overdue voucher (by the daily job, at app start or on a
+    /// late payment).
+    LateFee,
 }
 
 impl Action {
@@ -38,6 +41,7 @@ impl Action {
             Action::Backup => "backup",
             Action::Restore => "restore",
             Action::BackupPasswordFailed => "backup_password_failed",
+            Action::LateFee => "late_fee",
         }
     }
 }

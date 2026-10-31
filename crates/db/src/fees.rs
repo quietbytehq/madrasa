@@ -588,7 +588,7 @@ pub async fn assess_late_fee(
         conn,
         hlc,
         actor,
-        Action::Update,
+        Action::LateFee,
         "fee_voucher",
         Some(v.id),
         Some(snapshot(&v)),
@@ -596,6 +596,56 @@ pub async fn assess_late_fee(
     )
     .await?;
     Ok(after)
+}
+
+/// What the automatic late fee pass did.
+#[derive(Debug, Clone, Serialize, Default, PartialEq, Eq)]
+pub struct LateFeeReport {
+    /// Date the vouchers were checked against.
+    pub as_of: Option<NaiveDate>,
+    /// Vouchers that received a late fee in this pass.
+    pub assessed: usize,
+    /// Sum of the late fees added.
+    pub total: Decimal,
+}
+
+/// Assess the late fee on every open voucher of the school whose due date is before `as_of`
+/// and that has no late fee yet (the daily job and the app-start check). Idempotent: vouchers
+/// already assessed, waived, paid, carried or cancelled are left alone; each assessment is
+/// audited as `late_fee`. A policy with a zero late fee percent assesses nothing.
+pub async fn assess_due_late_fees(
+    conn: &mut PgConnection,
+    hlc: &Hlc,
+    actor: Actor,
+    school_id: Uuid,
+    as_of: NaiveDate,
+) -> DbResult<LateFeeReport> {
+    let mut report = LateFeeReport {
+        as_of: Some(as_of),
+        ..Default::default()
+    };
+    let policy = policy(&mut *conn, school_id).await?;
+    if policy.late_fee_percent.is_zero() {
+        return Ok(report);
+    }
+    let due = sqlx::query_as::<_, FeeVoucher>(
+        "SELECT * FROM fee_vouchers WHERE school_id = $1 AND due_date < $2 AND late_fee = 0 AND NOT late_fee_waived
+           AND status IN ('unpaid', 'partial') AND deleted_at IS NULL ORDER BY due_date, voucher_no",
+    )
+    .bind(school_id)
+    .bind(as_of)
+    .fetch_all(&mut *conn)
+    .await?;
+    for v in due {
+        let before = v.late_fee;
+        let after = assess_late_fee(&mut *conn, hlc, actor, &policy, v, as_of).await?;
+        if after.late_fee != before {
+            report.assessed += 1;
+            report.total += after.late_fee;
+        }
+    }
+    report.total = fees::money(report.total);
+    Ok(report)
 }
 
 #[derive(Debug, Clone, Serialize, Default)]
