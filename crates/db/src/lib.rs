@@ -14,6 +14,7 @@ pub mod guardians;
 pub mod imports;
 pub mod models;
 pub mod roles;
+pub mod rollover;
 pub mod schools;
 pub mod sessions;
 pub mod settings;
