@@ -23,3 +23,24 @@ Before tagging:
 
 Installers are **unsigned** for now; Windows SmartScreen and Linux package tools warn about
 that. Code signing is tracked for a later milestone.
+
+## Pre-releases for testers (`vX.Y.Z-alpha`, `-beta`)
+
+1. Merge what the build should contain into `main`; CI must be green there.
+2. Write the notes in `docs/releases/<tag>.md` and update `TESTING.md` (the tester guide:
+   install steps, sample data, tasks to try, how to report).
+3. Tag `main` and push the tag; the Release workflow builds the installers and creates a
+   **draft** pre-release with them attached:
+
+   ```bash
+   git tag -a v0.1.0-alpha main -m "Madrasa Lite v0.1.0-alpha"
+   git push origin v0.1.0-alpha
+   ```
+
+4. On the draft release: paste the notes from `docs/releases/<tag>.md`, attach `TESTING.md`
+   and the sample spreadsheets from `docs/testing/`, keep "pre-release" ticked, publish.
+
+Tags and releases must be created by a person with push rights; the Claude Code cloud
+session cannot create tags or releases (its GitHub proxy refuses those API paths), it can
+only run the manual build (Actions → Release → Run workflow) that uploads the installers as
+workflow artifacts.
