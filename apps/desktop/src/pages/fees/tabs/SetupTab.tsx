@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { useToast } from "@/components/ui/Toast";
 import { useI18n } from "@/i18n";
-import { formatMoney, parseMoney } from "@/lib/money";
+import { parseMoney } from "@/lib/money";
+import { useMoney } from "@/lib/useMoney";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 import { useSession } from "@/app/session";
 
@@ -167,6 +168,7 @@ function ConcessionBaseExample({
   base: FeePolicy["concession_base"];
 }) {
   const { t } = useI18n();
+  const money = useMoney();
   const fee = 3000;
   const sp = Number(siblingPercent) || 0;
   const sibling = Math.round(fee * sp) / 100;
@@ -176,9 +178,9 @@ function ConcessionBaseExample({
   const line = (key: FeePolicy["concession_base"], baseAmount: number, concession: number) => (
     <li className={base === key ? "font-semibold text-text" : ""}>
       {t(`fees.setup.concessionBase.example.${key}`, {
-        base: formatMoney(baseAmount),
-        amount: formatMoney(concession),
-        net: formatMoney(afterSibling - concession),
+        base: money(baseAmount),
+        amount: money(concession),
+        net: money(afterSibling - concession),
       })}
     </li>
   );
@@ -187,9 +189,9 @@ function ConcessionBaseExample({
       <p>{t("fees.setup.concessionBase.hint")}</p>
       <p className="mt-1">
         {t("fees.setup.concessionBase.example.intro", {
-          fee: formatMoney(fee),
+          fee: money(fee),
           siblingPercent: String(sp),
-          sibling: formatMoney(sibling),
+          sibling: money(sibling),
         })}
       </p>
       <ul className="mt-1 list-inside list-disc">

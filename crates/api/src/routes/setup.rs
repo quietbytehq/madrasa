@@ -8,7 +8,7 @@ use madrasa_core::backup;
 use madrasa_core::locale;
 use madrasa_core::password::{hash_password, validate_password};
 use madrasa_core::permissions::RoleCode;
-use madrasa_db::{attendance, roles, schools, settings, users, Actor};
+use madrasa_db::{academics, attendance, roles, schools, settings, users, Actor};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use uuid::Uuid;
@@ -37,6 +37,12 @@ pub struct SetupRequest {
     /// IANA name; the country's main zone when omitted.
     #[serde(default)]
     pub time_zone: Option<String>,
+    /// Create and activate the current academic year (the wizard always asks for this).
+    #[serde(default)]
+    pub first_year: bool,
+    /// Also create the country's usual classes (KG–12 or K–12) with a section A each.
+    #[serde(default)]
+    pub default_classes: bool,
     pub admin_full_name: String,
     pub admin_username: String,
     pub admin_password: String,
@@ -65,6 +71,32 @@ impl SetupRequest {
             .map(str::to_owned)
             .unwrap_or_else(|| self.country_info().time_zone.into())
     }
+}
+
+/// The calendar year the current academic year started in: this year if its start month has
+/// passed (or is now), else last year. Setting up in October with an April start gives the
+/// year that began in April; in February it gives the previous April.
+pub fn first_year_start(today: chrono::NaiveDate, start_month: i16) -> i32 {
+    use chrono::Datelike;
+    if (today.month() as i16) >= start_month {
+        today.year()
+    } else {
+        today.year() - 1
+    }
+}
+
+/// The class preset for a country: K–12 in North America, KG–12 elsewhere.
+pub fn default_class_names(country: &str) -> Vec<&'static str> {
+    let first = if matches!(country.trim().to_ascii_uppercase().as_str(), "US" | "CA") {
+        "K"
+    } else {
+        "KG"
+    };
+    std::iter::once(first)
+        .chain([
+            "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12",
+        ])
+        .collect()
 }
 
 fn default_country() -> String {
@@ -253,6 +285,54 @@ async fn run_setup(
         serde_json::to_value(&backup.key_set).map_err(|_| ApiError::internal())?,
     )
     .await?;
+    if req.first_year {
+        let today = crate::clock::today();
+        let start_year = first_year_start(today, req.academic_year_start_month);
+        let (name, start, end) =
+            academics::default_year_bounds(start_year, req.academic_year_start_month as u32)
+                .ok_or_else(|| ApiError::validation("Academic year start month is invalid."))?;
+        let year = academics::create_year(
+            &mut tx,
+            &state.hlc,
+            school_actor,
+            academics::NewAcademicYear {
+                school_id: school.id,
+                name,
+                start_date: start,
+                end_date: end,
+                start_month: req.academic_year_start_month,
+            },
+        )
+        .await?;
+        academics::activate_year(&mut tx, &state.hlc, school_actor, year.id).await?;
+        if req.default_classes {
+            for (level, class_name) in default_class_names(&req.country).iter().enumerate() {
+                let class = academics::create_class(
+                    &mut tx,
+                    &state.hlc,
+                    school_actor,
+                    school.id,
+                    class_name,
+                    level as i32,
+                )
+                .await?;
+                academics::create_section(
+                    &mut tx,
+                    &state.hlc,
+                    school_actor,
+                    academics::NewSection {
+                        school_id: school.id,
+                        class_id: class.id,
+                        academic_year_id: year.id,
+                        name: "A".into(),
+                        class_teacher_id: None,
+                        capacity: None,
+                    },
+                )
+                .await?;
+            }
+        }
+    }
     settings::set(
         &mut tx,
         &state.hlc,
@@ -273,4 +353,26 @@ async fn run_setup(
         admin_user_id: admin.id,
         recovery_key: backup.recovery_key,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn first_year_starts_this_year_once_the_start_month_has_passed() {
+        let d = |y, m, day| chrono::NaiveDate::from_ymd_opt(y, m, day).unwrap();
+        assert_eq!(first_year_start(d(2026, 10, 31), 4), 2026);
+        assert_eq!(first_year_start(d(2026, 4, 1), 4), 2026);
+        assert_eq!(first_year_start(d(2026, 2, 10), 4), 2025);
+        assert_eq!(
+            first_year_start(d(2026, 8, 20), 9),
+            2025,
+            "US school in August"
+        );
+        assert_eq!(first_year_start(d(2026, 9, 1), 9), 2026);
+        assert_eq!(default_class_names("US")[0], "K");
+        assert_eq!(default_class_names("pk")[0], "KG");
+        assert_eq!(default_class_names("GB").len(), 13);
+    }
 }

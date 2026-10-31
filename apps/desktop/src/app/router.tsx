@@ -8,6 +8,7 @@ import { ExamsPage } from "@/pages/exams/ExamsPage";
 import { ReportCardsPrintPage, ResultSheetPrintPage } from "@/pages/exams/PrintPages";
 import { Dashboard } from "@/pages/Dashboard";
 import { ComingSoon } from "@/pages/ComingSoon";
+import { NoAccess } from "@/pages/NoAccess";
 import { FeesPage } from "@/pages/fees/FeesPage";
 import { ReceiptPrintPage, VoucherPrintPage } from "@/pages/fees/PrintPages";
 import { SettingsPage } from "@/pages/SettingsPage";
@@ -38,6 +39,18 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+/** Renders the page only for a role that holds the permission; otherwise "You don't have access". */
+export function RequirePermission({
+  permission,
+  children,
+}: {
+  permission: string;
+  children: ReactNode;
+}) {
+  const { can } = useSession();
+  return can(permission) ? <>{children}</> : <NoAccess />;
+}
+
 export interface AppRoutesProps {
   /** Pages supplied by the app (login, setup); kept as props so the shell is testable alone. */
   login: ReactNode;
@@ -64,14 +77,42 @@ export function AppRoutes({ login, setup }: AppRoutesProps) {
             <Route path="/students/new" element={<StudentFormPage />} />
             <Route path="/students/:id" element={<StudentProfile />} />
             <Route path="/students/:id/edit" element={<StudentFormPage />} />
-            <Route path="/import" element={<ImportPage />} />
+            <Route
+              path="/import"
+              element={
+                <RequirePermission permission="students.manage">
+                  <ImportPage />
+                </RequirePermission>
+              }
+            />
           </>
         )}
         {has("fees") && (
           <>
-            <Route path="/fees" element={<FeesPage />} />
-            <Route path="/fees/vouchers/:id/print" element={<VoucherPrintPage />} />
-            <Route path="/fees/receipts/:id/print" element={<ReceiptPrintPage />} />
+            <Route
+              path="/fees"
+              element={
+                <RequirePermission permission="fees.read">
+                  <FeesPage />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/fees/vouchers/:id/print"
+              element={
+                <RequirePermission permission="fees.read">
+                  <VoucherPrintPage />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/fees/receipts/:id/print"
+              element={
+                <RequirePermission permission="fees.read">
+                  <ReceiptPrintPage />
+                </RequirePermission>
+              }
+            />
           </>
         )}
         {has("attendance") && <Route path="/attendance" element={<AttendancePage />} />}
@@ -82,9 +123,36 @@ export function AppRoutes({ login, setup }: AppRoutesProps) {
             <Route path="/exams/results/print" element={<ResultSheetPrintPage />} />
           </>
         )}
-        {has("backup") && <Route path="/backup" element={<BackupPage />} />}
-        {has("teachers") && <Route path="/teachers" element={<StaffPage />} />}
-        {has("settings") && <Route path="/settings" element={<SettingsPage />} />}
+        {has("backup") && (
+          <Route
+            path="/backup"
+            element={
+              <RequirePermission permission="backup.manage">
+                <BackupPage />
+              </RequirePermission>
+            }
+          />
+        )}
+        {has("teachers") && (
+          <Route
+            path="/teachers"
+            element={
+              <RequirePermission permission="teachers.read">
+                <StaffPage />
+              </RequirePermission>
+            }
+          />
+        )}
+        {has("settings") && (
+          <Route
+            path="/settings"
+            element={
+              <RequirePermission permission="academics.manage">
+                <SettingsPage />
+              </RequirePermission>
+            }
+          />
+        )}
         {NAV_ITEMS.filter((item) => item.path !== "/" && !item.available && has(item.feature)).map(
           (item) => (
             <Route

@@ -47,6 +47,16 @@ pub struct StaffView {
     pub login_active: Option<bool>,
 }
 
+/// Teachers see colleagues' names and roles, not their phone, email or ID number.
+fn redact_for(user: &CurrentUser, mut v: StaffView) -> StaffView {
+    if !user.can(Permission::TeachersManage) {
+        v.staff.phone = None;
+        v.staff.email = None;
+        v.staff.cnic = None;
+    }
+    v
+}
+
 async fn view(c: &mut sqlx::PgConnection, s: Staff) -> ApiResult<StaffView> {
     let (roles, username, login_active) = match s.user_id {
         Some(uid) => {
@@ -78,7 +88,7 @@ async fn list(
     let rows = staff::list(&mut c, user.user.school_id, q.q.as_deref()).await?;
     let mut out = Vec::with_capacity(rows.len());
     for s in rows {
-        out.push(view(&mut c, s).await?);
+        out.push(redact_for(&user, view(&mut c, s).await?));
     }
     Ok(Json(out))
 }
@@ -94,7 +104,7 @@ async fn get_one(
     if s.school_id != user.user.school_id {
         return Err(ApiError::not_found("staff member"));
     }
-    Ok(Json(view(&mut c, s).await?))
+    Ok(Json(redact_for(&user, view(&mut c, s).await?)))
 }
 
 #[derive(Debug, Deserialize)]
@@ -208,6 +218,7 @@ async fn create(
             cnic: clean_cnic(&country, b.cnic)?.flatten(),
             designation: b.designation.unwrap_or_default(),
             joined_on: b.joined_on.flatten(),
+            custom: serde_json::json!({}),
         },
     )
     .await?;
@@ -259,6 +270,7 @@ async fn update(
             designation: b.designation,
             joined_on: b.joined_on,
             status: b.status,
+            custom: None,
         },
     )
     .await?;

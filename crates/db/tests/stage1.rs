@@ -219,6 +219,7 @@ async fn classes_sections_subjects_and_class_teacher() {
             cnic: None,
             designation: "Teacher".into(),
             joined_on: None,
+            custom: serde_json::json!({}),
         },
     )
     .await
@@ -676,7 +677,7 @@ async fn guardians_link_siblings_and_directory_listing() {
         "newest primary wins"
     );
     assert_eq!(
-        guardians::find_matching(&mut c, sch.id, Some("42101-7654321-1"), None)
+        guardians::find_matching(&mut c, sch.id, Some("42101-7654321-1"), None, "nobody")
             .await
             .unwrap()
             .unwrap()
@@ -684,17 +685,27 @@ async fn guardians_link_siblings_and_directory_listing() {
         father.id
     );
     assert_eq!(
-        guardians::find_matching(&mut c, sch.id, None, Some("03007654321"))
+        guardians::find_matching(&mut c, sch.id, None, Some("03007654321"), "nadia khan")
             .await
             .unwrap()
             .unwrap()
             .id,
-        mother.id
+        mother.id,
+        "phone plus name, case-insensitive"
     );
-    assert!(guardians::find_matching(&mut c, sch.id, None, Some("0399"))
-        .await
-        .unwrap()
-        .is_none());
+    assert!(
+        guardians::find_matching(&mut c, sch.id, None, Some("03007654321"), "Ahmed Khan")
+            .await
+            .unwrap()
+            .is_none(),
+        "a phone alone never merges two people"
+    );
+    assert!(
+        guardians::find_matching(&mut c, sch.id, None, Some("0399"), "Ahmed Khan")
+            .await
+            .unwrap()
+            .is_none()
+    );
     assert_eq!(
         guardians::search(&mut c, sch.id, "0300", 10)
             .await
@@ -930,6 +941,7 @@ async fn staff_linked_to_logins() {
             cnic: None,
             designation: "Teacher".into(),
             joined_on: None,
+            custom: serde_json::json!({}),
         },
     )
     .await
@@ -959,6 +971,7 @@ async fn staff_linked_to_logins() {
             cnic: None,
             designation: "".into(),
             joined_on: None,
+            custom: serde_json::json!({}),
         },
     )
     .await;

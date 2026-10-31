@@ -46,7 +46,22 @@ function renderShell(edition: "lite" | "nexus" = "lite", route = "/") {
         ] as const);
   return renderWithProviders(
     <FeaturesProvider initial={{ edition, features: [...features] }}>
-      <SessionProvider initial={{ user, permissions: ["school.read"] }}>
+      <SessionProvider
+        initial={{
+          user,
+          permissions: [
+            "school.read",
+            "students.read",
+            "students.manage",
+            "attendance.read",
+            "exams.read",
+            "fees.read",
+            "teachers.read",
+            "backup.manage",
+            "academics.manage",
+          ],
+        }}
+      >
         <AppRoutes login={<div>login page</div>} setup={<div>setup page</div>} />
       </SessionProvider>
     </FeaturesProvider>,

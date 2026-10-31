@@ -3,6 +3,7 @@ import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/cn";
 import { useI18n } from "@/i18n";
 import { useFeatures } from "@/app/features";
+import { useSession } from "@/app/session";
 import { visibleNavItems } from "@/app/navigation";
 
 export interface SidebarProps {
@@ -13,7 +14,8 @@ export interface SidebarProps {
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { t } = useI18n();
   const { has, edition } = useFeatures();
-  const items = visibleNavItems(has);
+  const { can } = useSession();
+  const items = visibleNavItems(has, can);
 
   return (
     <aside

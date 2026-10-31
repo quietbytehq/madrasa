@@ -5,6 +5,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "@/api/client";
 import { api } from "@/api/endpoints";
 import type {
+  GuardianView,
   DuplicateMatch,
   Gender,
   GuardianInput,
@@ -146,6 +147,47 @@ interface GuardianDraft extends GuardianInput {
   existing_name?: string;
 }
 
+/** The linked guardians of a student as editable drafts (edit form). */
+export function guardianDrafts(d: StudentDetail): GuardianDraft[] {
+  return d.guardians.map((g) => ({
+    guardian_id: g.id,
+    existing_name: g.full_name,
+    full_name: g.full_name,
+    relationship: g.relationship,
+    phone: g.phone ?? "",
+    email: g.email ?? "",
+    cnic: g.cnic ?? "",
+    occupation: g.occupation,
+    address: g.address,
+    is_primary: g.is_primary,
+  }));
+}
+
+/** Fields of existing guardians the user changed, keyed by guardian id, ready to PATCH. */
+export function guardianPatches(
+  initial: GuardianDraft[],
+  current: GuardianDraft[],
+): Array<{ id: string; patch: Partial<GuardianView> }> {
+  const out: Array<{ id: string; patch: Partial<GuardianView> }> = [];
+  for (const g of current) {
+    if (!g.guardian_id) continue;
+    const before = initial.find((b) => b.guardian_id === g.guardian_id);
+    if (!before) continue;
+    const patch: Partial<GuardianView> = {};
+    const text = (v: string | undefined) => (v ?? "").trim();
+    if (text(g.full_name) !== text(before.full_name) && text(g.full_name))
+      patch.full_name = text(g.full_name);
+    for (const key of ["phone", "email", "cnic"] as const) {
+      if (text(g[key]) !== text(before[key])) patch[key] = text(g[key]) || null;
+    }
+    for (const key of ["occupation", "address"] as const) {
+      if (text(g[key]) !== text(before[key])) patch[key] = text(g[key]);
+    }
+    if (Object.keys(patch).length > 0) out.push({ id: g.guardian_id, patch });
+  }
+  return out;
+}
+
 /** Add (no id) or edit (id) a student. */
 export function StudentFormPage() {
   const { id } = useParams();
@@ -165,8 +207,14 @@ export function StudentFormPage() {
   const [duplicates, setDuplicates] = useState<DuplicateMatch[] | null>(null);
   const [liveDuplicates, setLiveDuplicates] = useState<DuplicateMatch[]>([]);
 
+  const [initialGuardians, setInitialGuardians] = useState<GuardianDraft[]>([]);
   useEffect(() => {
-    if (existing.data) setForm(fromDetail(existing.data));
+    if (existing.data) {
+      setForm(fromDetail(existing.data));
+      const drafts = guardianDrafts(existing.data);
+      setInitialGuardians(drafts);
+      setGuardians(drafts);
+    }
   }, [existing.data]);
 
   // Inline duplicate warning while typing (debounced).
@@ -212,6 +260,15 @@ export function StudentFormPage() {
     setServerError(null);
     try {
       if (editing && id) {
+        for (const { id: gid, patch } of guardianPatches(initialGuardians, guardians)) {
+          await api.updateGuardian(gid, patch);
+        }
+        // Guardians added while editing (new records or links to existing ones).
+        for (const g of guardians.filter(
+          (d) => !initialGuardians.some((b) => b.guardian_id && b.guardian_id === d.guardian_id),
+        )) {
+          await api.linkGuardian(id, stripDraft(g));
+        }
         let detail = await api.updateStudent(id, toPatch(form));
         const currentSection = existing.data?.current?.section_id ?? "";
         const currentRoll = existing.data?.current?.roll_no?.toString() ?? "";
@@ -390,7 +447,7 @@ export function StudentFormPage() {
               onChange={(custom) => setForm((f) => ({ ...f, custom }))}
             />
           </Card>
-          {!editing && <GuardiansEditor guardians={guardians} onChange={setGuardians} />}
+          <GuardiansEditor guardians={guardians} onChange={setGuardians} />
         </div>
         {serverError && (
           <p role="alert" className="rounded bg-danger-bg px-2.5 py-2 text-xs text-danger">
@@ -580,39 +637,36 @@ export function GuardiansEditor({
                 {g.existing_name ?? t("guardians.new")}
               </legend>
               <div className="grid grid-cols-2 gap-2">
-                {!g.guardian_id && (
-                  <>
-                    <Input
-                      label={t("common.name")}
-                      value={g.full_name ?? ""}
-                      onChange={(e) => update(i, { full_name: e.target.value })}
-                      className="col-span-2"
-                      required
-                    />
-                    <Input
-                      label={t("common.phone")}
-                      value={g.phone ?? ""}
-                      onChange={(e) => update(i, { phone: e.target.value })}
-                      placeholder={example.phone}
-                    />
-                    <Input
-                      label={school.country === "PK" ? t("common.cnic") : school.id_label}
-                      value={g.cnic ?? ""}
-                      onChange={(e) => update(i, { cnic: e.target.value })}
-                      placeholder={example.id}
-                    />
-                    <Input
-                      label={t("common.email")}
-                      value={g.email ?? ""}
-                      onChange={(e) => update(i, { email: e.target.value })}
-                    />
-                    <Input
-                      label={t("guardians.occupation")}
-                      value={g.occupation ?? ""}
-                      onChange={(e) => update(i, { occupation: e.target.value })}
-                    />
-                  </>
-                )}
+                <Input
+                  label={t("common.name")}
+                  value={g.full_name ?? ""}
+                  onChange={(e) => update(i, { full_name: e.target.value })}
+                  className="col-span-2"
+                  required
+                />
+                <Input
+                  label={t("common.phone")}
+                  value={g.phone ?? ""}
+                  onChange={(e) => update(i, { phone: e.target.value })}
+                  placeholder={example.phone}
+                />
+                <Input
+                  label={school.country === "PK" ? t("common.cnic") : school.id_label}
+                  value={g.cnic ?? ""}
+                  onChange={(e) => update(i, { cnic: e.target.value })}
+                  placeholder={example.id}
+                />
+                <Input
+                  label={t("common.email")}
+                  value={g.email ?? ""}
+                  onChange={(e) => update(i, { email: e.target.value })}
+                />
+                <Input
+                  label={t("guardians.occupation")}
+                  value={g.occupation ?? ""}
+                  onChange={(e) => update(i, { occupation: e.target.value })}
+                />
+
                 <Select
                   label={t("guardians.relationship")}
                   value={g.relationship}
