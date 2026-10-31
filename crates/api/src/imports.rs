@@ -66,7 +66,7 @@ pub type Parsed = (Vec<String>, Vec<String>, Vec<String>, Vec<Vec<String>>);
 /// The sheet to read when the user has not chosen one: a sheet named after the import kind
 /// ("Students", "Staff", "Opening balances"…) first, then the first sheet that is not a
 /// read-me or instructions sheet, then the first sheet.
-pub fn pick_sheet<'a>(kind: ImportKind, names: &'a [String]) -> Option<&'a str> {
+pub fn pick_sheet(kind: ImportKind, names: &[String]) -> Option<&str> {
     let norm = |s: &str| {
         s.to_lowercase()
             .chars()
