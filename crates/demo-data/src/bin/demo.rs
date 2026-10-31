@@ -12,7 +12,7 @@ use std::path::PathBuf;
 
 fn usage() -> ! {
     eprintln!(
-        "usage:\n  madrasa-demo generate --out <dir>\n  madrasa-demo load --yes [--out <dir>]"
+        "usage:\n  madrasa-demo generate --out <dir>\n  madrasa-demo load --yes [--out <dir>] [--full-year]"
     );
     std::process::exit(2)
 }
@@ -24,6 +24,7 @@ async fn main() -> anyhow::Result<()> {
     let command = args.first().map(String::as_str).unwrap_or("");
     let mut out: Option<PathBuf> = None;
     let mut yes = false;
+    let mut full_year = false;
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
@@ -34,6 +35,7 @@ async fn main() -> anyhow::Result<()> {
                 ));
             }
             "--yes" => yes = true,
+            "--full-year" => full_year = true,
             _ => usage(),
         }
         i += 1;
@@ -62,6 +64,7 @@ async fn main() -> anyhow::Result<()> {
                 &LoadOptions {
                     confirmed: yes,
                     out_dir: out,
+                    full_year,
                 },
             )
             .await?;
