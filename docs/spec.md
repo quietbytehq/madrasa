@@ -369,6 +369,12 @@ Rules (`madrasa_core::imports` for cleanup, `madrasa_api::imports` for the datab
   guardians created for that family; a later row with the same family id and guardian name
   reuses the guardian record (before the CNIC/phone match), so siblings arrive linked and the
   sibling discount applies.
+- **Guardian matching never merges on a phone alone.** An existing guardian is reused when
+  the family id and name match, else when the ID number matches, else when the phone **and**
+  the name match (case-insensitive). A phone that is on file under a different name, in the
+  database or earlier in the same file, yields a preview warning and a separate guardian
+  record, so unrelated households sharing a phone never become siblings and never get the
+  sibling discount. The student form follows the same rule.
 - **Guardians**: a row's guardian is linked to an existing guardian with the same CNIC or
   phone (so siblings share one record), otherwise created; a phone without a name is the
   father's.
@@ -569,6 +575,26 @@ Students and opening balances need `students.manage`; staff needs `teachers.mana
 
 `POST /setup` takes `country` (default `PK`), optional `currency` and `time_zone` (country
 defaults), and any `academic_year_start_month` 1–12.
+
+### 6.11 Second alpha test report fixes
+
+- `POST /setup` takes `first_year` (create and activate the academic year that is running now,
+  from the chosen start month: this year once the month has passed, else last year) and
+  `default_classes` (the country's preset, KG–12 or K–12, each with a section A). The wizard
+  always sends `first_year` and offers the classes as a ticked checkbox, so an import works
+  straight after setup. The "New academic year" dialog defaults to the school's start month
+  and that year.
+- `GET /staff` and `GET /staff/{id}` blank `phone`, `email` and `cnic` for callers without
+  `teachers.manage`.
+- Import fields: students `status` (active / left / graduated, with common spellings), `city`,
+  `state`, `postal_code` (kept in `custom`); staff `staff_type`, `department` ("Subject /
+  department"), `grades` (kept in `custom`). `ImportPreview.unmapped` lists file columns mapped
+  to nothing so the wizard can show them before importing.
+- The UI hides sidebar modules the role cannot use (`NavItem.permission`) and shows "You don't
+  have access" in place of a guarded page; all fee amounts carry the school's currency symbol;
+  rollback asks for confirmation; an import in progress survives visiting other pages; linked
+  guardians can be edited from the student form; the desktop shell refuses to start as root
+  with a plain message.
 
 ### 6.10 Alpha test report fixes
 

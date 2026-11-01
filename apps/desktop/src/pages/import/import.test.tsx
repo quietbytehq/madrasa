@@ -5,6 +5,7 @@ import { api } from "@/api/endpoints";
 import { SessionProvider } from "@/app/session";
 import type { ImportField, ImportPreview, ParsedFile, UserSummary } from "@/api/types";
 import { errorCsv, ImportPage } from "./ImportPage";
+import { importDraft } from "./importDraft";
 
 vi.mock("@/api/endpoints", () => ({
   api: {
@@ -78,6 +79,7 @@ const preview: ImportPreview = {
     },
   ],
   summary: { total: 2, create: 1, update: 0, skip: 0, error: 1 },
+  unmapped: [],
 };
 
 function render() {
@@ -94,6 +96,7 @@ beforeEach(() => {
   vi.mocked(api.previewImport).mockClear();
   vi.mocked(api.previewImport).mockResolvedValue(preview);
   vi.mocked(api.applyImport).mockClear();
+  importDraft.clear();
 });
 
 describe("ImportPage", () => {
@@ -189,6 +192,7 @@ describe("ImportPage", () => {
     vi.mocked(api.previewImport).mockResolvedValue({
       rows: preview.rows.map((r) => ({ ...r, errors: [], action: "create" as const })),
       summary: { total: 2, create: 2, update: 0, skip: 0, error: 0 },
+      unmapped: [],
     });
     await userEvent.click(screen.getAllByRole("button", { name: "Check the file" })[0]!);
     await waitFor(() =>
@@ -238,6 +242,10 @@ describe("ImportPage", () => {
     expect(await screen.findByText("staff.csv")).toBeInTheDocument();
     expect(screen.getByText("3 added · 0 updated · 0 skipped")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Roll back" }));
+    // Nothing happens until the user confirms in the dialog.
+    expect(api.rollbackImport).not.toHaveBeenCalled();
+    const dialog = await screen.findByRole("dialog", { name: "Undo this import?" });
+    await userEvent.click(within(dialog).getByRole("button", { name: "Roll back" }));
     await waitFor(() => expect(api.rollbackImport).toHaveBeenCalledWith("b1"));
     expect(await screen.findByText("Import rolled back.")).toBeInTheDocument();
 

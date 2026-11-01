@@ -7,6 +7,9 @@ export const en = {
   "app.name": "Madrasa",
   "app.tagline": "School information system",
   "app.comingSoon": "Coming soon",
+  "app.noAccess.title": "You don't have access to this page",
+  "app.noAccess.body":
+    "Your role does not include this module. Ask an administrator if you need it.",
   "app.comingSoonBody": "This module is not available yet. It will arrive in a later release.",
   "app.loading": "Loading…",
   "app.error.generic": "Something went wrong. Please try again.",
@@ -124,6 +127,9 @@ export const en = {
   "setup.year.august": "August",
   "setup.year.currency": "Currency",
   "setup.year.timeZone": "Time zone",
+  "setup.year.defaultClasses": "Create classes {first}–12 with a section A each",
+  "setup.year.defaultClasses.hint":
+    "The current academic year is created too, so you can import students right away. Rename or add classes later under Settings.",
   "setup.school.country": "Country",
   "setup.school.countryHint":
     "Sets the currency, time zone, weekend and ID number format. Each can be changed later.",
@@ -755,6 +761,10 @@ export const en = {
   "import.file.reading": "Reading the file…",
   "import.file.rows": "{rows} rows found in {name}",
   "import.file.sheet": "Sheet",
+  "import.preview.unmapped": "Not imported (no field chosen): {columns}",
+  "import.history.rollbackConfirmTitle": "Undo this import?",
+  "import.history.rollbackConfirmBody":
+    "{name}: the {created} records it created will be removed and the {updated} it changed put back. Payments or marks recorded since are kept. This cannot be undone.",
   "import.sheet.title": "Which sheet holds the data?",
   "import.sheet.hint":
     "This workbook has several sheets. The one named after what you are importing is chosen; pick another if needed.",

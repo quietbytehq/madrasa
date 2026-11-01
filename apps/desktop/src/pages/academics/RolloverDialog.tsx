@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { Spinner } from "@/components/ui/Spinner";
 import { useI18n } from "@/i18n";
-import { formatMoney } from "@/lib/money";
+import { useMoney } from "@/lib/useMoney";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 
 /** Preview and confirm the academic year rollover. Exceptions are typed as student numbers
@@ -20,6 +20,7 @@ export function RolloverDialog({
   onError: (e: unknown) => void;
 }) {
   const { t } = useI18n();
+  const money = useMoney();
   const preview = useAsync(() => api.rolloverPreview(), []);
   const [retain, setRetain] = useState("");
   const [leave, setLeave] = useState("");
@@ -130,7 +131,7 @@ export function RolloverDialog({
           <p className="text-xs text-muted">
             {t("rollover.balances", {
               students: p.students_with_balance,
-              amount: formatMoney(p.balance_carried),
+              amount: money(p.balance_carried),
             })}
           </p>
           <div className="grid gap-3 md:grid-cols-2">

@@ -2,7 +2,7 @@ import type { PaymentMethod, VoucherStatus } from "@/api/types";
 import { Badge } from "@/components/ui/Badge";
 import type { BadgeTone } from "@/components/ui/Badge";
 import type { TFunction } from "@/i18n";
-import { formatMoney } from "@/lib/money";
+import { useMoney } from "@/lib/useMoney";
 
 export const METHODS: PaymentMethod[] = ["cash", "bank", "online", "one_bill", "kuickpay"];
 
@@ -29,5 +29,6 @@ export function Amount({
   value: string | null | undefined;
   className?: string;
 }) {
-  return <span className={`tabular-nums ${className ?? ""}`}>{formatMoney(value)}</span>;
+  const money = useMoney();
+  return <span className={`tabular-nums ${className ?? ""}`}>{money(value)}</span>;
 }

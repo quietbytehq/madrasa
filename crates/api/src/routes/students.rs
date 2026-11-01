@@ -314,7 +314,9 @@ async fn attach_guardian(
                 .ok_or_else(|| ApiError::validation("Guardian name is required."))?;
             let cnic = clean_cnic(&country, g.cnic)?;
             let phone = clean_phone(&country, g.phone)?;
-            match guardians::find_matching(c, sid, cnic.as_deref(), phone.as_deref()).await? {
+            match guardians::find_matching(c, sid, cnic.as_deref(), phone.as_deref(), full_name)
+                .await?
+            {
                 Some(existing) => existing.id,
                 None => {
                     guardians::create(

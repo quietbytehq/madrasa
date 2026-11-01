@@ -110,7 +110,7 @@ export const api = {
   academicYears: () => request<AcademicYear[]>("/academic-years"),
   createAcademicYear: (body: {
     start_year: number;
-    start_month: 4 | 8;
+    start_month: number;
     name?: string;
     activate?: boolean;
   }) => request<AcademicYear>("/academic-years", { method: "POST", body }),

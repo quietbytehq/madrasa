@@ -62,8 +62,13 @@ delete the `madrasa` folder above.
 
 The first screen is the setup wizard. Make up a school; do not use a real school's data.
 
-1. **School**: name (for example "Test School"), a short code (for example `TST`), a city.
-2. **Academic year**: starts in April or August. Currency is PKR in this build.
+1. **School**: name (for example "Test School"), a short code (for example `TST`), a city and
+   the **country**. The country fills in the currency, time zone, weekend and ID-number
+   format on the next step; all can be changed.
+2. **Academic year**: the month the year starts (April for Pakistan, August for the US), the
+   currency (PKR, USD, GBP…) and the time zone. Leave **Create classes KG–12 with a section A
+   each** ticked: the wizard then creates the current academic year and the classes, so you can
+   import students straight away.
 3. **Administrator**: your name, a username, a password of at least 10 characters.
 4. **Backup security**: a backup password (at least 10 characters). It protects the backup
    files Madrasa makes every night.
@@ -80,9 +85,10 @@ release includes two small spreadsheets of made-up Pakistani names for the impor
 `sample-students.xlsx` (72 students in KG–5, sections A and B) and `sample-staff.xlsx`
 (8 staff). Download both from the release page, then:
 
-1. **Settings → Academic years**: make sure a year is active (the wizard created one).
-2. **Settings → Classes**: click **Add KG–12**. Then add **sections A and B** to KG, 1, 2, 3, 4
-   and 5 for the active year (the import needs them to exist).
+1. **Settings → Academic years**: the wizard created and activated the current year.
+2. **Settings → Classes**: the wizard created KG–12 with section A each (if you unticked that,
+   click **Add KG–12** and add sections). Add **section B** to KG, 1, 2, 3, 4 and 5 for the
+   active year, since the sample file uses sections A and B.
 3. **Fees & Finance → Setup**: under *Fee heads* click **Add common heads** (or add
    "Tuition" yourself), then under the fee structure give each class an amount (for example
    2,500 for KG rising to 4,000 for class 5). This is enough for vouchers later.
@@ -157,6 +163,7 @@ For each problem, tell us:
 
 Things we already know about in this build: installers are unsigned (hence the Windows
 warning); the demo school cannot be loaded from inside the app; the app does not show its
-version number yet; everything is in English and Urdu only.
+version number yet; everything is in English and Urdu only. Teachers see only the modules
+their role can use (no Fees, Settings, Backup or Import) and no colleagues' phone numbers.
 
 Thank you. The next build will carry your fixes.

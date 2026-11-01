@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { Plus } from "lucide-react";
 import { api } from "@/api/endpoints";
@@ -15,6 +15,7 @@ import { Table } from "@/components/ui/Table";
 import { useToast } from "@/components/ui/Toast";
 import { useI18n } from "@/i18n";
 import { useSchool } from "@/app/session";
+import { firstYearStart, monthOptions } from "@/lib/months";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 import { useSession } from "@/app/session";
 import { RolloverDialog } from "./RolloverDialog";
@@ -111,12 +112,20 @@ interface CardProps {
 }
 
 function YearsCard({ years, manage, onChange, onError }: CardProps & { years: AcademicYear[] }) {
-  const { t, formatDate } = useI18n();
+  const { t, formatDate, locale } = useI18n();
   const toast = useToast();
+  const school = useSchool();
   const [open, setOpen] = useState(false);
   const [rollover, setRollover] = useState(false);
-  const [startYear, setStartYear] = useState(String(new Date().getFullYear()));
-  const [startMonth, setStartMonth] = useState<"4" | "8">("4");
+  // Defaults follow the school's start month: the year that is running now.
+  const [startMonth, setStartMonth] = useState(String(school.academic_year_start_month));
+  const [startYear, setStartYear] = useState(
+    String(firstYearStart(new Date(), school.academic_year_start_month)),
+  );
+  useEffect(() => {
+    setStartMonth(String(school.academic_year_start_month));
+    setStartYear(String(firstYearStart(new Date(), school.academic_year_start_month)));
+  }, [school.academic_year_start_month]);
   const [busy, setBusy] = useState(false);
 
   const create = async (e: FormEvent) => {
@@ -125,7 +134,7 @@ function YearsCard({ years, manage, onChange, onError }: CardProps & { years: Ac
     try {
       await api.createAcademicYear({
         start_year: Number(startYear),
-        start_month: startMonth === "8" ? 8 : 4,
+        start_month: Number(startMonth),
         activate: years.length === 0,
       });
       setOpen(false);
@@ -219,11 +228,8 @@ function YearsCard({ years, manage, onChange, onError }: CardProps & { years: Ac
           <Select
             label={t("academics.years.startMonth")}
             value={startMonth}
-            onChange={(e) => setStartMonth(e.target.value as "4" | "8")}
-            options={[
-              { value: "4", label: t("setup.year.april") },
-              { value: "8", label: t("setup.year.august") },
-            ]}
+            onChange={(e) => setStartMonth(e.target.value)}
+            options={monthOptions(locale)}
           />
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>

@@ -704,6 +704,7 @@ async fn staff_attendance_upserts_and_audits() {
         cnic: None,
         designation: "Teacher".into(),
         joined_on: None,
+        custom: serde_json::json!({}),
     };
     let s1 = staff::create(&mut c, &hlc(), actor, mk("T-001", "Sana"))
         .await

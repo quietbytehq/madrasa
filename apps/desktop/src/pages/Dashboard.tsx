@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useI18n } from "@/i18n";
-import { formatMoney } from "@/lib/money";
+import { useMoney } from "@/lib/useMoney";
 import { useAsync } from "@/lib/useAsync";
 import { useFeatures } from "@/app/features";
 import { useSession } from "@/app/session";
@@ -13,6 +13,7 @@ import { PageHeader } from "./PageHeader";
 
 export function Dashboard() {
   const { t, formatDate } = useI18n();
+  const money = useMoney();
   const { user, can } = useSession();
   const { edition } = useFeatures();
   const dash = useAsync(() => api.dashboard(), []);
@@ -48,7 +49,7 @@ export function Dashboard() {
       key: "fees",
       icon: Coins,
       label: t("dashboard.card.feesCollected"),
-      value: fees ? formatMoney(fees.collected_this_month) : "—",
+      value: fees ? money(fees.collected_this_month) : "—",
       note: fees
         ? t("dashboard.fees.sinceMonthStart", { date: formatDate(fees.month_start) })
         : t("dashboard.card.placeholder"),
@@ -59,7 +60,7 @@ export function Dashboard() {
       label: t("dashboard.card.defaulters"),
       value: fees ? String(fees.defaulters) : "—",
       note: fees
-        ? t("dashboard.fees.outstanding", { amount: formatMoney(fees.outstanding) })
+        ? t("dashboard.fees.outstanding", { amount: money(fees.outstanding) })
         : t("dashboard.card.placeholder"),
     },
   ];

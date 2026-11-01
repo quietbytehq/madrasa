@@ -446,6 +446,42 @@ pub const STUDENT_FIELDS: &[FieldDef] = &[
         "42101-7654321-2",
     ),
     f(
+        "status",
+        "Status",
+        false,
+        &[
+            "status",
+            "enrollment status",
+            "enrolment status",
+            "student status",
+            "حیثیت",
+        ],
+        "active",
+    ),
+    f("city", "City", false, &["city", "town", "شہر"], "Karachi"),
+    f(
+        "state",
+        "State / province",
+        false,
+        &["state", "province", "region", "صوبہ"],
+        "Sindh",
+    ),
+    f(
+        "postal_code",
+        "Postal code",
+        false,
+        &[
+            "postal code",
+            "postcode",
+            "post code",
+            "zip",
+            "zip code",
+            "zipcode",
+            "پوسٹل کوڈ",
+        ],
+        "75300",
+    ),
+    f(
         "family_id",
         "Family ID",
         false,
@@ -562,6 +598,50 @@ pub const STAFF_FIELDS: &[FieldDef] = &[
             "عہدہ",
         ],
         "Teacher",
+    ),
+    f(
+        "staff_type",
+        "Staff type",
+        false,
+        &[
+            "staff type",
+            "type",
+            "employment type",
+            "category",
+            "staff category",
+            "employee type",
+            "عملے کی قسم",
+        ],
+        "Teaching",
+    ),
+    f(
+        "department",
+        "Subject / department",
+        false,
+        &[
+            "department",
+            "subject",
+            "subjects",
+            "subject/department",
+            "subject department",
+            "dept",
+            "شعبہ",
+        ],
+        "Mathematics",
+    ),
+    f(
+        "grades",
+        "Grades taught",
+        false,
+        &[
+            "grades",
+            "grade levels",
+            "classes taught",
+            "grades taught",
+            "classes",
+            "جماعتیں",
+        ],
+        "6-8",
     ),
     f(
         "joined_on",
@@ -760,6 +840,22 @@ pub fn parse_gender(input: &str) -> Option<&'static str> {
             Some("female")
         }
         "other" | "o" | "دیگر" => Some("other"),
+        _ => None,
+    }
+}
+
+/// Student status as registers write it: `active`/`enrolled`/`current`, `left`/`withdrawn`/
+/// `inactive`/`transferred`, `graduated`/`alumni`/`passed out`.
+pub fn parse_student_status(input: &str) -> Option<&'static str> {
+    match clean_text(input).to_lowercase().as_str() {
+        "active" | "enrolled" | "current" | "yes" | "y" | "فعال" | "زیر تعلیم" => {
+            Some("active")
+        }
+        "left" | "withdrawn" | "inactive" | "transferred" | "dropped" | "no" | "n" | "چھوڑ گیا"
+        | "غیر فعال" => Some("left"),
+        "graduated" | "alumni" | "passed out" | "completed" | "فارغ التحصیل" => {
+            Some("graduated")
+        }
         _ => None,
     }
 }
@@ -1109,6 +1205,15 @@ pub fn clean_row(
             "family_id" => {
                 row.values.insert("family_id".into(), value.to_uppercase());
             }
+            "status" => match parse_student_status(&value) {
+                Some(s) => {
+                    row.values.insert("status".into(), s.into());
+                }
+                None => row.err(
+                    "status",
+                    "Status must be active, left (withdrawn/inactive) or graduated",
+                ),
+            },
             "email" | "guardian_email" | "guardian2_email" if !value.contains('@') => {
                 row.err(field.key, "Email looks wrong")
             }
@@ -1617,6 +1722,85 @@ mod tests {
             (Some(&1), Some(&2))
         );
         assert!(!m.contains_key("guardian2_name"));
+    }
+
+    #[test]
+    fn status_address_parts_and_staff_descriptors_are_fields() {
+        let headers: Vec<String> = [
+            "Name", "Father", "DOB", "Sex", "Class", "Status", "City", "Province", "Zip Code",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        let m = auto_map(ImportKind::Students, &headers);
+        assert_eq!(
+            (
+                m.get("status"),
+                m.get("city"),
+                m.get("state"),
+                m.get("postal_code")
+            ),
+            (Some(&5), Some(&6), Some(&7), Some(&8))
+        );
+        let raw = |cells: &[&str]| cells.iter().map(|c| c.to_string()).collect::<Vec<_>>();
+        let row = clean_row(
+            ImportKind::Students,
+            2,
+            &raw(&[
+                "Ali Khan",
+                "Ahmed",
+                "2015-01-01",
+                "M",
+                "1",
+                "Withdrawn",
+                "Karachi",
+                "Sindh",
+                "75300",
+            ]),
+            &m,
+            &pk(),
+        );
+        assert!(row.errors.is_empty(), "{:?}", row.errors);
+        assert_eq!(row.get("status"), Some("left"));
+        assert_eq!(row.get("city"), Some("Karachi"));
+        let bad = clean_row(
+            ImportKind::Students,
+            3,
+            &raw(&[
+                "Ali Khan",
+                "Ahmed",
+                "2015-01-01",
+                "M",
+                "1",
+                "maybe",
+                "",
+                "",
+                "",
+            ]),
+            &m,
+            &pk(),
+        );
+        assert_eq!(bad.errors[0].field, "status");
+        let staff: Vec<String> = [
+            "Name",
+            "Type",
+            "Subject/Department",
+            "Grades Taught",
+            "Hire Date",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        let m = auto_map(ImportKind::Staff, &staff);
+        assert_eq!(
+            (
+                m.get("staff_type"),
+                m.get("department"),
+                m.get("grades"),
+                m.get("joined_on")
+            ),
+            (Some(&1), Some(&2), Some(&3), Some(&4))
+        );
     }
 
     #[test]

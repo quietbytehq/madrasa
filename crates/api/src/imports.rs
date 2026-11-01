@@ -361,6 +361,8 @@ pub struct ImportSummary {
 pub struct ImportPreview {
     pub rows: Vec<RowOutcome>,
     pub summary: ImportSummary,
+    /// File columns not mapped to any field: shown before import so nothing is dropped unseen.
+    pub unmapped: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -456,6 +458,9 @@ async fn plan_rows(
     let mut plans = Vec::with_capacity(req.rows.len());
     let mut seen: HashMap<String, usize> = HashMap::new();
     let mut seen_numbers: HashMap<String, usize> = HashMap::new();
+    // Guardian names already seen under each phone in this file (by family id when given,
+    // so one family's rows never warn against each other).
+    let mut seen_phones: HashMap<String, Vec<String>> = HashMap::new();
     for (i, raw) in req.rows.iter().enumerate() {
         let row_no = i + 2; // 1 is the heading row
         let mut row = rules::clean_row(req.kind, row_no, raw, &req.mapping, &c.rules);
@@ -523,6 +528,44 @@ async fn plan_rows(
                                 }
                             }
                         }
+                    }
+                }
+                // A phone already on file under another name: a separate guardian will be
+                // created (a phone alone never merges people), and the office should know.
+                for slot in ["guardian", "guardian2"] {
+                    let (Some(name), Some(phone)) = (
+                        row.get(&format!("{slot}_name")),
+                        row.get(&format!("{slot}_phone")),
+                    ) else {
+                        continue;
+                    };
+                    let mut others: Vec<String> =
+                        guardians::find_by_phone(conn, c.school_id, phone)
+                            .await?
+                            .into_iter()
+                            .filter(|g| !g.full_name.eq_ignore_ascii_case(name.trim()))
+                            .map(|g| g.full_name)
+                            .collect();
+                    let in_file = seen_phones.entry(phone.to_string()).or_default();
+                    for other in in_file
+                        .iter()
+                        .filter(|n| !n.eq_ignore_ascii_case(name.trim()))
+                    {
+                        if !others.iter().any(|o| o.eq_ignore_ascii_case(other)) {
+                            others.push(other.clone());
+                        }
+                    }
+                    if !in_file.iter().any(|n| n.eq_ignore_ascii_case(name.trim())) {
+                        in_file.push(name.trim().to_string());
+                    }
+                    if !others.is_empty() {
+                        row.warnings.push(Issue {
+                            field: format!("{slot}_phone"),
+                            message: format!(
+                                "Phone {phone} is already recorded for {}; {name} will be a separate guardian",
+                                others.join(", ")
+                            ),
+                        });
                     }
                 }
                 // Duplicates inside the file.
@@ -684,7 +727,41 @@ pub async fn preview(
         .map(|p| outcome(p.row, p.action, p.matched))
         .collect();
     let summary = summarize(&rows);
-    Ok(ImportPreview { rows, summary })
+    let unmapped = req
+        .headers
+        .iter()
+        .enumerate()
+        .filter(|(i, h)| !h.trim().is_empty() && !req.mapping.values().any(|v| v == i))
+        .map(|(_, h)| h.clone())
+        .collect();
+    Ok(ImportPreview {
+        rows,
+        summary,
+        unmapped,
+    })
+}
+
+/// Extra student fields kept in `custom`: family id and address parts.
+fn student_custom(r: &CleanRow, base: serde_json::Value) -> serde_json::Value {
+    merge_custom(r, base, &["family_id", "city", "state", "postal_code"])
+}
+
+/// Extra staff fields kept in `custom`: staff type, subject/department, grades taught.
+fn staff_custom(r: &CleanRow, base: serde_json::Value) -> serde_json::Value {
+    merge_custom(r, base, &["staff_type", "department", "grades"])
+}
+
+fn merge_custom(r: &CleanRow, base: serde_json::Value, keys: &[&str]) -> serde_json::Value {
+    let mut obj = match base {
+        serde_json::Value::Object(o) => o,
+        _ => serde_json::Map::new(),
+    };
+    for key in keys {
+        if let Some(v) = r.get(key) {
+            obj.insert((*key).into(), serde_json::Value::String(v.to_string()));
+        }
+    }
+    serde_json::Value::Object(obj)
 }
 
 fn pick(row: &CleanRow, key: &str) -> Option<String> {
@@ -785,13 +862,22 @@ pub async fn apply(
                             .unwrap_or_else(crate::clock::today),
                         board_roll_no: pick(r, "board_roll_no"),
                         board_registration_no: None,
-                        custom: match r.get("family_id") {
-                            Some(f) => serde_json::json!({ "imported": true, "family_id": f }),
-                            None => serde_json::json!({ "imported": true }),
-                        },
+                        custom: student_custom(r, serde_json::json!({ "imported": true })),
                     },
                 )
                 .await?;
+                if let Some(status) = r.get("status").filter(|st| *st != "active") {
+                    students::set_status(
+                        &mut tx,
+                        &state.hlc,
+                        actor,
+                        student.id,
+                        status,
+                        Some(crate::clock::today()),
+                        Some("imported"),
+                    )
+                    .await?;
+                }
                 repo::add_row(
                     &mut tx,
                     &state.hlc,
@@ -867,9 +953,21 @@ pub async fn apply(
                         pick(r, "board_roll_no"),
                     ),
                     board_registration_no: None,
-                    custom: None,
+                    custom: Some(student_custom(r, s.custom.clone())),
                 };
                 students::update(&mut tx, &state.hlc, actor, s.id, upd).await?;
+                if let Some(status) = r.get("status").filter(|st| *st != s.status) {
+                    students::set_status(
+                        &mut tx,
+                        &state.hlc,
+                        actor,
+                        s.id,
+                        status,
+                        Some(crate::clock::today()),
+                        Some("imported"),
+                    )
+                    .await?;
+                }
                 repo::add_row(
                     &mut tx,
                     &state.hlc,
@@ -945,6 +1043,7 @@ pub async fn apply(
                         cnic: pick(r, "cnic"),
                         designation: r.get("designation").unwrap_or("").into(),
                         joined_on: r.get("joined_on").and_then(|d| d.parse().ok()),
+                        custom: staff_custom(r, serde_json::json!({ "imported": true })),
                     },
                 )
                 .await?;
@@ -989,6 +1088,7 @@ pub async fn apply(
                         )
                         .map(|o| o.and_then(|d| d.parse().ok())),
                         status: None,
+                        custom: Some(staff_custom(r, s.custom.clone())),
                     },
                 )
                 .await?;
@@ -1129,8 +1229,8 @@ async fn attach_guardian_slot(
         None => None,
     };
     if existing.is_none() && (cnic.is_some() || phone.is_some()) {
-        existing =
-            guardians::find_matching(tx, school_id, cnic.as_deref(), phone.as_deref()).await?;
+        existing = guardians::find_matching(tx, school_id, cnic.as_deref(), phone.as_deref(), name)
+            .await?;
     }
     let guardian_id = match existing {
         Some(g) => g.id,

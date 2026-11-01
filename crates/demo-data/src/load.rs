@@ -146,6 +146,7 @@ pub async fn load(
                     other => other.to_string(),
                 },
                 joined_on: NaiveDate::from_ymd_opt(demo.academic_year_start - 3, 4, 1),
+                custom: serde_json::json!({}),
             },
         )
         .await?;

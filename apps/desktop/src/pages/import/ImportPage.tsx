@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent } from "react";
 import { FileSpreadsheet, Upload } from "lucide-react";
 import { api } from "@/api/endpoints";
@@ -16,6 +16,7 @@ import type {
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Dialog } from "@/components/ui/Dialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Select } from "@/components/ui/Select";
 import { Spinner } from "@/components/ui/Spinner";
@@ -27,6 +28,7 @@ import { pickSheet } from "@/lib/sheets";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 import { useSession } from "@/app/session";
 import { PageHeader } from "../PageHeader";
+import { importDraft } from "./importDraft";
 
 const KINDS: ImportKind[] = ["students", "staff", "opening_balances"];
 const STEPS: TranslationKey[] = [
@@ -66,20 +68,26 @@ export function ImportPage() {
   const { t, formatDate } = useI18n();
   const { can } = useSession();
   const toast = useToast();
-  const [step, setStep] = useState(0);
-  const [kind, setKind] = useState<ImportKind>("students");
-  const [parsed, setParsed] = useState<ParsedFile | null>(null);
+  // An import in progress survives a visit to another page (state lives in importDraft).
+  const saved = importDraft.get();
+  const [step, setStep] = useState(saved.step);
+  const [kind, setKind] = useState<ImportKind>(saved.kind);
+  const [parsed, setParsed] = useState<ParsedFile | null>(saved.parsed);
   /** A workbook with several sheets waits here until the user confirms which one to read. */
   const [pending, setPending] = useState<{ file: File; parsed: ParsedFile; sheet: string } | null>(
     null,
   );
-  const [mapping, setMapping] = useState<Record<string, number>>({});
-  const [remember, setRemember] = useState(true);
-  const [policy, setPolicy] = useState<DuplicatePolicy>("skip");
-  const [preview, setPreview] = useState<ImportPreview | null>(null);
-  const [edited, setEdited] = useState<string[][] | null>(null);
+  const [mapping, setMapping] = useState<Record<string, number>>(saved.mapping);
+  const [remember, setRemember] = useState(saved.remember);
+  const [policy, setPolicy] = useState<DuplicatePolicy>(saved.policy);
+  const [preview, setPreview] = useState<ImportPreview | null>(saved.preview);
+  const [edited, setEdited] = useState<string[][] | null>(saved.edited);
   const [onlyProblems, setOnlyProblems] = useState(false);
-  const [result, setResult] = useState<ImportResult | null>(null);
+  const [result, setResult] = useState<ImportResult | null>(saved.result);
+  const [confirmRollback, setConfirmRollback] = useState<ImportBatch | null>(null);
+  useEffect(() => {
+    importDraft.set({ step, kind, parsed, mapping, remember, policy, preview, edited, result });
+  }, [step, kind, parsed, mapping, remember, policy, preview, edited, result]);
   const [busy, setBusy] = useState(false);
   const fields = useAsync(() => api.importFields(kind), [kind]);
   const batches = useAsync(() => api.importBatches(), []);
@@ -209,6 +217,7 @@ export function ImportPage() {
   };
 
   const reset = () => {
+    importDraft.clear();
     setStep(0);
     setParsed(null);
     setMapping({});
@@ -444,6 +453,11 @@ export function ImportPage() {
             </p>
           )}
           <div className="flex items-center gap-2 px-4 py-2 text-xs">
+            {preview.unmapped.length > 0 && (
+              <p className="rounded border border-warning/40 bg-warning-bg px-2 py-1 text-xs text-text">
+                {t("import.preview.unmapped", { columns: preview.unmapped.join(", ") })}
+              </p>
+            )}
             <label className="flex items-center gap-1.5">
               <input
                 type="checkbox"
@@ -574,15 +588,7 @@ export function ImportPage() {
                     size="sm"
                     variant="ghost"
                     className="text-danger"
-                    onClick={() =>
-                      void api
-                        .rollbackImport(b.id)
-                        .then(() => {
-                          toast.push({ kind: "success", title: t("import.history.rollbackDone") });
-                          void batches.reload();
-                        })
-                        .catch(fail)
-                    }
+                    onClick={() => setConfirmRollback(b)}
                   >
                     {t("import.history.rollback")}
                   </Button>
@@ -594,6 +600,42 @@ export function ImportPage() {
           </ul>
         )}
       </Card>
+      <Dialog
+        open={confirmRollback !== null}
+        onClose={() => setConfirmRollback(null)}
+        title={t("import.history.rollbackConfirmTitle")}
+        size="sm"
+      >
+        <p className="text-sm text-text">
+          {t("import.history.rollbackConfirmBody", {
+            name: confirmRollback?.file_name ?? "",
+            created: confirmRollback?.created_rows ?? 0,
+            updated: confirmRollback?.updated_rows ?? 0,
+          })}
+        </p>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="secondary" onClick={() => setConfirmRollback(null)}>
+            {t("action.cancel")}
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() => {
+              const b = confirmRollback;
+              if (!b) return;
+              setConfirmRollback(null);
+              void api
+                .rollbackImport(b.id)
+                .then(() => {
+                  toast.push({ kind: "success", title: t("import.history.rollbackDone") });
+                  void batches.reload();
+                })
+                .catch(fail);
+            }}
+          >
+            {t("import.history.rollback")}
+          </Button>
+        </div>
+      </Dialog>
     </>
   );
 }

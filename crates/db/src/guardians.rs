@@ -167,21 +167,43 @@ pub async fn find_by_family(
     .await?)
 }
 
+/// The guardian record to reuse: the same ID number, or the same phone **and** the same name
+/// (case-insensitive). A phone alone never merges two people, since families and even
+/// unrelated households share phones.
 pub async fn find_matching(
     conn: &mut PgConnection,
     school_id: Uuid,
     cnic: Option<&str>,
     phone: Option<&str>,
+    full_name: &str,
 ) -> DbResult<Option<Guardian>> {
     Ok(sqlx::query_as::<_, Guardian>(
         "SELECT * FROM guardians WHERE school_id = $1 AND deleted_at IS NULL
-           AND (($2::text IS NOT NULL AND cnic = $2) OR ($3::text IS NOT NULL AND phone = $3))
+           AND (($2::text IS NOT NULL AND cnic = $2)
+             OR ($3::text IS NOT NULL AND phone = $3 AND lower(full_name) = lower($4)))
          ORDER BY (cnic = $2) DESC NULLS LAST, created_at LIMIT 1",
     )
     .bind(school_id)
     .bind(cnic)
     .bind(phone)
+    .bind(full_name.trim())
     .fetch_optional(conn)
+    .await?)
+}
+
+/// Guardians recorded under a phone number, for warning when a different name turns up with
+/// the same phone.
+pub async fn find_by_phone(
+    conn: &mut PgConnection,
+    school_id: Uuid,
+    phone: &str,
+) -> DbResult<Vec<Guardian>> {
+    Ok(sqlx::query_as::<_, Guardian>(
+        "SELECT * FROM guardians WHERE school_id = $1 AND deleted_at IS NULL AND phone = $2 ORDER BY created_at",
+    )
+    .bind(school_id)
+    .bind(phone)
+    .fetch_all(conn)
     .await?)
 }
 

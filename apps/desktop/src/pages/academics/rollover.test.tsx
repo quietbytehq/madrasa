@@ -82,7 +82,7 @@ describe("RolloverDialog", () => {
     expect(within(dialog).getByText("2027-28")).toBeInTheDocument();
     expect(within(dialog).getByText(/30 students promoted, 25 graduate/)).toBeInTheDocument();
     expect(
-      within(dialog).getByText("12 students carry 48,500.00 of unpaid fees into the new year"),
+      within(dialog).getByText("12 students carry Rs 48,500.00 of unpaid fees into the new year"),
     ).toBeInTheDocument();
     const row12 = within(dialog).getByText("12-A").closest("tr")!;
     expect(row12).toHaveTextContent("Graduates");

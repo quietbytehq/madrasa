@@ -5,6 +5,8 @@ export const ur: Translation = {
   "app.name": "مدرسہ",
   "app.tagline": "اسکول انفارمیشن سسٹم",
   "app.comingSoon": "جلد آ رہا ہے",
+  "app.noAccess.title": "آپ کو اس صفحے تک رسائی نہیں",
+  "app.noAccess.body": "آپ کے کردار میں یہ ماڈیول شامل نہیں۔ ضرورت ہو تو منتظم سے کہیں۔",
   "app.comingSoonBody": "یہ ماڈیول ابھی دستیاب نہیں ہے۔ یہ آئندہ ریلیز میں شامل ہوگا۔",
   "app.loading": "لوڈ ہو رہا ہے…",
   "app.error.generic": "کچھ غلط ہو گیا۔ براہِ کرم دوبارہ کوشش کریں۔",
@@ -114,6 +116,9 @@ export const ur: Translation = {
   "setup.year.august": "اگست",
   "setup.year.currency": "کرنسی",
   "setup.year.timeZone": "ٹائم زون",
+  "setup.year.defaultClasses": "جماعتیں {first} تا 12 بنائیں، ہر ایک میں سیکشن A",
+  "setup.year.defaultClasses.hint":
+    "موجودہ تعلیمی سال بھی بن جاتا ہے تاکہ طلبہ فوراً درآمد کیے جا سکیں۔ جماعتوں کے نام بعد میں ترتیبات میں بدلیں۔",
   "setup.school.country": "ملک",
   "setup.school.countryHint":
     "کرنسی، ٹائم زون، ہفتہ وار چھٹی اور شناختی نمبر کی ساخت طے کرتا ہے۔ ہر ایک بعد میں بدلا جا سکتا ہے۔",
@@ -740,6 +745,10 @@ export const ur: Translation = {
   "import.file.reading": "فائل پڑھی جا رہی ہے…",
   "import.file.rows": "{name} میں {rows} قطاریں ملیں",
   "import.file.sheet": "شیٹ",
+  "import.preview.unmapped": "درآمد نہیں ہوں گے (کوئی خانہ نہیں چنا): {columns}",
+  "import.history.rollbackConfirmTitle": "یہ درآمد واپس لیں؟",
+  "import.history.rollbackConfirmBody":
+    "{name}: اس کے بنائے {created} ریکارڈ ہٹا دیے جائیں گے اور بدلے ہوئے {updated} واپس کر دیے جائیں گے۔ بعد میں درج ادائیگیاں یا نمبر برقرار رہیں گے۔ یہ واپس نہیں ہو سکتا۔",
   "import.sheet.title": "ڈیٹا کس شیٹ میں ہے؟",
   "import.sheet.hint":
     "اس ورک بک میں کئی شیٹس ہیں۔ جو شیٹ درآمد کی قسم کے نام پر ہے وہ چن لی گئی ہے؛ ضرورت ہو تو دوسری چنیں۔",
