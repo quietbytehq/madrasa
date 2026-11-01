@@ -16,9 +16,13 @@ Before tagging:
 
 1. `cargo test --workspace`, `pnpm --dir apps/desktop test`, lint and type checks are green
    (CI enforces this).
-2. Bump `version` in the workspace `Cargo.toml`, `apps/desktop/package.json` and
-   `apps/desktop/src-tauri/tauri.conf.json` together; the app shows the version under
-   Settings and writes it into every backup file.
+2. Run `scripts/set-version.sh X.Y.Z` (the numeric part of the tag) and commit: it sets the
+   workspace `Cargo.toml`, `package.json`, `apps/desktop/package.json` and
+   `apps/desktop/src-tauri/tauri.conf.json` together, and a unit test fails if they ever
+   differ. The Release workflow refuses a tag whose numeric part does not match `Cargo.toml`,
+   and passes the full tag (`0.1.3-alpha`) into the build as `MADRASA_RELEASE`, which is what
+   `/health`, `/system/features` and Help → About report. Builds without the variable report
+   the plain Cargo version.
 3. Update `docs/PROGRESS.md` with what the build contains and what to test by hand.
 
 The Linux bundles are built on `ubuntu-22.04` so they run on Debian 12 and 13 and on Ubuntu

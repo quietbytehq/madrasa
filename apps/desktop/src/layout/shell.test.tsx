@@ -45,7 +45,7 @@ function renderShell(edition: "lite" | "nexus" = "lite", route = "/") {
           "nexus_hub",
         ] as const);
   return renderWithProviders(
-    <FeaturesProvider initial={{ edition, features: [...features] }}>
+    <FeaturesProvider initial={{ edition, features: [...features], version: "0.1.3-test" }}>
       <SessionProvider
         initial={{
           user,
@@ -70,6 +70,14 @@ function renderShell(edition: "lite" | "nexus" = "lite", route = "/") {
 }
 
 describe("App shell", () => {
+  it("shows the release version and edition under Help", async () => {
+    renderShell();
+    await userEvent.click(await screen.findByRole("button", { name: "Help" }));
+    const about = await screen.findByLabelText("About Madrasa");
+    expect(within(about).getByText("Madrasa 0.1.3-test")).toBeInTheDocument();
+    expect(within(about).getByText("Lite")).toBeInTheDocument();
+  });
+
   it("shows the Lite modules and hides edition-gated ones", () => {
     renderShell("lite");
     const nav = screen.getByRole("navigation", { name: "Modules" });

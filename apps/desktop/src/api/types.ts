@@ -26,6 +26,8 @@ export type Feature =
 export interface FeaturesResponse {
   edition: Edition;
   features: Feature[];
+  /** Release version, e.g. "0.1.3-alpha" on a tagged build. */
+  version?: string;
 }
 
 export interface HealthResponse {
@@ -75,6 +77,29 @@ export interface UserSummary {
   email: string | null;
   is_active: boolean;
   roles: string[];
+}
+
+/** Mirrors `UserAccount` (GET /users). */
+export interface UserAccount extends UserSummary {
+  staff_id: string | null;
+  staff_name: string | null;
+  last_login_at: string | null;
+}
+
+/** Mirrors `CreateUserBody` (POST /users). */
+export interface CreateUserBody {
+  staff_id: string;
+  username: string;
+  password: string;
+  role: LoginRole;
+}
+
+/** Mirrors `DemoSetupRequest` (POST /setup/demo). */
+export interface DemoSetupRequest {
+  admin_username: string;
+  admin_password: string;
+  backup_password: string;
+  size?: "full" | "small";
 }
 
 export interface LoginRequest {

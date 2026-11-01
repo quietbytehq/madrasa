@@ -46,11 +46,14 @@ import type {
   FeeStructureLine,
   FeeVoucherRow,
   CreateLoginBody,
+  CreateUserBody,
+  DemoSetupRequest,
   GenerationReport,
   LateFeeReport,
   LocaleLists,
   SchoolProfileUpdate,
   UpdateLoginBody,
+  UserAccount,
   Ledger,
   PaymentMethod,
   ReceiptDetail,
@@ -95,6 +98,8 @@ export const api = {
   health: () => request<HealthResponse>("/health", { auth: false }),
   features: () => request<FeaturesResponse>("/system/features", { auth: false }),
   setupStatus: () => request<SetupStatus>("/setup/status", { auth: false }),
+  demoSetup: (body: DemoSetupRequest) =>
+    request<SetupResponse>("/setup/demo", { method: "POST", body, auth: false }),
   setup: (body: SetupRequest) =>
     request<SetupResponse>("/setup", { method: "POST", body, auth: false }),
   login: (body: LoginRequest) =>
@@ -105,6 +110,12 @@ export const api = {
   updateSchool: (body: SchoolProfileUpdate) =>
     request<SchoolSummary>("/schools/current", { method: "PATCH", body }),
   localeLists: () => request<LocaleLists>("/system/locale"),
+  users: () => request<UserAccount[]>("/users"),
+  createUser: (body: CreateUserBody) => request<UserAccount>("/users", { method: "POST", body }),
+  updateUser: (id: string, body: UpdateLoginBody) =>
+    request<UserAccount>(`/users/${id}`, { method: "PATCH", body }),
+  resetUserPassword: (id: string, password: string) =>
+    request<UserAccount>(`/users/${id}/password`, { method: "POST", body: { password } }),
 
   // Academic structure
   academicYears: () => request<AcademicYear[]>("/academic-years"),

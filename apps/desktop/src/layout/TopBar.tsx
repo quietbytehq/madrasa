@@ -29,7 +29,7 @@ export function TopBar() {
   const { t, locale, setLocale } = useI18n();
   const { preference, setPreference } = useTheme();
   const { user, logout } = useSession();
-  const { has } = useFeatures();
+  const { has, edition, version } = useFeatures();
   const navigate = useNavigate();
   const [searchOpen, setSearchOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -194,6 +194,17 @@ export function TopBar() {
 
       <Dialog open={helpOpen} onClose={() => setHelpOpen(false)} title={t("topbar.help")} size="sm">
         <p className="text-sm text-text">{t("topbar.helpBody")}</p>
+        <dl
+          aria-label={t("topbar.about")}
+          className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5 rounded border border-border bg-bg p-3 text-xs text-muted"
+        >
+          <dt>{t("topbar.about.version")}</dt>
+          <dd className="text-text">{version ? `Madrasa ${version}` : "—"}</dd>
+          <dt>{t("topbar.about.edition")}</dt>
+          <dd className="text-text">{t(`edition.${edition}`)}</dd>
+          <dt>{t("topbar.about.issues")}</dt>
+          <dd className="text-text">github.com/quietbytehq/madrasa/issues</dd>
+        </dl>
       </Dialog>
     </header>
   );

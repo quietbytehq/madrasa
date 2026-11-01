@@ -11,6 +11,7 @@ import { useI18n } from "@/i18n";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 import { useSession } from "@/app/session";
 import { AcademicsSettings } from "./academics/AcademicsSettings";
+import { UsersCard } from "./settings/UsersCard";
 import { PageHeader } from "./PageHeader";
 
 export function SettingsPage() {
@@ -25,6 +26,7 @@ export function SettingsPage() {
       <div className="flex flex-col gap-4">
         {can("settings.manage") && <SchoolSettingsCard />}
         {can("settings.manage") && <SchoolProfileCard />}
+        {can("users.manage") && <UsersCard />}
         <section>
           <h2 className="mb-2 text-sm font-semibold text-navy">{t("academics.title")}</h2>
           <AcademicsSettings />

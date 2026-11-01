@@ -576,6 +576,30 @@ Students and opening balances need `students.manage`; staff needs `teachers.mana
 `POST /setup` takes `country` (default `PK`), optional `currency` and `time_zone` (country
 defaults), and any `academic_year_start_month` 1–12.
 
+### 6.12 Pre-pilot polish
+
+- **Version.** `madrasa_api::VERSION` is the Cargo version, or `MADRASA_RELEASE` (set at
+  compile time by the Release workflow from the tag, `v0.1.3-alpha` → `0.1.3-alpha`). The
+  workflow fails if the tag's numeric part differs from `Cargo.toml`; a unit test keeps
+  `package.json`, `apps/desktop/package.json` and `tauri.conf.json` equal to Cargo;
+  `scripts/set-version.sh X.Y.Z` bumps all four. `/health` and `/system/features` report it
+  and the app shows it under Help → About.
+- **Users.** `GET /users` (`users.manage`) lists every login with roles, the linked staff
+  record (`staff_id`, `staff_name`), `is_active` and `last_login_at`; `POST /users` creates a
+  login for a staff member (`staff_id`, `username`, `password`, `role`); `PATCH /users/{id}`
+  changes the role or `is_active`; `POST /users/{id}/password` resets the password. These share
+  the staff-record login logic and rules (one role, no self-disable, audited). Settings → Users
+  is the page.
+- **Demo school.** `POST /setup/demo` (`admin_username`, `admin_password`, `backup_password`,
+  optional `size: full | small`) loads the demo school (`is_demo = true`, "DEMO School", the
+  `demo.*` staff logins with the demo password) in its own transaction, then finishes setup
+  like the wizard: the given administrator with principal + admin roles, backup keys,
+  settings, setup completed. Refused once setup is done or a real school exists. The wizard's
+  first step offers "Load the demo school instead", clearly marked as demo data; every screen
+  shows the DEMO banner afterwards.
+- **GitHub Actions** run on Node 24: `actions/checkout@v5`, `actions/setup-node@v5`,
+  `actions/cache@v5`, `actions/upload-artifact@v5`, `pnpm/action-setup@v5`.
+
 ### 6.11 Second alpha test report fixes
 
 - `POST /setup` takes `first_year` (create and activate the academic year that is running now,

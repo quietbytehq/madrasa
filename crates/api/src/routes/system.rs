@@ -12,6 +12,8 @@ use crate::AppState;
 pub struct Features {
     pub edition: Edition,
     pub features: Vec<Feature>,
+    /// The release version the app shows under Help → About.
+    pub version: &'static str,
 }
 
 pub fn router() -> Router<AppState> {
@@ -25,6 +27,7 @@ async fn features(State(state): State<AppState>) -> Json<Features> {
     Json(Features {
         edition,
         features: edition.features().to_vec(),
+        version: state.version,
     })
 }
 

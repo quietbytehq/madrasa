@@ -30,6 +30,14 @@ impl Default for SchoolProfile {
     }
 }
 
+/// The version the API and the app report. A tagged release build sets `MADRASA_RELEASE`
+/// (e.g. `0.1.3-alpha`, from the git tag) at compile time; otherwise the Cargo version, which
+/// the Release workflow checks against the tag.
+pub const VERSION: &str = match option_env!("MADRASA_RELEASE") {
+    Some(v) => v,
+    None => env!("CARGO_PKG_VERSION"),
+};
+
 /// Shared application state (cheap to clone).
 #[derive(Clone)]
 pub struct AppState {
@@ -56,7 +64,7 @@ impl AppState {
             edition: Arc::new(RwLock::new(edition)),
             profile: Arc::new(RwLock::new(profile)),
             lockout: LockoutPolicy::default(),
-            version: env!("CARGO_PKG_VERSION"),
+            version: VERSION,
         })
     }
 
@@ -121,4 +129,27 @@ fn apply_zone(profile: &SchoolProfile) {
         tracing::warn!(zone = %profile.time_zone, "school time zone not recognised; using the machine's");
     }
     clock::set_time_zone(tz);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The three version files must agree; the Release workflow checks the tag against them.
+    #[test]
+    fn package_json_and_tauri_conf_match_the_cargo_version() {
+        let cargo = env!("CARGO_PKG_VERSION");
+        let package: serde_json::Value =
+            serde_json::from_str(include_str!("../../../apps/desktop/package.json")).unwrap();
+        let tauri: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../apps/desktop/src-tauri/tauri.conf.json"
+        ))
+        .unwrap();
+        let root: serde_json::Value =
+            serde_json::from_str(include_str!("../../../package.json")).unwrap();
+        assert_eq!(package["version"], cargo, "apps/desktop/package.json");
+        assert_eq!(tauri["version"], cargo, "tauri.conf.json");
+        assert_eq!(root["version"], cargo, "package.json");
+        assert!(VERSION.starts_with(cargo) || option_env!("MADRASA_RELEASE").is_some());
+    }
 }
