@@ -11,6 +11,8 @@ export interface Features {
   edition: Edition;
   features: ReadonlySet<Feature>;
   loaded: boolean;
+  /** Release version from the API ("0.1.3-alpha"); empty until loaded. */
+  version: string;
   has: (feature: Feature) => boolean;
   reload: () => Promise<void>;
 }
@@ -38,16 +40,32 @@ export function FeaturesProvider({
   /** Skip the network call and use this (tests, storybook). */
   initial?: FeaturesResponse;
 }) {
-  const [state, setState] = useState<{ edition: Edition; features: Feature[]; loaded: boolean }>(
+  const [state, setState] = useState<{
+    edition: Edition;
+    features: Feature[];
+    loaded: boolean;
+    version: string;
+  }>(
     initial
-      ? { ...initial, loaded: true }
-      : { edition: "lite", features: [...LITE_FEATURES], loaded: false },
+      ? {
+          edition: initial.edition,
+          features: initial.features,
+          version: initial.version ?? "",
+          loaded: true,
+        }
+      : { edition: "lite", features: [...LITE_FEATURES], version: "", loaded: false },
   );
 
   const reload = useCallback(
     () =>
       api.features().then(
-        (res) => setState({ edition: res.edition, features: res.features, loaded: true }),
+        (res) =>
+          setState({
+            edition: res.edition,
+            features: res.features,
+            version: res.version ?? "",
+            loaded: true,
+          }),
         // Keep the Lite defaults; the backend still enforces everything.
         () => setState((s) => ({ ...s, loaded: true })),
       ),
@@ -59,7 +77,13 @@ export function FeaturesProvider({
     let cancelled = false;
     api.features().then(
       (res) =>
-        !cancelled && setState({ edition: res.edition, features: res.features, loaded: true }),
+        !cancelled &&
+        setState({
+          edition: res.edition,
+          features: res.features,
+          version: res.version ?? "",
+          loaded: true,
+        }),
       () => !cancelled && setState((s) => ({ ...s, loaded: true })),
     );
     return () => {
@@ -73,6 +97,7 @@ export function FeaturesProvider({
       edition: state.edition,
       features: set,
       loaded: state.loaded,
+      version: state.version,
       has: (f) => set.has(f),
       reload,
     };

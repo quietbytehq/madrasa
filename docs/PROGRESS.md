@@ -569,6 +569,30 @@ depend on each other and were built together)
   only (not across restarts); teacher redaction applies to the staff API, the attendance
   screens never showed contact details.
 
+### 2026-11-01 — Pre-pilot polish (branch `dev/pre-pilot-polish`)
+- Started from `main` after #13 was merged (`4b7a3e7`, tagged v0.1.2-alpha).
+- 1 Version: versions bumped to 0.1.3 everywhere; `madrasa_api::VERSION` = Cargo version or
+  `MADRASA_RELEASE` from the tag at build time; the Release workflow checks the tag against
+  `Cargo.toml` and sets the variable; `scripts/set-version.sh`; `/system/features` carries
+  `version`; Help → About shows version and edition. Tests: unit test that package.json,
+  tauri.conf.json and Cargo agree; api test that `/health` and `/system/features` report
+  `VERSION`; shell test for the About panel.
+- 2 Settings → Users: `GET /users` with staff link and last login, `POST /users`,
+  `PATCH /users/{id}`, `POST /users/{id}/password`, sharing the staff-record login helpers
+  (`routes/staff.rs`); `UsersCard` with role select, "Can log in" switch, Reset password and
+  Create login (staff without a login only). Tests: api
+  `users_page_lists_logins_with_staff_links_and_manages_them`; vitest `UsersCard` (list,
+  role/disable/reset, create).
+- 3 GitHub Actions on Node 24: checkout, setup-node, cache, upload-artifact and
+  pnpm/action-setup moved to their v5 lines in CI and Release.
+- 4 Demo school in the wizard: `POST /setup/demo` loads the demo school and finishes setup
+  with the chosen administrator; the wizard's first step offers it, marked as demo data.
+  Tests: api `demo_school_setup_loads_sample_data_and_finishes_setup` (small size: 60
+  students, 12 staff, active year, is_demo, setup done once); vitest wizard path.
+- Not done / notes: the demo loader takes a minute or two on a real install (1,200 students,
+  debug figures were ~140 s for the full-year variant); the wizard shows a spinner. The
+  version string on dev builds is the plain Cargo version.
+
 ## Summary for the owner — Stages 5, 6 and 7 (night run of 2026-10-30/31)
 
 All three stages are merged into `main` in order (pull requests #6, #7 and #8),

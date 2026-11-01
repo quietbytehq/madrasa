@@ -157,6 +157,38 @@ export function Setup() {
   const [busy, setBusy] = useState(false);
   const [recoveryKey, setRecoveryKey] = useState<string | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
+  const [demo, setDemo] = useState<{ username: string; password: string; backup: string } | null>(
+    null,
+  );
+  const [demoError, setDemoError] = useState<string | null>(null);
+
+  const loadDemo = async () => {
+    if (!demo) return;
+    if (demo.password.length < 10 || demo.backup.length < 10) {
+      setDemoError(t("setup.error.passwordShort"));
+      return;
+    }
+    setBusy(true);
+    setDemoError(null);
+    try {
+      const res = await api.demoSetup({
+        admin_username: demo.username.trim(),
+        admin_password: demo.password,
+        backup_password: demo.backup,
+      });
+      setRecoveryKey(res.recovery_key);
+      markCompleted();
+      setStep(4);
+    } catch (err) {
+      setDemoError(
+        err instanceof ApiError || err instanceof NetworkError
+          ? err.message
+          : t("app.error.generic"),
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
   const [lists, setLists] = useState<LocaleLists>(FALLBACK_LISTS);
   useEffect(() => {
     let cancelled = false;
@@ -252,7 +284,69 @@ export function Setup() {
           <form onSubmit={next} noValidate>
             <Card title={t(STEPS[step]!)}>
               <div className="flex flex-col gap-3">
-                {step === 0 && (
+                {step === 0 && !demo && (
+                  <div className="rounded border border-dashed border-warning/60 bg-warning-bg p-3 text-xs text-text">
+                    <div className="font-semibold">{t("setup.demo.title")}</div>
+                    <p className="mt-1 text-muted">{t("setup.demo.body")}</p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      className="mt-2"
+                      onClick={() => setDemo({ username: "admin", password: "", backup: "" })}
+                    >
+                      {t("setup.demo.choose")}
+                    </Button>
+                  </div>
+                )}
+                {step === 0 && demo && (
+                  <div className="rounded border border-warning/60 bg-warning-bg p-3">
+                    <div className="text-sm font-semibold text-text">{t("setup.demo.title")}</div>
+                    <p className="mb-2 text-xs text-muted">{t("setup.demo.formHint")}</p>
+                    <div className="flex flex-col gap-2">
+                      <Input
+                        label={t("setup.admin.username")}
+                        value={demo.username}
+                        onChange={(e) => setDemo({ ...demo, username: e.target.value })}
+                        className="max-w-xs"
+                        required
+                      />
+                      <Input
+                        label={t("setup.admin.password")}
+                        type="password"
+                        hint={t("setup.admin.passwordHint")}
+                        value={demo.password}
+                        onChange={(e) => setDemo({ ...demo, password: e.target.value })}
+                        autoComplete="new-password"
+                        className="max-w-xs"
+                        required
+                      />
+                      <Input
+                        label={t("setup.backup.password")}
+                        type="password"
+                        value={demo.backup}
+                        onChange={(e) => setDemo({ ...demo, backup: e.target.value })}
+                        autoComplete="new-password"
+                        className="max-w-xs"
+                        required
+                      />
+                      {demoError && (
+                        <p role="alert" className="text-sm text-danger">
+                          {demoError}
+                        </p>
+                      )}
+                      <div className="flex gap-2">
+                        <Button type="button" loading={busy} onClick={() => void loadDemo()}>
+                          {t("setup.demo.load")}
+                        </Button>
+                        <Button type="button" variant="ghost" onClick={() => setDemo(null)}>
+                          {t("action.cancel")}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {step === 0 && !demo && (
                   <>
                     <Input
                       label={t("setup.school.name")}

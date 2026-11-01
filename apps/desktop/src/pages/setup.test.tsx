@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router-dom";
 import { renderWithProviders } from "@/test/render";
@@ -8,7 +8,7 @@ import { FALLBACK_LISTS, Setup, applyCountry, toRequest, validateStep } from "./
 import type { SetupForm } from "./Setup";
 
 vi.mock("@/api/endpoints", () => ({
-  api: { setup: vi.fn(), localeLists: vi.fn() },
+  api: { setup: vi.fn(), localeLists: vi.fn(), demoSetup: vi.fn() },
 }));
 
 const filled: SetupForm = {
@@ -165,6 +165,31 @@ describe("Setup wizard", () => {
     expect(go).toBeEnabled();
     await userEvent.click(go);
     expect(await screen.findByText("login page")).toBeInTheDocument();
+  });
+
+  it("offers the demo school for evaluation installs and finishes with the recovery key", async () => {
+    vi.mocked(api.setup).mockClear();
+    vi.mocked(api.demoSetup).mockResolvedValue({
+      school_id: "demo",
+      admin_user_id: "u1",
+      recovery_key: "DEMO-KEY-1111-2222-3333-4444-5555-6666",
+    });
+    renderWizard();
+    await userEvent.click(screen.getByRole("button", { name: "Load the demo school instead" }));
+    expect(screen.getByText(/Not for a real school|evaluation install/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Username")).toHaveValue("admin");
+    await userEvent.type(screen.getByLabelText("Password"), "eval-password-1");
+    await userEvent.type(screen.getByLabelText("Backup password"), "backup-password-1");
+    await userEvent.click(screen.getByRole("button", { name: "Load demo school" }));
+    await waitFor(() =>
+      expect(api.demoSetup).toHaveBeenCalledWith({
+        admin_username: "admin",
+        admin_password: "eval-password-1",
+        backup_password: "backup-password-1",
+      }),
+    );
+    expect(await screen.findByLabelText("Recovery key")).toHaveTextContent("DEMO-KEY-1111");
+    expect(api.setup).not.toHaveBeenCalled();
   });
 
   it("shows the server's validation message", async () => {

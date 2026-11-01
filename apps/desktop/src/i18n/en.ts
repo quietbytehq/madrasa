@@ -74,6 +74,10 @@ export const en = {
   "topbar.help": "Help",
   "topbar.helpBody":
     "Madrasa is in pre-alpha. Documentation and in-app help will be added as modules are completed.",
+  "topbar.about": "About Madrasa",
+  "topbar.about.version": "Version",
+  "topbar.about.edition": "Edition",
+  "topbar.about.issues": "Report a problem",
   "topbar.userMenu": "User menu",
   "topbar.language": "Language",
   "topbar.theme": "Theme",
@@ -147,6 +151,20 @@ export const en = {
     "This key can unlock your backups if the backup password is lost. It is shown only once. Print it or write it down and keep it somewhere safe.",
   "setup.done.ack": "I have saved the recovery key in a safe place.",
   "setup.done.go": "Go to login",
+  "setup.demo.title": "Just evaluating? Load the demo school",
+  "setup.demo.body":
+    "Fills Madrasa with a made-up school (DEMO School: about 1,200 students, 120 staff, a year of fees, attendance and marks). Every screen shows a DEMO banner. Not for a real school.",
+  "setup.demo.choose": "Load the demo school instead",
+  "setup.demo.formHint":
+    "Choose the administrator login and backup password for this evaluation install. Loading takes a minute or two.",
+  "setup.demo.load": "Load demo school",
+  "users.title": "Users and logins",
+  "users.hint":
+    "Every login of this school. Create logins for staff members here or from their staff record; roles decide what each login can do.",
+  "users.staff": "Staff member",
+  "users.lastLogin": "Last login",
+  "users.status": "Status",
+  "users.never": "Never",
   "setup.error.passwordMismatch": "The passwords do not match.",
   "setup.error.required": "This field is required.",
   "setup.error.passwordShort": "Use at least 10 characters.",

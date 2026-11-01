@@ -79,11 +79,16 @@ Log in with the administrator username and password you chose.
 
 ## 3. Load the demo school (sample data)
 
-This build has no one-click "demo school" inside the app; the full demo school (1,200
-students) is loaded with a developer tool that is not part of the installer. Instead, the
-release includes two small spreadsheets of made-up Pakistani names for the import wizard:
-`sample-students.xlsx` (72 students in KG–5, sections A and B) and `sample-staff.xlsx`
-(8 staff). Download both from the release page, then:
+**The quick way:** on the wizard's first screen click **Load the demo school instead**,
+choose an administrator password and a backup password, and wait a minute or two. You get
+"DEMO School" with about 1,200 students, 120 staff and a year of fees, attendance and marks,
+and every screen carries a DEMO banner. Do this on a fresh install only; it cannot be mixed
+with a real school. The staff logins it creates are listed under Settings → Users.
+
+**The import way** (to try the import wizard itself): the release includes two small
+spreadsheets of made-up Pakistani names, `sample-students.xlsx` (72 students in KG–5,
+sections A and B) and `sample-staff.xlsx` (8 staff). Download both from the release page,
+then:
 
 1. **Settings → Academic years**: the wizard created and activated the current year.
 2. **Settings → Classes**: the wizard created KG–12 with section A each (if you unticked that,
@@ -152,7 +157,7 @@ send the same information to the person who gave you this build.
 
 For each problem, tell us:
 
-- **Which build**: v0.1.0-alpha, and Windows or Linux.
+- **Which build**: the version shown under Help → About, and Windows or Linux.
 - **What you did**: the steps, in order, from the screen you started on.
 - **What you expected**, and **what happened instead**.
 - **A screenshot** of the screen, including any red message (Windows: press
@@ -162,8 +167,8 @@ For each problem, tell us:
   database).
 
 Things we already know about in this build: installers are unsigned (hence the Windows
-warning); the demo school cannot be loaded from inside the app; the app does not show its
-version number yet; everything is in English and Urdu only. Teachers see only the modules
+warning); everything is in English and Urdu only. The version number is under the **Help**
+button (top bar) → About; please quote it in reports. Teachers see only the modules
 their role can use (no Fees, Settings, Backup or Import) and no colleagues' phone numbers.
 
 Thank you. The next build will carry your fixes.

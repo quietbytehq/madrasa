@@ -115,6 +115,7 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/setup/status", get(status))
         .route("/setup", post(run_setup))
+        .route("/setup/demo", post(run_demo_setup))
 }
 
 async fn status(State(state): State<AppState>) -> ApiResult<Json<SetupStatus>> {
@@ -186,6 +187,161 @@ pub fn validate(req: &SetupRequest) -> Result<(), ApiError> {
     validate_password(&req.backup_password)
         .map_err(|e| ApiError::validation(format!("Backup password: {e}.")))?;
     Ok(())
+}
+
+/// Mirrored by `DemoSetupRequest` in the UI: an evaluation install with the demo school.
+#[derive(Debug, Deserialize)]
+pub struct DemoSetupRequest {
+    pub admin_username: String,
+    pub admin_password: String,
+    pub backup_password: String,
+    /// `full` (default: ~1,200 students, 120 staff) or `small` (a few classes; tests).
+    #[serde(default)]
+    pub size: Option<String>,
+}
+
+/// Load the demo school ("DEMO School", visibly marked as demo data) and finish setup with
+/// the given administrator and backup password. Refuses once setup is done or a real school
+/// exists. Loading takes a little while; the wizard shows a spinner.
+async fn run_demo_setup(
+    State(state): State<AppState>,
+    body: Result<Json<DemoSetupRequest>, axum::extract::rejection::JsonRejection>,
+) -> ApiResult<Json<SetupResponse>> {
+    let Json(req) = body?;
+    let username = req.admin_username.trim().to_lowercase();
+    if username.len() < 3
+        || !username
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '_')
+    {
+        return Err(ApiError::validation(
+            "Username must be at least 3 characters: letters, digits, dots or underscores.",
+        ));
+    }
+    validate_password(&req.admin_password)
+        .map_err(|e| ApiError::validation(format!("Administrator password: {e}.")))?;
+    validate_password(&req.backup_password)
+        .map_err(|e| ApiError::validation(format!("Backup password: {e}.")))?;
+    let options = match req.size.as_deref().unwrap_or("full") {
+        "full" => madrasa_demo_data::DemoOptions::default(),
+        "small" => madrasa_demo_data::DemoOptions {
+            students: 60,
+            staff: 12,
+            sections_per_grade: 1,
+            ..madrasa_demo_data::DemoOptions::default()
+        },
+        _ => return Err(ApiError::validation("size must be full or small.")),
+    };
+    {
+        let mut c = state.pool.acquire().await?;
+        if settings::setup_completed(&mut c).await? {
+            return Err(ApiError::new(
+                axum::http::StatusCode::CONFLICT,
+                "setup_already_done",
+                "Setup has already been completed. Log in instead.",
+            ));
+        }
+    }
+    let password_hash = hash_password(&req.admin_password)?;
+    let backup = backup::setup(&req.backup_password).map_err(|_| ApiError::internal())?;
+
+    // The demo loader runs in its own transaction and refuses if a real school exists.
+    let demo = madrasa_demo_data::generate(&options);
+    let report = madrasa_demo_data::load(
+        &state.pool,
+        &state.hlc,
+        &demo,
+        &madrasa_demo_data::LoadOptions {
+            confirmed: true,
+            ..Default::default()
+        },
+    )
+    .await
+    .map_err(|e| match e {
+        madrasa_demo_data::LoadError::RealSchoolPresent
+        | madrasa_demo_data::LoadError::AlreadyLoaded => ApiError::validation(e.to_string()),
+        other => {
+            tracing::error!(error = %other, "demo load failed");
+            ApiError::internal()
+        }
+    })?;
+
+    let mut tx = state.pool.begin().await?;
+    let school = schools::get(&mut tx, report.school_id).await?;
+    let actor = Actor::system_for(school.id);
+    let edition = state.edition();
+    if madrasa_db::users::find_by_username(&mut tx, school.id, &username)
+        .await?
+        .is_some()
+    {
+        return Err(ApiError::validation(
+            "That username is taken by a demo account; choose another.",
+        ));
+    }
+    let admin = users::create(
+        &mut tx,
+        &state.hlc,
+        actor,
+        users::NewUser {
+            school_id: school.id,
+            username,
+            full_name: "Administrator".into(),
+            email: None,
+            password_hash,
+        },
+    )
+    .await?;
+    for code in [RoleCode::Principal, RoleCode::Admin] {
+        let role = roles::find_by_code(&mut tx, school.id, code.code()).await?;
+        roles::assign(&mut tx, &state.hlc, actor, admin.id, &role).await?;
+    }
+    let school_actor = Actor::user(admin.id, school.id);
+    settings::set_edition(&mut tx, &state.hlc, Actor::SYSTEM, edition).await?;
+    settings::set(
+        &mut tx,
+        &state.hlc,
+        school_actor,
+        Some(school.id),
+        settings::KEY_ACADEMIC_YEAR_START_MONTH,
+        json!(school.academic_year_start_month),
+    )
+    .await?;
+    settings::set(
+        &mut tx,
+        &state.hlc,
+        school_actor,
+        Some(school.id),
+        settings::KEY_CURRENCY,
+        json!(school.currency),
+    )
+    .await?;
+    settings::set(
+        &mut tx,
+        &state.hlc,
+        school_actor,
+        Some(school.id),
+        settings::KEY_BACKUP_KEYS,
+        serde_json::to_value(&backup.key_set).map_err(|_| ApiError::internal())?,
+    )
+    .await?;
+    settings::set(
+        &mut tx,
+        &state.hlc,
+        school_actor,
+        None,
+        settings::KEY_SETUP_COMPLETED_AT,
+        json!(Utc::now()),
+    )
+    .await?;
+    tx.commit().await?;
+    if let Err(e) = state.reload_profile().await {
+        tracing::warn!(error = %e, "school profile not reloaded after demo setup");
+    }
+    Ok(Json(SetupResponse {
+        school_id: school.id,
+        admin_user_id: admin.id,
+        recovery_key: backup.recovery_key,
+    }))
 }
 
 async fn run_setup(

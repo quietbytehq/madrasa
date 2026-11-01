@@ -347,7 +347,7 @@ async fn set_assignments(
     Ok(Json(to_assignments(rows)))
 }
 
-// ---- login accounts (Staff screen → "Create login") ---------------------------------------
+// ---- login accounts (Staff screen → "Create login"; Settings → Users reuses these) -------
 
 /// Mirrored by `CreateLoginBody` in the UI.
 #[derive(Debug, Deserialize)]
@@ -370,7 +370,7 @@ pub struct ResetPasswordBody {
     pub password: String,
 }
 
-fn role_code(code: &str) -> ApiResult<RoleCode> {
+pub(crate) fn role_code(code: &str) -> ApiResult<RoleCode> {
     match code.trim().to_lowercase().as_str() {
         "principal" => Ok(RoleCode::Principal),
         "admin" => Ok(RoleCode::Admin),
@@ -395,7 +395,7 @@ fn check_username(username: &str) -> ApiResult<()> {
     Ok(())
 }
 
-async fn load_scoped_staff(
+pub(crate) async fn load_scoped_staff(
     c: &mut sqlx::PgConnection,
     user: &CurrentUser,
     id: Uuid,
@@ -407,37 +407,34 @@ async fn load_scoped_staff(
     Ok(s)
 }
 
-/// Create a login account for a staff member with one role (`users.manage`). The account
-/// takes the staff member's name and email; the password must meet the usual rule.
-async fn create_login(
-    State(state): State<AppState>,
-    user: CurrentUser,
-    Path(id): Path<Uuid>,
-    body: JsonBody<CreateLoginBody>,
-) -> ApiResult<Json<StaffView>> {
-    user.require(Permission::UsersManage)?;
-    let Json(b) = body?;
+/// Create a login for a staff member with one role. The account takes the staff member's
+/// name and email; the password must meet the usual rule. Caller checks `users.manage`.
+pub(crate) async fn create_login_for(
+    tx: &mut sqlx::PgConnection,
+    state: &AppState,
+    user: &CurrentUser,
+    member: Staff,
+    b: &CreateLoginBody,
+) -> ApiResult<Staff> {
     let username = b.username.trim().to_lowercase();
     check_username(&username)?;
     let role = role_code(&b.role)?;
     validate_password(&b.password).map_err(|e| ApiError::validation(format!("Password: {e}.")))?;
     let password_hash = hash_password(&b.password)?;
     let sid = user.user.school_id;
-    let mut tx = state.pool.begin().await?;
-    let member = load_scoped_staff(&mut tx, &user, id).await?;
     if member.user_id.is_some() {
         return Err(ApiError::validation(
             "This staff member already has a login. Change its role or reset the password instead.",
         ));
     }
-    if madrasa_db::users::find_by_username(&mut tx, sid, &username)
+    if madrasa_db::users::find_by_username(&mut *tx, sid, &username)
         .await?
         .is_some()
     {
         return Err(ApiError::validation("That username is already taken."));
     }
     let account = madrasa_db::users::create(
-        &mut tx,
+        &mut *tx,
         &state.hlc,
         user.actor(),
         madrasa_db::users::NewUser {
@@ -449,10 +446,10 @@ async fn create_login(
         },
     )
     .await?;
-    let r = roles::find_by_code(&mut tx, sid, role.code()).await?;
-    roles::assign(&mut tx, &state.hlc, user.actor(), account.id, &r).await?;
-    let member = staff::update(
-        &mut tx,
+    let r = roles::find_by_code(&mut *tx, sid, role.code()).await?;
+    roles::assign(&mut *tx, &state.hlc, user.actor(), account.id, &r).await?;
+    Ok(staff::update(
+        tx,
         &state.hlc,
         user.actor(),
         member.id,
@@ -461,39 +458,29 @@ async fn create_login(
             ..Default::default()
         },
     )
-    .await?;
-    let v = view(&mut tx, member).await?;
-    tx.commit().await?;
-    Ok(Json(v))
+    .await?)
 }
 
-/// Change the role or enable/disable the login (`users.manage`). Nobody can disable their
-/// own account.
-async fn update_login(
-    State(state): State<AppState>,
-    user: CurrentUser,
-    Path(id): Path<Uuid>,
-    body: JsonBody<UpdateLoginBody>,
-) -> ApiResult<Json<StaffView>> {
-    user.require(Permission::UsersManage)?;
-    let Json(b) = body?;
-    let sid = user.user.school_id;
-    let mut tx = state.pool.begin().await?;
-    let member = load_scoped_staff(&mut tx, &user, id).await?;
-    let Some(uid) = member.user_id else {
-        return Err(ApiError::validation("This staff member has no login yet."));
-    };
+/// Change a login's role or enable/disable it. Nobody can disable their own account. Caller
+/// checks `users.manage` and that the account belongs to the school.
+pub(crate) async fn apply_login_update(
+    tx: &mut sqlx::PgConnection,
+    state: &AppState,
+    user: &CurrentUser,
+    uid: Uuid,
+    b: &UpdateLoginBody,
+) -> ApiResult<()> {
     if let Some(code) = b.role.as_deref() {
         let role = role_code(code)?;
-        let r = roles::find_by_code(&mut tx, sid, role.code()).await?;
-        roles::set_role(&mut tx, &state.hlc, user.actor(), uid, &r).await?;
+        let r = roles::find_by_code(&mut *tx, user.user.school_id, role.code()).await?;
+        roles::set_role(&mut *tx, &state.hlc, user.actor(), uid, &r).await?;
     }
     if let Some(active) = b.is_active {
         if !active && uid == user.user.id {
             return Err(ApiError::validation("You cannot disable your own account."));
         }
         madrasa_db::users::update(
-            &mut tx,
+            &mut *tx,
             &state.hlc,
             user.actor(),
             uid,
@@ -504,13 +491,58 @@ async fn update_login(
         )
         .await?;
     }
+    Ok(())
+}
+
+/// Set a new password for a login. Audited as `password_reset`; lockouts are cleared.
+pub(crate) async fn apply_password_reset(
+    tx: &mut sqlx::PgConnection,
+    state: &AppState,
+    user: &CurrentUser,
+    uid: Uuid,
+    password: &str,
+) -> ApiResult<()> {
+    validate_password(password).map_err(|e| ApiError::validation(format!("Password: {e}.")))?;
+    let password_hash = hash_password(password)?;
+    madrasa_db::users::set_password(tx, &state.hlc, user.actor(), uid, &password_hash).await?;
+    Ok(())
+}
+
+async fn create_login(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    Path(id): Path<Uuid>,
+    body: JsonBody<CreateLoginBody>,
+) -> ApiResult<Json<StaffView>> {
+    user.require(Permission::UsersManage)?;
+    let Json(b) = body?;
+    let mut tx = state.pool.begin().await?;
+    let member = load_scoped_staff(&mut tx, &user, id).await?;
+    let member = create_login_for(&mut tx, &state, &user, member, &b).await?;
     let v = view(&mut tx, member).await?;
     tx.commit().await?;
     Ok(Json(v))
 }
 
-/// Set a new password for the staff member's login (`users.manage`). Audited as
-/// `password_reset`; lockouts are cleared.
+async fn update_login(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    Path(id): Path<Uuid>,
+    body: JsonBody<UpdateLoginBody>,
+) -> ApiResult<Json<StaffView>> {
+    user.require(Permission::UsersManage)?;
+    let Json(b) = body?;
+    let mut tx = state.pool.begin().await?;
+    let member = load_scoped_staff(&mut tx, &user, id).await?;
+    let Some(uid) = member.user_id else {
+        return Err(ApiError::validation("This staff member has no login yet."));
+    };
+    apply_login_update(&mut tx, &state, &user, uid, &b).await?;
+    let v = view(&mut tx, member).await?;
+    tx.commit().await?;
+    Ok(Json(v))
+}
+
 async fn reset_login_password(
     State(state): State<AppState>,
     user: CurrentUser,
@@ -519,14 +551,12 @@ async fn reset_login_password(
 ) -> ApiResult<Json<StaffView>> {
     user.require(Permission::UsersManage)?;
     let Json(b) = body?;
-    validate_password(&b.password).map_err(|e| ApiError::validation(format!("Password: {e}.")))?;
-    let password_hash = hash_password(&b.password)?;
     let mut tx = state.pool.begin().await?;
     let member = load_scoped_staff(&mut tx, &user, id).await?;
     let Some(uid) = member.user_id else {
         return Err(ApiError::validation("This staff member has no login yet."));
     };
-    madrasa_db::users::set_password(&mut tx, &state.hlc, user.actor(), uid, &password_hash).await?;
+    apply_password_reset(&mut tx, &state, &user, uid, &b.password).await?;
     let v = view(&mut tx, member).await?;
     tx.commit().await?;
     Ok(Json(v))
