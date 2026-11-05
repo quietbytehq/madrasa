@@ -46,6 +46,20 @@ impl ModeConfig {
         serde_json::from_str(&text).ok()
     }
 
+    /// The mode this PC runs in: the saved choice, or standalone on an install that already
+    /// has a database from before modes existed (an upgrade keeps working without a question;
+    /// Settings → Network changes it). `None` only on a fresh install.
+    pub fn current(data_dir: &Path) -> Option<ModeConfig> {
+        Self::load(data_dir).or_else(|| {
+            data_dir.join("pg").is_dir().then_some(ModeConfig {
+                mode: Mode::Standalone,
+                server_url: None,
+                fingerprint: None,
+                listen_port: lan::DEFAULT_PORT,
+            })
+        })
+    }
+
     pub fn save(&self, data_dir: &Path) -> anyhow::Result<()> {
         self.validate()?;
         std::fs::create_dir_all(data_dir)?;
@@ -110,6 +124,7 @@ mod tests {
         };
         server.save(&dir).unwrap();
         assert_eq!(ModeConfig::load(&dir).unwrap(), server);
+        assert_eq!(ModeConfig::current(&dir).unwrap(), server);
         let bad_client = ModeConfig {
             mode: Mode::Client,
             server_url: Some("192.168.1.10".into()),
@@ -122,6 +137,22 @@ mod tests {
             ..bad_client
         };
         assert!(client.validate().is_ok());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn an_upgraded_install_with_a_database_is_standalone_until_changed() {
+        let dir = std::env::temp_dir().join(format!("madrasa-upgrade-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(ModeConfig::current(&dir), None, "fresh install asks");
+        std::fs::create_dir_all(dir.join("pg")).unwrap();
+        let current = ModeConfig::current(&dir).expect("existing database");
+        assert_eq!(current.mode, Mode::Standalone);
+        assert_eq!(
+            ModeConfig::load(&dir),
+            None,
+            "nothing is written until chosen"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -623,6 +623,25 @@ depend on each other and were built together)
   TESTING.md. Multi-PC use is tested in CI against a real TLS listener and proxy on one
   machine; a real two-PC Wi-Fi check is on the hand-test list.
 
+### 2026-11-05 — Network settings for existing installs, demo password error (branch `dev/network-settings`)
+- Started from `main` after #15 was merged (v0.1.4).
+- Report: an install upgraded from 0.1.3 showed neither the mode screen nor a Network card.
+  The card only rendered in server or client mode, and an upgraded install had no saved mode
+  at all. Now `ModeConfig::current` treats an install with a `pg` folder but no `mode.json`
+  as standalone (no question on upgrade), and Settings → Network is shown in every mode for
+  `settings.manage`: current mode, a server's addresses/port/fingerprint/firewall note, a
+  client's server/fingerprint, and **Change**, which opens the same chooser as the first
+  start (`ModeChooser`, shared with `ModePage`). `set_mode` on a running install stops the
+  backend cleanly (database included, `Backend::stopped`) and restarts Madrasa in the new
+  mode after replying, so the card can say so. Tests: desktop
+  `an_upgraded_install_with_a_database_is_standalone_until_changed`; vitest `NetworkCard`
+  (standalone → server switch with restart notice, server details, client details, absent
+  in the browser build); `ModePage` tests kept.
+- Setup wizard: the demo-school dialog validated both passwords with one message under the
+  backup field; it now shows the error under the field that is short. Test: vitest
+  `shows a short demo password error under the field it belongs to`.
+- Version 0.1.5 (`scripts/set-version.sh`).
+
 ## Summary for the owner — Stages 5, 6 and 7 (night run of 2026-10-30/31)
 
 All three stages are merged into `main` in order (pull requests #6, #7 and #8),
