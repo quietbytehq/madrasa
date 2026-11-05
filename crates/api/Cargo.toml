@@ -41,8 +41,17 @@ dirs = "6"
 rust_xlsxwriter = { workspace = true }
 csv = { workspace = true }
 calamine = { workspace = true }
+# LAN mode: TLS server with a self-signed certificate, pinned client, loopback proxy, discovery.
+axum-server = { version = "0.7", default-features = false, features = ["tls-rustls-no-provider"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+rcgen = { version = "0.13", default-features = false, features = ["ring", "pem"] }
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider", "json"] }
+sha2 = "0.10"
+http-body-util = "0.1"
+bytes = "1"
+hostname = "0.4"
 
 [dev-dependencies]
 madrasa-db = { workspace = true, features = ["testing"] }
-http-body-util = "0.1"
+futures-util = "0.3"
 rust_decimal_macros = "1"
