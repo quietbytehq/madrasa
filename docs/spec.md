@@ -602,12 +602,18 @@ defaults), and any `academic_year_start_month` 1–12.
 
 ### 6.13 LAN mode (Lite) and marks via Excel
 
-**Mode.** The desktop shell asks on first start how the PC takes part and stores the answer in
-`<data_dir>/mode.json` (`mode: standalone | server | client`, `server_url`, `fingerprint`,
-`listen_port`). Tauri commands: `get_mode`, `set_mode` (validates, saves, starts the backend),
-`api_base_url` (the loopback URL the UI talks to; errors with `mode_not_chosen` until a mode
-is saved), `network_info`, `discover_servers`, `probe_server`. The browser build is always
-standalone.
+**Mode.** The desktop shell asks on a fresh install how the PC takes part and stores the
+answer in `<data_dir>/mode.json` (`mode: standalone | server | client`, `server_url`,
+`fingerprint`, `listen_port`). An install from before modes existed (no `mode.json` but a
+`pg` database folder) runs as standalone without asking. Tauri commands: `get_mode` (the
+current mode, `null` only on a fresh install), `set_mode` (validates, saves; starts the
+backend on a fresh install, otherwise stops the running backend cleanly and restarts Madrasa
+in the new mode after replying), `api_base_url` (the loopback URL the UI talks to; errors
+with `mode_not_chosen` until a mode is saved), `network_info`, `discover_servers`,
+`probe_server`. The browser build is always standalone. **Settings → Network**
+(`settings.manage`) shows the current mode, a server's addresses, port, fingerprint and
+firewall note, or a client's server and fingerprint, and a **Change** section with the same
+chooser as the first-start screen; records on the PC are kept whichever mode is chosen.
 
 - **Standalone / server**: the shell runs the bundled database and the API on a random
   loopback port as before. In **server** mode the same router is also served over TLS on

@@ -40,6 +40,8 @@ pub struct Backend {
     status: watch::Receiver<Status>,
     shutdown: Arc<Mutex<Option<oneshot::Sender<()>>>>,
     network: watch::Receiver<Option<NetworkInfo>>,
+    /// `true` once the backend thread has finished (database stopped).
+    stopped: watch::Receiver<bool>,
 }
 
 impl Backend {
@@ -47,6 +49,7 @@ impl Backend {
         let (status_tx, status_rx) = watch::channel(Status::Starting);
         let (network_tx, network_rx) = watch::channel(None);
         let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
+        let (stopped_tx, stopped_rx) = watch::channel(false);
 
         std::thread::Builder::new()
             .name("madrasa-backend".into())
@@ -72,6 +75,7 @@ impl Backend {
                         }
                     }
                 });
+                let _ = stopped_tx.send(true);
             })
             .expect("spawn backend thread");
 
@@ -79,6 +83,7 @@ impl Backend {
             status: status_rx,
             shutdown: Arc::new(Mutex::new(Some(shutdown_tx))),
             network: network_rx,
+            stopped: stopped_rx,
         }
     }
 
@@ -98,6 +103,17 @@ impl Backend {
         if let Ok(mut guard) = self.shutdown.try_lock() {
             if let Some(tx) = guard.take() {
                 let _ = tx.send(());
+            }
+        }
+    }
+
+    /// Resolves once the backend thread has finished (after `shutdown`), or at once if it
+    /// has already gone.
+    pub async fn stopped(&self) {
+        let mut rx = self.stopped.clone();
+        while !*rx.borrow_and_update() {
+            if rx.changed().await.is_err() {
+                return;
             }
         }
     }

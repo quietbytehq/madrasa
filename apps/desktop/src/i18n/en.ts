@@ -117,7 +117,10 @@ export const en = {
   "mode.intro":
     "A school can run Madrasa on one PC, or put the school's records on one PC (the server) and let teachers and the office work from their own PCs on the school network.",
   "mode.standalone.title": "Just this PC",
-  "mode.standalone.body": "Everything on this computer. You can switch to server mode later.",
+  "mode.standalone.body":
+    "Everything on this computer. You can switch to server mode later under Settings → Network.",
+  "mode.standalone.use": "Use just this PC",
+  "mode.current": "current",
   "mode.server.title": "This PC is the school server",
   "mode.server.body": "Keeps the records and lets other PCs on the school network connect.",
   "mode.server.hint":
@@ -151,6 +154,13 @@ export const en = {
   "network.port": "Port",
   "network.fingerprint": "Certificate fingerprint",
   "network.server": "Connected to",
+  "network.mode": "This PC is used as",
+  "network.change": "Change",
+  "network.changeHint":
+    "Madrasa restarts after the change. The records on this PC are kept; as a client it uses the school server's records instead.",
+  "network.standaloneHint":
+    "Only this PC uses Madrasa. To let teachers and the office work from their own PCs, click Change and make this PC the school server.",
+  "network.restarting": "Madrasa is restarting in the new mode…",
   "setup.title": "Set up Madrasa",
   "setup.intro":
     "Welcome. A few details are needed before the first login. Everything can be changed later in Settings.",

@@ -161,13 +161,17 @@ export function Setup() {
     null,
   );
   const [demoError, setDemoError] = useState<string | null>(null);
+  const [demoFieldErrors, setDemoFieldErrors] = useState<{ password?: string; backup?: string }>(
+    {},
+  );
 
   const loadDemo = async () => {
     if (!demo) return;
-    if (demo.password.length < 10 || demo.backup.length < 10) {
-      setDemoError(t("setup.error.passwordShort"));
-      return;
-    }
+    const fieldErrors: { password?: string; backup?: string } = {};
+    if (demo.password.length < 10) fieldErrors.password = t("setup.error.passwordShort");
+    if (demo.backup.length < 10) fieldErrors.backup = t("setup.error.passwordShort");
+    setDemoFieldErrors(fieldErrors);
+    if (fieldErrors.password || fieldErrors.backup) return;
     setBusy(true);
     setDemoError(null);
     try {
@@ -317,6 +321,7 @@ export function Setup() {
                         hint={t("setup.admin.passwordHint")}
                         value={demo.password}
                         onChange={(e) => setDemo({ ...demo, password: e.target.value })}
+                        error={demoFieldErrors.password}
                         autoComplete="new-password"
                         className="max-w-xs"
                         required
@@ -326,6 +331,7 @@ export function Setup() {
                         type="password"
                         value={demo.backup}
                         onChange={(e) => setDemo({ ...demo, backup: e.target.value })}
+                        error={demoFieldErrors.backup}
                         autoComplete="new-password"
                         className="max-w-xs"
                         required

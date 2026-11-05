@@ -192,6 +192,23 @@ describe("Setup wizard", () => {
     expect(api.setup).not.toHaveBeenCalled();
   });
 
+  it("shows a short demo password error under the field it belongs to", async () => {
+    vi.mocked(api.demoSetup).mockClear();
+    renderWizard();
+    await userEvent.click(screen.getByRole("button", { name: "Load the demo school instead" }));
+    await userEvent.type(screen.getByLabelText("Password"), "short");
+    await userEvent.type(screen.getByLabelText("Backup password"), "backup-password-1");
+    await userEvent.click(screen.getByRole("button", { name: "Load demo school" }));
+    expect(screen.getByLabelText("Password")).toHaveAccessibleDescription(
+      "Use at least 10 characters.",
+    );
+    expect(screen.getByLabelText("Backup password")).not.toHaveAccessibleDescription(
+      "Use at least 10 characters.",
+    );
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(api.demoSetup).not.toHaveBeenCalled();
+  });
+
   it("shows the server's validation message", async () => {
     vi.mocked(api.setup).mockImplementation(async () => {
       throw new ApiError(400, "validation", "School code must be 2–12 letters, digits or hyphens.");

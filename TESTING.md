@@ -60,10 +60,12 @@ delete the `madrasa` folder above.
 
 ## 2. First run: set up a test school
 
-The first screen asks **how this PC will be used**: *Just this PC*, *This PC is the school
-server*, or *Connect to a school server*. For a one-PC test choose **Just this PC** and
-continue. (Section 6 covers the other two choices.) The setup wizard follows. Make up a
-school; do not use a real school's data.
+On a fresh install the first screen asks **how this PC will be used**: *Just this PC*,
+*This PC is the school server*, or *Connect to a school server*. For a one-PC test choose
+**Just this PC**. (Section 6 covers the other two choices.) A PC upgraded from an earlier
+build keeps working as *Just this PC* without asking; the choice is under **Settings →
+Network → Change**. The setup wizard follows. Make up a school; do not use a real school's
+data.
 
 1. **School**: name (for example "Test School"), a short code (for example `TST`), a city and
    the **country**. The country fills in the currency, time zone, weekend and ID-number
@@ -174,6 +176,10 @@ over the internet; the PCs only need to be on the same local network.
    the school day and is backed up). On the first screen choose **This PC is the school
    server**. Leave the port at `8471` unless another program uses it, and click **Start as
    the school server**. Then run the setup wizard as in section 2 (or load the demo school).
+   On a PC that already has Madrasa and a school set up, log in as the administrator, open
+   **Settings → Network**, click **Change**, pick **This PC is the school server** and click
+   **Start as the school server**: Madrasa restarts in the new mode and the records stay as
+   they are. The same card switches back to *Just this PC* or to a client later.
 2. **Windows Firewall:** when Windows asks whether to allow Madrasa on private networks,
    click **Allow access**. If that prompt never appeared or a client cannot connect, open a
    Command Prompt **as administrator** on the server PC and run:
@@ -201,7 +207,8 @@ over the internet; the PCs only need to be on the same local network.
    If it does not match, stop and tell us.
 4. Log in with that person's own account. From here on the app works exactly as on the
    server; the data stays on the server PC. **Settings → Network** on a client shows which
-   server it uses.
+   server it uses. (A PC that already had Madrasa can become a client through **Settings →
+   Network → Change** too; its own records are kept on disk but not used.)
 
 Things to try: teachers logging in on several PCs at once (task 17); switching the server PC
 off and seeing what a client shows (it should say the server cannot be reached, not crash);

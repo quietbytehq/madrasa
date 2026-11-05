@@ -27,7 +27,7 @@ describe("ModePage", () => {
     const onChosen = vi.fn();
     renderWithProviders(<ModePage onChosen={onChosen} />);
     await userEvent.click(screen.getByRole("button", { name: /Just this PC/ }));
-    await userEvent.click(screen.getByRole("button", { name: "Continue" }));
+    await userEvent.click(screen.getByRole("button", { name: "Use just this PC" }));
     await waitFor(() =>
       expect(setMode).toHaveBeenCalledWith({
         mode: "standalone",

@@ -13,7 +13,9 @@ This guide covers the daily work. Press **Ctrl+K** anywhere to search.
    bundled database starts on its own. A client finds the server on the network (or you type
    its address), shows the server's **certificate fingerprint**, and connects once you confirm
    it matches the one under **Settings → Network** on the server. Windows asks once whether
-   to allow Madrasa on private networks on the server PC: click Allow.
+   to allow Madrasa on private networks on the server PC: click Allow. A PC that already has
+   Madrasa keeps working on its own; the principal or an administrator changes this under
+   **Settings → Network → Change**, after which Madrasa restarts in the new mode.
 2. The setup wizard asks for the school name, code and country, the academic year's start
    month, the currency and time zone (filled in from the country), the administrator account,
    and a **backup password**. The country also sets the weekend and how ID numbers and phone

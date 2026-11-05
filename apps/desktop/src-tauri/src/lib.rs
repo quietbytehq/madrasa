@@ -40,20 +40,42 @@ async fn api_base_url(shell: tauri::State<'_, Shell>) -> Result<String, String> 
     }
 }
 
-/// The saved mode, or `None` on a fresh install.
+/// The mode this PC runs in (standalone on an install from before modes existed), or
+/// `None` on a fresh install.
 #[tauri::command]
 fn get_mode() -> Option<ModeConfig> {
-    ModeConfig::load(&default_data_dir())
+    ModeConfig::current(&default_data_dir())
 }
 
-/// Save the mode and start the backend accordingly.
+/// Save the mode and start the backend accordingly. When a backend is already running (a
+/// change from Settings → Network) it is stopped cleanly and Madrasa restarts in the new mode;
+/// the reply reaches the UI first so it can say so.
 #[tauri::command]
-fn set_mode(shell: tauri::State<'_, Shell>, config: ModeConfig) -> Result<ModeConfig, String> {
+async fn set_mode(
+    app: tauri::AppHandle,
+    shell: tauri::State<'_, Shell>,
+    config: ModeConfig,
+) -> Result<ModeConfig, String> {
     config.validate().map_err(|e| e.to_string())?;
     config
         .save(&default_data_dir())
         .map_err(|e| format!("Could not save the mode: {e}"))?;
-    shell.ensure_started(config.clone());
+    let running = {
+        let mut guard = shell.backend.lock().unwrap_or_else(|e| e.into_inner());
+        guard.take()
+    };
+    match running {
+        None => shell.ensure_started(config.clone()),
+        Some(backend) => {
+            tauri::async_runtime::spawn(async move {
+                backend.shutdown();
+                let _ = tokio::time::timeout(std::time::Duration::from_secs(30), backend.stopped())
+                    .await;
+                tracing::info!("restarting in the new mode");
+                app.restart();
+            });
+        }
+    }
     Ok(config)
 }
 
@@ -92,8 +114,9 @@ pub fn run() {
             let shell = Shell {
                 backend: Mutex::new(None),
             };
-            // An existing install keeps its mode; a fresh one waits for the user's choice.
-            if let Some(config) = ModeConfig::load(&default_data_dir()) {
+            // An existing install keeps its mode (standalone if it predates modes); a fresh
+            // one waits for the user's choice.
+            if let Some(config) = ModeConfig::current(&default_data_dir()) {
                 shell.ensure_started(config);
             }
             app.manage(shell);
