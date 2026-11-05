@@ -60,7 +60,10 @@ delete the `madrasa` folder above.
 
 ## 2. First run: set up a test school
 
-The first screen is the setup wizard. Make up a school; do not use a real school's data.
+The first screen asks **how this PC will be used**: *Just this PC*, *This PC is the school
+server*, or *Connect to a school server*. For a one-PC test choose **Just this PC** and
+continue. (Section 6 covers the other two choices.) The setup wizard follows. Make up a
+school; do not use a real school's data.
 
 1. **School**: name (for example "Test School"), a short code (for example `TST`), a city and
    the **country**. The country fills in the currency, time zone, weekend and ID-number
@@ -148,8 +151,65 @@ Note anything that was unclear, slow, wrong or ugly.
     try **Reset password** and the **Can log in** switch.
 15. **End of year (preview only).** Settings → Academic years → **Roll over year**: read the
     preview of who moves where, but you can cancel without applying it.
+16. **Marks from an Excel sheet.** Examinations → Marks entry → open a subject of a section
+    and click **Download Excel sheet**. The file has the students, their numbers and the
+    maximum marks filled in. Type marks into the *Marks* column (put `Y` under *Absent* for an
+    absent student), save, and click **Upload filled sheet**. Try once with a mark above the
+    maximum or a letter in the marks column: nothing should be saved and the message should
+    name the row. Fix it, upload again, then submit and approve the sheet as in task 9.
+17. **Several PCs at once** (needs two or more PCs on the same network; see section 6).
+    Log in on each PC with a different account at the same time and enter marks or attendance
+    for different sections. Each person should see only their own sections and modules, and
+    nobody should be logged out or see someone else's work.
 
-## 5. Report a problem
+## 6. Several PCs: one school server, many clients
+
+A school with many teachers keeps the records on one PC (the **server**) and lets the other
+PCs (the **clients**) work on it over the school's own network (Wi-Fi or cable). Nothing goes
+over the internet; the PCs only need to be on the same local network.
+
+### The server PC
+
+1. Install Madrasa on the PC that will keep the records (ideally one that stays on during
+   the school day and is backed up). On the first screen choose **This PC is the school
+   server**. Leave the port at `8471` unless another program uses it, and click **Start as
+   the school server**. Then run the setup wizard as in section 2 (or load the demo school).
+2. **Windows Firewall:** when Windows asks whether to allow Madrasa on private networks,
+   click **Allow access**. If that prompt never appeared or a client cannot connect, open a
+   Command Prompt **as administrator** on the server PC and run:
+
+   ```
+   netsh advfirewall firewall add rule name="Madrasa" dir=in action=allow program="C:\Program Files\Madrasa\Madrasa.exe" enable=yes profile=private
+   ```
+
+   (The school's network must be marked *Private*, not *Public*, in Windows network settings;
+   on a Public network Windows blocks everything.) On Linux, allow TCP port 8471 and UDP port
+   47121 in `ufw` or `firewalld` if one is enabled.
+3. Log in as the administrator and open **Settings → Network**. It shows the server's
+   address (for example `192.168.1.10`), the port and a long **certificate fingerprint**
+   (`AB:12:…`). Leave this screen open or write the fingerprint down: clients compare it on
+   their first connection so that nobody can slip a different PC in between.
+4. Create a login for each teacher (task 14) so that every person uses their own account.
+
+### Each client PC
+
+1. Install Madrasa and choose **Connect to a school server** on the first screen.
+2. The app searches the network and lists the servers it finds. Click the school server, or
+   type its address (`192.168.1.10` or `office-pc:8471`) and click **Check**.
+3. Compare the fingerprint shown with the one on the server's **Settings → Network** screen.
+   If it matches, tick **The fingerprint matches the server's screen** and click **Connect**.
+   If it does not match, stop and tell us.
+4. Log in with that person's own account. From here on the app works exactly as on the
+   server; the data stays on the server PC. **Settings → Network** on a client shows which
+   server it uses.
+
+Things to try: teachers logging in on several PCs at once (task 17); switching the server PC
+off and seeing what a client shows (it should say the server cannot be reached, not crash);
+restarting the server and continuing. If the server is ever reinstalled from scratch its
+fingerprint changes and clients will refuse to connect until they are set up again: that is
+intended.
+
+## 7. Report a problem
 
 Please report anything, including small things, at
 <https://github.com/quietbytehq/madrasa/issues/new>. If you do not have a GitHub account,

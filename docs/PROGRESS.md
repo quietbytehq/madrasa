@@ -593,6 +593,36 @@ depend on each other and were built together)
   debug figures were ~140 s for the full-year variant); the wizard shows a spinner. The
   version string on dev builds is the plain Cargo version.
 
+### 2026-11-05 — LAN mode and marks via Excel (branch `dev/lan-mode`)
+- Started from `main` after #14 was merged.
+- 1 LAN mode (ADR 0002, spec §6.13): `crates/api/src/lan.rs` (self-signed identity with
+  SHA-256 fingerprint, TLS listener via `axum-server`, pinned-certificate reqwest client,
+  loopback proxy, UDP discovery beacon and `discover`/`probe`); desktop shell `mode.rs`
+  (`mode.json`: standalone | server | client) and `backend.rs` (server: database + loopback
+  API + TLS on `0.0.0.0:8471` + beacon on UDP 47121; client: pinned proxy only); Tauri commands
+  `get_mode`, `set_mode`, `network_info`, `discover_servers`, `probe_server`; UI `ModeGate` +
+  `ModePage` (three choices, port and firewall note for the server, discovery list / manual
+  address / fingerprint confirmation for the client) and Settings → Network. Tests: `lan`
+  unit tests (fingerprint, URL normalisation, identity persistence, discovery round trip);
+  `crates/api/tests/lan.rs`: pinning (wrong fingerprint refused, right one accepted, 401 and
+  502 relayed) and eight teachers logging in and saving marks and attendance at once through
+  TLS and the proxy with 403s on fees, settings and other sections; desktop `mode.rs` unit
+  test; vitest `ModePage` (standalone, server with port, client discovery + confirm, manual
+  address error).
+- 2 Marks via Excel: `GET /exams/sheet/template` (students, roll numbers and max marks
+  pre-filled) and `POST /exams/sheet/upload` (same validation and `save_sheet` as on-screen
+  entry; any issue → nothing saved and `issues[{row_no, message}]`; otherwise a draft to
+  submit and approve). Marks entry has **Download Excel sheet** and **Upload filled sheet**.
+  Tests: `crates/api/tests/marks_excel.rs` (template → bad row rejected with row number →
+  fixed sheet saved → submit → approve); vitest MarksTab download/upload.
+- Docs: TESTING.md §6 (server PC, Windows Firewall `netsh` command, client PCs) and tasks 16
+  and 17; user guide en/ur; spec §6.13 and §7.
+- Not done / notes: the NSIS installer does not add a firewall rule (the hook could not be
+  written in this session); Windows shows its own "allow on private networks" prompt on first
+  listen and the exact `netsh` command is on the mode page, under Settings → Network and in
+  TESTING.md. Multi-PC use is tested in CI against a real TLS listener and proxy on one
+  machine; a real two-PC Wi-Fi check is on the hand-test list.
+
 ## Summary for the owner — Stages 5, 6 and 7 (night run of 2026-10-30/31)
 
 All three stages are merged into `main` in order (pull requests #6, #7 and #8),
@@ -625,6 +655,9 @@ each from a clean `main` with CI green on Linux and Windows. What changed, in sh
 5. On the last day of the year, run the rollover preview and check the destinations.
 6. Leave the app running past midnight with an overdue voucher and confirm the late fee
    appears on its own (and that a waived one stays waived).
+7. LAN mode on two or more real PCs over the school Wi-Fi: server on one, clients on the
+   others, the Windows firewall prompt, the fingerprint check, and several teachers entering
+   marks at once (TESTING.md §6 and task 17).
 
 **Decisions for you:**
 

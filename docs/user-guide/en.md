@@ -6,8 +6,14 @@ This guide covers the daily work. Press **Ctrl+K** anywhere to search.
 
 ## 1. First run and setup
 
-1. Install Madrasa (Windows installer or Linux `.deb`/AppImage) and open it. The bundled
-   database starts on its own.
+1. Install Madrasa (Windows installer or Linux `.deb`/AppImage) and open it. The first
+   screen asks how this PC will be used: **Just this PC** (everything on this computer),
+   **This PC is the school server** (keeps the records and lets other PCs on the school
+   network connect) or **Connect to a school server**. On the server, or on a single PC, the
+   bundled database starts on its own. A client finds the server on the network (or you type
+   its address), shows the server's **certificate fingerprint**, and connects once you confirm
+   it matches the one under **Settings → Network** on the server. Windows asks once whether
+   to allow Madrasa on private networks on the server PC: click Allow.
 2. The setup wizard asks for the school name, code and country, the academic year's start
    month, the currency and time zone (filled in from the country), the administrator account,
    and a **backup password**. The country also sets the weekend and how ID numbers and phone
@@ -81,6 +87,11 @@ list is in `docs/permissions.md`.
 - **Marks entry**: a teacher opens a subject of a section, enters marks (or ticks absent),
   saves, and submits for approval. The principal approves; approved sheets are locked and can
   be reopened by the principal only.
+- **Marks from Excel**: on the same screen, **Download Excel sheet** gives a file with the
+  students and the maximum marks filled in. Fill the *Marks* column (or `Y` under *Absent*)
+  and **Upload filled sheet**. The upload is checked like typed marks: if any row is wrong,
+  nothing is saved and the rows are listed; otherwise the marks are saved as a draft to
+  submit and approve as usual.
 - **Results**: the section's result sheet with totals, percentages, grades, positions and a
   subject analysis. **Report cards** can be printed one by one or for the whole section;
   they show every assessment, the weighted year result and the attendance.
