@@ -53,6 +53,8 @@ import type {
   LocaleLists,
   SchoolProfileUpdate,
   UpdateLoginBody,
+  UploadMarksRequest,
+  UploadMarksResult,
   UserAccount,
   Ledger,
   PaymentMethod,
@@ -348,6 +350,10 @@ export const api = {
     request<SheetsView>(`/exams/sheets${qs({ assessment_id, section_id })}`),
   examSheet: (assessment_id: string, section_id: string, subject_id: string) =>
     request<MarksSheetView>(`/exams/sheet${qs({ assessment_id, section_id, subject_id })}`),
+  downloadMarksTemplate: (assessment_id: string, section_id: string, subject_id: string) =>
+    download(`/exams/sheet/template${qs({ assessment_id, section_id, subject_id })}`),
+  uploadMarks: (body: UploadMarksRequest) =>
+    request<UploadMarksResult>("/exams/sheet/upload", { method: "POST", body }),
   saveMarks: (body: SaveMarksRequest) =>
     request<MarksSheetView>("/exams/sheet", { method: "PUT", body }),
   submitSheet: (id: string) =>

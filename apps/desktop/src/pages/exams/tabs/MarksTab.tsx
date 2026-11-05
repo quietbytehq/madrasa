@@ -143,7 +143,41 @@ function MarksSheet({
   );
   const [edits, setEdits] = useState<Record<string, Entry>>({});
   const [busy, setBusy] = useState(false);
+  const [uploadIssues, setUploadIssues] = useState<Array<{ row_no: number; message: string }>>([]);
   const inputs = useRef<Array<HTMLInputElement | null>>([]);
+
+  /** A filled template goes through the same validation as typing; issues list row numbers. */
+  const uploadFile = async (file: File | null) => {
+    if (!file) return;
+    setBusy(true);
+    setUploadIssues([]);
+    try {
+      const content_base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+      const result = await api.uploadMarks({
+        assessment_id: assessmentId,
+        section_id: sectionId,
+        subject_id: subjectId,
+        file_name: file.name,
+        content_base64,
+      });
+      if (result.sheet) {
+        sheet.setData(result.sheet);
+        setEdits({});
+        toast.push({ kind: "success", title: t("exams.marks.uploaded", { count: result.saved }) });
+      } else {
+        setUploadIssues(result.issues);
+      }
+    } catch (err) {
+      toast.push({ kind: "error", title: errorMessage(err, t("app.error.generic")) });
+    } finally {
+      setBusy(false);
+    }
+  };
   const v: MarksSheetView | null = sheet.data;
   const max = v?.max_marks ? Number(v.max_marks) : null;
   const entryOf = useMemo(
@@ -219,6 +253,35 @@ function MarksSheet({
           <Button size="sm" variant="ghost" onClick={onBack}>
             {t("action.back")}
           </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() =>
+              void api
+                .downloadMarksTemplate(assessmentId, sectionId, subjectId)
+                .catch((err) =>
+                  toast.push({ kind: "error", title: errorMessage(err, t("app.error.generic")) }),
+                )
+            }
+          >
+            {t("exams.marks.template")}
+          </Button>
+          {v.can_edit && (
+            <label className="inline-flex cursor-pointer items-center rounded border border-border bg-card px-2.5 py-1 text-xs font-medium text-text hover:bg-hover">
+              {t("exams.marks.upload")}
+              <input
+                type="file"
+                accept=".xlsx,.xlsm,.xls,.csv"
+                className="sr-only"
+                aria-label={t("exams.marks.upload")}
+                onChange={(e) => {
+                  const file = e.target.files?.[0] ?? null;
+                  e.target.value = "";
+                  void uploadFile(file);
+                }}
+              />
+            </label>
+          )}
           {v.can_edit && (
             <Button
               size="sm"
@@ -289,6 +352,18 @@ function MarksSheet({
           </p>
         )}
       </div>
+      {uploadIssues.length > 0 && (
+        <ul
+          role="alert"
+          className="m-3 list-disc rounded border border-danger/40 bg-card p-3 ps-6 text-xs text-danger"
+        >
+          {uploadIssues.map((i) => (
+            <li key={`${i.row_no}-${i.message}`}>
+              {t("exams.marks.uploadRow", { row: i.row_no })}: {i.message}
+            </li>
+          ))}
+        </ul>
+      )}
       <table className="w-full text-sm">
         <thead className="bg-hover text-xs uppercase tracking-wide text-muted">
           <tr>

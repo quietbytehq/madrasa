@@ -7,6 +7,7 @@
 
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
+use axum::response::Response;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use madrasa_core::exams::{self, GradingScheme, Score, SheetStatus};
@@ -40,6 +41,8 @@ pub fn router() -> Router<AppState> {
         .route("/exams/max-marks", get(get_max_marks).put(put_max_marks))
         .route("/exams/sheets", get(list_sheets))
         .route("/exams/sheet", get(get_sheet).put(put_sheet))
+        .route("/exams/sheet/template", get(sheet_template))
+        .route("/exams/sheet/upload", post(upload_sheet))
         .route("/exams/sheets/{id}/submit", post(submit_sheet))
         .route("/exams/sheets/{id}/approve", post(approve_sheet))
         .route("/exams/sheets/{id}/reopen", post(reopen_sheet))
@@ -665,10 +668,20 @@ async fn put_sheet(
 ) -> ApiResult<Json<MarksSheetView>> {
     user.require(Permission::ExamsManage)?;
     let Json(req) = body?;
+    Ok(Json(save_sheet(&state, &user, req).await?))
+}
+
+/// Save a draft marks sheet (on-screen entry and Excel upload share this): scope check, then
+/// the repository's validation (max marks, roster) and audit.
+async fn save_sheet(
+    state: &AppState,
+    user: &CurrentUser,
+    req: SaveMarksRequest,
+) -> ApiResult<MarksSheetView> {
     let mut tx = state.pool.begin().await?;
-    let assessment = load_assessment(&mut tx, &user, req.assessment_id).await?;
-    let section = load_section(&mut tx, &user, req.section_id).await?;
-    let scope = marks_scope(&mut tx, &user).await?;
+    let assessment = load_assessment(&mut tx, user, req.assessment_id).await?;
+    let section = load_section(&mut tx, user, req.section_id).await?;
+    let scope = marks_scope(&mut tx, user).await?;
     if !allows(&scope, section.id, req.subject_id) {
         return Err(ApiError::forbidden());
     }
@@ -692,9 +705,257 @@ async fn put_sheet(
         &input,
     )
     .await?;
-    let view = sheet_view(&mut tx, &user, assessment, section, req.subject_id).await?;
+    let view = sheet_view(&mut tx, user, assessment, section, req.subject_id).await?;
     tx.commit().await?;
-    Ok(Json(view))
+    Ok(view)
+}
+
+// ---- marks via Excel ----------------------------------------------------------------------
+
+const TEMPLATE_HEADERS: [&str; 5] = [
+    "Student number",
+    "Student name",
+    "Roll no",
+    "Marks",
+    "Absent",
+];
+
+/// An Excel sheet for one section, subject and assessment: student numbers and names filled
+/// in, the maximum marks in the heading, a Marks column and an Absent column (Y). Anyone who
+/// may read the sheet may download it; uploading needs `exams.manage` and the teacher scope.
+async fn sheet_template(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    Query(q): Query<SheetQuery>,
+) -> ApiResult<Response> {
+    user.require(Permission::ExamsRead)?;
+    let mut c = state.pool.acquire().await?;
+    let assessment = load_assessment(&mut c, &user, q.assessment_id).await?;
+    let section = load_section(&mut c, &user, q.section_id).await?;
+    let view = sheet_view(&mut c, &user, assessment, section, q.subject_id).await?;
+    let max = view
+        .max_marks
+        .map(|m| m.normalize().to_string())
+        .unwrap_or_else(|| "?".into());
+    let headers: Vec<String> = TEMPLATE_HEADERS
+        .iter()
+        .map(|h| match *h {
+            "Marks" => format!("Marks (max {max})"),
+            "Absent" => "Absent (Y)".to_string(),
+            other => other.to_string(),
+        })
+        .collect();
+    let rows: Vec<Vec<String>> = view
+        .students
+        .iter()
+        .map(|s| {
+            vec![
+                s.student_number.clone(),
+                s.full_name.clone(),
+                s.roll_no.map(|r| r.to_string()).unwrap_or_default(),
+                if s.is_absent {
+                    String::new()
+                } else {
+                    s.obtained
+                        .map(|o| o.normalize().to_string())
+                        .unwrap_or_default()
+                },
+                if s.is_absent {
+                    "Y".into()
+                } else {
+                    String::new()
+                },
+            ]
+        })
+        .collect();
+    let name = format!(
+        "marks-{}-{}-{}-{}",
+        view.section.class_name, view.section.section_name, view.subject_name, view.assessment.name
+    )
+    .chars()
+    .map(|c| {
+        if c.is_alphanumeric() || c == '-' {
+            c
+        } else {
+            '_'
+        }
+    })
+    .collect::<String>();
+    let (file_name, bytes) = crate::export::build(&name, "xlsx", &headers, &rows)?;
+    Ok(crate::export::file_response(&file_name, bytes))
+}
+
+/// Mirrored by `UploadMarksRequest` in the UI.
+#[derive(Debug, Deserialize)]
+pub struct UploadMarksRequest {
+    pub assessment_id: Uuid,
+    pub section_id: Uuid,
+    pub subject_id: Uuid,
+    pub file_name: String,
+    pub content_base64: String,
+}
+
+/// One row the upload could not use.
+#[derive(Debug, Clone, Serialize)]
+pub struct UploadIssue {
+    pub row_no: usize,
+    pub message: String,
+}
+
+/// Mirrored by `UploadMarksResult` in the UI.
+#[derive(Debug, Serialize)]
+pub struct UploadMarksResult {
+    pub sheet: Option<MarksSheetView>,
+    pub saved: usize,
+    pub issues: Vec<UploadIssue>,
+}
+
+/// Read a filled template and save it as a draft sheet, through the same checks as on-screen
+/// entry (scope, roster, maximum marks). Nothing is saved when any row is wrong; the issues
+/// come back with row numbers so the sheet can be corrected and uploaded again. Submission
+/// and approval then work as usual.
+async fn upload_sheet(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    body: JsonBody<UploadMarksRequest>,
+) -> ApiResult<Json<UploadMarksResult>> {
+    user.require(Permission::ExamsManage)?;
+    let Json(req) = body?;
+    let (view, max) = {
+        let mut c = state.pool.acquire().await?;
+        let assessment = load_assessment(&mut c, &user, req.assessment_id).await?;
+        let section = load_section(&mut c, &user, req.section_id).await?;
+        let scope = marks_scope(&mut c, &user).await?;
+        if !allows(&scope, section.id, req.subject_id) {
+            return Err(ApiError::forbidden());
+        }
+        let view = sheet_view(&mut c, &user, assessment, section, req.subject_id).await?;
+        if !view.can_edit {
+            return Err(ApiError::validation(
+                "This sheet is not open for entry (submitted or approved). Reopen it first.",
+            ));
+        }
+        let max = view.max_marks;
+        (view, max)
+    };
+    let (_, _, headers, rows) = crate::imports::parse_file(
+        madrasa_core::imports::ImportKind::Students,
+        &req.file_name,
+        &req.content_base64,
+        None,
+    )?;
+    let col = |name: &str| {
+        headers
+            .iter()
+            .position(|h| h.trim().to_lowercase().starts_with(name))
+    };
+    let (Some(c_number), Some(c_marks)) = (col("student number"), col("marks")) else {
+        return Err(ApiError::validation(
+            "Use the downloaded template: it needs the \"Student number\" and \"Marks\" columns.",
+        ));
+    };
+    let c_absent = col("absent");
+    let mut issues = Vec::new();
+    let mut marks = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for (i, row) in rows.iter().enumerate() {
+        let row_no = i + 2;
+        let number = row.get(c_number).map(|s| s.trim()).unwrap_or("");
+        if number.is_empty() {
+            continue;
+        }
+        let Some(student) = view
+            .students
+            .iter()
+            .find(|s| s.student_number.eq_ignore_ascii_case(number))
+        else {
+            issues.push(UploadIssue {
+                row_no,
+                message: format!("Student {number} is not in this section"),
+            });
+            continue;
+        };
+        if !seen.insert(student.student_id) {
+            issues.push(UploadIssue {
+                row_no,
+                message: format!("Student {number} appears twice"),
+            });
+            continue;
+        }
+        let absent = c_absent
+            .and_then(|c| row.get(c))
+            .map(|v| {
+                matches!(
+                    v.trim().to_lowercase().as_str(),
+                    "y" | "yes" | "a" | "absent" | "1"
+                )
+            })
+            .unwrap_or(false);
+        let raw = row.get(c_marks).map(|s| s.trim()).unwrap_or("");
+        let obtained = if absent || raw.is_empty() {
+            None
+        } else {
+            match raw.parse::<Decimal>() {
+                Ok(d) if d >= Decimal::ZERO && max.is_none_or(|m| d <= m) => Some(d),
+                Ok(_) => {
+                    issues.push(UploadIssue {
+                        row_no,
+                        message: format!(
+                            "Marks for {number} must be between 0 and {}",
+                            max.map(|m| m.normalize().to_string())
+                                .unwrap_or_else(|| "the maximum".into())
+                        ),
+                    });
+                    continue;
+                }
+                Err(_) => {
+                    issues.push(UploadIssue {
+                        row_no,
+                        message: format!("Marks for {number} are not a number: {raw}"),
+                    });
+                    continue;
+                }
+            }
+        };
+        if obtained.is_none() && !absent {
+            // Blank marks: leave the student untouched rather than recording zero.
+            continue;
+        }
+        marks.push(MarkInputRequest {
+            student_id: student.student_id,
+            obtained,
+            is_absent: absent,
+        });
+    }
+    if !issues.is_empty() {
+        return Ok(Json(UploadMarksResult {
+            sheet: None,
+            saved: 0,
+            issues,
+        }));
+    }
+    if marks.is_empty() {
+        return Err(ApiError::validation(
+            "The file has no marks to save. Fill the Marks column (or Y under Absent).",
+        ));
+    }
+    let saved = marks.len();
+    let sheet = save_sheet(
+        &state,
+        &user,
+        SaveMarksRequest {
+            assessment_id: req.assessment_id,
+            section_id: req.section_id,
+            subject_id: req.subject_id,
+            marks,
+        },
+    )
+    .await?;
+    Ok(Json(UploadMarksResult {
+        sheet: Some(sheet),
+        saved,
+        issues: Vec::new(),
+    }))
 }
 
 async fn sheet_by_id(
