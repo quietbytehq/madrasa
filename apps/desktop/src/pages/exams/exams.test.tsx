@@ -25,6 +25,8 @@ vi.mock("@/api/endpoints", () => ({
     examSheets: vi.fn(),
     examSheet: vi.fn(),
     saveMarks: vi.fn(),
+    downloadMarksTemplate: vi.fn(async () => undefined),
+    uploadMarks: vi.fn(),
     submitSheet: vi.fn(),
     approveSheet: vi.fn(),
     reopenSheet: vi.fn(),
@@ -265,6 +267,77 @@ describe("MarksTab", () => {
     expect(await screen.findByText("Submitted")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save marks" })).not.toBeInTheDocument();
     expect(screen.getByLabelText("Ali Khan: Marks")).toBeDisabled();
+  });
+
+  it("downloads the Excel template and uploads a filled sheet through validation", async () => {
+    renderWithProviders(
+      <SessionProvider initial={{ user, permissions: TEACHER }}>
+        <MarksTab />
+      </SessionProvider>,
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Open" }));
+    await screen.findByLabelText("Ali Khan: Marks");
+    await userEvent.click(screen.getByRole("button", { name: "Download Excel sheet" }));
+    await waitFor(() =>
+      expect(api.downloadMarksTemplate).toHaveBeenCalledWith("a1", "sec1", "eng"),
+    );
+
+    // A sheet with a bad value: nothing is saved and the row is pointed out.
+    vi.mocked(api.uploadMarks).mockResolvedValueOnce({
+      sheet: null,
+      saved: 0,
+      issues: [{ row_no: 3, message: "Marks must be between 0 and 50" }],
+    });
+    const file = new File(["marks"], "marks.xlsx", {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    await userEvent.upload(screen.getByLabelText("Upload filled sheet"), file);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Row 3: Marks must be between 0 and 50",
+    );
+    expect(api.uploadMarks).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assessment_id: "a1",
+        section_id: "sec1",
+        subject_id: "eng",
+        file_name: "marks.xlsx",
+        content_base64: btoa("marks"),
+      }),
+    );
+
+    // A clean sheet lands in the same draft as on-screen entry.
+    vi.mocked(api.uploadMarks).mockResolvedValueOnce({
+      sheet: {
+        ...sheet,
+        sheet: {
+          id: "sh1",
+          assessment_type_id: "a1",
+          section_id: "sec1",
+          subject_id: "eng",
+          status: "draft",
+          submitted_by: null,
+          submitted_at: null,
+          approved_by: null,
+          approved_at: null,
+        },
+        can_submit: true,
+        students: [
+          { ...sheet.students[0]!, obtained: "45.00" },
+          { ...sheet.students[1]!, obtained: null, is_absent: true },
+        ],
+      },
+      saved: 2,
+      issues: [],
+    });
+    const fixed = new File(["marks2"], "marks.xlsx", { type: file.type });
+    await userEvent.upload(screen.getByLabelText("Upload filled sheet"), fixed);
+    expect(
+      await screen.findByText("2 marks read from the file and saved as a draft."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Ali Khan: Marks")).toHaveValue("45");
+    expect(screen.getByLabelText("Sara Khan: Absent")).toBeChecked();
+    expect(screen.getByRole("button", { name: "Submit for approval" })).toBeInTheDocument();
   });
 
   it("offers approve and reopen to the principal only", async () => {

@@ -7,6 +7,7 @@ import { SessionProvider } from "@/app/session";
 import { AppRoutes } from "@/app/router";
 import { Login } from "@/pages/Login";
 import { SetupGate } from "@/app/SetupGate";
+import { ModeGate } from "@/app/ModeGate";
 import { Setup } from "@/pages/Setup";
 
 export default function App() {
@@ -15,13 +16,15 @@ export default function App() {
       <ThemeProvider>
         <I18nProvider>
           <ToastProvider>
-            <FeaturesProvider>
-              <SessionProvider>
-                <SetupGate>
-                  <AppRoutes login={<Login />} setup={<Setup />} />
-                </SetupGate>
-              </SessionProvider>
-            </FeaturesProvider>
+            <ModeGate>
+              <FeaturesProvider>
+                <SessionProvider>
+                  <SetupGate>
+                    <AppRoutes login={<Login />} setup={<Setup />} />
+                  </SetupGate>
+                </SessionProvider>
+              </FeaturesProvider>
+            </ModeGate>
           </ToastProvider>
         </I18nProvider>
       </ThemeProvider>

@@ -12,6 +12,7 @@ import { errorMessage, useAsync } from "@/lib/useAsync";
 import { useSession } from "@/app/session";
 import { AcademicsSettings } from "./academics/AcademicsSettings";
 import { UsersCard } from "./settings/UsersCard";
+import { NetworkCard } from "./settings/NetworkCard";
 import { PageHeader } from "./PageHeader";
 
 export function SettingsPage() {
@@ -27,6 +28,7 @@ export function SettingsPage() {
         {can("settings.manage") && <SchoolSettingsCard />}
         {can("settings.manage") && <SchoolProfileCard />}
         {can("users.manage") && <UsersCard />}
+        {can("settings.manage") && <NetworkCard />}
         <section>
           <h2 className="mb-2 text-sm font-semibold text-navy">{t("academics.title")}</h2>
           <AcademicsSettings />

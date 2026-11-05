@@ -113,6 +113,44 @@ export const en = {
   "login.inactive": "This account is disabled. Contact your administrator.",
 
   // Setup wizard
+  "mode.title": "How will this PC be used?",
+  "mode.intro":
+    "A school can run Madrasa on one PC, or put the school's records on one PC (the server) and let teachers and the office work from their own PCs on the school network.",
+  "mode.standalone.title": "Just this PC",
+  "mode.standalone.body": "Everything on this computer. You can switch to server mode later.",
+  "mode.server.title": "This PC is the school server",
+  "mode.server.body": "Keeps the records and lets other PCs on the school network connect.",
+  "mode.server.hint":
+    "The server shows its address and a certificate fingerprint under Settings → Network. Other PCs compare that fingerprint when they connect for the first time.",
+  "mode.server.port": "Port",
+  "mode.server.start": "Start as the school server",
+  "mode.client.title": "Connect to a school server",
+  "mode.client.body": "No records on this PC; it works on the school server over the network.",
+  "mode.client.hint":
+    "Pick the server found on the network or type its address, then compare the fingerprint with the one shown on the server's screen.",
+  "mode.client.found": "Servers on the network",
+  "mode.client.searching": "Searching…",
+  "mode.client.none":
+    "No server answered. Check that the server PC is on, then search again or type its address.",
+  "mode.client.search": "Search again",
+  "mode.client.address": "Server address",
+  "mode.client.addressHint": "For example 192.168.1.10 or office-pc:8471",
+  "mode.client.check": "Check",
+  "mode.client.fingerprintTitle": "Certificate fingerprint",
+  "mode.client.fingerprintBody":
+    "Compare this with Settings → Network on the server. Connect only if they match; this PC will then refuse any other certificate.",
+  "mode.client.fingerprint": "Fingerprint",
+  "mode.client.needsSetup": "the server has not been set up yet",
+  "mode.client.confirm": "The fingerprint matches the server's screen",
+  "mode.client.connect": "Connect",
+  "mode.firewall.title": "Windows Firewall",
+  "mode.firewall.body":
+    "When Windows asks whether to allow Madrasa on private networks, click Allow. If the first client cannot connect, run this as administrator on the server PC:",
+  "network.title": "Network",
+  "network.addresses": "Server address",
+  "network.port": "Port",
+  "network.fingerprint": "Certificate fingerprint",
+  "network.server": "Connected to",
   "setup.title": "Set up Madrasa",
   "setup.intro":
     "Welcome. A few details are needed before the first login. Everything can be changed later in Settings.",
@@ -605,6 +643,10 @@ export const en = {
   "exams.marks.max": "Max {max}",
   "exams.marks.obtained": "Marks",
   "exams.marks.absent": "Absent",
+  "exams.marks.template": "Download Excel sheet",
+  "exams.marks.upload": "Upload filled sheet",
+  "exams.marks.uploaded": "{count} marks read from the file and saved as a draft.",
+  "exams.marks.uploadRow": "Row {row}",
   "exams.marks.save": "Save marks",
   "exams.marks.submit": "Submit for approval",
   "exams.marks.approve": "Approve",

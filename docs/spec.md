@@ -600,6 +600,59 @@ defaults), and any `academic_year_start_month` 1–12.
 - **GitHub Actions** run on Node 24: `actions/checkout@v5`, `actions/setup-node@v5`,
   `actions/cache@v5`, `actions/upload-artifact@v5`, `pnpm/action-setup@v5`.
 
+### 6.13 LAN mode (Lite) and marks via Excel
+
+**Mode.** The desktop shell asks on first start how the PC takes part and stores the answer in
+`<data_dir>/mode.json` (`mode: standalone | server | client`, `server_url`, `fingerprint`,
+`listen_port`). Tauri commands: `get_mode`, `set_mode` (validates, saves, starts the backend),
+`api_base_url` (the loopback URL the UI talks to; errors with `mode_not_chosen` until a mode
+is saved), `network_info`, `discover_servers`, `probe_server`. The browser build is always
+standalone.
+
+- **Standalone / server**: the shell runs the bundled database and the API on a random
+  loopback port as before. In **server** mode the same router is also served over TLS on
+  `0.0.0.0:<listen_port>` (default `8471`) by `axum-server` with a self-signed certificate
+  (`rcgen`, ECDSA P-256) created once and stored in `<data_dir>/tls/{cert,key}.der`
+  (0600). The SHA-256 fingerprint of the certificate is shown under Settings → Network
+  together with the PC's addresses and the port. A UDP beacon on port `47121` answers
+  `MADRASA_DISCOVER v1` with `{name, version, port, fingerprint}` (name = school name).
+- **Client**: no database. The shell runs a loopback HTTP proxy (`lan::serve_proxy`) that
+  forwards every request to `https://<server>:<port>` with a pinned-certificate verifier:
+  the connection is accepted only if the server certificate's fingerprint equals the one
+  saved at setup, whatever its name or expiry. A mismatch or an unreachable server is
+  returned to the UI as `502 {error: {code: "server_unreachable"}}` with a plain message.
+  The webview therefore never sees a self-signed certificate and the UI code is unchanged.
+- **First connect**: the client broadcasts for servers (and offers manual entry; `host`,
+  `host:port`, `https://host:port` are accepted, default port 8471), then `probe_server`
+  fetches `/system/features` and `/setup/status` accepting any certificate and returns the
+  fingerprint it saw. The user must confirm that it matches the server's screen before
+  `set_mode` saves it. Later connections are pinned; the fingerprint only changes if the
+  server is reinstalled, in which case the client must be set up again.
+- **Security**: logins, sessions and permissions are the existing ones; every client user
+  authenticates with their own account and the backend enforces permissions exactly as on
+  one PC (`crates/api/tests/lan.rs` checks eight teachers at once through TLS and the proxy,
+  with 403s on fees, settings and other teachers' sections). The TLS private key never
+  leaves the server. The firewall step (Windows: allow Madrasa on private networks, or the
+  `netsh advfirewall` command shown on screen) is documented in the mode page, Settings →
+  Network and `TESTING.md`; the installer does not change firewall rules.
+- `lan::init()` installs the `ring` crypto provider for rustls once per process.
+
+**Marks via Excel.**
+
+- `GET /exams/sheet/template?assessment_id&section_id&subject_id` (`exams.read`): an
+  `.xlsx` named `marks-<class>-<section>-<subject>-<assessment>.xlsx` with the columns
+  *Student number, Student name, Roll no, Marks (max N), Absent (Y)*, one row per enrolled
+  student, existing marks filled in.
+- `POST /exams/sheet/upload` `{assessment_id, section_id, subject_id, file_name,
+  content_base64}` (`exams.manage`, the teacher's own sections, sheet not submitted or
+  approved): parses `.xlsx/.xlsm/.xls/.csv` with the import parser, matches rows by student
+  number, reads marks and the absent flag (`Y`, `yes`, `A`, `absent`, `1`), and validates
+  exactly as on-screen entry (0 ≤ marks ≤ max, two decimals, absent clears marks, blank
+  marks are left untouched). Any issue returns `{sheet: null, saved: 0, issues: [{row_no,
+  message}]}` and nothing is saved; otherwise the marks go through the same `save_sheet`
+  as `PUT /exams/sheet` and the result is the draft sheet (`{sheet, saved, issues: []}`).
+  Submission and approval are unchanged, so uploaded marks follow the same workflow.
+
 ### 6.11 Second alpha test report fixes
 
 - `POST /setup` takes `first_year` (create and activate the academic year that is running now,
@@ -650,6 +703,11 @@ confirm when there are several.
 - All crypto via audited crates: `argon2`, `aes-gcm`, `sha2`, `rand`, `x25519-dalek`, `hkdf`.
   No hand-rolled crypto.
 - No real data in the repository. Tests and screenshots use the demo generator.
+- LAN mode (§6.13): TLS 1.2/1.3 via rustls (`ring`), self-signed server certificate pinned by
+  SHA-256 fingerprint on each client after a one-time visual check; private key on the
+  server only, mode 0600; clients hold no database and reach the server only through the
+  pinned proxy. Discovery answers carry the fingerprint but it is never trusted from the
+  network: the user must confirm it against the server's screen.
 
 ## 8. UI
 

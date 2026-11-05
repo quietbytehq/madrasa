@@ -918,6 +918,22 @@ export interface MarksSheetView {
   can_reopen: boolean;
 }
 
+/** Mirrors `UploadMarksRequest` (POST /exams/sheet/upload). */
+export interface UploadMarksRequest {
+  assessment_id: string;
+  section_id: string;
+  subject_id: string;
+  file_name: string;
+  content_base64: string;
+}
+
+/** Mirrors `UploadMarksResult`: the draft sheet when every row was good, else the issues. */
+export interface UploadMarksResult {
+  sheet: MarksSheetView | null;
+  saved: number;
+  issues: Array<{ row_no: number; message: string }>;
+}
+
 export interface SaveMarksRequest {
   assessment_id: string;
   section_id: string;
