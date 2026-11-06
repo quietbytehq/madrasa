@@ -1262,7 +1262,19 @@ export interface RolloverReport {
 export type ReportLang = "en" | "ur";
 export type ReportModule = "students" | "fees" | "attendance" | "exams";
 export type ReportParamKind =
-  "academic_year" | "class" | "section" | "status" | "month" | "date_from" | "date_to";
+  | "academic_year"
+  | "class"
+  | "section"
+  | "status"
+  | "month"
+  | "date_from"
+  | "date_to"
+  | "date"
+  | "assessment"
+  | "number"
+  | "student_number";
+
+export type ReportAccess = "reports_read" | "attendance_read" | "exams_read";
 
 export interface ReportParamDef {
   name: string;
@@ -1276,6 +1288,7 @@ export interface ReportCatalogueEntry {
   title: string;
   description: string;
   landscape: boolean;
+  access: ReportAccess;
   params: ReportParamDef[];
 }
 

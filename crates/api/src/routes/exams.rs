@@ -1253,7 +1253,7 @@ pub struct AssessmentHeader {
     pub held: bool,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct CardCell {
     pub max_marks: Option<Decimal>,
     pub obtained: Option<Decimal>,
@@ -1262,7 +1262,7 @@ pub struct CardCell {
     pub approved: bool,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct CardSubject {
     pub subject_id: Uuid,
     pub subject_name: String,
@@ -1272,7 +1272,7 @@ pub struct CardSubject {
     pub grade: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct CardAssessmentTotal {
     pub assessment_id: Uuid,
     pub total: Decimal,
@@ -1283,14 +1283,14 @@ pub struct CardAssessmentTotal {
     pub students: usize,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SchoolHeader {
     pub name: String,
     pub code: String,
     pub city: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct AttendanceLine {
     pub present: u32,
     pub total: u32,
@@ -1298,7 +1298,7 @@ pub struct AttendanceLine {
 }
 
 /// Mirrored by `ReportCard` in the UI.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ReportCard {
     pub school: SchoolHeader,
     pub academic_year: String,
@@ -1556,6 +1556,22 @@ pub struct SectionCardsQuery {
     pub section_id: Uuid,
 }
 
+/// Every student's report card for a section (shared with the report library).
+pub(crate) async fn section_cards_for(
+    c: &mut sqlx::PgConnection,
+    user: &CurrentUser,
+    year: &madrasa_db::models::AcademicYear,
+    section: &Section,
+) -> ApiResult<Vec<ReportCard>> {
+    load_section(c, user, section.id).await?;
+    let mut cache = HashMap::new();
+    let mut out = Vec::new();
+    for r in repo::roster(c, section.id).await? {
+        out.push(build_report_card(c, user, r.student_id, year, Some(section), &mut cache).await?);
+    }
+    Ok(out)
+}
+
 async fn section_report_cards(
     State(state): State<AppState>,
     user: CurrentUser,
@@ -1565,20 +1581,7 @@ async fn section_report_cards(
     let mut c = state.pool.acquire().await?;
     let section = load_section(&mut c, &user, q.section_id).await?;
     let year = year_of(&mut c, &user, section.academic_year_id).await?;
-    let mut cache = HashMap::new();
-    let mut out = Vec::new();
-    for r in repo::roster(&mut c, section.id).await? {
-        out.push(
-            build_report_card(
-                &mut c,
-                &user,
-                r.student_id,
-                &year,
-                Some(&section),
-                &mut cache,
-            )
-            .await?,
-        );
-    }
-    Ok(Json(out))
+    Ok(Json(
+        section_cards_for(&mut c, &user, &year, &section).await?,
+    ))
 }

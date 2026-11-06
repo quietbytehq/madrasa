@@ -665,6 +665,27 @@ depend on each other and were built together)
   binary). Teachers do not hold `reports.read`; stage 2 opens exam and attendance reports to
   them for their own sections.
 
+### 2026-11-06 — Stage 2: Fees, attendance and exams reports (branch `dev/m2-stage-2-reports`)
+- Started from stage 1 (rebased on `main` once #18 merged). No migration.
+- Fees: collection by day and method, monthly collection, defaulters by class with ageing,
+  student ledger, concessions register, voucher register, late fees, billed vs collected by
+  head (proportional split, noted). Attendance: monthly register (day columns), attendance
+  by section, absentees for a period, below-threshold list, staff attendance. Exams: result
+  sheet, merit list, subject analysis, grade distribution, failing by subject, report cards
+  (one page per student in the PDF, same content as the on-screen card).
+- Access per report: office roles with `reports.read` run everything; teachers run attendance
+  and exam reports for their own sections with `attendance.read`/`exams.read` (catalogue
+  filtered, 403 elsewhere). New parameter kinds: assessment, single date, number, student
+  number; the Reports page builds the controls and seeds them from the URL, and a `?run`
+  link runs at once (dashboard shortcuts for today's collection and today's absentees).
+- Tests: `crates/api/tests/reports_stage2.rs` (every report against seeded fees, attendance
+  and marks, figures cross-checked with `/fees/collections`, `/fees/defaulters`,
+  `/attendance/register` and `/exams/results/section`; Urdu; teacher scope and 403s); unit
+  tests for money formatting, the text table and report-card PDFs (three cards → three pages
+  in both languages); vitest for the new controls, URL seeding and auto-run.
+- Notes: payments are not recorded per fee head, so the head-wise report allocates each
+  voucher's payments across its lines in proportion and says so.
+
 ## Summary for the owner — Stages 5, 6 and 7 (night run of 2026-10-30/31)
 
 All three stages are merged into `main` in order (pull requests #6, #7 and #8),

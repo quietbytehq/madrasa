@@ -253,10 +253,196 @@ pub fn source(report: &Report) -> String {
     s
 }
 
+/// One report card per page: header, subject table, assessment totals, overall result,
+/// attendance and signature lines. Same content as the on-screen card.
+pub fn cards_source(report: &Report) -> String {
+    use super::text::tr;
+    let lang = report.lang;
+    let rtl = lang.is_rtl();
+    let (font, size, lang_code, dir) = match lang {
+        Lang::En => ("(\"Inter\", \"Noto Nastaliq Urdu\")", "9.5pt", "en", "ltr"),
+        Lang::Ur => ("(\"Noto Nastaliq Urdu\", \"Inter\")", "10pt", "ur", "rtl"),
+    };
+    let mut s = String::new();
+    s.push_str("#set page(paper: \"a4\", margin: (x: 1.6cm, y: 1.6cm))\n");
+    s.push_str(&format!(
+        "#set text(font: {font}, size: {size}, lang: \"{lang_code}\", dir: {dir})\n#set par(leading: {leading})\n#set table(stroke: 0.4pt + luma(170), inset: (x: 4pt, y: 3.5pt))\n",
+        leading = if rtl { "0.8em" } else { "0.55em" },
+    ));
+    let d = |v: rust_decimal::Decimal| v.round_dp(2).normalize().to_string();
+    for (i, c) in report.cards.iter().enumerate() {
+        if i > 0 {
+            s.push_str("#pagebreak()\n");
+        }
+        s.push_str(&format!(
+            "#align(center)[#text(size: 15pt, weight: \"bold\")[#{school}]\n#linebreak()#text(size: 9pt, fill: luma(80))[#{city}]\n#v(2pt)#text(size: 12pt, weight: \"bold\")[#{title} · #{year}]]\n#v(6pt)\n",
+            school = lit(&c.school.name),
+            city = lit(&c.school.city),
+            title = lit(tr(lang, "card.title")),
+            year = lit(&c.academic_year),
+        ));
+        let class = match (&c.class_name, &c.section_name) {
+            (Some(cl), Some(se)) => format!("{cl} · {se}"),
+            (Some(cl), None) => cl.clone(),
+            _ => String::new(),
+        };
+        s.push_str(&format!(
+            "#grid(columns: (auto, 1fr, auto, 1fr), column-gutter: 8pt, row-gutter: 4pt,\n  [#text(fill: luma(90))[#{l1}]], [#text(weight: \"bold\")[#{v1}] #h(6pt) #text(fill: luma(90))[#{num}]],\n  [#text(fill: luma(90))[#{l2}]], [#{v2}],\n  [#text(fill: luma(90))[#{l3}]], [#{v3}],\n  [#text(fill: luma(90))[#{l4}]], [#{v4}])\n#v(8pt)\n",
+            l1 = lit(tr(lang, "card.student")), v1 = lit(&c.full_name), num = lit(&c.student_number),
+            l2 = lit(tr(lang, "card.father")), v2 = lit(&c.father_name),
+            l3 = lit(tr(lang, "card.class")), v3 = lit(&class),
+            l4 = lit(tr(lang, "card.roll_no")), v4 = lit(&c.roll_no.map(|r| r.to_string()).unwrap_or_default()),
+        ));
+        if c.subjects.is_empty() {
+            s.push_str(&format!(
+                "#text(fill: luma(90))[#{}]\n",
+                lit(tr(lang, "card.empty"))
+            ));
+            continue;
+        }
+        let ncols = 1 + c.assessments.len() + 2;
+        let mut widths = vec!["1fr".to_string()];
+        widths.extend(std::iter::repeat_n(
+            "auto".to_string(),
+            c.assessments.len() + 2,
+        ));
+        let mut aligns = vec!["start + horizon".to_string()];
+        aligns.extend(std::iter::repeat_n(
+            "end + horizon".to_string(),
+            c.assessments.len() + 2,
+        ));
+        s.push_str(&format!(
+            "#table(columns: ({}), align: ({}),\n  table.header(",
+            widths.join(", "),
+            aligns.join(", ")
+        ));
+        let mut header = vec![format!(
+            "table.cell(fill: luma(235))[#text(weight: \"bold\")[#{}]]",
+            lit(tr(lang, "col.subject"))
+        )];
+        for a in &c.assessments {
+            header.push(format!(
+                "table.cell(fill: luma(235))[#text(weight: \"bold\")[#{}]#linebreak()#text(size: 7.5pt, fill: luma(90))[{}%]]",
+                lit(&a.name),
+                d(a.weight)
+            ));
+        }
+        header.push(format!(
+            "table.cell(fill: luma(235))[#text(weight: \"bold\")[#{}]]",
+            lit(tr(lang, "card.weighted"))
+        ));
+        header.push(format!(
+            "table.cell(fill: luma(235))[#text(weight: \"bold\")[#{}]]",
+            lit(tr(lang, "col.grade"))
+        ));
+        s.push_str(&header.join(", "));
+        s.push_str("),\n");
+        for sub in &c.subjects {
+            let mut row = vec![cell(&sub.subject_name)];
+            for (ai, cellv) in sub.cells.iter().enumerate() {
+                let _ = ai;
+                let text = match (cellv.max_marks, cellv.obtained, cellv.is_absent) {
+                    (Some(max), _, true) => format!("{} /{}", tr(lang, "value.absent"), d(max)),
+                    (Some(max), Some(ob), false) => format!("{} /{}", d(ob), d(max)),
+                    (Some(max), None, false) => format!("— /{}", d(max)),
+                    (None, _, _) => "—".into(),
+                };
+                row.push(cell(&text));
+            }
+            row.push(cell(
+                &sub.weighted_percent
+                    .map(|p| format!("{:.1}", p.round_dp(1)))
+                    .unwrap_or_else(|| "—".into()),
+            ));
+            row.push(cell(sub.grade.as_deref().unwrap_or("—")));
+            s.push_str("  ");
+            s.push_str(&row.join(", "));
+            s.push_str(",\n");
+        }
+        // Totals row per assessment.
+        let mut tot = vec![format!(
+            "table.cell(fill: luma(245)){}",
+            bold(tr(lang, "card.total"))
+        )];
+        for a in &c.assessments {
+            let t = c.totals.iter().find(|t| t.assessment_id == a.id);
+            let text = match t {
+                Some(t) if t.max > rust_decimal::Decimal::ZERO => {
+                    let mut parts = vec![format!("{} /{}", d(t.total), d(t.max))];
+                    if let Some(p) = t.percent {
+                        parts.push(format!("{:.1}%", p.round_dp(1)));
+                    }
+                    if let Some(g) = &t.grade {
+                        parts.push(g.clone());
+                    }
+                    if let Some(pos) = t.position {
+                        parts.push(format!("#{pos}/{}", t.students));
+                    }
+                    parts.join(" · ")
+                }
+                _ => tr(lang, "value.not_held").to_string(),
+            };
+            tot.push(format!("table.cell(fill: luma(245)){}", bold(&text)));
+        }
+        tot.push(format!(
+            "table.cell(fill: luma(245)){}",
+            bold(
+                &c.overall_percent
+                    .map(|p| format!("{:.1}", p.round_dp(1)))
+                    .unwrap_or_else(|| "—".into())
+            )
+        ));
+        tot.push(format!(
+            "table.cell(fill: luma(245)){}",
+            bold(c.overall_grade.as_deref().unwrap_or("—"))
+        ));
+        s.push_str("  ");
+        s.push_str(&tot.join(", "));
+        s.push_str(",\n)\n");
+        let _ = ncols;
+        let result = match c.pass {
+            Some(true) => tr(lang, "value.pass"),
+            Some(false) => tr(lang, "value.fail"),
+            None => "—",
+        };
+        let attendance = match c.attendance.percent {
+            Some(p) => format!("{}/{} ({p:.1}%)", c.attendance.present, c.attendance.total),
+            None => format!("{}/{}", c.attendance.present, c.attendance.total),
+        };
+        s.push_str(&format!(
+            "#v(8pt)#grid(columns: (auto, 1fr), column-gutter: 8pt, row-gutter: 5pt,\n  [#text(fill: luma(90))[#{l1}]], [#text(weight: \"bold\")[#{v1}]],\n  [#text(fill: luma(90))[#{l2}]], [#{v2}],\n  [#text(fill: luma(90))[#{l3}]], [#{v3}])\n",
+            l1 = lit(tr(lang, "card.result")), v1 = lit(result),
+            l2 = lit(tr(lang, "card.remarks")), v2 = lit(c.overall_remarks.as_deref().unwrap_or("—")),
+            l3 = lit(tr(lang, "card.attendance")), v3 = lit(&attendance),
+        ));
+        s.push_str(&format!(
+            "#v(1fr)#grid(columns: (1fr, 1fr, 1fr), column-gutter: 24pt,\n  [#line(length: 100%, stroke: 0.5pt) #text(size: 8pt, fill: luma(90))[#{}]],\n  [#line(length: 100%, stroke: 0.5pt) #text(size: 8pt, fill: luma(90))[#{}]],\n  [#line(length: 100%, stroke: 0.5pt) #text(size: 8pt, fill: luma(90))[#{}]])\n",
+            lit(tr(lang, "card.signature.teacher")),
+            lit(tr(lang, "card.signature.principal")),
+            lit(tr(lang, "card.signature.parent")),
+        ));
+    }
+    if report.cards.is_empty() {
+        s.push_str(&format!(
+            "#text(fill: luma(90))[#{}]\n",
+            lit(tr(lang, "card.no_students"))
+        ));
+    }
+    s
+}
+
+fn markup(report: &Report) -> String {
+    if report.cards.is_empty() {
+        source(report)
+    } else {
+        cards_source(report)
+    }
+}
+
 /// Typeset the report. CPU-bound: call from `spawn_blocking`.
 pub fn render(report: &Report) -> Result<Vec<u8>, ApiError> {
     let world = ReportWorld {
-        main: Source::new(*MAIN_ID, source(report)),
+        main: Source::new(*MAIN_ID, markup(report)),
     };
     let doc = typst::compile::<PagedDocument>(&world)
         .output
@@ -277,7 +463,7 @@ pub fn render(report: &Report) -> Result<Vec<u8>, ApiError> {
 /// Number of pages the report would take (tests).
 pub fn page_count(report: &Report) -> Result<usize, ApiError> {
     let world = ReportWorld {
-        main: Source::new(*MAIN_ID, source(report)),
+        main: Source::new(*MAIN_ID, markup(report)),
     };
     typst::compile::<PagedDocument>(&world)
         .output
@@ -329,6 +515,88 @@ mod tests {
         assert!(pages >= 2, "60 rows should span pages, got {pages}");
         let pdf = render(&r).unwrap();
         assert!(pdf.starts_with(b"%PDF"));
+    }
+
+    #[test]
+    fn report_cards_take_one_page_each_in_both_languages() {
+        use crate::routes::exams::{
+            AssessmentHeader, AttendanceLine, CardAssessmentTotal, CardCell, CardSubject,
+            ReportCard, SchoolHeader,
+        };
+        use madrasa_core::exams::GradingScheme;
+        use rust_decimal::Decimal;
+        let aid = uuid::Uuid::now_v7();
+        let card = |name: &str| ReportCard {
+            school: SchoolHeader {
+                name: "Gulshan High".into(),
+                code: "KHI-MC".into(),
+                city: "Karachi".into(),
+            },
+            academic_year: "2026-27".into(),
+            student_id: uuid::Uuid::now_v7(),
+            student_number: "KHI-MC-2026-00001".into(),
+            full_name: name.into(),
+            father_name: "Ahmed Khan".into(),
+            class_name: Some("9".into()),
+            section_name: Some("A".into()),
+            roll_no: Some(3),
+            assessments: vec![AssessmentHeader {
+                id: aid,
+                name: "Mid-year".into(),
+                weight: Decimal::from(30),
+                held: true,
+            }],
+            subjects: vec![CardSubject {
+                subject_id: uuid::Uuid::now_v7(),
+                subject_name: "English".into(),
+                cells: vec![CardCell {
+                    max_marks: Some(Decimal::from(50)),
+                    obtained: Some(Decimal::from(45)),
+                    is_absent: false,
+                    percent: Some(Decimal::from(90)),
+                    approved: true,
+                }],
+                weighted_percent: Some(Decimal::from(90)),
+                grade: Some("A+".into()),
+            }],
+            totals: vec![CardAssessmentTotal {
+                assessment_id: aid,
+                total: Decimal::from(45),
+                max: Decimal::from(50),
+                percent: Some(Decimal::from(90)),
+                grade: Some("A+".into()),
+                position: Some(1),
+                students: 30,
+            }],
+            overall_percent: Some(Decimal::from(90)),
+            overall_grade: Some("A+".into()),
+            overall_remarks: Some("Outstanding".into()),
+            pass: Some(true),
+            attendance: AttendanceLine {
+                present: 180,
+                total: 200,
+                percent: Some(90.0),
+            },
+            grading: GradingScheme::default(),
+        };
+        for lang in [Lang::En, Lang::Ur] {
+            let mut r = Report::new("exams.report_cards", lang, "Gulshan High", "Report cards");
+            r.cards = vec![
+                card("Ali Khan"),
+                card("سارہ خان"),
+                card("Bilal \"B\" Ahmed"),
+            ];
+            assert_eq!(page_count(&r).unwrap(), 3, "{lang:?}");
+            assert!(render(&r).unwrap().starts_with(b"%PDF"));
+        }
+        let mut empty = Report::new(
+            "exams.report_cards",
+            Lang::En,
+            "Gulshan High",
+            "Report cards",
+        );
+        empty.cards = Vec::new();
+        assert!(cards_source(&empty).contains("No students enrolled."));
     }
 
     #[test]

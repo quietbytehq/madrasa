@@ -1,28 +1,17 @@
 //! Student reports (M2 stage 1).
 
 use chrono::Datelike;
-use madrasa_db::models::{AcademicYear, School};
 use madrasa_db::reports as q;
 use madrasa_db::reports::StudentReportFilter;
 use sqlx::PgConnection;
 use uuid::Uuid;
 
 use super::text::{tr, value};
-use super::{format_date, Column, Group, Lang, Params, Report};
+use super::{format_date, Column, Context, Group, Lang, Params, Report};
 use crate::ApiError;
 
-/// What every student report starts from: the school, the year, the scope and the common
-/// parameters shown in the header.
-pub struct Context<'a> {
-    pub school: &'a School,
-    pub year: &'a AcademicYear,
-    pub lang: Lang,
-    /// Teachers: only these sections.
-    pub section_scope: Option<Vec<Uuid>>,
-}
-
-/// Resolve class and section names for the header and the filter.
-async fn scope_params(
+/// Resolve class and section names for the header and the filter; shared by every module.
+pub(super) async fn scope_params(
     conn: &mut PgConnection,
     ctx: &Context<'_>,
     params: &Params,
@@ -70,7 +59,7 @@ async fn scope_params(
     Ok((class_id, section_id))
 }
 
-fn class_heading(lang: Lang, class: Option<&str>, section: Option<&str>) -> String {
+pub(super) fn class_heading(lang: Lang, class: Option<&str>, section: Option<&str>) -> String {
     match (class, section) {
         (Some(c), Some(s)) => format!("{} {c} · {s}", tr(lang, "group.class")),
         (Some(c), None) => format!("{} {c}", tr(lang, "group.class")),
@@ -78,7 +67,7 @@ fn class_heading(lang: Lang, class: Option<&str>, section: Option<&str>) -> Stri
     }
 }
 
-fn opt<T: ToString>(v: Option<T>) -> String {
+pub(super) fn opt<T: ToString>(v: Option<T>) -> String {
     v.map(|x| x.to_string()).unwrap_or_default()
 }
 
