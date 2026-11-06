@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Download, FileText, Play, Printer } from "lucide-react";
 import { api } from "@/api/endpoints";
 import type { ReportCatalogueEntry, ReportDocument, ReportLang, ReportParamDef } from "@/api/types";
@@ -105,9 +105,12 @@ function defaultFor(p: ReportParamDef, activeYearId: string | undefined): string
     case "date_from":
       return monthStart();
     case "date_to":
+    case "date":
       return today();
     case "status":
       return "active";
+    case "number":
+      return p.name === "threshold" ? "75" : p.name === "top" ? "10" : "1";
     default:
       return "";
   }
@@ -117,11 +120,13 @@ function ReportRunner({ def, lang }: { def: ReportCatalogueEntry; lang: ReportLa
   const { t } = useI18n();
   const toast = useToast();
   const navigate = useNavigate();
+  const [search] = useSearchParams();
   const years = useAsync(() => api.academicYears(), []);
   const classes = useAsync(() => api.classes(), []);
   const [values, setValues] = useState<Record<string, string>>({});
   const [report, setReport] = useState<ReportDocument | null>(null);
   const [busy, setBusy] = useState<"run" | "pdf" | "xlsx" | null>(null);
+  const [autoRun, setAutoRun] = useState(search.has("run"));
   const activeYear = years.data?.find((y) => y.is_active)?.id;
   const yearId = values.academic_year_id || activeYear || "";
   const sections = useAsync(
@@ -132,15 +137,25 @@ function ReportRunner({ def, lang }: { def: ReportCatalogueEntry; lang: ReportLa
     [values.class_id, yearId],
   );
 
-  // Seed the form once the active year is known.
+  const needsAssessment = def.params.some((p) => p.kind === "assessment");
+  const assessments = useAsync(
+    () => (needsAssessment && yearId ? api.assessments(yearId) : Promise.resolve([])),
+    [needsAssessment, yearId],
+  );
+
+  // Seed the form once the active year is known: URL query first (dashboard shortcuts),
+  // then the report's defaults.
   useEffect(() => {
     setValues((v) => {
       const next = { ...v };
-      for (const p of def.params) if (!(p.name in next)) next[p.name] = defaultFor(p, activeYear);
+      for (const p of def.params) {
+        if (p.name in next) continue;
+        next[p.name] = search.get(p.name) ?? defaultFor(p, activeYear);
+      }
       if (!next.academic_year_id && activeYear) next.academic_year_id = activeYear;
       return next;
     });
-  }, [def, activeYear]);
+  }, [def, activeYear, search]);
 
   const set = (name: string, value: string) =>
     setValues((v) =>
@@ -148,6 +163,19 @@ function ReportRunner({ def, lang }: { def: ReportCatalogueEntry; lang: ReportLa
     );
 
   const missing = def.params.filter((p) => p.required && !values[p.name]);
+  // A shortcut link (`?run`) runs the report as soon as its parameters are complete.
+  useEffect(() => {
+    if (!autoRun || missing.length > 0 || Object.keys(values).length === 0) return;
+    setAutoRun(false);
+    setBusy("run");
+    api
+      .runReport(def.code, values, lang)
+      .then(setReport)
+      .catch((err: unknown) =>
+        toast.push({ kind: "error", title: errorMessage(err, t("app.error.generic")) }),
+      )
+      .finally(() => setBusy(null));
+  }, [autoRun, missing.length, values, def.code, lang, toast, t]);
 
   const run = async () => {
     setBusy("run");
@@ -237,6 +265,7 @@ function ReportRunner({ def, lang }: { def: ReportCatalogueEntry; lang: ReportLa
         );
       case "date_from":
       case "date_to":
+      case "date":
         return (
           <Input
             key={p.name}
@@ -244,6 +273,41 @@ function ReportRunner({ def, lang }: { def: ReportCatalogueEntry; lang: ReportLa
             type="date"
             value={value}
             required={p.required}
+            onChange={(e) => set(p.name, e.target.value)}
+          />
+        );
+      case "assessment":
+        return (
+          <Select
+            key={p.name}
+            label={p.label}
+            value={value}
+            onChange={(e) => set(p.name, e.target.value)}
+            placeholder={t("reports.pickAssessment")}
+            options={(assessments.data ?? []).map((a) => ({ value: a.id, label: a.name }))}
+          />
+        );
+      case "number":
+        return (
+          <Input
+            key={p.name}
+            label={p.label}
+            type="number"
+            min={0}
+            max={1000}
+            value={value}
+            required={p.required}
+            onChange={(e) => set(p.name, e.target.value)}
+          />
+        );
+      case "student_number":
+        return (
+          <Input
+            key={p.name}
+            label={p.label}
+            value={value}
+            required={p.required}
+            placeholder="KHI-MC-2026-00001"
             onChange={(e) => set(p.name, e.target.value)}
           />
         );

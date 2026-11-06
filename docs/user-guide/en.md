@@ -124,6 +124,12 @@ The old year stays readable.
 (academic year, class, section, status, month or dates) and click **Run report** to see it on
 screen, or **Download PDF** / **Download Excel** to get a file in the language the app is
 showing. The student reports are: student list, class strength, admissions and
-withdrawals, guardian contact list, birthdays and missing data. Reports are available to the
-principal, administrators and the accountant.
+withdrawals, guardian contact list, birthdays and missing data. Fee reports: collection,
+monthly collection, defaulters with ageing, a student's ledger, concessions, voucher
+register, late fees, billed vs collected by fee head. Attendance reports: monthly register,
+attendance by section, absentees, students below a threshold, staff attendance. Exam
+reports: result sheet, merit list, subject analysis, grade distribution, students failing,
+and the section's report cards as one PDF. Office roles see every report; teachers see the
+attendance and exam reports for their own sections. The Dashboard links straight to today's
+collection and today's absentees.
 

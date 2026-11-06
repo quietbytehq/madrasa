@@ -164,6 +164,13 @@ Note anything that was unclear, slow, wrong or ugly.
     data**. Download one as **PDF** and one as **Excel**, then switch the app to Urdu and
     download the PDF again: the Urdu one should read right-to-left in Nastaliq with the same
     figures. Try **Print** on the on-screen table.
+19. **Fee, attendance and exam reports.** In Reports, run **Collection (receipts)** for
+    today, **Defaulters by class**, a **Student fee ledger** (type a student number from a
+    voucher), the **Monthly register** for one section, **Attendance by section**, a
+    **Result sheet** and **Report cards** for a section (download the PDF: one page per
+    student). Then log in as a teacher: Reports should show only attendance and exam reports
+    for their own sections. On the Dashboard, click **Today's collection report** and
+    **Today's absentees report**.
 17. **Several PCs at once** (needs two or more PCs on the same network; see section 6).
     Log in on each PC with a different account at the same time and enter marks or attendance
     for different sections. Each person should see only their own sections and modules, and

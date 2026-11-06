@@ -60,21 +60,21 @@ render it (on screen, PDF, Excel), one page to find and run them.
 
 ## Stage 2 — Fees, attendance and exams reports
 
-- [ ] Fees: daily collection (by method and by fee head), monthly collection summary,
+- [x] Fees: daily collection (by method and by fee head), monthly collection summary,
       defaulters by class with ageing buckets (1–30, 31–60, 61–90, 90+ days), student fee
       ledger (one student, a date range), concessions register, voucher register for a month,
       late fees assessed and waived, head-wise billed vs collected for the year
-- [ ] Attendance: monthly register per section (landscape, one column per day, P/A/L/Lv
+- [x] Attendance: monthly register per section (landscape, one column per day, P/A/L/Lv
       marks and totals), attendance percentage by class and section for a range, absentees for
       a day or range, students below a percentage threshold, staff attendance for a month
-- [ ] Exams: result sheet per section and assessment, merit list (top N per class), subject
+- [x] Exams: result sheet per section and assessment, merit list (top N per class), subject
       analysis (average, highest, lowest, pass percentage), grade distribution per class,
       students failing per subject, report cards for a whole section as one PDF (one page per
       student, same content as the on-screen card)
-- [ ] Teachers with `exams.read` or `attendance.read` run the exam and attendance reports for
+- [x] Teachers with `exams.read` or `attendance.read` run the exam and attendance reports for
       their own sections only; office roles run everything with `reports.read`
-- [ ] Dashboard "Reports" shortcuts for today's collection and today's absentees
-- [ ] Tests: every report against the demo school with figures checked against the module's
+- [x] Dashboard "Reports" shortcuts for today's collection and today's absentees
+- [x] Tests: every report against the demo school with figures checked against the module's
       own endpoints (collection equals receipts, defaulters equals the defaulter list,
       register equals the sheets, result sheet equals the exams result endpoint); PDF of a
       section's report cards has one page per student; teacher scope enforced

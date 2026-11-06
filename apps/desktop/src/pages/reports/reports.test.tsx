@@ -23,6 +23,16 @@ vi.mock("@/api/endpoints", () => ({
       },
     ]),
     classes: vi.fn(async () => [{ id: "c9", school_id: "s", name: "9", level: 9 }]),
+    assessments: vi.fn(async () => [
+      {
+        id: "a1",
+        school_id: "s",
+        academic_year_id: "y1",
+        name: "Mid-year",
+        position: 0,
+        weight: "30.00",
+      },
+    ]),
     sections: vi.fn(async () => [
       {
         id: "sec9a",
@@ -47,6 +57,7 @@ const catalogue: ReportCatalogueModule[] = [
         title: "Student list",
         description: "Students with class, section and guardian phone.",
         landscape: true,
+        access: "reports_read",
         params: [
           {
             name: "academic_year_id",
@@ -64,6 +75,7 @@ const catalogue: ReportCatalogueModule[] = [
         title: "Birthdays",
         description: "Born in a month.",
         landscape: false,
+        access: "reports_read",
         params: [
           {
             name: "academic_year_id",
@@ -183,6 +195,96 @@ describe("ReportsPage", () => {
     await userEvent.clear(month);
     expect(screen.getByRole("button", { name: "Run report" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Download PDF" })).toBeDisabled();
+  });
+
+  it("offers assessment, number and student-number controls and runs from a shortcut link", async () => {
+    vi.mocked(api.reports).mockResolvedValue([
+      {
+        module: "exams",
+        label: "Examinations",
+        reports: [
+          {
+            code: "exams.merit",
+            title: "Merit list",
+            description: "Top students.",
+            landscape: false,
+            access: "exams_read",
+            params: [
+              {
+                name: "academic_year_id",
+                kind: "academic_year",
+                label: "Academic year",
+                required: false,
+              },
+              { name: "assessment_id", kind: "assessment", label: "Assessment", required: true },
+              { name: "class_id", kind: "class", label: "Class", required: true },
+              { name: "top", kind: "number", label: "Top", required: false },
+            ],
+          },
+        ],
+      },
+      {
+        module: "fees",
+        label: "Fees & Finance",
+        reports: [
+          {
+            code: "fees.ledger",
+            title: "Student fee ledger",
+            description: "One student.",
+            landscape: true,
+            access: "reports_read",
+            params: [
+              {
+                name: "student_number",
+                kind: "student_number",
+                label: "Student number",
+                required: true,
+              },
+            ],
+          },
+          {
+            code: "fees.collection",
+            title: "Collection (receipts)",
+            description: "Receipts.",
+            landscape: true,
+            access: "reports_read",
+            params: [
+              { name: "from", kind: "date_from", label: "From", required: true },
+              { name: "to", kind: "date_to", label: "To", required: true },
+            ],
+          },
+        ],
+      },
+    ]);
+    vi.mocked(api.runReport).mockResolvedValue({
+      ...document,
+      code: "fees.collection",
+      title: "Collection",
+    });
+    renderAt("/reports/exams.merit");
+    await screen.findByText("Top students.");
+    await waitFor(() => expect(api.assessments).toHaveBeenCalledWith("y1"));
+    expect(screen.getByRole("button", { name: "Run report" })).toBeDisabled();
+    await userEvent.selectOptions(await screen.findByLabelText("Assessment"), "a1");
+    await userEvent.selectOptions(screen.getByLabelText("Class"), "c9");
+    expect(screen.getByLabelText("Top")).toHaveValue(10);
+    expect(screen.getByRole("button", { name: "Run report" })).toBeEnabled();
+
+    renderAt("/reports/fees.ledger");
+    const number = await screen.findByLabelText("Student number");
+    await userEvent.type(number, "KHI-MC-2026-00001");
+    expect(number).toHaveValue("KHI-MC-2026-00001");
+
+    // A dashboard shortcut carries the dates and `run`: the report runs on its own.
+    renderAt("/reports/fees.collection?from=2026-11-06&to=2026-11-06&run");
+    await waitFor(() =>
+      expect(api.runReport).toHaveBeenCalledWith(
+        "fees.collection",
+        { from: "2026-11-06", to: "2026-11-06" },
+        "en",
+      ),
+    );
+    expect((await screen.findAllByText("Collection")).length).toBeGreaterThan(0);
   });
 
   it("asks for the catalogue and the report in Urdu and renders right-to-left", async () => {

@@ -43,6 +43,24 @@ pub enum ParamKind {
     /// `YYYY-MM-DD`.
     DateFrom,
     DateTo,
+    /// A single `YYYY-MM-DD`; defaults to today.
+    Date,
+    /// An assessment id of the chosen year.
+    Assessment,
+    /// A small whole number (threshold, top N, minimum days).
+    Number,
+    /// A student number as printed on vouchers.
+    StudentNumber,
+}
+
+/// Who may run a report. Office roles hold `reports.read`; teachers may run attendance and
+/// exam reports for their own sections with the module's read permission.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Access {
+    ReportsRead,
+    AttendanceRead,
+    ExamsRead,
 }
 
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -54,14 +72,24 @@ pub struct ParamDef {
 
 impl ParamDef {
     fn label_key(&self) -> &'static str {
-        match self.kind {
-            ParamKind::AcademicYear => "param.academic_year",
-            ParamKind::Class => "param.class",
-            ParamKind::Section => "param.section",
-            ParamKind::Status => "param.status",
-            ParamKind::Month => "param.month",
-            ParamKind::DateFrom => "param.from",
-            ParamKind::DateTo => "param.to",
+        match self.name {
+            "threshold" => "param.threshold",
+            "top" => "param.top_n",
+            "min_days" => "param.min_days",
+            "as_of" => "param.as_of",
+            _ => match self.kind {
+                ParamKind::AcademicYear => "param.academic_year",
+                ParamKind::Class => "param.class",
+                ParamKind::Section => "param.section",
+                ParamKind::Status => "param.status",
+                ParamKind::Month => "param.month",
+                ParamKind::DateFrom => "param.from",
+                ParamKind::DateTo => "param.to",
+                ParamKind::Date => "param.date",
+                ParamKind::Assessment => "param.assessment",
+                ParamKind::Number => "param.top_n",
+                ParamKind::StudentNumber => "param.student_number",
+            },
         }
     }
 }
@@ -72,6 +100,7 @@ pub struct ReportDef {
     pub module: Module,
     pub params: &'static [ParamDef],
     pub landscape: bool,
+    pub access: Access,
 }
 
 const YEAR: ParamDef = ParamDef {
@@ -109,6 +138,46 @@ const TO: ParamDef = ParamDef {
     kind: ParamKind::DateTo,
     required: true,
 };
+const SECTION_REQ: ParamDef = ParamDef {
+    name: "section_id",
+    kind: ParamKind::Section,
+    required: true,
+};
+const CLASS_REQ: ParamDef = ParamDef {
+    name: "class_id",
+    kind: ParamKind::Class,
+    required: true,
+};
+const ASSESSMENT: ParamDef = ParamDef {
+    name: "assessment_id",
+    kind: ParamKind::Assessment,
+    required: true,
+};
+const AS_OF: ParamDef = ParamDef {
+    name: "as_of",
+    kind: ParamKind::Date,
+    required: false,
+};
+const MIN_DAYS: ParamDef = ParamDef {
+    name: "min_days",
+    kind: ParamKind::Number,
+    required: false,
+};
+const THRESHOLD: ParamDef = ParamDef {
+    name: "threshold",
+    kind: ParamKind::Number,
+    required: true,
+};
+const TOP: ParamDef = ParamDef {
+    name: "top",
+    kind: ParamKind::Number,
+    required: false,
+};
+const STUDENT: ParamDef = ParamDef {
+    name: "student_number",
+    kind: ParamKind::StudentNumber,
+    required: true,
+};
 
 pub const REPORTS: &[ReportDef] = &[
     ReportDef {
@@ -116,36 +185,178 @@ pub const REPORTS: &[ReportDef] = &[
         module: Module::Students,
         params: &[YEAR, CLASS, SECTION, STATUS],
         landscape: true,
+        access: Access::ReportsRead,
     },
     ReportDef {
         code: "students.strength",
         module: Module::Students,
         params: &[YEAR, CLASS],
         landscape: false,
+        access: Access::ReportsRead,
     },
     ReportDef {
         code: "students.movements",
         module: Module::Students,
         params: &[YEAR, FROM, TO, CLASS],
         landscape: false,
+        access: Access::ReportsRead,
     },
     ReportDef {
         code: "students.contacts",
         module: Module::Students,
         params: &[YEAR, CLASS, SECTION],
         landscape: true,
+        access: Access::ReportsRead,
     },
     ReportDef {
         code: "students.birthdays",
         module: Module::Students,
         params: &[YEAR, MONTH, CLASS],
         landscape: false,
+        access: Access::ReportsRead,
     },
     ReportDef {
         code: "students.missing",
         module: Module::Students,
         params: &[YEAR, CLASS, SECTION],
         landscape: true,
+        access: Access::ReportsRead,
+    },
+    // ---- Fees
+    ReportDef {
+        code: "fees.collection",
+        module: Module::Fees,
+        params: &[FROM, TO, CLASS],
+        landscape: true,
+        access: Access::ReportsRead,
+    },
+    ReportDef {
+        code: "fees.monthly",
+        module: Module::Fees,
+        params: &[FROM, TO],
+        landscape: false,
+        access: Access::ReportsRead,
+    },
+    ReportDef {
+        code: "fees.defaulters",
+        module: Module::Fees,
+        params: &[AS_OF, CLASS, MIN_DAYS],
+        landscape: true,
+        access: Access::ReportsRead,
+    },
+    ReportDef {
+        code: "fees.ledger",
+        module: Module::Fees,
+        params: &[STUDENT],
+        landscape: true,
+        access: Access::ReportsRead,
+    },
+    ReportDef {
+        code: "fees.concessions",
+        module: Module::Fees,
+        params: &[YEAR, FROM, TO, CLASS],
+        landscape: true,
+        access: Access::ReportsRead,
+    },
+    ReportDef {
+        code: "fees.vouchers",
+        module: Module::Fees,
+        params: &[MONTH, CLASS, SECTION],
+        landscape: true,
+        access: Access::ReportsRead,
+    },
+    ReportDef {
+        code: "fees.late_fees",
+        module: Module::Fees,
+        params: &[FROM, TO, CLASS],
+        landscape: true,
+        access: Access::ReportsRead,
+    },
+    ReportDef {
+        code: "fees.heads",
+        module: Module::Fees,
+        params: &[YEAR],
+        landscape: false,
+        access: Access::ReportsRead,
+    },
+    // ---- Attendance
+    ReportDef {
+        code: "attendance.register",
+        module: Module::Attendance,
+        params: &[YEAR, CLASS_REQ, SECTION_REQ, MONTH],
+        landscape: true,
+        access: Access::AttendanceRead,
+    },
+    ReportDef {
+        code: "attendance.percent",
+        module: Module::Attendance,
+        params: &[YEAR, FROM, TO, CLASS],
+        landscape: false,
+        access: Access::AttendanceRead,
+    },
+    ReportDef {
+        code: "attendance.absentees",
+        module: Module::Attendance,
+        params: &[FROM, TO, CLASS, SECTION],
+        landscape: true,
+        access: Access::AttendanceRead,
+    },
+    ReportDef {
+        code: "attendance.below",
+        module: Module::Attendance,
+        params: &[YEAR, FROM, TO, THRESHOLD, CLASS, SECTION],
+        landscape: true,
+        access: Access::AttendanceRead,
+    },
+    ReportDef {
+        code: "attendance.staff",
+        module: Module::Attendance,
+        params: &[MONTH],
+        landscape: false,
+        access: Access::ReportsRead,
+    },
+    // ---- Exams
+    ReportDef {
+        code: "exams.result_sheet",
+        module: Module::Exams,
+        params: &[YEAR, ASSESSMENT, CLASS_REQ, SECTION_REQ],
+        landscape: true,
+        access: Access::ExamsRead,
+    },
+    ReportDef {
+        code: "exams.merit",
+        module: Module::Exams,
+        params: &[YEAR, ASSESSMENT, CLASS_REQ, TOP],
+        landscape: false,
+        access: Access::ExamsRead,
+    },
+    ReportDef {
+        code: "exams.analysis",
+        module: Module::Exams,
+        params: &[YEAR, ASSESSMENT, CLASS_REQ, SECTION],
+        landscape: true,
+        access: Access::ExamsRead,
+    },
+    ReportDef {
+        code: "exams.grades",
+        module: Module::Exams,
+        params: &[YEAR, ASSESSMENT, CLASS_REQ],
+        landscape: false,
+        access: Access::ExamsRead,
+    },
+    ReportDef {
+        code: "exams.failing",
+        module: Module::Exams,
+        params: &[YEAR, ASSESSMENT, CLASS_REQ, SECTION],
+        landscape: false,
+        access: Access::ExamsRead,
+    },
+    ReportDef {
+        code: "exams.report_cards",
+        module: Module::Exams,
+        params: &[YEAR, CLASS_REQ, SECTION_REQ],
+        landscape: false,
+        access: Access::ExamsRead,
     },
 ];
 
@@ -167,6 +378,7 @@ pub struct CatalogueReport {
     pub title: String,
     pub description: String,
     pub landscape: bool,
+    pub access: Access,
     pub params: Vec<CatalogueParam>,
 }
 
@@ -178,14 +390,16 @@ pub struct CatalogueParam {
     pub required: bool,
 }
 
-pub fn catalogue(lang: Lang) -> Vec<CatalogueModule> {
+/// The catalogue for a caller: only the reports `allowed` says they may run.
+pub fn catalogue(lang: Lang, allowed: impl Fn(&ReportDef) -> bool) -> Vec<CatalogueModule> {
     let mut modules: Vec<CatalogueModule> = Vec::new();
-    for def in REPORTS {
+    for def in REPORTS.iter().filter(|d| allowed(d)) {
         let entry = CatalogueReport {
             code: def.code.into(),
             title: tr(lang, &format!("report.{}", def.code)).into(),
             description: tr(lang, &format!("report.{}.desc", def.code)).into(),
             landscape: def.landscape,
+            access: def.access,
             params: def
                 .params
                 .iter()
@@ -229,12 +443,26 @@ mod tests {
                 r.code
             );
         }
-        let ur = catalogue(Lang::Ur);
+        let ur = catalogue(Lang::Ur, |_| true);
         assert_eq!(ur[0].label, "طلبہ");
+        assert_eq!(ur.len(), 4, "students, fees, attendance, exams");
         assert!(ur[0]
             .reports
             .iter()
             .any(|r| r.code == "students.list" && r.title == "طلبہ کی فہرست"));
+        let teacher = catalogue(Lang::En, |d| d.access != Access::ReportsRead);
+        assert_eq!(teacher.len(), 2, "attendance and exams only");
+        assert!(teacher.iter().all(|m| m.module != Module::Fees));
+        for r in REPORTS {
+            for p in r.params {
+                assert!(
+                    super::super::text::has(p.label_key()),
+                    "label for {} in {}",
+                    p.name,
+                    r.code
+                );
+            }
+        }
         assert!(find("students.list").is_some());
         assert!(find("nope").is_none());
     }

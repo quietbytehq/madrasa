@@ -447,6 +447,31 @@ withdrawals between two dates), `students.contacts` (one row per guardian link),
 (students lacking CNIC/B-Form, photo, guardian, guardian phone, enrolment, roll number or
 address).
 
+Fee, attendance and exam reports (stage 2) use the same document and renderers. Fees
+(`reports.read`): `fees.collection` (every receipt in a period by day, reversals as negative
+amounts), `fees.monthly`, `fees.defaulters` (the defaulter query with ageing buckets 1–30,
+31–60, 61–90, over 90 days as notes), `fees.ledger` (one student by student number: vouchers
+on their issue date, receipts on their payment date, running balance), `fees.concessions`,
+`fees.vouchers` (a billing month), `fees.late_fees` (assessed and waived), `fees.heads`
+(billed vs collected per head; payments are split across a voucher's lines in proportion,
+stated in a note). Attendance: `attendance.register` (one section and month, a column per
+day: P/A/L/Lv, — for a marked day without an entry, H for weekends and holidays),
+`attendance.percent` (per section, attendance % = (present + late) ÷ marked),
+`attendance.absentees` (a period, grouped by day), `attendance.below` (students under a
+percentage threshold), `attendance.staff` (a month, `reports.read` only). Exams:
+`exams.result_sheet`, `exams.merit` (top N across the class's sections, competition
+ranking), `exams.analysis`, `exams.grades` (one column per grade band), `exams.failing`
+(below the pass percentage, grouped by subject) and `exams.report_cards` (summary table on
+screen and in Excel; the PDF typesets one card per page with the same content as the
+on-screen card). Exam reports are computed from the exams module's own result sheets and
+report cards, so figures match the screen; unapproved sheets add a note.
+
+Access: a report's `access` is `reports_read`, `attendance_read` or `exams_read`. Office
+roles with `reports.read` run everything; a teacher runs attendance and exam reports with
+the module's read permission, limited to the sections they are class teacher of or teach in
+(the catalogue only lists what the caller may run). Dashboard shortcuts open today's
+collection and today's absentees with the dates filled in and the report run (`?run`).
+
 ## 6. API conventions
 
 - Base path `/api/v1`. JSON request and response bodies. `snake_case` keys.
@@ -696,7 +721,7 @@ chooser as the first-start screen; records on the PC are kept whichever mode is 
 | Method | Path | Permission | Notes |
 | --- | --- | --- | --- |
 | GET | `/reports?lang=en\|ur` | `reports.read` | Catalogue by module: code, title, description, orientation, parameters (`name`, `kind`, `label`, `required`) |
-| GET | `/reports/{code}?format=json\|pdf\|xlsx&lang=en\|ur&…` | `reports.read` | Runs a report; parameters by `kind`: `academic_year_id` (default: active year), `class_id`, `section_id`, `status`, `month` (`YYYY-MM`), `from`/`to` (`YYYY-MM-DD`). Unknown code → 404; bad parameter or format → 400 |
+| GET | `/reports/{code}?format=json\|pdf\|xlsx&lang=en\|ur&…` | per report (`access`) | Runs a report; parameters by `kind`: `academic_year_id` (default: active year), `class_id`, `section_id`, `status`, `month` (`YYYY-MM`), `from`/`to`/`as_of` (`YYYY-MM-DD`), `assessment_id`, numbers (`top`, `threshold`, `min_days`), `student_number`. Unknown code → 404; bad parameter or format → 400; outside the caller's access or section scope → 403 |
 
 ### 6.11 Second alpha test report fixes
 

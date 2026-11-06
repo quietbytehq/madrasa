@@ -11,6 +11,11 @@ import { useFeatures } from "@/app/features";
 import { useSession } from "@/app/session";
 import { PageHeader } from "./PageHeader";
 
+function todayIso(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export function Dashboard() {
   const { t, formatDate } = useI18n();
   const money = useMoney();
@@ -78,6 +83,24 @@ export function Dashboard() {
       <p className="mb-4 text-sm text-muted">
         {t("dashboard.welcome", { name: user?.full_name ?? "" })}
       </p>
+      {(can("reports.read") || can("attendance.read")) && (
+        <nav aria-label={t("reports.title")} className="mb-3 flex flex-wrap gap-2 text-sm">
+          {can("reports.read") && (
+            <Link
+              to={`/reports/fees.collection?from=${todayIso()}&to=${todayIso()}&run`}
+              className="rounded border border-border bg-card px-2.5 py-1 text-blue hover:bg-hover"
+            >
+              {t("dashboard.reports.collection")}
+            </Link>
+          )}
+          <Link
+            to={`/reports/attendance.absentees?from=${todayIso()}&to=${todayIso()}&run`}
+            className="rounded border border-border bg-card px-2.5 py-1 text-blue hover:bg-hover"
+          >
+            {t("dashboard.reports.absentees")}
+          </Link>
+        </nav>
+      )}
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
         <Card padded={false} className="p-3" data-testid="attendance-card">
           <div className="flex items-center justify-between">
