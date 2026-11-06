@@ -46,6 +46,7 @@ pub fn router(state: AppState) -> Router {
         .merge(routes::fees::router())
         .merge(routes::attendance::router())
         .merge(routes::exams::router())
+        .merge(routes::exam_terms::router())
         .merge(routes::backup::router())
         .merge(routes::boards::router())
         .merge(routes::imports::router())

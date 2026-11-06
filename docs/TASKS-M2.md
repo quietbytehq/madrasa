@@ -138,25 +138,25 @@ Academic year → terms → assessment components per term. Today a year has fla
 types with weights; schools work in terms (two or three per year) with several components
 each (class test, assignment, mid-term, final) and calculated columns.
 
-- [ ] `terms` per academic year: name, position, start and end dates, weight in the year;
+- [x] `terms` per academic year: name, position, start and end dates, weight in the year;
       weights of a year's terms total 100
-- [ ] Components: each existing assessment type becomes a component of a term; a component
+- [x] Components: each existing assessment type becomes a component of a term; a component
       is **entered** (marks typed in or uploaded, has maximum marks per class and subject,
       has mark sheets) or **calculated** (formula over other components of the same term:
       sum, average, weighted average, best of N; no mark sheets); weights within a term
       total 100 over the components that count
-- [ ] Calculation in `madrasa_core::exams` with exact decimals: component → term result →
+- [x] Calculation in `madrasa_core::exams` with exact decimals: component → term result →
       year result; a component not yet held is left out of averages as today; cycles and
       references outside the term are refused
-- [ ] Results, result sheets, report cards and the exam reports follow the structure: term
+- [x] Results, result sheets, report cards and the exam reports follow the structure: term
       columns with their components, term totals and grades, year result
-- [ ] Migration: an existing year gets one term ("Year") holding its current assessment
+- [x] Migration: an existing year gets one term ("Year") holding its current assessment
       types as entered components with their weights, so every existing setup, mark sheet,
       result and report card stays identical; the default for a new year is two terms with
       the current four assessments split between them
-- [ ] Setup UI under Examinations → Setup: terms, components per term, formula editor for
+- [x] Setup UI under Examinations → Setup: terms, components per term, formula editor for
       calculated components (pick the operation and the inputs), weights with live totals
-- [ ] Tests: formulas (each operation, best-of-N, missing inputs, rounding), migration on a
+- [x] Tests: formulas (each operation, best-of-N, missing inputs, rounding), migration on a
       demo year (results before and after identical), report cards with terms, setup vitest
 
 ## Stage 6 — Subject allocation per student

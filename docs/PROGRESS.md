@@ -728,6 +728,32 @@ depend on each other and were built together)
   sheet figures, student results, four reports incl. Urdu PDF, deletes); vitest
   `boards.test.tsx`; `backup` migration count → 13; demo setup test covers the loader.
 
+### 2026-11-06 — Stage 5: Terms and assessment components (branch `dev/m2-stage-5-terms`)
+- Migration `0014_terms`: `terms` table; `assessment_types` gains `term_id`, `kind`
+  (entered/calculated) and `formula`; every existing year gets one term "Year" (100) holding
+  its assessments, so nothing changes for existing schools.
+- `madrasa_core::exams::Formula` (sum, average, weighted, best of N) with validation (same
+  term, distinct, no self-reference, no cycles) and evaluation; term and year weights
+  validated per group.
+- `madrasa_db::exams`: terms CRUD and weights, `create_component`/`update_component`,
+  `create_default_structure` (one or two terms), per-term weight validation.
+- API `routes/exam_terms.rs` (`/exams/terms`, `/exams/terms/weights`, `/exams/structure`);
+  `routes/exams.rs` evaluates calculated components on read (`marks_for`/`evaluate_rows`),
+  refuses sheets, templates, uploads and maximum marks for them, and builds report cards
+  with `terms` and per-subject `term_percents` (year = weighted terms). PDF report cards show
+  the term header and term result rows when a year has more than one term.
+- UI: Examinations → Setup → *Terms and assessment components*: terms with weights in the
+  year, add/remove terms, components grouped by term with kind, weight and "move to" term,
+  defaults for one or two terms, add entered component, calculated component editor
+  (formula, N, inputs, input weights). Marks entry and maximum marks list entered components
+  only; report cards show term columns and term results.
+- Tests: core unit tests (formula ops, validation); integration `crates/api/tests/exam_terms.rs`
+  (defaults, per-term weights, best-of and weighted components, sheet refusal, computed
+  result sheet, report card term/year percentages, two-term defaults, term weights, delete
+  and move, PDF); vitest for the setup card (defaults select, formula editor) and the
+  two-term report card; `backup` migration count → 14; the schema rules test lists the new
+  tables of stages 3–5.
+
 ## Summary for the owner — Stages 5, 6 and 7 (night run of 2026-10-30/31)
 
 All three stages are merged into `main` in order (pull requests #6, #7 and #8),

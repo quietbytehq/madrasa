@@ -14,7 +14,21 @@ export function ReportCardView({
   print?: boolean;
 }) {
   const held = card.assessments.filter((a) => a.held);
-  const weights = card.assessments.map((a) => `${a.name} ${num(a.weight)}%`).join(", ");
+  const terms = card.terms ?? [];
+  const multiTerm = terms.length > 1;
+  const span = (termId: string) =>
+    Math.max(1, card.assessments.filter((a) => a.term_id === termId).length);
+  const weights = multiTerm
+    ? terms
+        .map(
+          (tm) =>
+            `${tm.name} ${num(tm.weight)}% (${card.assessments
+              .filter((a) => a.term_id === tm.id)
+              .map((a) => `${a.name} ${num(a.weight)}%`)
+              .join(", ")})`,
+        )
+        .join("; ")
+    : card.assessments.map((a) => `${a.name} ${num(a.weight)}%`).join(", ");
   return (
     <section
       className={cn(
@@ -52,6 +66,17 @@ export function ReportCardView({
       ) : (
         <table className="w-full text-xs">
           <thead className="bg-hover">
+            {multiTerm && (
+              <tr data-testid="term-header">
+                <th />
+                {terms.map((tm) => (
+                  <th key={tm.id} colSpan={span(tm.id)} className="px-2 py-1 text-center">
+                    {tm.name} <span className="font-normal text-muted">{num(tm.weight)}%</span>
+                  </th>
+                ))}
+                <th colSpan={2} />
+              </tr>
+            )}
             <tr>
               <th className="px-2 py-1.5 text-start">{t("exams.subject")}</th>
               {card.assessments.map((a) => (
@@ -102,6 +127,23 @@ export function ReportCardView({
               ))}
               <td colSpan={2} />
             </tr>
+            {multiTerm && (
+              <tr className="border-t border-border" data-testid="term-result">
+                <td className="px-2 py-1 text-muted">{t("exams.card.termResult")}</td>
+                {terms.map((tm) => (
+                  <td
+                    key={tm.id}
+                    colSpan={span(tm.id)}
+                    className="px-2 py-1 text-center font-semibold tabular-nums"
+                  >
+                    {tm.percent === null
+                      ? "—"
+                      : `${pct(tm.percent)}${tm.grade ? ` · ${tm.grade}` : ""}`}
+                  </td>
+                ))}
+                <td colSpan={2} />
+              </tr>
+            )}
             <tr className="border-t border-border">
               <td className="px-2 py-1 text-muted">{t("exams.results.position")}</td>
               {card.totals.map((tt) => (

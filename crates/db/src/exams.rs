@@ -12,6 +12,7 @@ use madrasa_core::exams::{self, GradingScheme, SheetStatus};
 use madrasa_core::hlc::Hlc;
 use madrasa_core::ids::new_id;
 use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::PgConnection;
 use std::collections::HashMap;
@@ -45,6 +46,19 @@ pub async fn get_assessment(conn: &mut PgConnection, id: Uuid) -> DbResult<Asses
 }
 
 #[allow(clippy::too_many_arguments)]
+/// A new component: entered (marks typed in) or calculated (a formula over the term).
+#[derive(Debug, Clone)]
+pub struct NewComponent {
+    pub name: String,
+    pub weight: Decimal,
+    pub position: i32,
+    pub term_id: Option<Uuid>,
+    /// `entered` or `calculated`.
+    pub kind: String,
+    pub formula: Option<serde_json::Value>,
+}
+
+#[allow(clippy::too_many_arguments)]
 pub async fn create_assessment(
     conn: &mut PgConnection,
     hlc: &Hlc,
@@ -55,23 +69,60 @@ pub async fn create_assessment(
     weight: Decimal,
     position: i32,
 ) -> DbResult<AssessmentType> {
-    let name = name.trim();
+    create_component(
+        conn,
+        hlc,
+        actor,
+        school_id,
+        academic_year_id,
+        NewComponent {
+            name: name.into(),
+            weight,
+            position,
+            term_id: None,
+            kind: "entered".into(),
+            formula: None,
+        },
+    )
+    .await
+}
+
+pub async fn create_component(
+    conn: &mut PgConnection,
+    hlc: &Hlc,
+    actor: Actor,
+    school_id: Uuid,
+    academic_year_id: Uuid,
+    c: NewComponent,
+) -> DbResult<AssessmentType> {
+    let name = c.name.trim();
     if name.is_empty() {
         return Err(DbError::Conflict("assessment name is required".into()));
     }
-    if weight < Decimal::ZERO || weight > Decimal::ONE_HUNDRED {
+    if c.weight < Decimal::ZERO || c.weight > Decimal::ONE_HUNDRED {
         return Err(DbError::Conflict("weight must be between 0 and 100".into()));
     }
+    // A year with terms puts every component in a term: default to the first one.
+    let term_id = match c.term_id {
+        Some(t) => Some(t),
+        None => list_terms(&mut *conn, academic_year_id)
+            .await?
+            .first()
+            .map(|t| t.id),
+    };
     let row = sqlx::query_as::<_, AssessmentType>(
-        "INSERT INTO assessment_types (id, school_id, academic_year_id, name, position, weight, updated_by, hlc)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *",
+        "INSERT INTO assessment_types (id, school_id, academic_year_id, name, position, weight, term_id, kind, formula, updated_by, hlc)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *",
     )
     .bind(new_id())
     .bind(school_id)
     .bind(academic_year_id)
     .bind(name)
-    .bind(position)
-    .bind(weight)
+    .bind(c.position)
+    .bind(c.weight)
+    .bind(term_id)
+    .bind(&c.kind)
+    .bind(&c.formula)
     .bind(actor.user_id)
     .bind(hlc.now().to_string())
     .fetch_one(&mut *conn)
@@ -91,7 +142,8 @@ pub async fn create_assessment(
     Ok(row)
 }
 
-/// Create the default four assessments for a year that has none yet. Returns the list.
+/// Create the default four assessments for a year that has none yet, in one term "Year".
+/// Returns the list.
 pub async fn create_default_assessments(
     conn: &mut PgConnection,
     hlc: &Hlc,
@@ -99,24 +151,394 @@ pub async fn create_default_assessments(
     school_id: Uuid,
     academic_year_id: Uuid,
 ) -> DbResult<Vec<AssessmentType>> {
+    create_default_structure(conn, hlc, actor, school_id, academic_year_id, 1).await
+}
+
+/// Defaults with one term ("Year": the four assessments with their usual weights) or two
+/// ("Term 1": Bi-monthly Test 1 30 + Mid-year 70; "Term 2": Bi-monthly Test 2 30 + Final 70;
+/// each term weighs 50). Does nothing when the year already has assessments.
+pub async fn create_default_structure(
+    conn: &mut PgConnection,
+    hlc: &Hlc,
+    actor: Actor,
+    school_id: Uuid,
+    academic_year_id: Uuid,
+    terms: u8,
+) -> DbResult<Vec<AssessmentType>> {
     let existing = list_assessments(&mut *conn, academic_year_id).await?;
     if !existing.is_empty() {
         return Ok(existing);
     }
-    for (i, (name, weight)) in exams::DEFAULT_ASSESSMENTS.iter().enumerate() {
-        create_assessment(
+    if terms >= 2 {
+        let t1 = create_term(
             &mut *conn,
             hlc,
             actor,
             school_id,
             academic_year_id,
-            name,
-            Decimal::from(*weight),
-            i as i32,
+            NewTerm {
+                name: "Term 1".into(),
+                position: 0,
+                starts_on: None,
+                ends_on: None,
+                weight: Decimal::from(50),
+            },
+        )
+        .await?;
+        let t2 = create_term(
+            &mut *conn,
+            hlc,
+            actor,
+            school_id,
+            academic_year_id,
+            NewTerm {
+                name: "Term 2".into(),
+                position: 1,
+                starts_on: None,
+                ends_on: None,
+                weight: Decimal::from(50),
+            },
+        )
+        .await?;
+        let plan = [
+            ("Bi-monthly Test 1", 30u32, t1.id, 0),
+            ("Mid-year", 70, t1.id, 1),
+            ("Bi-monthly Test 2", 30, t2.id, 2),
+            ("Final", 70, t2.id, 3),
+        ];
+        for (name, weight, term, position) in plan {
+            create_component(
+                &mut *conn,
+                hlc,
+                actor,
+                school_id,
+                academic_year_id,
+                NewComponent {
+                    name: name.into(),
+                    weight: Decimal::from(weight),
+                    position,
+                    term_id: Some(term),
+                    kind: "entered".into(),
+                    formula: None,
+                },
+            )
+            .await?;
+        }
+    } else {
+        let year_term = match list_terms(&mut *conn, academic_year_id)
+            .await?
+            .into_iter()
+            .next()
+        {
+            Some(t) => t,
+            None => {
+                create_term(
+                    &mut *conn,
+                    hlc,
+                    actor,
+                    school_id,
+                    academic_year_id,
+                    NewTerm {
+                        name: "Year".into(),
+                        position: 0,
+                        starts_on: None,
+                        ends_on: None,
+                        weight: Decimal::ONE_HUNDRED,
+                    },
+                )
+                .await?
+            }
+        };
+        for (i, (name, weight)) in exams::DEFAULT_ASSESSMENTS.iter().enumerate() {
+            create_component(
+                &mut *conn,
+                hlc,
+                actor,
+                school_id,
+                academic_year_id,
+                NewComponent {
+                    name: (*name).into(),
+                    weight: Decimal::from(*weight),
+                    position: i as i32,
+                    term_id: Some(year_term.id),
+                    kind: "entered".into(),
+                    formula: None,
+                },
+            )
+            .await?;
+        }
+    }
+    list_assessments(conn, academic_year_id).await
+}
+
+/// Change a component's name, position, term or formula.
+#[allow(clippy::too_many_arguments)] // one call site; a struct would only rename the fields
+pub async fn update_component(
+    conn: &mut PgConnection,
+    hlc: &Hlc,
+    actor: Actor,
+    id: Uuid,
+    name: &str,
+    position: i32,
+    term_id: Option<Uuid>,
+    formula: Option<serde_json::Value>,
+) -> DbResult<AssessmentType> {
+    let old = get_assessment(&mut *conn, id).await?;
+    let name = name.trim();
+    if name.is_empty() {
+        return Err(DbError::Conflict("assessment name is required".into()));
+    }
+    let row = sqlx::query_as::<_, AssessmentType>(
+        "UPDATE assessment_types SET name = $2, position = $3, term_id = $4, formula = $5, updated_at = now(), updated_by = $6, hlc = $7
+         WHERE id = $1 AND deleted_at IS NULL RETURNING *",
+    )
+    .bind(id)
+    .bind(name)
+    .bind(position)
+    .bind(term_id.or(old.term_id))
+    .bind(if old.kind == "calculated" { formula } else { None })
+    .bind(actor.user_id)
+    .bind(hlc.now().to_string())
+    .fetch_one(&mut *conn)
+    .await
+    .map_err(|e| crate::map_unique(e, "An assessment with this name already exists"))?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Update,
+        "assessment_type",
+        Some(id),
+        Some(snapshot(&old)),
+        Some(snapshot(&row)),
+    )
+    .await?;
+    Ok(row)
+}
+
+// ---- terms (M2 stage 5) -------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct Term {
+    pub id: Uuid,
+    pub school_id: Uuid,
+    pub academic_year_id: Uuid,
+    pub name: String,
+    pub position: i32,
+    pub starts_on: Option<chrono::NaiveDate>,
+    pub ends_on: Option<chrono::NaiveDate>,
+    pub weight: Decimal,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+    pub updated_by: Option<Uuid>,
+    pub deleted_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub hlc: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct NewTerm {
+    pub name: String,
+    pub position: i32,
+    pub starts_on: Option<chrono::NaiveDate>,
+    pub ends_on: Option<chrono::NaiveDate>,
+    pub weight: Decimal,
+}
+
+pub async fn list_terms(conn: &mut PgConnection, academic_year_id: Uuid) -> DbResult<Vec<Term>> {
+    Ok(sqlx::query_as::<_, Term>(
+        "SELECT * FROM terms WHERE academic_year_id = $1 AND deleted_at IS NULL ORDER BY position, name",
+    )
+    .bind(academic_year_id)
+    .fetch_all(conn)
+    .await?)
+}
+
+pub async fn get_term(conn: &mut PgConnection, id: Uuid) -> DbResult<Term> {
+    sqlx::query_as::<_, Term>("SELECT * FROM terms WHERE id = $1 AND deleted_at IS NULL")
+        .bind(id)
+        .fetch_optional(conn)
+        .await?
+        .ok_or_else(|| DbError::NotFound("term".into()))
+}
+
+pub async fn create_term(
+    conn: &mut PgConnection,
+    hlc: &Hlc,
+    actor: Actor,
+    school_id: Uuid,
+    academic_year_id: Uuid,
+    t: NewTerm,
+) -> DbResult<Term> {
+    if t.name.trim().is_empty() {
+        return Err(DbError::Conflict("term name is required".into()));
+    }
+    if t.weight < Decimal::ZERO || t.weight > Decimal::ONE_HUNDRED {
+        return Err(DbError::Conflict("weight must be between 0 and 100".into()));
+    }
+    if let (Some(a), Some(b)) = (t.starts_on, t.ends_on) {
+        if b < a {
+            return Err(DbError::Conflict("the term ends before it starts".into()));
+        }
+    }
+    let row = sqlx::query_as::<_, Term>(
+        "INSERT INTO terms (id, school_id, academic_year_id, name, position, starts_on, ends_on, weight, updated_by, hlc)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *",
+    )
+    .bind(new_id())
+    .bind(school_id)
+    .bind(academic_year_id)
+    .bind(t.name.trim())
+    .bind(t.position)
+    .bind(t.starts_on)
+    .bind(t.ends_on)
+    .bind(t.weight)
+    .bind(actor.user_id)
+    .bind(hlc.now().to_string())
+    .fetch_one(&mut *conn)
+    .await
+    .map_err(|e| crate::map_unique(e, "A term with this name already exists"))?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Create,
+        "term",
+        Some(row.id),
+        None,
+        Some(snapshot(&row)),
+    )
+    .await?;
+    Ok(row)
+}
+
+pub async fn update_term(
+    conn: &mut PgConnection,
+    hlc: &Hlc,
+    actor: Actor,
+    id: Uuid,
+    t: NewTerm,
+) -> DbResult<Term> {
+    let old = get_term(&mut *conn, id).await?;
+    if t.name.trim().is_empty() {
+        return Err(DbError::Conflict("term name is required".into()));
+    }
+    if let (Some(a), Some(b)) = (t.starts_on, t.ends_on) {
+        if b < a {
+            return Err(DbError::Conflict("the term ends before it starts".into()));
+        }
+    }
+    let row = sqlx::query_as::<_, Term>(
+        "UPDATE terms SET name = $2, position = $3, starts_on = $4, ends_on = $5, updated_at = now(), updated_by = $6, hlc = $7
+         WHERE id = $1 AND deleted_at IS NULL RETURNING *",
+    )
+    .bind(id)
+    .bind(t.name.trim())
+    .bind(t.position)
+    .bind(t.starts_on)
+    .bind(t.ends_on)
+    .bind(actor.user_id)
+    .bind(hlc.now().to_string())
+    .fetch_one(&mut *conn)
+    .await
+    .map_err(|e| crate::map_unique(e, "A term with this name already exists"))?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Update,
+        "term",
+        Some(id),
+        Some(snapshot(&old)),
+        Some(snapshot(&row)),
+    )
+    .await?;
+    Ok(row)
+}
+
+/// Remove a term that has no components.
+pub async fn delete_term(
+    conn: &mut PgConnection,
+    hlc: &Hlc,
+    actor: Actor,
+    id: Uuid,
+) -> DbResult<()> {
+    let old = get_term(&mut *conn, id).await?;
+    let used: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM assessment_types WHERE term_id = $1 AND deleted_at IS NULL",
+    )
+    .bind(id)
+    .fetch_one(&mut *conn)
+    .await?;
+    if used > 0 {
+        return Err(DbError::Conflict(
+            "Move or remove the term's components first".into(),
+        ));
+    }
+    sqlx::query("UPDATE terms SET deleted_at = now(), updated_at = now(), updated_by = $2, hlc = $3 WHERE id = $1")
+        .bind(id)
+        .bind(actor.user_id)
+        .bind(hlc.now().to_string())
+        .execute(&mut *conn)
+        .await?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Delete,
+        "term",
+        Some(id),
+        Some(snapshot(&old)),
+        None,
+    )
+    .await?;
+    Ok(())
+}
+
+/// Weights of a year's terms; they must total 100.
+pub async fn set_term_weights(
+    conn: &mut PgConnection,
+    hlc: &Hlc,
+    actor: Actor,
+    academic_year_id: Uuid,
+    weights: &[(Uuid, Decimal)],
+) -> DbResult<Vec<Term>> {
+    let current = list_terms(&mut *conn, academic_year_id).await?;
+    if current.len() != weights.len()
+        || !current
+            .iter()
+            .all(|t| weights.iter().any(|(id, _)| *id == t.id))
+    {
+        return Err(DbError::Conflict(
+            "weights must be given for every term of the year".into(),
+        ));
+    }
+    let values: Vec<Decimal> = weights.iter().map(|(_, w)| *w).collect();
+    exams::validate_weights(&values).map_err(|e| DbError::Conflict(e.to_string()))?;
+    for (id, weight) in weights {
+        let old = current.iter().find(|t| t.id == *id).unwrap();
+        if old.weight == *weight {
+            continue;
+        }
+        sqlx::query("UPDATE terms SET weight = $2, updated_at = now(), updated_by = $3, hlc = $4 WHERE id = $1")
+            .bind(id)
+            .bind(weight)
+            .bind(actor.user_id)
+            .bind(hlc.now().to_string())
+            .execute(&mut *conn)
+            .await?;
+        audit::record(
+            &mut *conn,
+            hlc,
+            actor,
+            Action::Update,
+            "term",
+            Some(*id),
+            Some(json!({ "weight": old.weight })),
+            Some(json!({ "weight": weight })),
         )
         .await?;
     }
-    list_assessments(conn, academic_year_id).await
+    list_terms(conn, academic_year_id).await
 }
 
 pub async fn rename_assessment(
@@ -176,8 +598,22 @@ pub async fn set_weights(
             "weights must be given for every assessment of the year".into(),
         ));
     }
-    let values: Vec<Decimal> = weights.iter().map(|(_, w)| *w).collect();
-    exams::validate_weights(&values).map_err(|e| DbError::Conflict(e.to_string()))?;
+    // Weights total 100 within each term (a year without terms is one group).
+    let mut groups: Vec<(Option<Uuid>, Vec<Decimal>)> = Vec::new();
+    for a in &current {
+        let w = weights
+            .iter()
+            .find(|(id, _)| *id == a.id)
+            .map(|(_, w)| *w)
+            .unwrap();
+        match groups.iter_mut().find(|(t, _)| *t == a.term_id) {
+            Some(g) => g.1.push(w),
+            None => groups.push((a.term_id, vec![w])),
+        }
+    }
+    for (_, values) in &groups {
+        exams::validate_weights(values).map_err(|e| DbError::Conflict(e.to_string()))?;
+    }
     for (id, weight) in weights {
         let old = current.iter().find(|a| a.id == *id).unwrap();
         if old.weight == *weight {

@@ -276,6 +276,7 @@ const TEXTS: &[(&str, &str, &str)] = &[
     ("card.roll_no", "Roll no.", "رول نمبر"),
     ("card.weighted", "Weighted %", "وزنی %"),
     ("card.total", "Total", "کل"),
+    ("card.term_result", "Term result", "ٹرم کا نتیجہ"),
     ("card.result", "Result", "نتیجہ"),
     ("card.remarks", "Remarks", "ریمارکس"),
     ("card.attendance", "Attendance", "حاضری"),

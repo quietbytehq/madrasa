@@ -14,6 +14,7 @@
 
 use rust_decimal::{Decimal, RoundingStrategy};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 /// Always carries exactly two decimals, so "85" and "85.00" cannot both appear.
 pub fn round2(d: Decimal) -> Decimal {
@@ -466,6 +467,321 @@ mod tests {
         assert_eq!(
             serde_json::to_value(SheetStatus::Approved).unwrap(),
             "approved"
+        );
+    }
+}
+
+// ---- M2 stage 5: calculated components ------------------------------------------------------
+
+/// How a calculated component combines other components of its term.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FormulaOp {
+    /// Marks and maxima added up (a combined paper).
+    Sum,
+    /// Mean of the inputs' percentages.
+    Average,
+    /// Weighted mean of the inputs' percentages.
+    Weighted,
+    /// Mean of the best `n` percentages.
+    BestOf,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FormulaInput {
+    pub assessment_type_id: Uuid,
+    #[serde(default)]
+    pub weight: Option<Decimal>,
+}
+
+/// Stored as JSON on a calculated component.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Formula {
+    pub op: FormulaOp,
+    pub inputs: Vec<FormulaInput>,
+    #[serde(default)]
+    pub n: Option<u32>,
+}
+
+impl Formula {
+    /// Check a formula against the components of its term: `(id, formula if calculated)`.
+    /// Inputs must be other components of the same term, with no cycle through other
+    /// calculated components; weighted needs positive weights; best-of needs 1 ≤ n ≤ inputs.
+    pub fn validate(
+        &self,
+        self_id: Option<Uuid>,
+        term: &[(Uuid, Option<Formula>)],
+    ) -> Result<(), String> {
+        if self.inputs.is_empty() {
+            return Err("A calculated component needs at least one input.".into());
+        }
+        let mut seen = Vec::new();
+        for i in &self.inputs {
+            if Some(i.assessment_type_id) == self_id {
+                return Err("A component cannot use itself.".into());
+            }
+            if !term.iter().any(|(id, _)| *id == i.assessment_type_id) {
+                return Err("Every input must be a component of the same term.".into());
+            }
+            if seen.contains(&i.assessment_type_id) {
+                return Err("An input is listed twice.".into());
+            }
+            seen.push(i.assessment_type_id);
+            if self.op == FormulaOp::Weighted && !i.weight.is_some_and(|w| w > Decimal::ZERO) {
+                return Err("Weighted average needs a weight above 0 for every input.".into());
+            }
+        }
+        if self.op == FormulaOp::BestOf {
+            let n = self.n.unwrap_or(0) as usize;
+            if n < 1 || n > self.inputs.len() {
+                return Err("Best of N needs N between 1 and the number of inputs.".into());
+            }
+        }
+        // Cycles: follow inputs through other calculated components.
+        let mut stack: Vec<Uuid> = self.inputs.iter().map(|i| i.assessment_type_id).collect();
+        let mut visited: Vec<Uuid> = Vec::new();
+        while let Some(id) = stack.pop() {
+            if Some(id) == self_id {
+                return Err("The formula refers back to this component.".into());
+            }
+            if visited.contains(&id) {
+                continue;
+            }
+            visited.push(id);
+            if let Some((_, Some(f))) = term.iter().find(|(x, _)| *x == id) {
+                stack.extend(f.inputs.iter().map(|i| i.assessment_type_id));
+            }
+        }
+        Ok(())
+    }
+
+    /// Evaluate over the inputs' scores (`None` when an input is not held yet). Inputs not
+    /// held are left out; the result is `None` when none is held.
+    pub fn evaluate(&self, scores: &[(Uuid, Option<Score>)]) -> Option<Score> {
+        let held: Vec<(&FormulaInput, Score)> = self
+            .inputs
+            .iter()
+            .filter_map(|i| {
+                scores
+                    .iter()
+                    .find(|(id, _)| *id == i.assessment_type_id)
+                    .and_then(|(_, s)| s.map(|s| (i, s)))
+            })
+            .collect();
+        if held.is_empty() {
+            return None;
+        }
+        match self.op {
+            FormulaOp::Sum => {
+                let max: Decimal = held.iter().map(|(_, s)| s.max).sum();
+                let obtained: Decimal = held.iter().map(|(_, s)| s.obtained_or_zero()).sum();
+                Some(Score {
+                    max: round2(max),
+                    obtained: Some(round2(obtained)),
+                })
+            }
+            FormulaOp::Average => {
+                let sum: Decimal = held.iter().map(|(_, s)| s.percent()).sum();
+                Some(Score {
+                    max: round2(Decimal::ONE_HUNDRED),
+                    obtained: Some(round2(sum / Decimal::from(held.len() as u32))),
+                })
+            }
+            FormulaOp::Weighted => {
+                let parts: Vec<(Decimal, Score)> = held
+                    .iter()
+                    .map(|(i, s)| (i.weight.unwrap_or(Decimal::ONE), *s))
+                    .collect();
+                weighted_percent(&parts).map(|p| Score {
+                    max: round2(Decimal::ONE_HUNDRED),
+                    obtained: Some(p),
+                })
+            }
+            FormulaOp::BestOf => {
+                let mut pcts: Vec<Decimal> = held.iter().map(|(_, s)| s.percent()).collect();
+                pcts.sort_by(|a, b| b.cmp(a));
+                let n = (self.n.unwrap_or(1) as usize).clamp(1, pcts.len());
+                let sum: Decimal = pcts.iter().take(n).sum();
+                Some(Score {
+                    max: round2(Decimal::ONE_HUNDRED),
+                    obtained: Some(round2(sum / Decimal::from(n as u32))),
+                })
+            }
+        }
+    }
+}
+
+/// Validate the weights of one term's components or of a year's terms: they must total
+/// exactly 100 (every listed weight between 0 and 100).
+pub fn validate_group_weights(weights: &[Decimal]) -> Result<(), WeightError> {
+    validate_weights(weights)
+}
+
+#[cfg(test)]
+mod formula_tests {
+    use super::*;
+    use rust_decimal_macros::dec;
+
+    fn id(n: u8) -> Uuid {
+        Uuid::from_u128(n as u128)
+    }
+    fn score(obtained: u32, max: u32) -> Option<Score> {
+        Some(Score {
+            max: Decimal::from(max),
+            obtained: Some(Decimal::from(obtained)),
+        })
+    }
+    fn inputs(ids: &[u8]) -> Vec<FormulaInput> {
+        ids.iter()
+            .map(|i| FormulaInput {
+                assessment_type_id: id(*i),
+                weight: None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn each_operation_combines_the_held_inputs() {
+        let scores = vec![
+            (id(1), score(40, 50)),
+            (id(2), score(30, 50)),
+            (id(3), None),
+        ];
+        let sum = Formula {
+            op: FormulaOp::Sum,
+            inputs: inputs(&[1, 2, 3]),
+            n: None,
+        };
+        assert_eq!(
+            sum.evaluate(&scores),
+            Some(Score {
+                max: dec!(100),
+                obtained: Some(dec!(70))
+            })
+        );
+        let avg = Formula {
+            op: FormulaOp::Average,
+            inputs: inputs(&[1, 2, 3]),
+            n: None,
+        };
+        assert_eq!(avg.evaluate(&scores).unwrap().obtained, Some(dec!(70)));
+        let weighted = Formula {
+            op: FormulaOp::Weighted,
+            inputs: vec![
+                FormulaInput {
+                    assessment_type_id: id(1),
+                    weight: Some(dec!(3)),
+                },
+                FormulaInput {
+                    assessment_type_id: id(2),
+                    weight: Some(dec!(1)),
+                },
+            ],
+            n: None,
+        };
+        assert_eq!(weighted.evaluate(&scores).unwrap().obtained, Some(dec!(75)));
+        let best = Formula {
+            op: FormulaOp::BestOf,
+            inputs: inputs(&[1, 2, 3]),
+            n: Some(1),
+        };
+        assert_eq!(best.evaluate(&scores).unwrap().obtained, Some(dec!(80)));
+        let best2 = Formula {
+            op: FormulaOp::BestOf,
+            inputs: inputs(&[1, 2, 3]),
+            n: Some(2),
+        };
+        assert_eq!(best2.evaluate(&scores).unwrap().obtained, Some(dec!(70)));
+        assert_eq!(
+            sum.evaluate(&[(id(1), None), (id(2), None)]),
+            None,
+            "nothing held"
+        );
+        // Absent counts as zero.
+        let absent = vec![
+            (
+                id(1),
+                Some(Score {
+                    max: dec!(50),
+                    obtained: None,
+                }),
+            ),
+            (id(2), score(50, 50)),
+        ];
+        assert_eq!(avg.evaluate(&absent).unwrap().obtained, Some(dec!(50)));
+    }
+
+    #[test]
+    fn formulas_are_validated_against_their_term() {
+        let term = vec![
+            (id(1), None),
+            (id(2), None),
+            (
+                id(9),
+                Some(Formula {
+                    op: FormulaOp::Average,
+                    inputs: inputs(&[1, 2]),
+                    n: None,
+                }),
+            ),
+        ];
+        let ok = Formula {
+            op: FormulaOp::Average,
+            inputs: inputs(&[1, 2]),
+            n: None,
+        };
+        assert!(ok.validate(Some(id(5)), &term).is_ok());
+        let empty = Formula {
+            op: FormulaOp::Sum,
+            inputs: vec![],
+            n: None,
+        };
+        assert!(empty.validate(None, &term).is_err());
+        let outside = Formula {
+            op: FormulaOp::Sum,
+            inputs: inputs(&[7]),
+            n: None,
+        };
+        assert!(outside.validate(None, &term).is_err());
+        let selfref = Formula {
+            op: FormulaOp::Sum,
+            inputs: inputs(&[5]),
+            n: None,
+        };
+        assert!(selfref.validate(Some(id(5)), &term).is_err());
+        let twice = Formula {
+            op: FormulaOp::Sum,
+            inputs: inputs(&[1, 1]),
+            n: None,
+        };
+        assert!(twice.validate(None, &term).is_err());
+        let bad_n = Formula {
+            op: FormulaOp::BestOf,
+            inputs: inputs(&[1, 2]),
+            n: Some(3),
+        };
+        assert!(bad_n.validate(None, &term).is_err());
+        let no_weight = Formula {
+            op: FormulaOp::Weighted,
+            inputs: inputs(&[1, 2]),
+            n: None,
+        };
+        assert!(no_weight.validate(None, &term).is_err());
+        // 9 is calculated from 1 and 2; a component 1 that used 9 would be a cycle.
+        let cycle = Formula {
+            op: FormulaOp::Sum,
+            inputs: inputs(&[9]),
+            n: None,
+        };
+        assert!(cycle.validate(Some(id(1)), &term).is_err());
+        let fine = Formula {
+            op: FormulaOp::Sum,
+            inputs: inputs(&[9]),
+            n: None,
+        };
+        assert!(
+            fine.validate(Some(id(5)), &term).is_ok(),
+            "using a calculated input is fine"
         );
     }
 }

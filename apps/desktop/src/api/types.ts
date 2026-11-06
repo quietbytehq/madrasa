@@ -823,13 +823,41 @@ export interface DashboardView {
 
 export type SheetStatus = "draft" | "submitted" | "approved";
 
+export type FormulaOp = "sum" | "average" | "weighted" | "best_of";
+
+export interface Formula {
+  op: FormulaOp;
+  inputs: Array<{ assessment_type_id: string; weight?: string | null }>;
+  n?: number | null;
+}
+
 export interface AssessmentType {
   id: string;
   school_id: string;
   academic_year_id: string;
   name: string;
   position: number;
+  /** Weight within its term. */
   weight: Money;
+  term_id: string | null;
+  kind: "entered" | "calculated";
+  formula: Formula | null;
+}
+
+export interface Term {
+  id: string;
+  school_id: string;
+  academic_year_id: string;
+  name: string;
+  position: number;
+  starts_on: string | null;
+  ends_on: string | null;
+  weight: Money;
+}
+
+export interface ExamStructure {
+  terms: Array<Term & { components: AssessmentType[] }>;
+  unassigned: AssessmentType[];
 }
 
 export interface GradeBand {
@@ -999,6 +1027,8 @@ export interface CardAssessment {
   name: string;
   weight: Money;
   held: boolean;
+  term_id: string | null;
+  kind: "entered" | "calculated";
 }
 
 export interface CardCell {
@@ -1013,7 +1043,18 @@ export interface CardSubject {
   subject_id: string;
   subject_name: string;
   cells: CardCell[];
+  /** One per term, in order. */
+  term_percents: Array<Money | null>;
   weighted_percent: Money | null;
+  grade: string | null;
+}
+
+export interface CardTerm {
+  id: string;
+  name: string;
+  weight: Money;
+  component_ids: string[];
+  percent: Money | null;
   grade: string | null;
 }
 
@@ -1039,6 +1080,7 @@ export interface ReportCard {
   section_name: string | null;
   roll_no: number | null;
   assessments: CardAssessment[];
+  terms: CardTerm[];
   subjects: CardSubject[];
   totals: CardAssessmentTotal[];
   overall_percent: Money | null;

@@ -185,6 +185,16 @@ Note anything that was unclear, slow, wrong or ugly.
     file, **Import**, and then **Undo this import**. Reports → *Board result sheet* and
     *Student board result* should show the same figures; the student's profile → Results
     shows the board result under the report card.
+22. **Terms and calculated components.** Examinations → **Setup** → *Terms and assessment
+    components*: the demo year shows one term *Year* holding the four assessments, and
+    results are unchanged. Add a term *Term 2*, set the weights in the year (for example
+    60 and 40) and **Save term weights**; move *Final* to *Term 2* with its **Move to**
+    select and set each term's component weights to total 100. Click **Add calculated
+    component**, name it *Best test*, choose *Best of N* with N = 1, tick *Bi-monthly Test 1*
+    and *Bi-monthly Test 2*, and **Save**. The component appears as *Calculated*, does not
+    appear under Marks entry or Maximum marks, and the Results tab shows its figures for a
+    section. A report card should now show two term headings and a *Term result* row. On a
+    new academic year, *Add default assessments* offers one or two terms.
 17. **Several PCs at once** (needs two or more PCs on the same network; see section 6).
     Log in on each PC with a different account at the same time and enter marks or attendance
     for different sections. Each person should see only their own sections and modules, and

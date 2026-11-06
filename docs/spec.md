@@ -530,6 +530,37 @@ Reports (library, `exams.read`): board result sheet (per exam, optional class), 
 list (top N), board pass rates (by paper and by section), student board result (one
 candidate). The student profile's Results tab shows board results under the school's own.
 
+### 5.14 Terms and assessment components (M2 stage 5)
+
+| Table | Purpose |
+| --- | --- |
+| `terms` | Per academic year: `name` (unique per year, case-insensitively), `position`, optional `starts_on`/`ends_on` (the end may not precede the start), `weight` in the year (NUMERIC(5,2); a year's term weights are saved together and total 100). |
+| `assessment_types` | Now the **components**: gains `term_id`, `kind` (`entered` or `calculated`) and `formula` (JSONB, calculated only). Entered components keep maximum marks and mark sheets exactly as before. Calculated components have no sheets and no maximum marks; their marks are evaluated on read. |
+
+Formula (`madrasa_core::exams::Formula`): `{op, inputs: [{assessment_type_id, weight?}],
+n?}` with `op` one of `sum` (Σ obtained out of Σ max), `average` (mean of the inputs'
+percentages, out of 100), `weighted` (weighted mean of percentages by the inputs' weights,
+out of 100) and `best_of` (mean of the best `n` percentages, out of 100). Inputs must be
+components of the same term, distinct and not the component itself; a calculated input is
+allowed but a cycle through calculated components is refused; an input not yet held is left
+out, and the result is empty while no input is held. Every figure is rounded half away from
+zero to two places.
+
+Results follow the structure. A component's percentage per subject is as before; a term's
+result for a subject is the weighted mean of the term's component percentages over the
+components held (weights within a term total 100); the year result is the weighted mean of
+the term results by term weight. With one term this is exactly the M1 calculation. Result
+sheets and report cards treat a calculated component like any other column; report cards
+(screen and PDF) with more than one term show a term header row and a term result row with
+the term's percentage and grade.
+
+Migration `0014_terms` creates one term "Year" (weight 100) for every year that has
+assessment types and attaches them to it, so every existing setup, sheet, result and report
+card is unchanged. `POST /exams/assessments/defaults` takes `terms` (1 or 2, default 1 for
+compatibility): two terms gives Term 1 and Term 2 (50 each) with Bi-monthly Test 1 (30) +
+Mid-year (70) and Bi-monthly Test 2 (30) + Final (70); the Setup page proposes two terms for
+a new year. A term with components cannot be removed.
+
 ## 6. API conventions
 
 - Base path `/api/v1`. JSON request and response bodies. `snake_case` keys.
@@ -808,6 +839,24 @@ chooser as the first-start screen; records on the PC are kept whichever mode is 
 | POST | `/boards/exams/{id}/results/apply` | `academics.manage` | Same body (+ `file_name`, `save_mapping`); 400 while any row has an error; returns `batch_id` and the summary |
 | POST | `/imports/batches/{id}/rollback` | `academics.manage` for `board_results` batches | Reverts the import |
 | GET | `/students/{id}/board-results` | `exams.read` (teacher scope) | The student's board results across exams |
+
+### 6.17 M2 stage 5 endpoints
+
+| Method | Path | Permission | Notes |
+| --- | --- | --- | --- |
+| GET / POST | `/exams/terms?academic_year_id` | `exams.read` / `academics.manage` | Terms of a year; `{academic_year_id, name, position, starts_on?, ends_on?, weight?}` |
+| PUT / DELETE | `/exams/terms/{id}` | `academics.manage` | Rename, reorder, dates; 409 when removing a term that has components |
+| PUT | `/exams/terms/weights` | `academics.manage` | `{academic_year_id, weights:[{id, weight}]}`, totalling 100 |
+| GET | `/exams/structure?academic_year_id` | `exams.read` | Terms in order, each with its components in order, plus `unassigned` components |
+| POST | `/exams/assessments` | `academics.manage` | Now takes `term_id`, `kind` and `formula`; a calculated component is validated against its term |
+| POST | `/exams/assessments/defaults` | `academics.manage` | Takes `terms` (1 or 2) |
+| PATCH | `/exams/assessments/{id}` | `academics.manage` | Also moves a component to another term (`term_id`) or changes its `formula` |
+| PUT | `/exams/assessments/weights` | `academics.manage` | Weights are validated per term (each term's components total 100) |
+
+Sheet, template, upload and maximum-marks endpoints answer 400 for a calculated component.
+`/exams/results/*` and the report cards return `terms` (id, name, weight, component ids,
+percent, grade) and `term_percents` per subject; `assessments` entries carry `term_id` and
+`kind`.
 
 ### 6.11 Second alpha test report fixes
 

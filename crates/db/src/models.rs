@@ -631,7 +631,12 @@ pub struct AssessmentType {
     pub academic_year_id: Uuid,
     pub name: String,
     pub position: i32,
+    /// Weight within its term.
     pub weight: Decimal,
+    pub term_id: Option<Uuid>,
+    /// `entered` (marks typed in) or `calculated` (a formula over the term's components).
+    pub kind: String,
+    pub formula: Option<serde_json::Value>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub updated_by: Option<Uuid>,
