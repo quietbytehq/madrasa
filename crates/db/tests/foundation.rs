@@ -94,6 +94,7 @@ async fn migrations_apply_and_tables_follow_the_rules() {
             "mark_sheets",
             "marks",
             "permissions",
+            "report_definitions",
             "roles",
             "school_sequences",
             "schools",
