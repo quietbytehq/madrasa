@@ -828,9 +828,45 @@ database already contains a non-demo school.
 
 - **M0 Foundation** (`docs/TASKS-M0.md`): installs, setup wizard, login, themed empty
   dashboard, CI builds.
-- **M1 Students & Attendance**, **M2 Fees & Finance**, **M3 Examinations & Reports**,
-  **M4 Backup/Restore & Packaging polish**, then Standard.
+- **M1 Lite core** (`docs/TASKS-M1.md`): students and guardians, fees, attendance, exams and
+  report cards, encrypted backup, Excel import, year rollover; then the alpha fixes, LAN mode
+  and marks via Excel.
+- **M2 Lite complete** (`docs/TASKS-M2.md`, §14): report library, custom report builder,
+  Board Creator with external result import, terms and assessment components, subject
+  allocation per student, allocation screens, consent manager.
+- Then **Standard** (server and clients) and **Nexus**.
 
 ## 13. Open questions
 
 Tracked in `docs/BLOCKERS.md`. Decisions are recorded as ADRs in `docs/adr/`.
+
+## 14. M2 — Lite complete (overview)
+
+The stages, their order and their acceptance are in `docs/TASKS-M2.md`; each stage adds its
+data model and endpoints to this document when it is built. Shared decisions:
+
+- **Reports** are described once as a `Report` document (title, parameters, columns, rows,
+  groups, totals) and rendered three ways: JSON for the screen, Excel through the existing
+  export module, and PDF typeset on the server with embedded Inter and Noto Nastaliq Urdu
+  fonts, so Urdu reports are shaped and right-to-left without a browser print dialog. Every
+  report exists in English and Urdu from one backend string table. The library is
+  `GET /reports` and `GET /reports/{code}` (`reports.read`); teachers run exam and attendance
+  reports for their own sections only. Every run is audit-logged with its parameters.
+- **Custom reports** are built only from a fixed field catalogue per data source; the user's
+  choices select catalogue entries and parameters, never SQL text. Saved definitions are
+  rows in `report_definitions` (JSONB) and run like built-in reports.
+- **Boards** model external examinations: `exam_boards` (the board and its rules),
+  `board_exams` (one sitting, its classes and subjects), `board_candidates` (students with
+  roll and registration numbers) and `board_results` (per candidate and subject). Results
+  are imported through the import wizard engine as a batch with rollback, matched by roll
+  number. The student's own `board_roll_no` and `board_registration_no` remain the defaults.
+- **Terms and components** keep `assessment_types` as the entered components (mark sheets
+  stay attached to them) and add `terms` plus calculated components with a formula (sum,
+  average, weighted average, best of N) evaluated in `madrasa_core::exams`. A migration wraps
+  every existing year in one term so results do not change.
+- **Subject allocation** adds `student_subjects` per enrolment with subject groups per
+  class; absent any allocation a student takes every class subject, as today.
+- **Allocation screens** and the **consent manager** are UI and small tables over existing
+  entities (`section_teachers`, `enrollments`, new `consent_types` and `consents`), with
+  every change audit-logged.
+
