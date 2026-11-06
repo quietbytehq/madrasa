@@ -462,8 +462,13 @@ async fn student_reports_run_in_both_languages_as_json_pdf_and_excel() {
     let teacher = app
         .user_with_role(&school_id, "tch", RoleCode::Teacher)
         .await;
-    let (s, _) = app.get("/reports", &teacher).await;
-    assert_eq!(s, StatusCode::FORBIDDEN);
+    // Teachers see the catalogue for attendance and exams only, never student reports.
+    let (s, cat) = app.get("/reports", &teacher).await;
+    assert_eq!(s, StatusCode::OK, "{cat}");
+    assert!(
+        cat.as_array().unwrap().iter().all(|m| m["module"] != "students"),
+        "{cat}"
+    );
     let (s, _) = app.get("/reports/students.list", &teacher).await;
     assert_eq!(s, StatusCode::FORBIDDEN);
 
