@@ -207,7 +207,7 @@ const TEXTS: &[(&str, &str, &str)] = &[
     ("value.cash", "Cash", "نقد"),
     ("value.bank", "Bank", "بینک"),
     ("value.online", "Online", "آن لائن"),
-    ("value.1bill", "1Bill", "1Bill"),
+    ("value.one_bill", "1Bill", "1Bill"),
     ("value.kuickpay", "Kuickpay", "Kuickpay"),
     ("value.unpaid", "Unpaid", "غیر ادا شدہ"),
     ("value.partial", "Partial", "جزوی"),
