@@ -59,6 +59,7 @@ function renderShell(edition: "lite" | "nexus" = "lite", route = "/") {
             "teachers.read",
             "backup.manage",
             "academics.manage",
+            "reports.read",
           ],
         }}
       >
@@ -115,9 +116,9 @@ describe("App shell", () => {
   });
 
   it("navigates to a Coming soon module via the sidebar", async () => {
-    renderShell();
-    await userEvent.click(screen.getByRole("link", { name: "Reports" }));
-    expect(screen.getByRole("heading", { level: 1, name: "Reports" })).toBeInTheDocument();
+    renderShell("nexus");
+    await userEvent.click(screen.getByRole("link", { name: "Campuses" }));
+    expect(screen.getByRole("heading", { level: 1, name: "Campuses" })).toBeInTheDocument();
     expect(screen.getAllByText("Coming soon").length).toBeGreaterThan(0);
   });
 

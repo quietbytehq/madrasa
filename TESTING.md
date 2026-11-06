@@ -159,6 +159,11 @@ Note anything that was unclear, slow, wrong or ugly.
     absent student), save, and click **Upload filled sheet**. Try once with a mark above the
     maximum or a letter in the marks column: nothing should be saved and the message should
     name the row. Fix it, upload again, then submit and approve the sheet as in task 9.
+18. **Reports.** Open **Reports** in the sidebar. Run **Student list** for one class, then
+    **Class strength**, **Guardian contact list**, **Birthdays** for this month and **Missing
+    data**. Download one as **PDF** and one as **Excel**, then switch the app to Urdu and
+    download the PDF again: the Urdu one should read right-to-left in Nastaliq with the same
+    figures. Try **Print** on the on-screen table.
 17. **Several PCs at once** (needs two or more PCs on the same network; see section 6).
     Log in on each PC with a different account at the same time and enter marks or attendance
     for different sections. Each person should see only their own sections and modules, and

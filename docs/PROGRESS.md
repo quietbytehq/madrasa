@@ -642,6 +642,29 @@ depend on each other and were built together)
   `shows a short demo password error under the field it belongs to`.
 - Version 0.1.5 (`scripts/set-version.sh`).
 
+## M2 — Lite complete
+
+### 2026-11-06 — Stage 1: Report engine and student reports (branch `dev/m2-stage-1-reports`)
+- Started from `main` after #16 (v0.1.5). Migration `0011_reports` (audit action `report`).
+- Report document model (`madrasa_api::reports`), catalogue with typed parameters, and
+  three renderers: JSON, Excel (export module) and PDF typeset in-process with typst 0.15 and
+  Inter + Noto Nastaliq Urdu compiled in (`crates/api/fonts`, OFL). Urdu PDFs are shaped and
+  right-to-left; tested by rendering.
+- `GET /reports` and `GET /reports/{code}` (`reports.read`), every run audit-logged.
+- Student reports: list, class strength, admissions and withdrawals, guardian contacts,
+  birthdays, missing data; English and Urdu from one string table (`reports/text.rs`).
+- Reports page: library by module, parameter form built from the catalogue (year, class →
+  section, status, month, date range), on-screen table with groups, subtotals and total,
+  PDF and Excel downloads in the current language, print.
+- Tests: unit (text table complete in both languages; catalogue; PDF: data never markup,
+  pagination, Urdu RTL source and render), integration `crates/api/tests/reports.rs` (every
+  student report against seeded data, Urdu labels, xlsx and pdf bytes, 400/403/404, audit),
+  vitest `reports.test.tsx` (library, parameters, run, downloads, Urdu RTL); shell test
+  updated now that Reports is a real module.
+- Notes: PDF rendering adds typst to the API crate (longer compile, ~2 MB of fonts in the
+  binary). Teachers do not hold `reports.read`; stage 2 opens exam and attendance reports to
+  them for their own sections.
+
 ## Summary for the owner — Stages 5, 6 and 7 (night run of 2026-10-30/31)
 
 All three stages are merged into `main` in order (pull requests #6, #7 and #8),

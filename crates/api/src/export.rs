@@ -60,6 +60,8 @@ pub fn xlsx(sheet: &str, headers: &[String], rows: &[Vec<String>]) -> Result<Vec
 pub fn file_response(file_name: &str, bytes: Vec<u8>) -> Response {
     let mime = if file_name.ends_with(".xlsx") {
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    } else if file_name.ends_with(".pdf") {
+        "application/pdf"
     } else {
         "text/csv; charset=utf-8"
     };

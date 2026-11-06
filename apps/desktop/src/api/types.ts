@@ -1256,3 +1256,60 @@ export interface RolloverReport {
   assessments_created: number;
   balance_carried: Money;
 }
+
+// ---- Reports (M2 stage 1) --------------------------------------------------------------------
+
+export type ReportLang = "en" | "ur";
+export type ReportModule = "students" | "fees" | "attendance" | "exams";
+export type ReportParamKind =
+  "academic_year" | "class" | "section" | "status" | "month" | "date_from" | "date_to";
+
+export interface ReportParamDef {
+  name: string;
+  kind: ReportParamKind;
+  label: string;
+  required: boolean;
+}
+
+export interface ReportCatalogueEntry {
+  code: string;
+  title: string;
+  description: string;
+  landscape: boolean;
+  params: ReportParamDef[];
+}
+
+export interface ReportCatalogueModule {
+  module: ReportModule;
+  label: string;
+  reports: ReportCatalogueEntry[];
+}
+
+export interface ReportColumn {
+  label: string;
+  align: "start" | "end" | "center";
+  stretch: boolean;
+}
+
+export interface ReportGroup {
+  heading: string | null;
+  rows: string[][];
+  subtotal: string[] | null;
+}
+
+/** Mirrors `madrasa_api::reports::Report`. */
+export interface ReportDocument {
+  code: string;
+  lang: ReportLang;
+  school_name: string;
+  title: string;
+  subtitle: string | null;
+  params: Array<{ label: string; value: string }>;
+  columns: ReportColumn[];
+  groups: ReportGroup[];
+  total: string[] | null;
+  notes: string[];
+  landscape: boolean;
+  generated_on: string;
+  row_count: number;
+}

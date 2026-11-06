@@ -28,6 +28,8 @@ pub enum Action {
     LateFee,
     /// An administrator set a new password for an account.
     PasswordReset,
+    /// A report was run (the new value holds the report code and its parameters).
+    Report,
 }
 
 impl Action {
@@ -45,6 +47,7 @@ impl Action {
             Action::BackupPasswordFailed => "backup_password_failed",
             Action::LateFee => "late_fee",
             Action::PasswordReset => "password_reset",
+            Action::Report => "report",
         }
     }
 }

@@ -117,3 +117,13 @@ active student moves up one class (the top class graduates), sections keep their
 teachers, the fee structure and assessment types are copied, and unpaid balances carry into
 the new year's first voucher. Tick the students who repeat their class or leave, then confirm.
 The old year stays readable.
+
+## 8. Reports
+
+**Reports** in the sidebar lists the built-in reports by module. Pick one, set its options
+(academic year, class, section, status, month or dates) and click **Run report** to see it on
+screen, or **Download PDF** / **Download Excel** to get a file in the language the app is
+showing. The student reports are: student list, class strength, admissions and
+withdrawals, guardian contact list, birthdays and missing data. Reports are available to the
+principal, administrators and the accountant.
+

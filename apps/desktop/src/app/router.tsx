@@ -10,6 +10,7 @@ import { Dashboard } from "@/pages/Dashboard";
 import { ComingSoon } from "@/pages/ComingSoon";
 import { NoAccess } from "@/pages/NoAccess";
 import { FeesPage } from "@/pages/fees/FeesPage";
+import { ReportsPage } from "@/pages/reports/ReportsPage";
 import { ReceiptPrintPage, VoucherPrintPage } from "@/pages/fees/PrintPages";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { StaffPage } from "@/pages/staff/StaffPage";
@@ -139,6 +140,16 @@ export function AppRoutes({ login, setup }: AppRoutesProps) {
             element={
               <RequirePermission permission="teachers.read">
                 <StaffPage />
+              </RequirePermission>
+            }
+          />
+        )}
+        {has("reports") && (
+          <Route
+            path="/reports/:code?"
+            element={
+              <RequirePermission permission="reports.read">
+                <ReportsPage />
               </RequirePermission>
             }
           />
