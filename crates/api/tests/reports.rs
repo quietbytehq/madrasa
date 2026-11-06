@@ -466,7 +466,10 @@ async fn student_reports_run_in_both_languages_as_json_pdf_and_excel() {
     let (s, cat) = app.get("/reports", &teacher).await;
     assert_eq!(s, StatusCode::OK, "{cat}");
     assert!(
-        cat.as_array().unwrap().iter().all(|m| m["module"] != "students"),
+        cat.as_array()
+            .unwrap()
+            .iter()
+            .all(|m| m["module"] != "students"),
         "{cat}"
     );
     let (s, _) = app.get("/reports/students.list", &teacher).await;
