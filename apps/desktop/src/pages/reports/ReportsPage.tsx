@@ -228,6 +228,12 @@ function ReportRunner({ def, lang }: { def: ReportCatalogueEntry; lang: ReportLa
     [values.class_id, yearId],
   );
 
+  const needsBoardExam = def.params.some((p) => p.kind === "board_exam");
+  const boardExams = useAsync(
+    () =>
+      needsBoardExam && yearId ? api.boardExams({ academic_year_id: yearId }) : Promise.resolve([]),
+    [needsBoardExam, yearId],
+  );
   const needsAssessment = def.params.some((p) => p.kind === "assessment");
   const assessments = useAsync(
     () => (needsAssessment && yearId ? api.assessments(yearId) : Promise.resolve([])),
@@ -376,6 +382,20 @@ function ReportRunner({ def, lang }: { def: ReportCatalogueEntry; lang: ReportLa
             onChange={(e) => set(p.name, e.target.value)}
             placeholder={t("reports.pickAssessment")}
             options={(assessments.data ?? []).map((a) => ({ value: a.id, label: a.name }))}
+          />
+        );
+      case "board_exam":
+        return (
+          <Select
+            key={p.name}
+            label={p.label}
+            value={value}
+            onChange={(e) => set(p.name, e.target.value)}
+            placeholder={t("reports.pickBoardExam")}
+            options={(boardExams.data ?? []).map((x) => ({
+              value: x.id,
+              label: `${x.board_name} · ${x.name}`,
+            }))}
           />
         );
       case "number":

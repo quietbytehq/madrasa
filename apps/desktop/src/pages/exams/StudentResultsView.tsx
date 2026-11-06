@@ -7,6 +7,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { useI18n } from "@/i18n";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 import { ReportCardView } from "./ReportCardView";
+import { BoardResultsView } from "./BoardResultsView";
 
 /** Results tab on the student profile: the report card for the active year. */
 export function StudentResultsView({ studentId }: { studentId: string }) {
@@ -30,6 +31,7 @@ export function StudentResultsView({ studentId }: { studentId: string }) {
         </Link>
       </div>
       <ReportCardView card={card.data} t={t} />
+      <BoardResultsView studentId={studentId} />
     </div>
   );
 }

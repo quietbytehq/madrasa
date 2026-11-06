@@ -176,6 +176,15 @@ Note anything that was unclear, slow, wrong or ugly.
     then name it and **Save report**. It should appear under *Custom reports* and download as
     PDF and Excel. As the principal, tick **Share with everyone who can run reports** and
     check the accountant can see and run it but not edit it.
+21. **Board results.** Examinations → **Boards**: the demo school has BISE Karachi with two
+    exams. Open *SSC Part I* → **Results** to see the sheet; try **Candidates** and change a
+    roll number. Add your own board and exam (two or three papers), register a class, then
+    import a results file: make a small Excel sheet with a *Roll No* column and one column
+    per paper (type ABS for an absent student and one mark above the maximum), upload it,
+    check the column matching, click **Check** (the bad mark should be flagged), fix the
+    file, **Import**, and then **Undo this import**. Reports → *Board result sheet* and
+    *Student board result* should show the same figures; the student's profile → Results
+    shows the board result under the report card.
 17. **Several PCs at once** (needs two or more PCs on the same network; see section 6).
     Log in on each PC with a different account at the same time and enter marks or attendance
     for different sections. Each person should see only their own sections and modules, and

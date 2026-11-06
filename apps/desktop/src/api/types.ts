@@ -1272,7 +1272,8 @@ export type ReportParamKind =
   | "date"
   | "assessment"
   | "number"
-  | "student_number";
+  | "student_number"
+  | "board_exam";
 
 export type ReportAccess = "reports_read" | "attendance_read" | "exams_read";
 
@@ -1403,4 +1404,179 @@ export interface CustomReportRequest {
   description: string;
   definition: ReportDefinition;
   is_shared: boolean;
+}
+
+// ---- Examination boards (M2 stage 4) ---------------------------------------------------------
+
+export interface BoardBand {
+  grade: string;
+  min_percent: string | number;
+}
+
+export interface ExamBoard {
+  id: string;
+  school_id: string;
+  name: string;
+  short_code: string;
+  country: string;
+  grading_mode: "marks" | "grades" | "both";
+  pass_percent: string;
+  grade_bands: BoardBand[];
+}
+
+export interface BoardRequest {
+  name: string;
+  short_code: string;
+  country?: string;
+  grading_mode?: "marks" | "grades" | "both";
+  pass_percent?: string;
+  grade_bands: BoardBand[];
+}
+
+export interface BoardSubject {
+  id: string;
+  board_exam_id: string;
+  name: string;
+  subject_id: string | null;
+  max_marks: string;
+  position: number;
+}
+
+export type BoardExamStatus = "announced" | "results_imported" | "closed";
+
+export interface BoardExamView {
+  id: string;
+  school_id: string;
+  board_id: string;
+  academic_year_id: string;
+  name: string;
+  status: BoardExamStatus;
+  board_name: string;
+  academic_year_name: string;
+  class_ids: string[];
+  class_names: string[];
+  subjects: BoardSubject[];
+  candidates: number;
+  results: number;
+}
+
+export interface BoardExamRequest {
+  board_id?: string;
+  academic_year_id?: string;
+  name: string;
+  status?: BoardExamStatus;
+  class_ids: string[];
+  subjects: Array<{ name: string; subject_id: string | null; max_marks: string }>;
+}
+
+export interface BoardCandidate {
+  id: string;
+  board_exam_id: string;
+  student_id: string;
+  roll_no: string | null;
+  registration_no: string | null;
+  group_name: string | null;
+  student_number: string;
+  full_name: string;
+  father_name: string;
+  class_name: string | null;
+  section_name: string | null;
+  section_id: string | null;
+}
+
+export type BoardSubjectStatus = "pass" | "fail" | "absent" | "withheld";
+export type BoardCandidateStatus = BoardSubjectStatus | "pending";
+
+export interface BoardSheetRow {
+  candidate: BoardCandidate;
+  cells: Array<{
+    board_subject_id: string;
+    obtained: string | null;
+    max_marks: string;
+    grade: string | null;
+    status: BoardSubjectStatus | null;
+  }>;
+  total: string;
+  max: string;
+  percent: string | null;
+  grade: string | null;
+  status: BoardCandidateStatus;
+  position: number | null;
+}
+
+export interface BoardResultSheet {
+  exam: BoardExamView;
+  board: ExamBoard;
+  rows: BoardSheetRow[];
+  subjects: Array<{
+    board_subject_id: string;
+    name: string;
+    appeared: number;
+    passed: number;
+    average_percent: string | null;
+  }>;
+  candidates: number;
+  with_results: number;
+  passed: number;
+  pass_percent: string | null;
+}
+
+export type BoardImportLayout = "wide" | "long";
+
+export interface BoardParsedFile {
+  file_name: string;
+  sheets: string[];
+  sheet: string;
+  headers: string[];
+  rows: string[][];
+  mapping: Record<string, number>;
+  layout: BoardImportLayout;
+  mapping_saved: boolean;
+}
+
+export interface BoardImportRequest {
+  file_name?: string;
+  headers: string[];
+  rows: string[][];
+  mapping: Record<string, number>;
+  layout: BoardImportLayout;
+  save_mapping?: boolean;
+}
+
+export interface BoardImportRow {
+  row_no: number;
+  roll_no: string;
+  candidate_id: string | null;
+  candidate_name: string | null;
+  results: Array<{
+    board_subject_id: string;
+    subject: string;
+    obtained: string | null;
+    max_marks: string;
+    grade: string | null;
+    status: BoardSubjectStatus;
+    replaces: boolean;
+  }>;
+  errors: string[];
+  warnings: string[];
+}
+
+export interface BoardImportSummary {
+  rows: number;
+  candidates: number;
+  results: number;
+  replaced: number;
+  errors: number;
+}
+
+export interface BoardImportPreview {
+  rows: BoardImportRow[];
+  summary: BoardImportSummary;
+  unmapped: string[];
+}
+
+export interface StudentBoardResult {
+  exam: BoardExamView;
+  board_name: string;
+  row: BoardSheetRow;
 }

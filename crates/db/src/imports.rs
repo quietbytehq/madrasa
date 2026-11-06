@@ -172,6 +172,7 @@ async fn soft_delete(
         "student_guardians",
         "enrollments",
         "staff",
+        "board_results",
     ];
     if !allowed.contains(&table) {
         return Err(DbError::Conflict(format!("cannot roll back {table}")));
@@ -238,6 +239,7 @@ async fn restore_old(
             "occupation",
             "address",
         ],
+        "board_results" => &["obtained", "max_marks", "grade", "status", "remarks"],
         _ => return Err(DbError::Conflict(format!("cannot roll back {table}"))),
     };
     let Some(obj) = old.as_object() else {
@@ -258,6 +260,13 @@ async fn restore_old(
             ("date_of_birth" | "admission_date" | "joined_on", _) => {
                 q.bind(None::<chrono::NaiveDate>)
             }
+            ("obtained" | "max_marks", Value::String(s)) => {
+                q.bind(s.parse::<rust_decimal::Decimal>().ok())
+            }
+            ("obtained" | "max_marks", Value::Number(n)) => {
+                q.bind(n.to_string().parse::<rust_decimal::Decimal>().ok())
+            }
+            ("obtained" | "max_marks", _) => q.bind(None::<rust_decimal::Decimal>),
             (_, Value::String(s)) => q.bind(Some(s.clone())),
             (_, Value::Null) => q.bind(None::<String>),
             (_, other) => q.bind(Some(other.to_string())),
@@ -308,6 +317,20 @@ pub async fn rollback(
                 soft_delete(&mut *conn, hlc, actor, "enrollments", id).await?
             }
             ("created", "staff") => soft_delete(&mut *conn, hlc, actor, "staff", id).await?,
+            ("created", "board_result") => {
+                soft_delete(&mut *conn, hlc, actor, "board_results", id).await?
+            }
+            ("updated", "board_result") => {
+                restore_old(
+                    &mut *conn,
+                    hlc,
+                    actor,
+                    "board_results",
+                    id,
+                    r.old_value.as_ref().unwrap_or(&Value::Null),
+                )
+                .await?
+            }
             ("created", "fee_voucher") => {
                 crate::fees::cancel_voucher(&mut *conn, hlc, actor, id, "Import rolled back")
                     .await?;

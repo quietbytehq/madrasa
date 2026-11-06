@@ -94,6 +94,16 @@ import type {
   CustomReport,
   CustomReportRequest,
   ReportDefinition,
+  BoardCandidate,
+  BoardExamRequest,
+  BoardExamView,
+  BoardImportPreview,
+  BoardImportRequest,
+  BoardParsedFile,
+  BoardRequest,
+  BoardResultSheet,
+  ExamBoard,
+  StudentBoardResult,
 } from "./types";
 
 function qs(params: object): string {
@@ -411,6 +421,49 @@ export const api = {
     request<ImportPreview>("/imports/preview", { method: "POST", body }),
   applyImport: (body: ImportRequest) =>
     request<ImportResult>("/imports/apply", { method: "POST", body }),
+  boards: () => request<ExamBoard[]>("/boards"),
+  createBoard: (body: BoardRequest) => request<ExamBoard>("/boards", { method: "POST", body }),
+  updateBoard: (id: string, body: BoardRequest) =>
+    request<ExamBoard>(`/boards/${id}`, { method: "PUT", body }),
+  deleteBoard: (id: string) => request<void>(`/boards/${id}`, { method: "DELETE" }),
+  boardExams: (params: { board_id?: string; academic_year_id?: string } = {}) =>
+    request<BoardExamView[]>(`/boards/exams${qs(params)}`),
+  boardExam: (id: string) => request<BoardExamView>(`/boards/exams/${id}`),
+  createBoardExam: (body: BoardExamRequest) =>
+    request<BoardExamView>("/boards/exams", { method: "POST", body }),
+  updateBoardExam: (id: string, body: BoardExamRequest) =>
+    request<BoardExamView>(`/boards/exams/${id}`, { method: "PUT", body }),
+  deleteBoardExam: (id: string) => request<void>(`/boards/exams/${id}`, { method: "DELETE" }),
+  boardCandidates: (examId: string) =>
+    request<BoardCandidate[]>(`/boards/exams/${examId}/candidates`),
+  registerCandidates: (
+    examId: string,
+    body: { student_ids?: string[]; class_id?: string; section_id?: string; group_name?: string },
+  ) =>
+    request<{ added: number; candidates: BoardCandidate[] }>(`/boards/exams/${examId}/candidates`, {
+      method: "POST",
+      body,
+    }),
+  updateCandidate: (
+    id: string,
+    body: { roll_no?: string; registration_no?: string; group_name?: string },
+  ) => request<BoardCandidate>(`/boards/candidates/${id}`, { method: "PUT", body }),
+  removeCandidate: (id: string) => request<void>(`/boards/candidates/${id}`, { method: "DELETE" }),
+  boardResults: (examId: string) => request<BoardResultSheet>(`/boards/exams/${examId}/results`),
+  parseBoardResults: (examId: string, body: { file_name: string; content_base64: string }) =>
+    request<BoardParsedFile>(`/boards/exams/${examId}/results/parse`, { method: "POST", body }),
+  previewBoardResults: (examId: string, body: BoardImportRequest) =>
+    request<BoardImportPreview>(`/boards/exams/${examId}/results/preview`, {
+      method: "POST",
+      body,
+    }),
+  applyBoardResults: (examId: string, body: BoardImportRequest) =>
+    request<{ batch_id: string; summary: BoardImportPreview["summary"] }>(
+      `/boards/exams/${examId}/results/apply`,
+      { method: "POST", body },
+    ),
+  studentBoardResults: (studentId: string) =>
+    request<StudentBoardResult[]>(`/students/${studentId}/board-results`),
   importBatches: () => request<ImportBatch[]>("/imports/batches"),
   rollbackImport: (id: string) =>
     request<ImportBatch>(`/imports/batches/${id}/rollback`, { method: "POST", body: {} }),

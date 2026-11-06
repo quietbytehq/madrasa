@@ -708,6 +708,26 @@ depend on each other and were built together)
   vitest `builder.test.tsx` (build/preview/save, edit without share rights, library with
   edit/remove/download, hidden from teachers); `backup` migration count → 12.
 
+### 2026-11-06 — Stage 4: Board Creator and board result import (branch `dev/m2-stage-4-boards`)
+- Migration `0013_boards` (six tables; `import_batches.kind` gains `board_results`).
+- `madrasa_core::boards`: bands, paper outcomes, candidate totals and status, positions.
+- `madrasa_db::boards`: boards, exams (classes, papers matched by name so results survive
+  edits), candidates (pre-filled roll numbers, written back to the student), results upsert.
+- API `routes/boards.rs`: CRUD, bulk registration, the computed result sheet, result import
+  in both layouts with guessed/remembered mapping, preview with row errors, apply as an
+  import batch, rollback through the existing batch endpoint; `/students/{id}/board-results`.
+- Reports: board result sheet, merit list, pass rates, student board result (new `board_exam`
+  parameter kind). Demo data: BISE Karachi with SSC Part I (grade 9) and Part II (grade 10),
+  every student registered with results.
+- UI: Examinations → Boards tab (boards with bands, exams with classes and papers,
+  candidates with editable roll numbers, result import: file → layout → column matching →
+  check → import, undo); board results on the student profile; Reports pick a board exam.
+- Tests: core unit tests (bands, outcomes, totals, positions); route unit tests (header
+  guessing, marks cells); integration `crates/api/tests/boards.rs` (boards, exams, candidates,
+  wide import with three kinds of error, long re-import that replaces and is rolled back,
+  sheet figures, student results, four reports incl. Urdu PDF, deletes); vitest
+  `boards.test.tsx`; `backup` migration count → 13; demo setup test covers the loader.
+
 ## Summary for the owner — Stages 5, 6 and 7 (night run of 2026-10-30/31)
 
 All three stages are merged into `main` in order (pull requests #6, #7 and #8),

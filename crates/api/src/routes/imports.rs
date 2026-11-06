@@ -206,7 +206,11 @@ async fn rollback(
     if batch.school_id != user.user.school_id {
         return Err(ApiError::not_found("import"));
     }
-    user.require(permission_for(kind_of(&batch.kind)?))?;
+    if batch.kind == "board_results" {
+        user.require(Permission::AcademicsManage)?;
+    } else {
+        user.require(permission_for(kind_of(&batch.kind)?))?;
+    }
     drop(c);
     imports::rollback(&state, user.actor(), user.user.school_id, id).await?;
     let mut c = state.pool.acquire().await?;

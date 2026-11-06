@@ -499,6 +499,37 @@ runs any report the caller may see (shared ones and their own); `reports.manage`
 and admin) saves shared reports and may edit or remove anyone's. Create, update, delete and
 every run are audit-logged (`report_definition`).
 
+### 5.13 Examination boards (M2 stage 4)
+
+| Table | Purpose |
+| --- | --- |
+| `exam_boards` | A board (BISE, Federal Board, AKU-EB, Cambridge…): `name` (unique per school), `short_code`, `country`, `grading_mode` (marks, grades, both), `pass_percent`, `grade_bands` (JSONB `[{grade, min_percent}]`, highest first). |
+| `board_exams` | One sitting of a board in an academic year: `name` (unique per board and year), `status` (announced → results_imported → closed). |
+| `board_exam_classes` | The classes that sit the exam. |
+| `board_exam_subjects` | The exam's papers: `name` (unique per exam), optional `subject_id` (the school subject it corresponds to), `max_marks`, `position`. Results point at these, so renaming keeps results. |
+| `board_candidates` | A student registered for an exam with `roll_no` (unique per exam), `registration_no`, `group_name`; pre-filled from the student's `board_roll_no`/`board_registration_no`, and written back when edited. |
+| `board_results` | One paper's result per candidate: `obtained`, `max_marks`, `grade`, `status` (pass, fail, absent, withheld), `remarks`, `batch_id` (the import that wrote it). |
+
+Rules (`madrasa_core::boards`): a paper's status comes from the board when the file gives
+one, otherwise pass/fail against the board's pass percentage (absent when no marks); the
+grade is the board's when given, otherwise the band for the paper's percentage. A candidate
+is withheld if any paper is, absent if every paper is, fails if any paper failed or was
+missed or the overall percentage is under the pass percentage, and passes otherwise; the
+overall grade comes from the bands; positions use competition ranking among candidates with
+results. Import: Excel/CSV in either layout (one row per candidate with a column per paper,
+or one row per candidate and paper), matched by roll number then registration number;
+column matching is guessed from the headers and remembered per board; preview reports every
+row's errors (unknown roll, unknown paper, marks outside 0–max, bad numbers) and nothing is
+written while a row has an error; an import is an `import_batches` row of kind
+`board_results` with one `import_batch_rows` entry per result (created or updated with the
+old value), and rolls back like any other batch. Importing moves the exam to
+`results_imported`. Removing an exam removes its classes, papers, candidates and results;
+a board can only be removed once it has no exams.
+
+Reports (library, `exams.read`): board result sheet (per exam, optional class), board merit
+list (top N), board pass rates (by paper and by section), student board result (one
+candidate). The student profile's Results tab shows board results under the school's own.
+
 ## 6. API conventions
 
 - Base path `/api/v1`. JSON request and response bodies. `snake_case` keys.
@@ -760,6 +791,23 @@ chooser as the first-start screen; records on the PC are kept whichever mode is 
 | POST | `/reports/custom/run` | `reports.read` | Preview a definition without saving: `{definition, name?, lang?, academic_year_id?, limit?}` → report document |
 | GET | `/reports/custom/{id}?format=json\|pdf\|xlsx&lang=` | `reports.read` | Run a saved report (404 unless shared or own); audit-logged |
 | PUT / DELETE | `/reports/custom/{id}` | owner or `reports.manage` | Edit or remove |
+
+### 6.16 M2 stage 4 endpoints
+
+| Method | Path | Permission | Notes |
+| --- | --- | --- | --- |
+| GET / POST | `/boards` | `exams.read` / `academics.manage` | Boards; `{name, short_code, country?, grading_mode?, pass_percent?, grade_bands}` |
+| PUT / DELETE | `/boards/{id}` | `academics.manage` | 409 when removing a board that has exams |
+| GET / POST | `/boards/exams?board_id&academic_year_id` | `exams.read` / `academics.manage` | Exams with board and year names, classes, papers, candidate and result counts; `{board_id, academic_year_id?, name, class_ids, subjects:[{name, subject_id?, max_marks}]}` |
+| GET / PUT / DELETE | `/boards/exams/{id}` | `exams.read` / `academics.manage` | PUT also takes `status` |
+| GET / POST | `/boards/exams/{id}/candidates` | `exams.read` / `academics.manage` | POST registers `{student_ids?, class_id?, section_id?, group_name?}` (active students; already registered are kept) |
+| PUT / DELETE | `/boards/candidates/{id}` | `academics.manage` | `{roll_no, registration_no, group_name}`; 409 on a duplicate roll number |
+| GET | `/boards/exams/{id}/results` | `exams.read` | The computed sheet: rows per candidate with paper cells, totals, grade, status, position; per-paper and overall pass rates |
+| POST | `/boards/exams/{id}/results/parse` | `academics.manage` | `{file_name, content_base64, sheet?}` → headers, rows, guessed or remembered mapping and layout |
+| POST | `/boards/exams/{id}/results/preview` | `academics.manage` | `{headers, rows, mapping, layout}` → planned results per row with errors and warnings |
+| POST | `/boards/exams/{id}/results/apply` | `academics.manage` | Same body (+ `file_name`, `save_mapping`); 400 while any row has an error; returns `batch_id` and the summary |
+| POST | `/imports/batches/{id}/rollback` | `academics.manage` for `board_results` batches | Reverts the import |
+| GET | `/students/{id}/board-results` | `exams.read` (teacher scope) | The student's board results across exams |
 
 ### 6.11 Second alpha test report fixes
 

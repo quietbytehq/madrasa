@@ -10,8 +10,8 @@ use madrasa_core::fees::PaymentMethod;
 use madrasa_core::hlc::Hlc;
 use madrasa_core::password::hash_password;
 use madrasa_db::{
-    academics, attendance, exams, fees, guardians, roles, schools, settings, staff, students,
-    users, Actor, PgPool,
+    academics, attendance, boards, exams, fees, guardians, roles, schools, settings, staff,
+    students, users, Actor, PgPool,
 };
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
@@ -48,6 +48,7 @@ pub struct LoadReport {
     pub attendance_sheets: usize,
     pub staff_attendance_days: usize,
     pub mark_sheets: usize,
+    pub board_candidates: usize,
     pub files_written: Vec<PathBuf>,
 }
 
@@ -712,6 +713,126 @@ pub async fn load(
         }
     }
 
+    // Board exams: BISE Karachi, SSC Part I for grade 9 and Part II for grade 10, every
+    // student registered with a roll number and a full set of results.
+    let mut board_candidates = 0usize;
+    {
+        let bands = json!([
+            { "grade": "A+", "min_percent": 80 }, { "grade": "A", "min_percent": 70 },
+            { "grade": "B", "min_percent": 60 }, { "grade": "C", "min_percent": 50 },
+            { "grade": "D", "min_percent": 40 }, { "grade": "E", "min_percent": 33 }
+        ]);
+        let board = boards::create_board(
+            &mut tx,
+            hlc,
+            actor,
+            school.id,
+            boards::BoardInput {
+                name: "BISE Karachi".into(),
+                short_code: "BISEK".into(),
+                country: "PK".into(),
+                grading_mode: "marks".into(),
+                pass_percent: Decimal::from(33),
+                grade_bands: bands.clone(),
+            },
+        )
+        .await?;
+        let subject_names: HashMap<uuid::Uuid, &str> = demo
+            .subjects
+            .iter()
+            .filter_map(|s| subject_ids.get(&s.name).map(|id| (*id, s.name.as_str())))
+            .collect();
+        let core_bands: Vec<madrasa_core::boards::BoardBand> =
+            serde_json::from_value(bands).unwrap_or_default();
+        for (grade, part) in [(9u8, "I"), (10u8, "II")] {
+            let Some(class_id) = class_ids.get(&grade).copied() else {
+                continue;
+            };
+            let exam = boards::create_exam(
+                &mut tx,
+                hlc,
+                actor,
+                school.id,
+                board.id,
+                year.id,
+                &format!("SSC Part {part} Annual {}", demo.academic_year_start + 1),
+            )
+            .await?;
+            boards::set_exam_classes(&mut tx, hlc, actor, &exam, &[class_id]).await?;
+            let inputs: Vec<boards::SubjectInput> = subjects_by_class
+                .get(&class_id)
+                .map(|ids| {
+                    ids.iter()
+                        .filter_map(|id| subject_names.get(id).map(|n| (*id, *n)))
+                        .map(|(id, name)| boards::SubjectInput {
+                            name: name.to_string(),
+                            subject_id: Some(id),
+                            max_marks: Decimal::from(if name == "Islamiat" { 50 } else { 75 }),
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            let subjects = boards::set_exam_subjects(&mut tx, hlc, actor, &exam, &inputs).await?;
+            let mut members: Vec<uuid::Uuid> = section_class
+                .iter()
+                .filter(|(_, c)| **c == class_id)
+                .filter_map(|(sid, _)| students_by_section.get(sid))
+                .flatten()
+                .copied()
+                .collect();
+            members.sort();
+            boards::register(&mut tx, hlc, actor, &exam, &members, Some("Science")).await?;
+            let candidates = boards::candidates(&mut tx, exam.id).await?;
+            for (i, cand) in candidates.iter().enumerate() {
+                let roll = format!("{}{:04}", if grade == 9 { "12" } else { "13" }, i + 1);
+                boards::update_candidate(
+                    &mut tx,
+                    hlc,
+                    actor,
+                    cand.id,
+                    Some(&roll),
+                    None,
+                    Some("Science"),
+                )
+                .await?;
+                // Deterministic, spread between 28% and 96%.
+                let seed = (i as u32 * 37 + grade as u32 * 11) % 69;
+                for (k, subject) in subjects.iter().enumerate() {
+                    let pct = 28 + ((seed + k as u32 * 13) % 69);
+                    let obtained =
+                        (subject.max_marks * Decimal::from(pct) / Decimal::from(100)).round_dp(0);
+                    let outcome = madrasa_core::boards::subject_outcome(
+                        Some(obtained),
+                        subject.max_marks,
+                        None,
+                        None,
+                        board.pass_percent,
+                        &core_bands,
+                    );
+                    boards::upsert_result(
+                        &mut tx,
+                        hlc,
+                        actor,
+                        boards::ResultInput {
+                            candidate_id: cand.id,
+                            board_subject_id: subject.id,
+                            obtained: outcome.obtained,
+                            max_marks: subject.max_marks,
+                            grade: outcome.grade,
+                            status: outcome.status.as_str().into(),
+                            remarks: None,
+                            batch_id: None,
+                        },
+                    )
+                    .await?;
+                }
+                board_candidates += 1;
+            }
+            boards::update_exam(&mut tx, hlc, actor, exam.id, &exam.name, "results_imported")
+                .await?;
+        }
+    }
+
     settings::set_edition(&mut tx, hlc, Actor::SYSTEM, Edition::Lite).await?;
     settings::set(
         &mut tx,
@@ -760,6 +881,7 @@ pub async fn load(
         attendance_sheets,
         staff_attendance_days,
         mark_sheets,
+        board_candidates,
         files_written,
     })
 }
