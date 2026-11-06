@@ -35,25 +35,25 @@ Pilot school: K-12, ~1,200 students, ~120 staff (docs/spec.md "Pilot school prof
 The foundation every later stage builds on: one way to describe a report, three ways to
 render it (on screen, PDF, Excel), one page to find and run them.
 
-- [ ] `madrasa_api::reports`: a `Report` document model (title, subtitle, school header,
+- [x] `madrasa_api::reports`: a `Report` document model (title, subtitle, school header,
       parameters shown, columns with kind and alignment, rows, group headings, subtotals and
       totals, notes, orientation) built by each report from the database
-- [ ] Renderers: JSON (on-screen table), Excel (`.xlsx` via the existing export module) and
+- [x] Renderers: JSON (on-screen table), Excel (`.xlsx` via the existing export module) and
       PDF (server-side, typeset with embedded Inter and Noto Nastaliq Urdu fonts so Urdu is
       shaped and right-to-left; no browser print dialog needed)
-- [ ] Report library API: `GET /reports` (catalogue with each report's parameters), `GET
+- [x] Report library API: `GET /reports` (catalogue with each report's parameters), `GET
       /reports/{code}?format=json|pdf|xlsx&lang=en|ur&…params` (`reports.read`); every run is
       audit-logged with its parameters
-- [ ] Report headings, column labels and fixed texts in English and Urdu from one backend
+- [x] Report headings, column labels and fixed texts in English and Urdu from one backend
       string table (`crates/api/src/reports/text.rs`); the UI passes the current language
-- [ ] Reports page: library grouped by module, parameter form per report (section, class,
+- [x] Reports page: library grouped by module, parameter form per report (section, class,
       date range, month, assessment, status…), on-screen preview, Excel and PDF buttons,
       print-ready view
-- [ ] Student reports: student list (by class, section, status, with guardian phone),
+- [x] Student reports: student list (by class, section, status, with guardian phone),
       class strength (sections, boys/girls, totals), admissions and withdrawals in a period,
       guardian contact list, birthdays by month, missing-data check (no CNIC/B-Form, no
       photo, no guardian phone, no roll number)
-- [ ] Tests: report model → PDF (page count, text present, Urdu shaped) and → Excel; each
+- [x] Tests: report model → PDF (page count, text present, Urdu shaped) and → Excel; each
       student report against the demo school (figures match direct queries); permission test
       (teacher gets 403; accountant and admin get the report); vitest for the library page
       and parameter form

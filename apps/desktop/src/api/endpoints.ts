@@ -87,6 +87,9 @@ import type {
   StudentPatch,
   StudentStatus,
   Subject,
+  ReportCatalogueModule,
+  ReportDocument,
+  ReportLang,
 } from "./types";
 
 function qs(params: object): string {
@@ -409,6 +412,15 @@ export const api = {
     request<ImportBatch>(`/imports/batches/${id}/rollback`, { method: "POST", body: {} }),
   exportList: (path: string, params: Record<string, string | number | undefined>) =>
     download(`/export/${path}${qs(params)}`),
+  reports: (lang: ReportLang) => request<ReportCatalogueModule[]>(`/reports${qs({ lang })}`),
+  runReport: (code: string, params: Record<string, string | undefined>, lang: ReportLang) =>
+    request<ReportDocument>(`/reports/${code}${qs({ ...params, lang, format: "json" })}`),
+  downloadReport: (
+    code: string,
+    params: Record<string, string | undefined>,
+    lang: ReportLang,
+    format: "pdf" | "xlsx",
+  ) => download(`/reports/${code}${qs({ ...params, lang, format })}`),
 
   // Year rollover
   rolloverPreview: () => request<RolloverPreview>("/academic-years/rollover/preview"),

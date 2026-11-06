@@ -415,6 +415,38 @@ status. Each figure is present only for callers with the matching read permissio
 loads 1,200 students, 120 staff and a full year of fees and attendance and asserts that every
 key query answers in under one second (results in `docs/PROGRESS.md`).
 
+### 5.11 Report library (M2 stage 1)
+
+Reports are read-only. There is no table; every run is an audit entry with action `report`
+(`new_value`: the report code, its parameters and the row count). Queries live in
+`madrasa_db::reports` and take the school, the academic year and, for teachers, the section
+scope.
+
+A report is built as a `madrasa_api::reports::Report` document: code, language, school
+name, title, subtitle, the parameters shown in the header, columns (label, alignment,
+stretch), groups (optional heading, rows of strings, optional subtotal), a total row, notes,
+orientation and the run date. Renderers read only this document:
+
+- JSON for the screen (`format=json`, the default);
+- Excel through the export module (`format=xlsx`): group headings and subtotals become rows;
+- PDF (`format=pdf`): typst markup generated from the document and compiled in-process with
+  Inter and Noto Nastaliq Urdu compiled into the executable (`crates/api/fonts`, OFL). Cells
+  are emitted as string literals, so data is never read as markup. Urdu reports set
+  `lang: ur`, `dir: rtl` and Nastaliq first; English ones use Inter with Nastaliq as the
+  fallback for Urdu names. A4, portrait or landscape per report, repeated table header, page
+  numbers in the footer.
+
+Every heading, column label and fixed value exists in English and Urdu in one table
+(`reports/text.rs`); the UI passes `lang`. Dates are `DD-MM-YYYY`.
+
+Student reports (stage 1): `students.list` (active by default, grouped by class and section,
+primary guardian and phone, subtotals), `students.strength` (every section of the year with
+boys/girls/other/total, class teacher and capacity), `students.movements` (admissions and
+withdrawals between two dates), `students.contacts` (one row per guardian link),
+`students.birthdays` (a calendar month, by day, with the age turned), `students.missing`
+(students lacking CNIC/B-Form, photo, guardian, guardian phone, enrolment, roll number or
+address).
+
 ## 6. API conventions
 
 - Base path `/api/v1`. JSON request and response bodies. `snake_case` keys.
@@ -658,6 +690,13 @@ chooser as the first-start screen; records on the PC are kept whichever mode is 
   message}]}` and nothing is saved; otherwise the marks go through the same `save_sheet`
   as `PUT /exams/sheet` and the result is the draft sheet (`{sheet, saved, issues: []}`).
   Submission and approval are unchanged, so uploaded marks follow the same workflow.
+
+### 6.14 M2 stage 1 endpoints
+
+| Method | Path | Permission | Notes |
+| --- | --- | --- | --- |
+| GET | `/reports?lang=en\|ur` | `reports.read` | Catalogue by module: code, title, description, orientation, parameters (`name`, `kind`, `label`, `required`) |
+| GET | `/reports/{code}?format=json\|pdf\|xlsx&lang=en\|ur&…` | `reports.read` | Runs a report; parameters by `kind`: `academic_year_id` (default: active year), `class_id`, `section_id`, `status`, `month` (`YYYY-MM`), `from`/`to` (`YYYY-MM-DD`). Unknown code → 404; bad parameter or format → 400 |
 
 ### 6.11 Second alpha test report fixes
 

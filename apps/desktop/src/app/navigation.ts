@@ -90,7 +90,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
     labelKey: "nav.reports",
     icon: BarChart3,
     feature: "reports",
-    available: false,
+    available: true,
+    permission: "reports.read",
   },
   {
     path: "/backup",
