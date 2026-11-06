@@ -3,12 +3,14 @@ import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router-dom";
 import { renderWithProviders } from "@/test/render";
 import { api } from "@/api/endpoints";
-import type { ReportCatalogueModule, ReportDocument } from "@/api/types";
+import { SessionProvider } from "@/app/session";
+import type { ReportCatalogueModule, ReportDocument, UserSummary } from "@/api/types";
 import { ReportsPage } from "./ReportsPage";
 
 vi.mock("@/api/endpoints", () => ({
   api: {
     reports: vi.fn(),
+    customReports: vi.fn(async () => []),
     runReport: vi.fn(),
     downloadReport: vi.fn(async () => undefined),
     academicYears: vi.fn(async () => [
@@ -307,11 +309,23 @@ describe("ReportsPage", () => {
   });
 });
 
+const user: UserSummary = {
+  id: "u1",
+  school_id: "s",
+  username: "ayesha",
+  full_name: "Ayesha",
+  email: null,
+  is_active: true,
+  roles: ["admin"],
+};
+
 function renderAt(route: string, locale: "en" | "ur" = "en") {
   return renderWithProviders(
-    <Routes>
-      <Route path="/reports/:code?" element={<ReportsPage />} />
-    </Routes>,
+    <SessionProvider initial={{ user, permissions: ["reports.read"] }}>
+      <Routes>
+        <Route path="/reports/:code?" element={<ReportsPage />} />
+      </Routes>
+    </SessionProvider>,
     { route, locale },
   );
 }

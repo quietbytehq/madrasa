@@ -1,8 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Download, FileText, Play, Printer } from "lucide-react";
+import { Download, FileText, Pencil, Play, Plus, Printer, Trash2 } from "lucide-react";
 import { api } from "@/api/endpoints";
-import type { ReportCatalogueEntry, ReportDocument, ReportLang, ReportParamDef } from "@/api/types";
+import type {
+  CustomReport,
+  ReportCatalogueEntry,
+  ReportDocument,
+  ReportLang,
+  ReportParamDef,
+} from "@/api/types";
+import { useSession } from "@/app/session";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -34,12 +41,34 @@ function today(): string {
 export function ReportsPage() {
   const { t, locale } = useI18n();
   const lang: ReportLang = locale === "ur" ? "ur" : "en";
-  const { code } = useParams();
+  const { code, id } = useParams();
+  const { can } = useSession();
+  const navigate = useNavigate();
+  const toast = useToast();
   const catalogue = useAsync(() => api.reports(lang), [lang]);
+  const custom = useAsync(
+    () => (can("reports.read") ? api.customReports() : Promise.resolve([] as CustomReport[])),
+    [can],
+  );
   const selected = useMemo(
     () => catalogue.data?.flatMap((m) => m.reports).find((r) => r.code === code) ?? null,
     [catalogue.data, code],
   );
+  const selectedCustom = useMemo(
+    () => custom.data?.find((r) => r.id === id) ?? null,
+    [custom.data, id],
+  );
+  const removeCustom = async (r: CustomReport) => {
+    if (!window.confirm(t("reports.custom.deleteConfirm", { name: r.name }))) return;
+    try {
+      await api.deleteCustomReport(r.id);
+      toast.push({ kind: "success", title: t("reports.custom.deleted") });
+      await custom.reload();
+      if (id === r.id) navigate("/reports");
+    } catch (err) {
+      toast.push({ kind: "error", title: errorMessage(err, t("app.error.generic")) });
+    }
+  };
 
   return (
     <>
@@ -80,6 +109,66 @@ export function ReportsPage() {
                     </ul>
                   </li>
                 ))}
+                {can("reports.read") && (
+                  <li className="py-1">
+                    <div className="flex items-center justify-between px-3 pt-1">
+                      <span className="text-2xs font-semibold uppercase tracking-wide text-muted">
+                        {t("reports.custom.title")}
+                      </span>
+                      <Link
+                        to="/reports/custom/new"
+                        className="text-xs text-blue hover:underline"
+                        aria-label={t("reports.custom.new")}
+                      >
+                        <Plus className="me-0.5 inline h-3.5 w-3.5" aria-hidden />
+                        {t("reports.custom.new")}
+                      </Link>
+                    </div>
+                    {custom.data && custom.data.length === 0 && (
+                      <p className="px-3 py-1.5 text-xs text-muted">{t("reports.custom.none")}</p>
+                    )}
+                    <ul>
+                      {(custom.data ?? []).map((r) => (
+                        <li key={r.id} className="flex items-center">
+                          <Link
+                            to={`/reports/custom/${r.id}`}
+                            aria-current={r.id === id ? "page" : undefined}
+                            className={`block flex-1 px-3 py-1.5 text-sm hover:bg-hover ${
+                              r.id === id ? "bg-selection font-medium text-blue" : "text-text"
+                            }`}
+                          >
+                            <FileText className="me-1 inline h-3.5 w-3.5" aria-hidden />
+                            {r.name}
+                            <span className="ms-1 text-2xs text-muted">
+                              {r.is_shared
+                                ? t("reports.custom.shared")
+                                : t("reports.custom.private")}
+                            </span>
+                          </Link>
+                          {r.can_edit && (
+                            <>
+                              <Link
+                                to={`/reports/custom/${r.id}/edit`}
+                                aria-label={`${t("action.edit")}: ${r.name}`}
+                                className="p-1 text-muted hover:text-text"
+                              >
+                                <Pencil className="h-3.5 w-3.5" aria-hidden />
+                              </Link>
+                              <button
+                                type="button"
+                                aria-label={`${t("action.delete")}: ${r.name}`}
+                                className="p-1 text-muted hover:text-danger"
+                                onClick={() => void removeCustom(r)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                              </button>
+                            </>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </li>
+                )}
               </ul>
             )}
           </Card>
@@ -87,6 +176,8 @@ export function ReportsPage() {
         <div>
           {selected ? (
             <ReportRunner key={selected.code} def={selected} lang={lang} />
+          ) : selectedCustom ? (
+            <CustomRunner key={selectedCustom.id} report={selectedCustom} lang={lang} />
           ) : (
             <EmptyState title={t("reports.choose")} />
           )}
@@ -388,6 +479,98 @@ function ReportRunner({ def, lang }: { def: ReportCatalogueEntry; lang: ReportLa
           )}
           <ReportTable report={report} generatedLabel={t("reports.generated")} />
         </Card>
+      )}
+    </div>
+  );
+}
+
+/** Runs a saved custom report: no parameters beyond the language. */
+function CustomRunner({ report: saved, lang }: { report: CustomReport; lang: ReportLang }) {
+  const { t } = useI18n();
+  const toast = useToast();
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState<"pdf" | "xlsx" | null>(null);
+  const report = useAsync(() => api.runCustomReport(saved.id, lang), [saved.id, lang]);
+  const download = async (format: "pdf" | "xlsx") => {
+    setBusy(format);
+    try {
+      await api.downloadCustomReport(saved.id, lang, format);
+      toast.push({ kind: "success", title: t("export.started") });
+    } catch (err) {
+      toast.push({ kind: "error", title: errorMessage(err, t("app.error.generic")) });
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <div className="flex flex-col gap-3">
+      <Card
+        title={saved.name}
+        className="print:hidden"
+        actions={
+          <div className="flex flex-wrap gap-2">
+            {saved.can_edit && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => navigate(`/reports/custom/${saved.id}/edit`)}
+              >
+                {t("action.edit")}
+              </Button>
+            )}
+            <Button size="sm" variant="ghost" onClick={() => navigate("/reports")}>
+              {t("action.back")}
+            </Button>
+          </div>
+        }
+      >
+        {saved.description && <p className="mb-3 text-sm text-muted">{saved.description}</p>}
+        <p className="mb-3 text-xs text-muted">
+          {saved.is_shared ? t("reports.custom.shared") : t("reports.custom.private")}
+          {saved.owner_name ? ` · ${t("reports.custom.by", { name: saved.owner_name })}` : ""}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="secondary"
+            loading={busy === "pdf"}
+            icon={<Download className="h-4 w-4" aria-hidden />}
+            onClick={() => void download("pdf")}
+          >
+            {t("reports.pdf")}
+          </Button>
+          <Button
+            variant="secondary"
+            loading={busy === "xlsx"}
+            icon={<Download className="h-4 w-4" aria-hidden />}
+            onClick={() => void download("xlsx")}
+          >
+            {t("reports.excel")}
+          </Button>
+          {report.data && (
+            <Button
+              variant="ghost"
+              icon={<Printer className="h-4 w-4" aria-hidden />}
+              onClick={() => window.print()}
+            >
+              {t("reports.print")}
+            </Button>
+          )}
+        </div>
+      </Card>
+      {report.loading && !report.data ? (
+        <Spinner />
+      ) : report.data ? (
+        <Card>
+          <div className="mb-2 text-xs text-muted print:hidden">
+            {t("reports.rows", { count: report.data.row_count })}
+          </div>
+          {report.data.row_count === 0 && (
+            <p className="mb-2 text-sm text-muted print:hidden">{t("reports.empty")}</p>
+          )}
+          <ReportTable report={report.data} generatedLabel={t("reports.generated")} />
+        </Card>
+      ) : (
+        <EmptyState title={errorMessage(report.error, t("app.error.generic"))} />
       )}
     </div>
   );

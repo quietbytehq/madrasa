@@ -90,6 +90,10 @@ import type {
   ReportCatalogueModule,
   ReportDocument,
   ReportLang,
+  BuilderCatalogue,
+  CustomReport,
+  CustomReportRequest,
+  ReportDefinition,
 } from "./types";
 
 function qs(params: object): string {
@@ -421,6 +425,23 @@ export const api = {
     lang: ReportLang,
     format: "pdf" | "xlsx",
   ) => download(`/reports/${code}${qs({ ...params, lang, format })}`),
+  builderCatalogue: (lang: ReportLang) =>
+    request<BuilderCatalogue>(`/reports/custom/sources${qs({ lang })}`),
+  customReports: () => request<CustomReport[]>("/reports/custom"),
+  createCustomReport: (body: CustomReportRequest) =>
+    request<CustomReport>("/reports/custom", { method: "POST", body }),
+  updateCustomReport: (id: string, body: CustomReportRequest) =>
+    request<CustomReport>(`/reports/custom/${id}`, { method: "PUT", body }),
+  deleteCustomReport: (id: string) => request<void>(`/reports/custom/${id}`, { method: "DELETE" }),
+  previewCustomReport: (definition: ReportDefinition, name: string, lang: ReportLang, limit = 50) =>
+    request<ReportDocument>("/reports/custom/run", {
+      method: "POST",
+      body: { definition, name, lang, limit },
+    }),
+  runCustomReport: (id: string, lang: ReportLang) =>
+    request<ReportDocument>(`/reports/custom/${id}${qs({ lang, format: "json" })}`),
+  downloadCustomReport: (id: string, lang: ReportLang, format: "pdf" | "xlsx") =>
+    download(`/reports/custom/${id}${qs({ lang, format })}`),
 
   // Year rollover
   rolloverPreview: () => request<RolloverPreview>("/academic-years/rollover/preview"),

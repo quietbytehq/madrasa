@@ -686,6 +686,28 @@ depend on each other and were built together)
 - Notes: payments are not recorded per fee head, so the head-wise report allocates each
   voucher's payments across its lines in proportion and says so.
 
+### 2026-11-06 — Stage 3: Custom report builder (branch `dev/m2-stage-3-builder`)
+- Migration `0012_report_definitions` (table + `reports.manage` granted to principal and
+  admin); new permission in `madrasa_core::permissions` and `docs/permissions.md`.
+- `madrasa_api::reports::builder`: field catalogue for nine sources (students, guardians,
+  fee vouchers, fee receipts, fee balances, attendance entries, attendance summary, marks,
+  staff), typed fields with bilingual labels, operators per type, assembly of parameterised
+  SQL from catalogue expressions only, grouping with subtotals, limits.
+- Endpoints: catalogue, list/create/update/delete saved reports (sharing needs
+  `reports.manage`), preview without saving, run a saved report as JSON/PDF/Excel; runs and
+  changes audit-logged. Section scope applies to every source but staff.
+- UI: builder page (`/reports/custom/new`, `/reports/custom/:id/edit`): data source,
+  columns with ordering, filter rows with type-aware controls, sort, group by, limit, share
+  switch (hint for those who cannot share), preview, save; the library lists custom reports
+  with run/edit/remove and the runner downloads PDF/Excel. Reports is now open to teachers
+  (attendance and exam reports only); the custom section is hidden from them.
+- Tests: unit (catalogue texts, parameterised assembly incl. an injection attempt, refusals
+  for unknown source/field/operator/value); integration `crates/api/tests/reports_builder.rs`
+  (catalogue in Urdu, preview rows and grouping, validation, private vs shared saving and
+  listing, run as xlsx/pdf, audit, edit/delete rights, every source runs, teacher scope);
+  vitest `builder.test.tsx` (build/preview/save, edit without share rights, library with
+  edit/remove/download, hidden from teachers); `backup` migration count → 12.
+
 ## Summary for the owner — Stages 5, 6 and 7 (night run of 2026-10-30/31)
 
 All three stages are merged into `main` in order (pull requests #6, #7 and #8),

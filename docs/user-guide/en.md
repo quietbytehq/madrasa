@@ -133,3 +133,9 @@ and the section's report cards as one PDF. Office roles see every report; teache
 attendance and exam reports for their own sections. The Dashboard links straight to today's
 collection and today's absentees.
 
+**Custom reports**: when the library does not have the list you need, click **New custom
+report**, choose the data (students, guardians, fee vouchers, receipts, balances,
+attendance, marks or staff), tick the columns, add filters, sort and group, preview and save.
+Saved reports run like built-in ones. The principal and administrators can share a report
+with everyone who runs reports; other users keep theirs private.
+

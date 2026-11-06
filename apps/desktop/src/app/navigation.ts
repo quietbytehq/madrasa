@@ -91,7 +91,6 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: BarChart3,
     feature: "reports",
     available: true,
-    permission: "reports.read",
   },
   {
     path: "/backup",

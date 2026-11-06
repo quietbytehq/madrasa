@@ -31,7 +31,8 @@ Legend: ✓ granted by default · — not granted.
 | `fees.approve` | Concessions, late-fee waivers, reversals, fee setup | ✓ | ✓ | — | — |
 | `teachers.read` | Staff list and staff attendance | ✓ | ✓ | — | ✓ |
 | `teachers.manage` | Edit staff, assignments, staff attendance; import staff | ✓ | ✓ | — | — |
-| `reports.read` | Reports | ✓ | ✓ | ✓ | — |
+| `reports.read` | Reports (built-in and custom; teachers run attendance and exam reports for their own sections with the module's read permission) | ✓ | ✓ | ✓ | — |
+| `reports.manage` | Save shared custom reports (others may run them) | ✓ | ✓ | — | — |
 | `backup.manage` | Backup settings, run, restore, password | ✓ | ✓ | — | — |
 | `nexus.admin` | Network hub (Nexus edition only) | — | — | — | — |
 

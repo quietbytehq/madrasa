@@ -472,6 +472,33 @@ the module's read permission, limited to the sections they are class teacher of 
 (the catalogue only lists what the caller may run). Dashboard shortcuts open today's
 collection and today's absentees with the dates filled in and the report run (`?run`).
 
+### 5.12 Custom report builder (M2 stage 3)
+
+| Table | Purpose |
+| --- | --- |
+| `report_definitions` | A saved custom report: `name` (unique per school, case-insensitively), `description`, `source`, `definition` (JSONB), `owner_user_id`, `is_shared`, sync columns. |
+
+The definition names a **source** and picks **columns**, **filters**, **sort**, an optional
+**group_by** field and a **limit** from a fixed catalogue (`madrasa_api::reports::builder`).
+Sources: students, guardians, fee vouchers, fee receipts, fee balances (per student),
+attendance entries, attendance summary (per student), marks, staff. Every field has a type
+(text, number, money, date, boolean, choice with its allowed values), a label in both
+languages and a SQL expression owned by the catalogue. Operators depend on the type (text:
+is, is not, contains, starts with, is one of, is empty, is not empty; number/money: is,
+greater than, at least, less than, at most, between, …; date: is, before, after, between;
+boolean: yes/no; choice: is, is not, is one of). SQL is assembled only from catalogue
+expressions; every user value is parsed by the field's type and bound as a parameter, so
+nothing typed by the user reaches the database as SQL. Every source is restricted to the
+school, the chosen academic year and the caller's section scope (teachers who are granted
+`reports.read` see their own sections; staff is never scoped). Grouping adds a heading per
+value, a subtotal with the row count and sums of numeric columns, and a total row. The
+limit defaults to 500 and is capped at 5000; a report that hits it says so in a note.
+
+Permissions: `reports.read` lists the catalogue, previews and saves private reports, and
+runs any report the caller may see (shared ones and their own); `reports.manage` (principal
+and admin) saves shared reports and may edit or remove anyone's. Create, update, delete and
+every run are audit-logged (`report_definition`).
+
 ## 6. API conventions
 
 - Base path `/api/v1`. JSON request and response bodies. `snake_case` keys.
@@ -722,6 +749,17 @@ chooser as the first-start screen; records on the PC are kept whichever mode is 
 | --- | --- | --- | --- |
 | GET | `/reports?lang=en\|ur` | `reports.read` | Catalogue by module: code, title, description, orientation, parameters (`name`, `kind`, `label`, `required`) |
 | GET | `/reports/{code}?format=json\|pdf\|xlsx&lang=en\|ur&…` | per report (`access`) | Runs a report; parameters by `kind`: `academic_year_id` (default: active year), `class_id`, `section_id`, `status`, `month` (`YYYY-MM`), `from`/`to`/`as_of` (`YYYY-MM-DD`), `assessment_id`, numbers (`top`, `threshold`, `min_days`), `student_number`. Unknown code → 404; bad parameter or format → 400; outside the caller's access or section scope → 403 |
+
+### 6.15 M2 stage 3 endpoints
+
+| Method | Path | Permission | Notes |
+| --- | --- | --- | --- |
+| GET | `/reports/custom/sources?lang=` | `reports.read` | The field catalogue: sources, typed fields with labels, choices and operators, operator labels, limits |
+| GET | `/reports/custom` | `reports.read` | Saved reports visible to the caller (shared + own) with `can_edit` |
+| POST | `/reports/custom` | `reports.read` (`reports.manage` to share) | `{name, description, definition, is_shared}`; 400 for anything outside the catalogue; 409 on a duplicate name |
+| POST | `/reports/custom/run` | `reports.read` | Preview a definition without saving: `{definition, name?, lang?, academic_year_id?, limit?}` → report document |
+| GET | `/reports/custom/{id}?format=json\|pdf\|xlsx&lang=` | `reports.read` | Run a saved report (404 unless shared or own); audit-logged |
+| PUT / DELETE | `/reports/custom/{id}` | owner or `reports.manage` | Edit or remove |
 
 ### 6.11 Second alpha test report fixes
 

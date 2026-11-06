@@ -13,6 +13,7 @@ pub mod fees;
 pub mod guardians;
 pub mod imports;
 pub mod models;
+pub mod report_definitions;
 pub mod reports;
 pub mod roles;
 pub mod rollover;
