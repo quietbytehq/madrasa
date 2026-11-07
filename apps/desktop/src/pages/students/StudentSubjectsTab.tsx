@@ -61,6 +61,7 @@ export function StudentSubjectsTab({ studentId, manage }: { studentId: string; m
         subject_ids: clear ? [] : chosen,
       });
       toast.push({ kind: "success", title: t("subjects.alloc.saved") });
+      for (const w of next.warnings ?? []) toast.push({ kind: "warning", title: w });
       await data.reload();
       reset(next);
     } catch (err) {

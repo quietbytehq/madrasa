@@ -108,6 +108,14 @@ impl App {
             )
             .await;
         assert_eq!(s, StatusCode::OK, "{year}");
+        // The payment-reference wording follows the country (v0.2.0-alpha B5).
+        let (s, st) = self.get("/settings/school", &admin).await;
+        assert_eq!(s, StatusCode::OK, "{st}");
+        assert_eq!(st["payment_reference_label"], "Payment reference");
+        assert!(!st["payment_reference_note"]
+            .as_str()
+            .unwrap()
+            .contains("1Bill"));
         for (level, name) in GRADES.iter().enumerate() {
             let (s, class) = self
                 .post("/classes", &admin, json!({ "name": name, "level": level }))

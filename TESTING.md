@@ -218,6 +218,14 @@ Note anything that was unclear, slow, wrong or ugly.
     consents**. Open a student's profile → **Consents** to see the states and the history,
     and record a *Withdrawn*. Reports → *Missing consents*, *Consents expiring with the year*
     and *Consent form list* should match what you see on screen.
+26. **v0.2.1 fixes.** On a demo school every screen shows the yellow DEMO banner, and the
+    demo year is the current one with fees and attendance up to today. Open a voucher and
+    click **Print / Save as PDF**: the PDF shows the currency on every amount and the
+    payment block from Settings → School → *Payment reference on vouchers* (edit the heading
+    and print again). Print a report card the same way. In Examinations → Setup, add a
+    calculated *Average* component: the **Absences** choice defaults to *Skip the absent
+    paper*. As a teacher, Backup must not open. Settings → Academic years → roll over: every
+    class keeps its sections, including Kindergarten.
 17. **Several PCs at once** (needs two or more PCs on the same network; see section 6).
     Log in on each PC with a different account at the same time and enter marks or attendance
     for different sections. Each person should see only their own sections and modules, and

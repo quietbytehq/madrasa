@@ -753,6 +753,7 @@ describe("SetupTab", () => {
             { assessment_type_id: "a2", weight: null },
           ],
           n: 1,
+          absent: "skip",
         },
       }),
     );

@@ -157,6 +157,21 @@ async fn delete_group(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// "English is compulsory in the class and stays allocated to Ali Khan; …"
+fn compulsory_warning(all: &[Subject], student: &str, ids: &[Uuid]) -> String {
+    let names: Vec<String> = ids
+        .iter()
+        .filter_map(|id| all.iter().find(|s| s.id == *id).map(|s| s.name.clone()))
+        .collect();
+    let one = names.len() == 1;
+    format!(
+        "{} {} compulsory in the class and {} allocated to {student}; only electives can be changed.",
+        names.join(", "),
+        if one { "is" } else { "are" },
+        if one { "stays" } else { "stay" },
+    )
+}
+
 // ---- section allocations --------------------------------------------------------------------
 
 /// Mirrored by `AllocationSubject` in the UI.
@@ -188,6 +203,9 @@ pub struct AllocationStudent {
 /// Mirrored by `SectionAllocations` in the UI.
 #[derive(Debug, Serialize)]
 pub struct SectionAllocations {
+    /// Plain-language notes about requests that were ignored (compulsory subjects).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub warnings: Vec<String>,
     pub section_id: Uuid,
     pub class_id: Uuid,
     pub class_name: String,
@@ -262,6 +280,7 @@ async fn section_view(
         })
         .collect();
     Ok(SectionAllocations {
+        warnings: Vec::new(),
         section_id: section.id,
         class_id: section.class_id,
         class_name: class.name,
@@ -324,14 +343,17 @@ async fn put_section_allocations(
     let section = load_section(&mut tx, &user, id).await?;
     let current = repo::allocations_for_section(&mut tx, section.id).await?;
     let groups = repo::list_groups(&mut tx, section.class_id).await?;
+    let all = academics::list_subjects(&mut tx, user.user.school_id).await?;
+    let roster = madrasa_db::exams::roster(&mut tx, section.id).await?;
+    let mut warnings = Vec::new();
     for line in &req.rows {
-        if !current
+        let Some(a) = current
             .iter()
-            .any(|a| a.enrollment_id == line.enrollment_id)
-        {
+            .find(|a| a.enrollment_id == line.enrollment_id)
+        else {
             return Err(ApiError::not_found("student in this section"));
-        }
-        repo::set_allocation(
+        };
+        let change = repo::set_allocation(
             &mut tx,
             &state.hlc,
             user.actor(),
@@ -339,8 +361,17 @@ async fn put_section_allocations(
             &value_of(line, &groups),
         )
         .await?;
+        if !change.compulsory_ignored.is_empty() {
+            let who = roster
+                .iter()
+                .find(|r| r.student_id == a.student_id)
+                .map(|r| r.full_name.clone())
+                .unwrap_or_default();
+            warnings.push(compulsory_warning(&all, &who, &change.compulsory_ignored));
+        }
     }
-    let view = section_view(&mut tx, &user, &section).await?;
+    let mut view = section_view(&mut tx, &user, &section).await?;
+    view.warnings = warnings;
     tx.commit().await?;
     Ok(Json(view))
 }
@@ -355,6 +386,8 @@ pub struct YearQuery {
 /// Mirrored by `StudentSubjects` in the UI.
 #[derive(Debug, Serialize)]
 pub struct StudentSubjects {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub warnings: Vec<String>,
     pub enrollment_id: Uuid,
     pub academic_year_id: Uuid,
     pub class_id: Uuid,
@@ -422,6 +455,7 @@ async fn student_view(
         })
         .collect();
     Ok(StudentSubjects {
+        warnings: Vec::new(),
         enrollment_id,
         academic_year_id: year_id,
         class_id: a.class_id,
@@ -474,7 +508,7 @@ async fn put_student_subjects(
         group_id: req.group_id,
         subject_ids: req.subject_ids,
     };
-    repo::set_allocation(
+    let change = repo::set_allocation(
         &mut tx,
         &state.hlc,
         user.actor(),
@@ -482,7 +516,13 @@ async fn put_student_subjects(
         &value_of(&line, &groups),
     )
     .await?;
-    let view = student_view(&mut tx, &user, enrollment_id, year_id).await?;
+    let mut view = student_view(&mut tx, &user, enrollment_id, year_id).await?;
+    if !change.compulsory_ignored.is_empty() {
+        let all = academics::list_subjects(&mut tx, user.user.school_id).await?;
+        let who = students::get(&mut tx, id).await?.full_name;
+        view.warnings
+            .push(compulsory_warning(&all, &who, &change.compulsory_ignored));
+    }
     tx.commit().await?;
     Ok(Json(view))
 }

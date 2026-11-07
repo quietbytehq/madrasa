@@ -237,8 +237,8 @@ async fn rollover_promotes_retains_graduates_and_copies_setup() {
         "Ali up, Sara repeats, Omar leaves, Zain and Hira graduate"
     );
     assert_eq!(
-        r.sections_created, 2,
-        "2-A for Ali and 1-A for Sara; 1-B and 2 (none) not needed"
+        r.sections_created, 3,
+        "2-A for Ali, 1-A for Sara, and 1-B kept for class 1 although nobody is in it (O5)"
     );
     assert_eq!(r.structure_lines_copied, 2);
     assert_eq!(r.assessments_created, 4);

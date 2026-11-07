@@ -239,6 +239,20 @@ export function ImportPage() {
       }),
     [fields.data, mapping],
   );
+  // Required fields that are not mapped but derived from other columns (v0.2.0-alpha B4):
+  // shown as "from First name + Last name" / "from Guardian 1" instead of missing.
+  const derived = useMemo(() => {
+    const out: Record<string, "full_name" | "father_name"> = {};
+    if (
+      mapping.full_name === undefined &&
+      mapping.first_name !== undefined &&
+      mapping.last_name !== undefined
+    )
+      out.full_name = "full_name";
+    if (mapping.father_name === undefined && mapping.guardian_name !== undefined)
+      out.father_name = "father_name";
+    return out;
+  }, [mapping]);
 
   return (
     <>
@@ -387,6 +401,7 @@ export function ImportPage() {
             headers={parsed.headers}
             sample={parsed.rows[0] ?? []}
             mapping={mapping}
+            derived={derived}
             onChange={setMapping}
             t={t}
           />
@@ -663,6 +678,7 @@ function MappingTable({
   headers,
   sample,
   mapping,
+  derived = {},
   onChange,
   t,
 }: {
@@ -670,6 +686,8 @@ function MappingTable({
   headers: string[];
   sample: string[];
   mapping: Record<string, number>;
+  /** Required fields filled from other columns, with the hint key to show. */
+  derived?: Record<string, "full_name" | "father_name">;
   onChange: (m: Record<string, number>) => void;
   t: (k: TranslationKey) => string;
 }) {
@@ -685,12 +703,19 @@ function MappingTable({
       <tbody>
         {fields.map((f) => {
           const col = mapping[f.key];
+          const from = derived[f.key];
           return (
             <tr key={f.key} className="border-t border-border">
               <td className="px-3 py-1.5">
                 {f.label}{" "}
-                {f.required && (
-                  <span className="text-xs text-danger">({t("import.mapping.required")})</span>
+                {from ? (
+                  <span className="text-xs text-success">
+                    ({t(`import.mapping.derived.${from}`)})
+                  </span>
+                ) : (
+                  f.required && (
+                    <span className="text-xs text-danger">({t("import.mapping.required")})</span>
+                  )
                 )}
               </td>
               <td className="px-3 py-1.5">
@@ -705,7 +730,9 @@ function MappingTable({
                   }}
                   className={cn(
                     "h-8 w-full rounded border bg-card px-2",
-                    f.required && col === undefined ? "border-danger" : "border-border",
+                    f.required && col === undefined && !derived[f.key]
+                      ? "border-danger"
+                      : "border-border",
                   )}
                 >
                   <option value="">{t("import.mapping.ignore")}</option>

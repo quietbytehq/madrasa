@@ -257,6 +257,44 @@ async fn terms_and_components_roll_up_to_term_and_year_results() {
         "75.00",
         "(3×80 + 1×60) / 4"
     );
+    // Absences (v0.2.0-alpha O1): a weighted average counts Sara's absent Test 2 as zero
+    // by default ((3×40 + 0) / 4); an average skips it; told to count it, it is zero.
+    assert_eq!(row_of(&rs, &sara)["marks"][0]["obtained"], "30.00");
+    let (s, avg2) = app.post("/exams/assessments", &admin, json!({ "academic_year_id": year_id, "name": "Tests mean", "kind": "calculated", "term_id": term_id, "weight": "0", "formula": { "op": "average", "inputs": [{ "assessment_type_id": test1 }, { "assessment_type_id": test2 }] } })).await;
+    assert_eq!(s, StatusCode::CREATED, "{avg2}");
+    assert!(avg2["formula"].get("absent").is_none_or(|a| a.is_null()));
+    let (_, rs) = app
+        .get(
+            &format!(
+                "/exams/results/section?assessment_id={}&section_id={s1}",
+                id(&avg2["id"])
+            ),
+            &admin,
+        )
+        .await;
+    assert_eq!(
+        row_of(&rs, &sara)["marks"][0]["obtained"],
+        "40.00",
+        "absent paper skipped"
+    );
+    assert_eq!(row_of(&rs, &ali)["marks"][0]["obtained"], "70.00");
+    let (s, avg3) = app.post("/exams/assessments", &admin, json!({ "academic_year_id": year_id, "name": "Tests mean (zero)", "kind": "calculated", "term_id": term_id, "weight": "0", "formula": { "op": "average", "absent": "zero", "inputs": [{ "assessment_type_id": test1 }, { "assessment_type_id": test2 }] } })).await;
+    assert_eq!(s, StatusCode::CREATED, "{avg3}");
+    assert_eq!(avg3["formula"]["absent"], "zero");
+    let (_, rs) = app
+        .get(
+            &format!(
+                "/exams/results/section?assessment_id={}&section_id={s1}",
+                id(&avg3["id"])
+            ),
+            &admin,
+        )
+        .await;
+    assert_eq!(
+        row_of(&rs, &sara)["marks"][0]["obtained"],
+        "20.00",
+        "absent paper is zero"
+    );
     let (s, e) = app.patch(&format!("/exams/assessments/{best_id}"), &admin, json!({ "name": "Best test", "formula": { "op": "sum", "inputs": [{ "assessment_type_id": avg["id"] }, { "assessment_type_id": best_id }] } })).await;
     assert_eq!(s, StatusCode::BAD_REQUEST, "self reference: {e}");
 
@@ -267,7 +305,7 @@ async fn terms_and_components_roll_up_to_term_and_year_results() {
         .await;
     assert_eq!(s, StatusCode::OK, "{card}");
     assert_eq!(card["terms"].as_array().unwrap().len(), 1);
-    assert_eq!(card["assessments"].as_array().unwrap().len(), 6);
+    assert_eq!(card["assessments"].as_array().unwrap().len(), 8);
     let engs = &card["subjects"][0];
     assert_eq!(
         engs["term_percents"][0], "70.00",

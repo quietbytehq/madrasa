@@ -279,9 +279,34 @@ async fn dashboard_figures_and_year_rollover() {
             r["sections_created"].clone(),
             r["structure_lines_copied"].clone()
         ),
-        (json!(2), json!(1), json!(1), json!(2))
+        (json!(2), json!(1), json!(2), json!(2))
     );
     assert_eq!(r["new_year"]["is_active"], true);
+    // Every class keeps its sections (v0.2.0-alpha O5): 1-A for new admissions and 2-A for
+    // the promoted students, both in the new year.
+    let (_, new_sections) = app
+        .get(
+            &format!(
+                "/sections?academic_year_id={}",
+                r["new_year"]["id"].as_str().unwrap()
+            ),
+            &admin,
+        )
+        .await;
+    let mut names: Vec<String> = new_sections
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| {
+            format!(
+                "{}-{}",
+                s["class_name"].as_str().unwrap(),
+                s["name"].as_str().unwrap()
+            )
+        })
+        .collect();
+    names.sort();
+    assert_eq!(names, vec!["1-A", "2-A"]);
     let (_, years) = app.get("/academic-years", &admin).await;
     assert_eq!(years.as_array().unwrap().len(), 2);
     let (_, zain_detail) = app.get(&format!("/students/{zain}"), &admin).await;

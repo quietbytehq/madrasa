@@ -970,6 +970,40 @@ each subject as `students`.
 | GET / POST | `/sections/{id}/consents` | `students.read` / `students.manage` (teacher scope) | The section's students × types with `required`, `current`, date and guardian, and the count of consents to collect; POST `{rows:[{student_id, consent_type_id, status, guardian_id?, note?}], recorded_on?}` records them all |
 | GET | `/reports/students.consents_missing`, `students.consents_expiring`, `students.consent_forms` | `reports.read` | Parameters: year, class, section; the missing report also takes `consent_type_id` (`consent_type` parameter kind) |
 
+### 6.21 v0.2.0-alpha test report fixes (v0.2.1)
+
+- **B1** `GET /backup/status` needs `backup.manage` like every other backup route (a teacher
+  gets 403).
+- **B2/B3** Vouchers and report cards are typeset by the report PDF engine: `GET
+  /fees/vouchers/{id}/pdf?lang=`, `GET /fees/vouchers/pdf?ids=a,b,c&lang=` (one voucher per
+  page, school and parent copies side by side, every amount prefixed with the school's
+  currency symbol) and `GET /exams/report-cards/pdf?section_id=|student_id=&lang=`
+  (`exams.read`, same scope as the JSON cards). The Print buttons on the voucher and report
+  card pages download these PDFs; the on-screen voucher shows the currency on every amount.
+- **B5** The payment-reference block on vouchers follows the school's country:
+  `madrasa_core::fees::payment_reference_default` gives "Bank / 1Bill / Kuickpay reference"
+  for Pakistan and "Payment reference" elsewhere; Settings → School (`/settings/school`)
+  edits `payment_reference_label` and `payment_reference_note` (setting key
+  `fees.payment_reference`; an empty heading restores the country default). `VoucherDetail`
+  carries `payment_reference {label, note, reference}`.
+- **B7** The demo school is generated for the install date (`DemoOptions.today`): the active
+  year is the one running now, fees and attendance run to today, and assessments are held
+  once their usual date (mid-June, mid-September, mid-October, mid-March) has passed. Every
+  screen of a demo school shows the DEMO banner (`SchoolSummary.is_demo`).
+- **O1** `Formula.absent` (`zero` or `skip`; default `skip` for best-of and average, `zero`
+  for sum and weighted average) says how an absence in an input counts; the setup editor
+  offers it.
+- **O5** Year rollover creates, for every class, the sections it had last year (same names,
+  capacity, and the class teacher unless they moved up with the promoted section), so the
+  lowest class has sections for new admissions.
+- **Polish** The import wizard shows a required field filled from other columns as "from
+  First name + Last name" / "from Guardian 1" (B4); allocation responses carry `warnings`
+  naming compulsory subjects that stay allocated (B6); an update import that re-links an
+  existing guardian records the link as an update, so rolling the batch back restores it
+  instead of removing it (O3); the defaulters list counts only unpaid or partly paid
+  vouchers as unpaid months, matching the balance (O2); guardian search by phone is covered
+  by a test (O8).
+
 ### 6.11 Second alpha test report fixes
 
 - `POST /setup` takes `first_year` (create and activate the academic year that is running now,

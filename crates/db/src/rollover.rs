@@ -256,6 +256,40 @@ pub async fn apply(
             }
         }
     }
+    // Every class keeps the sections it had (same names), so the lowest class has sections
+    // for new admissions and empty sections survive (v0.2.0-alpha O5). The class teacher
+    // follows the promoted students; a section with nobody promoted out of it keeps its
+    // teacher.
+    for old in &old_sections {
+        let key = (old.class_id, old.name.clone());
+        if new_sections.contains_key(&key) {
+            continue;
+        }
+        let class = classes.iter().find(|c| c.id == old.class_id);
+        let teacher_moved = class
+            .and_then(|c| next_class(&classes, c))
+            .is_some_and(|next| new_sections.contains_key(&(next.id, old.name.clone())));
+        let s = academics::create_section(
+            &mut *conn,
+            hlc,
+            actor,
+            academics::NewSection {
+                school_id,
+                class_id: old.class_id,
+                academic_year_id: new_year.id,
+                name: old.name.clone(),
+                class_teacher_id: if teacher_moved {
+                    None
+                } else {
+                    old.class_teacher_id
+                },
+                capacity: old.capacity,
+            },
+        )
+        .await?;
+        sections_created += 1;
+        new_sections.insert(key, s);
+    }
     // Fee structure: same amounts per class next year.
     let mut structure_lines_copied = 0usize;
     for line in fees::list_structure(&mut *conn, p.old_year.id, None).await? {

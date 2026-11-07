@@ -41,6 +41,8 @@ const fields: ImportField[] = [
   { key: "gender", label: "Gender", required: true, aliases: [], example: "male" },
   { key: "class", label: "Class", required: true, aliases: [], example: "1" },
   { key: "guardian_phone", label: "Guardian phone", required: false, aliases: [], example: "" },
+  { key: "first_name", label: "First name", required: false, aliases: [], example: "Ali" },
+  { key: "last_name", label: "Last name", required: false, aliases: [], example: "Khan" },
 ];
 const parsed: ParsedFile = {
   file_name: "students.xlsx",
@@ -256,5 +258,25 @@ describe("ImportPage", () => {
     expect(lines).toHaveLength(2);
     expect(lines[1]).toContain("Sara Khan");
     expect(lines[1]).toContain("date_of_birth: Date of birth is not a date");
+  });
+});
+
+describe("Import columns step", () => {
+  it("shows a name built from first and last name as derived, not missing", async () => {
+    render();
+    await userEvent.click(await screen.findByRole("button", { name: /Students and guardians/ }));
+    const file = new File(["x"], "students.xlsx", {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    await userEvent.upload(screen.getByLabelText("Choose a .xlsx or .csv file"), file);
+    expect(await screen.findByText("2 rows found in students.xlsx")).toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText("Date of birth"), "2");
+    expect(screen.queryByText("(from First name + Last name)")).not.toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText("Student name"), "");
+    expect(screen.getByRole("button", { name: "Check the file" })).toBeDisabled();
+    await userEvent.selectOptions(screen.getByLabelText("First name"), "0");
+    await userEvent.selectOptions(screen.getByLabelText("Last name"), "1");
+    expect(screen.getByText("(from First name + Last name)")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Check the file" })).toBeEnabled();
   });
 });

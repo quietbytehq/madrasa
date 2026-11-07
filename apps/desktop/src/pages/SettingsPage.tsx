@@ -43,16 +43,26 @@ function SchoolSettingsCard() {
   const toast = useToast();
   const settings = useAsync(() => api.schoolSettings(), []);
   const [prefix, setPrefix] = useState("");
+  const [refLabel, setRefLabel] = useState("");
+  const [refNote, setRefNote] = useState("");
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    if (settings.data) setPrefix(settings.data.student_number_prefix);
+    if (settings.data) {
+      setPrefix(settings.data.student_number_prefix);
+      setRefLabel(settings.data.payment_reference_label);
+      setRefNote(settings.data.payment_reference_note);
+    }
   }, [settings.data]);
 
   const save = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
     try {
-      const res = await api.updateSchoolSettings({ student_number_prefix: prefix });
+      const res = await api.updateSchoolSettings({
+        student_number_prefix: prefix,
+        payment_reference_label: refLabel,
+        payment_reference_note: refNote,
+      });
       settings.setData(res);
       toast.push({ kind: "success", title: t("common.saved") });
     } catch (err) {
@@ -65,7 +75,7 @@ function SchoolSettingsCard() {
   const example = `${prefix || "KHI-MC"}-${new Date().getFullYear()}-00417`;
   return (
     <Card title={t("settings.school")}>
-      <form onSubmit={save} className="flex items-end gap-2">
+      <form onSubmit={save} className="flex flex-col gap-3">
         <Input
           label={t("settings.studentNumberPrefix")}
           hint={t("settings.studentNumberPrefix.hint", { example })}
@@ -74,9 +84,31 @@ function SchoolSettingsCard() {
           className="max-w-xs"
           required
         />
-        <Button type="submit" loading={busy}>
-          {t("action.save")}
-        </Button>
+        <fieldset className="flex flex-col gap-2">
+          <legend className="mb-1 text-xs font-medium text-text">
+            {t("settings.paymentReference")}
+          </legend>
+          <p className="text-xs text-muted">{t("settings.paymentReference.hint")}</p>
+          <Input
+            label={t("settings.paymentReference.label")}
+            value={refLabel}
+            onChange={(e) => setRefLabel(e.target.value)}
+            className="max-w-md"
+            maxLength={80}
+          />
+          <Input
+            label={t("settings.paymentReference.note")}
+            value={refNote}
+            onChange={(e) => setRefNote(e.target.value)}
+            className="max-w-md"
+            maxLength={300}
+          />
+        </fieldset>
+        <div>
+          <Button type="submit" loading={busy}>
+            {t("action.save")}
+          </Button>
+        </div>
       </form>
     </Card>
   );

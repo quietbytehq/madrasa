@@ -253,6 +253,8 @@ async fn run_demo_setup(
         &demo,
         &madrasa_demo_data::LoadOptions {
             confirmed: true,
+            // A full year of fees, attendance and marks up to today (v0.2.0-alpha B7).
+            full_year: true,
             ..Default::default()
         },
     )

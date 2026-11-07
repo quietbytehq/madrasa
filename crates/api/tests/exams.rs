@@ -29,6 +29,24 @@ impl App {
             app,
         })
     }
+    async fn get_bytes(&self, p: &str, t: &str) -> (StatusCode, String, Vec<u8>) {
+        let req = Request::builder()
+            .method(Method::GET)
+            .uri(format!("/api/v1{p}"))
+            .header(header::AUTHORIZATION, format!("Bearer {t}"))
+            .body(Body::empty())
+            .unwrap();
+        let res = self.app.clone().oneshot(req).await.unwrap();
+        let status = res.status();
+        let ctype = res
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("")
+            .to_string();
+        let bytes = res.into_body().collect().await.unwrap().to_bytes();
+        (status, ctype, bytes.to_vec())
+    }
     async fn call(
         &self,
         method: Method,
@@ -578,6 +596,29 @@ async fn setup_marks_workflow_results_and_report_cards() {
         )
         .await;
     assert_eq!((s, cards.as_array().unwrap().len()), (StatusCode::OK, 3));
+    // Report cards as a typeset PDF (v0.2.0-alpha B3): the section, one student, Urdu.
+    let (s, ctype, bytes) = app
+        .get_bytes(&format!("/exams/report-cards/pdf?section_id={s1}"), &admin)
+        .await;
+    assert_eq!((s, ctype.as_str()), (StatusCode::OK, "application/pdf"));
+    assert!(bytes.starts_with(b"%PDF"));
+    let (s, _, bytes) = app
+        .get_bytes(
+            &format!("/exams/report-cards/pdf?student_id={ali}&lang=ur"),
+            &admin,
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK);
+    assert!(bytes.starts_with(b"%PDF"));
+    let (s, _, _) = app.get_bytes("/exams/report-cards/pdf", &admin).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
+    let (s, _, _) = app
+        .get_bytes(
+            &format!("/exams/report-cards/pdf?student_id={zain}"),
+            &teacher,
+        )
+        .await;
+    assert_eq!(s, StatusCode::FORBIDDEN);
     let (s, _) = app
         .get(&format!("/exams/results/student/{zain}"), &teacher)
         .await;

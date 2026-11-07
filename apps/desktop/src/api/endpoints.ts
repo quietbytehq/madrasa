@@ -585,6 +585,13 @@ export const api = {
       method: "POST",
       body: { rows, recorded_on },
     }),
+  // Printing through the PDF engine (v0.2.0-alpha B3)
+  voucherPdf: (id: string, lang: "en" | "ur") =>
+    download(`/fees/vouchers/${id}/pdf${qs({ lang })}`),
+  vouchersPdf: (ids: string[], lang: "en" | "ur") =>
+    download(`/fees/vouchers/pdf${qs({ ids: ids.join(","), lang })}`),
+  reportCardsPdf: (params: { section_id?: string; student_id?: string }, lang: "en" | "ur") =>
+    download(`/exams/report-cards/pdf${qs({ ...params, lang })}`),
   importBatches: () => request<ImportBatch[]>("/imports/batches"),
   rollbackImport: (id: string) =>
     request<ImportBatch>(`/imports/batches/${id}/rollback`, { method: "POST", body: {} }),

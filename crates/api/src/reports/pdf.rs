@@ -84,7 +84,7 @@ impl World for ReportWorld {
 
 /// Escape for a typst string literal; cells are emitted as `[#"…"]` so only two characters
 /// matter and nothing in the data is ever read as markup.
-fn lit(s: &str) -> String {
+pub(super) fn lit(s: &str) -> String {
     let mut out = String::with_capacity(s.len() + 2);
     out.push('"');
     for c in s.chars() {
@@ -489,16 +489,24 @@ fn markup(report: &Report) -> String {
 
 /// Typeset the report. CPU-bound: call from `spawn_blocking`.
 pub fn render(report: &Report) -> Result<Vec<u8>, ApiError> {
+    compile(&markup(report))
+}
+
+/// Typeset any typst markup with the bundled fonts (reports, vouchers). CPU-bound.
+pub fn compile(markup: &str) -> Result<Vec<u8>, ApiError> {
     let world = ReportWorld {
-        main: Source::new(*MAIN_ID, markup(report)),
+        main: Source::new(*MAIN_ID, markup.to_string()),
     };
     let doc = typst::compile::<PagedDocument>(&world)
         .output
         .map_err(|errors| {
-            for e in errors.iter() {
-                tracing::error!(message = %e.message, "report typesetting failed");
+            let messages: Vec<String> = errors.iter().map(|e| e.message.to_string()).collect();
+            for m in &messages {
+                tracing::error!(message = %m, "report typesetting failed");
             }
-            ApiError::internal()
+            let mut err = ApiError::internal();
+            err.details = Some(serde_json::json!({ "typst": messages }));
+            err
         })?;
     typst_pdf::pdf(&doc, &typst_pdf::PdfOptions::default()).map_err(|errors| {
         for e in errors.iter() {

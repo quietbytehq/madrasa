@@ -255,6 +255,22 @@ pub async fn link(
     Ok(row)
 }
 
+/// The active link between a student and a guardian, if any.
+pub async fn link_between(
+    conn: &mut PgConnection,
+    student_id: Uuid,
+    guardian_id: Uuid,
+) -> DbResult<Option<StudentGuardian>> {
+    Ok(sqlx::query_as::<_, StudentGuardian>(
+        "SELECT id, school_id, student_id, guardian_id, relationship, is_primary, hlc FROM student_guardians
+         WHERE student_id = $1 AND guardian_id = $2 AND deleted_at IS NULL",
+    )
+    .bind(student_id)
+    .bind(guardian_id)
+    .fetch_optional(conn)
+    .await?)
+}
+
 pub async fn unlink(
     conn: &mut PgConnection,
     hlc: &Hlc,

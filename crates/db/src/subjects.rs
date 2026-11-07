@@ -510,6 +510,16 @@ pub async fn takers(
         .collect())
 }
 
+/// What `set_allocation` stored and what it left out.
+#[derive(Debug, Clone)]
+pub struct AllocationChange {
+    pub old: AllocationValue,
+    pub new: AllocationValue,
+    /// Requested subjects that are compulsory in the class: they are always taken, so the
+    /// request to allocate or drop them was ignored (v0.2.0-alpha B6).
+    pub compulsory_ignored: Vec<Uuid>,
+}
+
 /// Set an enrolment's allocation (group label and chosen electives); compulsory subjects are
 /// implied. Clearing both means the student takes every class subject again. Returns the
 /// old and new stored values; audited when they differ.
@@ -519,7 +529,7 @@ pub async fn set_allocation(
     actor: Actor,
     enrollment_id: Uuid,
     value: &AllocationValue,
-) -> DbResult<(AllocationValue, AllocationValue)> {
+) -> DbResult<AllocationChange> {
     let current = allocation_for_enrollment(&mut *conn, enrollment_id).await?;
     let class = class_subjects(&mut *conn, current.class_id).await?;
     let mut subject_ids: Vec<Uuid> = value
@@ -547,6 +557,12 @@ pub async fn set_allocation(
     }
     subject_ids.sort();
     subject_ids.dedup();
+    let compulsory_ignored: Vec<Uuid> = value
+        .subject_ids
+        .iter()
+        .copied()
+        .filter(|id| class.iter().any(|c| c.subject_id == *id && !c.is_elective))
+        .collect();
     let old = AllocationValue {
         group_id: current.group_id,
         subject_ids: {
@@ -560,7 +576,11 @@ pub async fn set_allocation(
         subject_ids,
     };
     if old == new {
-        return Ok((old, new));
+        return Ok(AllocationChange {
+            old,
+            new,
+            compulsory_ignored,
+        });
     }
     let school_id: Uuid = sqlx::query_scalar("SELECT school_id FROM enrollments WHERE id = $1")
         .bind(enrollment_id)
@@ -613,5 +633,9 @@ pub async fn set_allocation(
         Some(serde_json::to_value(&new).unwrap_or_default()),
     )
     .await?;
-    Ok((old, new))
+    Ok(AllocationChange {
+        old,
+        new,
+        compulsory_ignored,
+    })
 }
