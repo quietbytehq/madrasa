@@ -171,6 +171,11 @@ Note anything that was unclear, slow, wrong or ugly.
     student). Then log in as a teacher: Reports should show only attendance and exam reports
     for their own sections. On the Dashboard, click **Today's collection report** and
     **Today's absentees report**.
+20. **Build your own report.** Reports → **New custom report**: pick *Students*, tick a few
+    columns, add a filter (for example Gender is Female), group by Section, click **Preview**,
+    then name it and **Save report**. It should appear under *Custom reports* and download as
+    PDF and Excel. As the principal, tick **Share with everyone who can run reports** and
+    check the accountant can see and run it but not edit it.
 17. **Several PCs at once** (needs two or more PCs on the same network; see section 6).
     Log in on each PC with a different account at the same time and enter marks or attendance
     for different sections. Each person should see only their own sections and modules, and

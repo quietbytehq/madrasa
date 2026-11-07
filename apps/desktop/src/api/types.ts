@@ -1326,3 +1326,81 @@ export interface ReportDocument {
   generated_on: string;
   row_count: number;
 }
+
+// ---- Custom report builder (M2 stage 3) ----------------------------------------------------
+
+export type BuilderFieldType = "text" | "number" | "money" | "date" | "boolean" | "choice";
+export type BuilderOp =
+  | "eq"
+  | "ne"
+  | "contains"
+  | "starts_with"
+  | "in"
+  | "is_empty"
+  | "not_empty"
+  | "gt"
+  | "gte"
+  | "lt"
+  | "lte"
+  | "between"
+  | "before"
+  | "after"
+  | "is_true"
+  | "is_false";
+
+export interface BuilderField {
+  key: string;
+  label: string;
+  type: BuilderFieldType;
+  choices: Array<{ value: string; label: string }>;
+  operators: BuilderOp[];
+}
+
+export interface BuilderSource {
+  key: string;
+  label: string;
+  fields: BuilderField[];
+}
+
+export interface BuilderCatalogue {
+  sources: BuilderSource[];
+  operators: Array<{ value: BuilderOp; label: string }>;
+  default_limit: number;
+  max_limit: number;
+}
+
+export interface ReportFilter {
+  field: string;
+  op: BuilderOp;
+  value: string;
+  value2?: string | null;
+}
+
+export interface ReportDefinition {
+  source: string;
+  columns: string[];
+  filters: ReportFilter[];
+  sort: Array<{ field: string; desc: boolean }>;
+  group_by: string | null;
+  limit: number | null;
+}
+
+export interface CustomReport {
+  id: string;
+  name: string;
+  description: string;
+  source: string;
+  definition: ReportDefinition;
+  owner_user_id: string;
+  owner_name: string | null;
+  is_shared: boolean;
+  can_edit: boolean;
+  updated_at: string;
+}
+
+export interface CustomReportRequest {
+  name: string;
+  description: string;
+  definition: ReportDefinition;
+  is_shared: boolean;
+}

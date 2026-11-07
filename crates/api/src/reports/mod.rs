@@ -3,6 +3,7 @@
 //! (`pdf.rs`) with embedded fonts so Urdu is shaped and right-to-left.
 
 pub mod attendance;
+pub mod builder;
 pub mod catalogue;
 pub mod exams;
 pub mod fees;

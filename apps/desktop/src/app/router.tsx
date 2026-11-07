@@ -11,6 +11,7 @@ import { ComingSoon } from "@/pages/ComingSoon";
 import { NoAccess } from "@/pages/NoAccess";
 import { FeesPage } from "@/pages/fees/FeesPage";
 import { ReportsPage } from "@/pages/reports/ReportsPage";
+import { CustomReportBuilder } from "@/pages/reports/CustomReportBuilder";
 import { ReceiptPrintPage, VoucherPrintPage } from "@/pages/fees/PrintPages";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { StaffPage } from "@/pages/staff/StaffPage";
@@ -38,6 +39,17 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   if (status === "anonymous")
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   return <>{children}</>;
+}
+
+/** Reports are open to office roles (`reports.read`) and to teachers for their own attendance
+ * and exam reports (`attendance.read` / `exams.read`). */
+export function ReportsAccess({ children }: { children: ReactNode }) {
+  const { can } = useSession();
+  return can("reports.read") || can("attendance.read") || can("exams.read") ? (
+    <>{children}</>
+  ) : (
+    <NoAccess />
+  );
 }
 
 /** Renders the page only for a role that holds the permission; otherwise "You don't have access". */
@@ -145,14 +157,40 @@ export function AppRoutes({ login, setup }: AppRoutesProps) {
           />
         )}
         {has("reports") && (
-          <Route
-            path="/reports/:code?"
-            element={
-              <RequirePermission permission="reports.read">
-                <ReportsPage />
-              </RequirePermission>
-            }
-          />
+          <>
+            <Route
+              path="/reports/custom/new"
+              element={
+                <RequirePermission permission="reports.read">
+                  <CustomReportBuilder />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/reports/custom/:id/edit"
+              element={
+                <RequirePermission permission="reports.read">
+                  <CustomReportBuilder />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/reports/custom/:id"
+              element={
+                <ReportsAccess>
+                  <ReportsPage />
+                </ReportsAccess>
+              }
+            />
+            <Route
+              path="/reports/:code?"
+              element={
+                <ReportsAccess>
+                  <ReportsPage />
+                </ReportsAccess>
+              }
+            />
+          </>
         )}
         {has("settings") && (
           <Route

@@ -81,22 +81,22 @@ render it (on screen, PDF, Excel), one page to find and run them.
 
 ## Stage 3 — Custom report builder
 
-- [ ] Data sources with a fixed field catalogue (students and guardians, enrolments, fee
+- [x] Data sources with a fixed field catalogue (students and guardians, enrolments, fee
       vouchers and receipts, fee balances, attendance entries and monthly summaries, marks and
       results, staff): each field has a type (text, number, money, date, boolean, choice), a
       label in both languages and, where it applies, the related entity it comes from
-- [ ] Query assembly from the catalogue only: columns, filters (operators per type: equals,
+- [x] Query assembly from the catalogue only: columns, filters (operators per type: equals,
       contains, in, between, before/after, is empty), sort, grouping with counts and
       subtotals, row limit; everything parameterised, nothing from the user reaches SQL as
       text; teacher scope applied when a teacher runs a report
-- [ ] `report_definitions` table (name, description, source, definition JSONB, owner,
+- [x] `report_definitions` table (name, description, source, definition JSONB, owner,
       shared flag, sync columns); `GET/POST/PUT/DELETE /reports/custom`, `POST
       /reports/custom/{id}/run` (preview with paging) and `?format=pdf|xlsx`; create, change
       and delete audit-logged; `reports.read` runs, `reports.manage` (new permission, default
       principal and admin) saves shared reports
-- [ ] Builder UI: choose a source, tick and order columns, add filter rows, sort, group,
+- [x] Builder UI: choose a source, tick and order columns, add filter rows, sort, group,
       preview as you build, save with a name, run from the library like a built-in report
-- [ ] Tests: catalogue-only assembly (a field or operator outside the catalogue is refused),
+- [x] Tests: catalogue-only assembly (a field or operator outside the catalogue is refused),
       filters and grouping produce the expected rows on the demo school, teacher scope,
       permission split read/manage, builder vitest
 

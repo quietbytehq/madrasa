@@ -68,6 +68,9 @@ pub enum Permission {
     TeachersManage,
     #[serde(rename = "reports.read")]
     ReportsRead,
+    /// Save custom reports that every office user can run.
+    #[serde(rename = "reports.manage")]
+    ReportsManage,
     #[serde(rename = "backup.manage")]
     BackupManage,
     // Nexus
@@ -100,6 +103,7 @@ impl Permission {
         Permission::TeachersRead,
         Permission::TeachersManage,
         Permission::ReportsRead,
+        Permission::ReportsManage,
         Permission::BackupManage,
         Permission::NexusAdmin,
     ];
@@ -129,6 +133,7 @@ impl Permission {
             Permission::TeachersRead => "teachers.read",
             Permission::TeachersManage => "teachers.manage",
             Permission::ReportsRead => "reports.read",
+            Permission::ReportsManage => "reports.manage",
             Permission::BackupManage => "backup.manage",
             Permission::NexusAdmin => "nexus.admin",
         }
@@ -245,6 +250,7 @@ impl RoleCode {
                 TeachersRead,
                 TeachersManage,
                 ReportsRead,
+                ReportsManage,
                 BackupManage,
             ],
             RoleCode::Accountant => {
