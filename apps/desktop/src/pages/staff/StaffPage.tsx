@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Plus } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { api } from "@/api/endpoints";
 import type { Assignment, Gender, LoginRole, Section, Staff, Subject } from "@/api/types";
 import { Badge } from "@/components/ui/Badge";
@@ -22,6 +23,7 @@ import { GENDERS, genderLabel } from "../students/common";
 
 export function StaffPage() {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const { can } = useSession();
   const manage = can("teachers.manage");
   const toast = useToast();
@@ -41,6 +43,9 @@ export function StaffPage() {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <ExportMenu path="staff" params={{ q: q || undefined }} />
+            <Button variant="secondary" onClick={() => navigate("/teachers/allocation")}>
+              {t("alloc.teachers.title")}
+            </Button>
             {manage && (
               <Button
                 icon={<Plus className="h-4 w-4" aria-hidden />}

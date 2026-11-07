@@ -593,6 +593,25 @@ group by name within the student's class, and electives against the class's elec
 has an error; applied rows form an `import_batches` batch of kind `student_subjects` whose
 rows hold the previous allocation, so the batch rolls back like any other.
 
+### 5.16 Allocation screens (M2 stage 7)
+
+No new tables. The teacher grid edits `section_teachers` one cell at a time
+(`madrasa_db::allocation::set_cell_teacher`: the staff member becomes the only teacher of that
+subject in that section, or the cell is cleared; audited as `section_teacher_cell` with the
+previous and new staff ids); the class teacher stays on `sections.class_teacher_id`. Bulk
+moves re-point the student's enrolment at another section of the same class and year through
+`students::enrol` (audited as before); roll numbers are either kept or replaced by the next
+free number in the new section. Attendance entries and marks reference the student and the
+sheet they were recorded on, so they stay with the student after a move.
+
+Balancing (`madrasa_core::allocation::balance`): given the sections of a class with their
+students in roll order, propose moves so that sizes differ by at most one. Every section
+gets `total / n` students and the largest sections keep the remainder, so a balanced class
+needs no moves; moves are taken from the end of the roll of the most over-full section into
+the most under-full one, never touching excluded (ticked) students; the proposal is
+deterministic and is shown as a preview before it is applied. Capacity is shown but not
+enforced.
+
 ## 6. API conventions
 
 - Base path `/api/v1`. JSON request and response bodies. `snake_case` keys.
@@ -907,6 +926,17 @@ percent, grade) and `term_percents` per subject; `assessments` entries carry `te
 
 `/exams/results/*` rows carry `takes` per subject cell; `/exams/sheets` counts the takers of
 each subject as `students`.
+
+### 6.19 M2 stage 7 endpoints
+
+| Method | Path | Permission | Notes |
+| --- | --- | --- | --- |
+| GET | `/allocation/teachers?academic_year_id?&class_id?` | `teachers.read` | Subjects (union over the shown classes), sections with class teacher and one cell per taught subject (`staff_id`, `staff_name`, `extra` further teachers), and every active staff member's load (`cells`, `class_teacher_of`) across the year |
+| PUT | `/allocation/teachers/cell` | `teachers.manage` | `{section_id, subject_id, staff_id?}`; 400 for a subject not taught in the class |
+| PATCH | `/sections/{id}` | `academics.manage` | Class teacher (existing endpoint) |
+| GET | `/allocation/sections?class_id&academic_year_id?` | `students.manage` | The class's sections with size, gender split, capacity, class teacher and students in roll order |
+| POST | `/allocation/balance` | `students.manage` | `{class_id, academic_year_id?, exclude_student_ids}` → proposed moves and sizes before/after |
+| POST | `/allocation/moves` | `students.manage` | `{class_id, academic_year_id?, moves:[{student_id, to_section_id}], roll_numbers: keep \| reassign}`; 400 for a section of another class; returns the count and the class view |
 
 ### 6.11 Second alpha test report fixes
 

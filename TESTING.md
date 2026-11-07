@@ -204,6 +204,13 @@ Note anything that was unclear, slow, wrong or ugly.
     *Biology*: only the students who take Biology are listed, and the Results tab shows "—"
     for the others. Finally **Download Excel sheet** on the allocation page, change a group
     name in the file, **Import from Excel**, **Check**, **Import**, and **Undo this import**.
+24. **Allocation screens.** Teachers → **Teacher allocation**: filter by a class, change the
+    teacher of a subject in one section and the class teacher of another; the teaching load
+    list below should update. Then Students → **Section moves** → pick *1*: tick two students
+    in *A*, choose *B* under **Move to**, keep or reassign roll numbers, and **Move**. Click
+    **Balance sections**: the dialog lists the proposed moves and the sizes after; tick a
+    student first to keep them where they are, then **Apply moves**. Attendance and marks
+    already recorded for a moved student still show on their profile.
 17. **Several PCs at once** (needs two or more PCs on the same network; see section 6).
     Log in on each PC with a different account at the same time and enter marks or attendance
     for different sections. Each person should see only their own sections and modules, and
