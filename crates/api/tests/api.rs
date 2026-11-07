@@ -70,6 +70,10 @@ impl TestApp {
         self.call(Method::POST, path, token, Some(body)).await
     }
 
+    async fn put(&self, path: &str, token: Option<&str>, body: Value) -> (StatusCode, Value) {
+        self.call(Method::PUT, path, token, Some(body)).await
+    }
+
     fn setup_body() -> Value {
         json!({
             "school_name": "Gulshan High School",
@@ -424,6 +428,66 @@ async fn edition_flags_gate_features_and_endpoints() {
     let (status, body) = app.get("/nexus/status", Some(&admin_token)).await;
     assert_eq!(status, StatusCode::FORBIDDEN);
     assert_eq!(body["error"]["code"], "feature_unavailable");
+
+    // Standard alpha, stage 0: Settings → Edition switches Lite ↔ Standard; the flags
+    // reload at once and the Standard modules appear; switching back hides them again.
+    let (status, body) = app.get("/settings/edition", Some(&admin_token)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["edition"], "lite");
+    assert_eq!(body["available"], json!(["lite", "standard"]));
+    assert!(body["standard_only"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("timetable")));
+    let (status, body) = app
+        .put(
+            "/settings/edition",
+            Some(&admin_token),
+            json!({ "edition": "standard" }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["edition"], "standard");
+    let (_, body) = app.get("/system/features", None).await;
+    assert_eq!(body["edition"], "standard");
+    let features = body["features"].as_array().unwrap();
+    for f in [
+        "timetable",
+        "leave",
+        "admissions",
+        "library",
+        "transport",
+        "hostel",
+        "inventory",
+        "hr",
+        "directory_login",
+        "readonly_api",
+    ] {
+        assert!(features.contains(&json!(f)), "{f} missing after the switch");
+    }
+    assert!(!features.contains(&json!("nexus_hub")));
+    let (status, body) = app
+        .put(
+            "/settings/edition",
+            Some(&admin_token),
+            json!({ "edition": "nexus" }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    let (status, _) = app
+        .put(
+            "/settings/edition",
+            Some(&admin_token),
+            json!({ "edition": "lite" }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, body) = app.get("/system/features", None).await;
+    assert_eq!(body["edition"], "lite");
+    assert!(!body["features"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("timetable")));
 
     // Switch the instance to Nexus: the feature is on, but the permission is still required.
     let mut conn = app.state.pool.acquire().await.unwrap();

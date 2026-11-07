@@ -634,6 +634,24 @@ the consents still to collect, their guardian and phone, and a signature column)
 type hides it and its consents from the screens and reports; the rows remain in the history
 tables and the audit log.
 
+## 15. Standard alpha (overview)
+
+The stages, their order and their acceptance are in `docs/TASKS-STANDARD.md`; each stage adds
+its data model and endpoints to this document when it is built. Shared decisions:
+
+- **Edition gating.** Every Standard module has a feature code in `madrasa_core::edition`
+  (`timetable`, `leave`, `admissions`, `library`, `transport`, `hostel`, `inventory`, `hr`,
+  `directory_login`, `readonly_api`, plus `campuses`), listed in `STANDARD_ONLY`. Lite
+  enables exactly its nine core modules; Standard and Nexus enable the rest. Every Standard
+  router checks `AppState::require_feature` (403 `feature_unavailable` on Lite) and the UI
+  hides the module from the sidebar. Migrations run on every edition; the tables stay empty
+  on Lite and no Lite screen or endpoint changes.
+- **Edition switch.** Settings → Edition (`settings.manage`, `GET/PUT /settings/edition`)
+  moves an instance between Lite and Standard. The API reloads its flags at once and gives
+  the built-in roles the default grants they lack for the new edition (`roles::sync_defaults`
+  never removes a grant). Nexus is an installation choice and is not switched here. Every
+  switch is audited (`edition`, old and new).
+
 ## 6. API conventions
 
 - Base path `/api/v1`. JSON request and response bodies. `snake_case` keys.
@@ -1003,6 +1021,12 @@ each subject as `students`.
   instead of removing it (O3); the defaulters list counts only unpaid or partly paid
   vouchers as unpaid months, matching the balance (O2); guardian search by phone is covered
   by a test (O8).
+
+### 6.22 Standard stage 0 endpoints
+
+| Method | Path | Permission | Notes |
+| --- | --- | --- | --- |
+| GET / PUT | `/settings/edition` | `settings.manage` | `{edition, available, features, standard_only}`; PUT `{edition: lite \| standard}` reloads the flags, syncs the role defaults and audits; 400 for Nexus |
 
 ### 6.11 Second alpha test report fixes
 

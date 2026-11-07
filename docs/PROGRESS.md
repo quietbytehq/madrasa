@@ -840,6 +840,20 @@ depend on each other and were built together)
   guardians, defaulters unpaid months, guardian phone search, allocation warnings; vitest for
   the banner, the absence option, the print buttons and the derived import hint.
 
+## Standard alpha
+
+### 2026-11-07 — Stage 0: Standard foundation (branch `dev/std-stage-0-foundation`)
+- `madrasa_core::edition`: feature codes `timetable`, `leave`, `admissions`, `inventory`,
+  `directory_login`, `readonly_api`; `hr` replaces `hr_payroll`; `STANDARD_ONLY` lists what
+  Standard adds; Lite's list is unchanged (nine modules, asserted by a test).
+- API `routes/edition.rs`: `GET/PUT /settings/edition`; `roles::sync_defaults` grants the
+  built-in roles their missing defaults on a switch; audited.
+- UI: Settings → Edition card (current edition, what Standard adds, switch); sidebar items
+  for the Standard modules ("Coming soon" until built), hidden on Lite; feature codes and
+  strings (en/ur).
+- Tests: core edition tests, `tests/api.rs` (switch both ways, Nexus refused, features
+  reload), vitest for the card and the sidebar in both editions.
+
 ## Summary for the owner — M2 (Lite complete)
 
 M2 was built in nine pull requests, each from a clean `main` with CI green on Linux and

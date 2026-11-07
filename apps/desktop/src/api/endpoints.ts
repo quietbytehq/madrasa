@@ -122,6 +122,8 @@ import type {
   BalancePreview,
   RollNumbersMode,
   MovesApplied,
+  EditionSettings,
+  Edition,
   ConsentType,
   ConsentTypeRequest,
   StudentConsents,
@@ -253,6 +255,9 @@ export const api = {
     request<GuardianView>(`/guardians/${id}`, { method: "PATCH", body }),
 
   // Settings
+  editionSettings: () => request<EditionSettings>("/settings/edition"),
+  updateEdition: (edition: Edition) =>
+    request<EditionSettings>("/settings/edition", { method: "PUT", body: { edition } }),
   schoolSettings: () => request<SchoolSettings>("/settings/school"),
   updateSchoolSettings: (body: SchoolSettings) =>
     request<SchoolSettings>("/settings/school", { method: "PUT", body }),

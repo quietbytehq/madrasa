@@ -43,6 +43,7 @@ pub fn router(state: AppState) -> Router {
         .merge(routes::staff::router())
         .merge(routes::students::router())
         .merge(routes::school_settings::router())
+        .merge(routes::edition::router())
         .merge(routes::fees::router())
         .merge(routes::attendance::router())
         .merge(routes::exams::router())

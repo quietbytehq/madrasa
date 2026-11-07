@@ -1248,6 +1248,39 @@ export const en = {
   "exams.setup.absent.skip": "Skip the absent paper",
   "import.mapping.derived.full_name": "from First name + Last name",
   "import.mapping.derived.father_name": "from Guardian 1",
+
+  // Standard alpha, stage 0
+  "nav.timetable": "Timetable",
+  "nav.leave": "Leave",
+  "nav.admissions": "Admissions",
+  "nav.library": "Library",
+  "nav.transport": "Transport",
+  "nav.hostel": "Hostel",
+  "nav.inventory": "Inventory",
+  "nav.hr": "HR",
+  "settings.edition": "Edition",
+  "settings.edition.hint":
+    "Lite is one school on one PC or a small network. Standard adds the timetable, leave, admissions, library, transport, hostel, inventory and HR modules, directory login and the read-only API. Switching keeps every record; switching back to Lite only hides the Standard modules.",
+  "settings.edition.current": "Current edition",
+  "settings.edition.lite": "Lite",
+  "settings.edition.standard": "Standard",
+  "settings.edition.nexus": "Nexus",
+  "settings.edition.adds": "Standard adds",
+  "settings.edition.switch": "Switch edition",
+  "settings.edition.switched":
+    "Edition changed. The sidebar now shows the modules of the new edition.",
+  "settings.edition.nexusFixed": "Nexus is chosen at installation and cannot be changed here.",
+  "feature.timetable": "Timetable",
+  "feature.leave": "Leave",
+  "feature.admissions": "Admissions",
+  "feature.library": "Library",
+  "feature.transport": "Transport",
+  "feature.hostel": "Hostel",
+  "feature.inventory": "Inventory",
+  "feature.hr": "HR basics",
+  "feature.campuses": "Campuses",
+  "feature.directory_login": "Directory login",
+  "feature.readonly_api": "Read-only API",
 } as const;
 
 export type TranslationKey = keyof typeof en;

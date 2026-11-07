@@ -97,9 +97,20 @@ pub enum Feature {
     Transport,
     Library,
     Hostel,
-    HrPayroll,
+    /// HR basics: staff leave with balances and approvals, staff attendance polish.
+    Hr,
     ParentsPortal,
     NexusHub,
+    // Standard alpha (docs/TASKS-STANDARD.md)
+    Timetable,
+    /// Student leave requests linked to attendance.
+    Leave,
+    Admissions,
+    Inventory,
+    /// Active Directory / LDAP login.
+    DirectoryLogin,
+    /// Read-only API keys and endpoints.
+    ReadonlyApi,
 }
 
 impl Feature {
@@ -117,9 +128,15 @@ impl Feature {
         Feature::Transport,
         Feature::Library,
         Feature::Hostel,
-        Feature::HrPayroll,
+        Feature::Hr,
         Feature::ParentsPortal,
         Feature::NexusHub,
+        Feature::Timetable,
+        Feature::Leave,
+        Feature::Admissions,
+        Feature::Inventory,
+        Feature::DirectoryLogin,
+        Feature::ReadonlyApi,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -137,9 +154,15 @@ impl Feature {
             Feature::Transport => "transport",
             Feature::Library => "library",
             Feature::Hostel => "hostel",
-            Feature::HrPayroll => "hr_payroll",
+            Feature::Hr => "hr",
             Feature::ParentsPortal => "parents_portal",
             Feature::NexusHub => "nexus_hub",
+            Feature::Timetable => "timetable",
+            Feature::Leave => "leave",
+            Feature::Admissions => "admissions",
+            Feature::Inventory => "inventory",
+            Feature::DirectoryLogin => "directory_login",
+            Feature::ReadonlyApi => "readonly_api",
         }
     }
 }
@@ -162,6 +185,21 @@ const LITE_FEATURES: &[Feature] = &[
     Feature::Settings,
 ];
 
+/// Everything Standard adds to Lite (docs/TASKS-STANDARD.md), in sidebar order.
+pub const STANDARD_ONLY: &[Feature] = &[
+    Feature::Timetable,
+    Feature::Leave,
+    Feature::Admissions,
+    Feature::Library,
+    Feature::Transport,
+    Feature::Hostel,
+    Feature::Inventory,
+    Feature::Hr,
+    Feature::Campuses,
+    Feature::DirectoryLogin,
+    Feature::ReadonlyApi,
+];
+
 const STANDARD_FEATURES: &[Feature] = &[
     Feature::Dashboard,
     Feature::Students,
@@ -172,11 +210,17 @@ const STANDARD_FEATURES: &[Feature] = &[
     Feature::Reports,
     Feature::Backup,
     Feature::Settings,
-    Feature::Campuses,
-    Feature::Transport,
+    Feature::Timetable,
+    Feature::Leave,
+    Feature::Admissions,
     Feature::Library,
+    Feature::Transport,
     Feature::Hostel,
-    Feature::HrPayroll,
+    Feature::Inventory,
+    Feature::Hr,
+    Feature::Campuses,
+    Feature::DirectoryLogin,
+    Feature::ReadonlyApi,
 ];
 
 const NEXUS_FEATURES: &[Feature] = &[
@@ -189,11 +233,17 @@ const NEXUS_FEATURES: &[Feature] = &[
     Feature::Reports,
     Feature::Backup,
     Feature::Settings,
-    Feature::Campuses,
-    Feature::Transport,
+    Feature::Timetable,
+    Feature::Leave,
+    Feature::Admissions,
     Feature::Library,
+    Feature::Transport,
     Feature::Hostel,
-    Feature::HrPayroll,
+    Feature::Inventory,
+    Feature::Hr,
+    Feature::Campuses,
+    Feature::DirectoryLogin,
+    Feature::ReadonlyApi,
     Feature::ParentsPortal,
     Feature::NexusHub,
 ];
@@ -225,6 +275,16 @@ mod tests {
     }
 
     #[test]
+    fn lite_enables_no_standard_module() {
+        for f in STANDARD_ONLY {
+            assert!(!Edition::Lite.enables(*f), "{f} must not be on in Lite");
+            assert!(Edition::Standard.enables(*f), "{f} missing from standard");
+        }
+        // Lite's list is exactly the nine core modules: nothing Standard leaks in.
+        assert_eq!(Edition::Lite.features().len(), 9);
+    }
+
+    #[test]
     fn nexus_enables_everything() {
         for f in Feature::ALL {
             assert!(Edition::Nexus.enables(*f), "{f} missing from nexus");
@@ -240,9 +300,10 @@ mod tests {
             serde_json::to_string(&Edition::Standard).unwrap(),
             "\"standard\""
         );
+        assert_eq!(serde_json::to_string(&Feature::Hr).unwrap(), "\"hr\"");
         assert_eq!(
-            serde_json::to_string(&Feature::HrPayroll).unwrap(),
-            "\"hr_payroll\""
+            serde_json::to_string(&Feature::DirectoryLogin).unwrap(),
+            "\"directory_login\""
         );
         assert_eq!(Edition::DEFAULT, Edition::Lite);
     }
