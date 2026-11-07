@@ -10,6 +10,7 @@ import { useAsync } from "@/lib/useAsync";
 import { useFeatures } from "@/app/features";
 import { useSession } from "@/app/session";
 import { PageHeader } from "./PageHeader";
+import { MyTimetableCard } from "./timetable/MyTimetableCard";
 
 function todayIso(): string {
   const d = new Date();
@@ -20,7 +21,7 @@ export function Dashboard() {
   const { t, formatDate } = useI18n();
   const money = useMoney();
   const { user, can } = useSession();
-  const { edition } = useFeatures();
+  const { edition, has } = useFeatures();
   const dash = useAsync(() => api.dashboard(), []);
   const att = dash.data?.attendance ?? null;
   const dayKind = dash.data?.day_kind;
@@ -201,6 +202,7 @@ export function Dashboard() {
           )}
         </Card>
       )}
+      {has("timetable") && <MyTimetableCard />}
       <Card title={t("dashboard.recentActivity")} className="mt-3">
         <EmptyState
           title={t("dashboard.recentActivity")}

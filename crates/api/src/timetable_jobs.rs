@@ -109,7 +109,13 @@ impl TimetableJobs {
     }
 
     /// Start a run. Returns its id at once; poll with [`TimetableJobs::get`].
-    pub fn start(self: &Arc<Self>, pool: PgPool, hlc: Arc<madrasa_core::hlc::Hlc>, actor: Actor, input: RunInput) -> Uuid {
+    pub fn start(
+        self: &Arc<Self>,
+        pool: PgPool,
+        hlc: Arc<madrasa_core::hlc::Hlc>,
+        actor: Actor,
+        input: RunInput,
+    ) -> Uuid {
         let id = madrasa_core::ids::new_id();
         let cancel = Arc::new(AtomicBool::new(false));
         let total = engine::lessons::generate_cards(&input.setup.lessons).len();
@@ -191,7 +197,16 @@ impl TimetableJobs {
             let json = report_json(&report);
             let saved = async {
                 let mut tx = pool.begin().await?;
-                repo::replace_cards(&mut tx, &hlc, actor, school_id, timetable_id, &placed, Some(json.clone())).await?;
+                repo::replace_cards(
+                    &mut tx,
+                    &hlc,
+                    actor,
+                    school_id,
+                    timetable_id,
+                    &placed,
+                    Some(json.clone()),
+                )
+                .await?;
                 tx.commit().await?;
                 Ok::<(), madrasa_db::DbError>(())
             }

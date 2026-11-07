@@ -634,6 +634,81 @@ the consents still to collect, their guardian and phone, and a signature column)
 type hides it and its consents from the screens and reports; the rows remain in the history
 tables and the audit log.
 
+### 5.18 Timetable (Standard stage 1)
+
+Standard only (`Feature::Timetable`; every route 403 `feature_unavailable` on Lite; the
+tables stay empty there). The scheduling engine is `madrasa_core::timetable`, ported from
+quietbytehq/timewizer (Apache-2.0, same owner; ADR 0003): the school's days, shifts, master
+data, lessons and rules compile into a model the solver fills by difficulty order with
+ejection chains, repair and (optionally) relaxation of soft rules, then an independent
+`verify` checks the result. `crates/db::timetable::setup_for_year` maps Madrasa's entities
+onto the engine with UUID strings as ids: sections become classes (named "Class Section"),
+staff become teachers (active staff plus anyone a lesson still names), subjects, rooms, the
+year's lessons and rules, the chosen timetable's cards and the substitutions.
+
+Data (all per school, sync columns, soft delete, audited):
+
+- `timetable_shifts` (per academic year): name, enabled, `days` (seven entries, Monday
+  first: `{working, periods}` so Friday can be short), `period_times` (`[{start, end}]`,
+  HH:MM), `breaks` (`[{after_period, name, cannot_cross}]`), position. The default morning
+  shift is Mon–Thu 7 periods of 40 minutes from 08:00, Fri 5, a break after period 3.
+- `rooms`: name, short name, building, capacity (optional; unique name per school).
+- `timetable_lessons` (per year): subject, `teacher_ids[]`, `section_ids[]` (several =
+  a joint class), `room_ids[]` (the pool; empty = the section's home room or any room),
+  `periods_per_card` 1–3, `cards_per_week` 1–40. Lessons can be seeded from the teacher
+  allocation grid (`section_teachers` rows with a subject), one per (section, subject)
+  without a lesson.
+- `timetable_rules` (per year): one row per `kind` (`school` | `teacher` | `section` |
+  `room`) and entity. Teachers: `shift_ids` they teach in (empty = all), `limits`
+  `{max_per_day, max_per_week, max_consecutive, max_days_per_week}`, `time_off`
+  `[{shift_id, day, period, state}]` (1 = avoid, 2 = never). Sections: the shift attended
+  (`shift_ids[0]`, default the first enabled shift), `home_room_id`, time-off. Rooms:
+  time-off. School: `limits` = `{default_max_per_day, default_max_per_week,
+  max_same_subject_per_day, allow_relaxation, improve_seconds}`.
+- `timetables` (per year): name, `status` draft | published (at most one published per
+  year), `report` (the generator's JSON: placed, unplaced with title/message/fix, quality,
+  relaxed rules), `generated_at`; `timetable_cards`: lesson, session number, shift, day
+  (0 = Monday), period (1-based), length, room, `locked`.
+- `timetable_absences` (per year): staff, `from_date`–`to_date`, `periods` (empty = whole
+  days, else `[{shift_id, period}]`), note; `timetable_covers`: per absence, date, lesson
+  and session: `cover_staff_id` (NULL = no cover needed), shift/period/length as decided,
+  note. Removing an absence removes its covers.
+
+Generation: `POST /timetable/generate` refuses while the pre-check (`check::run`) reports
+errors (400 with the findings in `details`), otherwise starts a background run
+(`AppState::timetable_jobs`) with a time limit (1–600 s) and an improvement phase; the
+screen polls `GET /timetable/generate/{id}` for the phase, progress and, when done, the
+report. The result replaces the timetable's cards (locked cards are placed first and never
+moved). Manual edits on any timetable: slot options per session (ok / soft with reasons /
+blocked), move (with a room), swap options and swap, lock/unlock; every save re-runs the
+checker and the view carries its `problems`. Publishing makes a timetable the one the
+school runs on; the previously published one goes back to draft; a published timetable
+cannot be deleted.
+
+Views: one `TimetableView` (shifts, lessons with names, cards, rooms, sections, teachers,
+problems, running job) drawn by section, teacher or room in the UI; `/timetable/current`
+is the published one, `/timetable/mine` the logged-in teacher's own week (login linked to
+a staff record) with their cover duties for this week and next, shown on the Dashboard.
+Printouts (PDF, en/ur, light) through the report engine: section, teacher and room grids
+(`/timetable/print`), and the library reports `timetable.section`,
+`timetable.teacher_load`, `timetable.free_rooms` (one weekday) and `timetable.cover_sheet`
+(a date range), all `timetable.read` and hidden on Lite.
+
+Substitutions: `GET /timetable/substitutions?date=` lists, from the published timetable,
+every session an absent teacher would teach that day with candidates (free teachers,
+same subject first, fewest covers this year first; unsuitable ones carry reasons), the
+covers decided, the year's cover counts per teacher and the absences. `PUT /timetable/covers`
+accepts only a listed, suitable candidate (or `null` = no cover needed); `DELETE` withdraws
+a decision. The cover sheet (`/timetable/cover-sheet`, JSON or PDF) lists per day what is
+covered and what is not yet.
+
+Permissions: `timetable.read` (every built-in role) for the views, printouts, substitutions
+and reports; `timetable.manage` (principal, admin) for setup, lessons, rules, generation,
+edits, publishing, absences and covers.
+
+Not in this stage: attendance per period (a period-marked sheet reusing the daily engine)
+would change the Lite attendance tables and is deferred to a later stage.
+
 ## 15. Standard alpha (overview)
 
 The stages, their order and their acceptance are in `docs/TASKS-STANDARD.md`; each stage adds
@@ -1027,6 +1102,28 @@ each subject as `students`.
 | Method | Path | Permission | Notes |
 | --- | --- | --- | --- |
 | GET / PUT | `/settings/edition` | `settings.manage` | `{edition, available, features, standard_only}`; PUT `{edition: lite \| standard}` reloads the flags, syncs the role defaults and audits; 400 for Nexus |
+
+### 6.23 Standard stage 1 endpoints (feature `timetable`)
+
+| Method | Path | Permission | Notes |
+| --- | --- | --- | --- |
+| GET | `/timetable/setup?academic_year_id=` | `timetable.read` | Shifts, rooms, lessons (with names), rules, sections, teachers, subjects, timetables, `published_id`, the pre-check report, the load summary, the school rules |
+| POST | `/timetable/shifts`, `/timetable/shifts/default`; PUT/DELETE `/timetable/shifts/{id}` | `timetable.manage` | Shifts; 409 on a bad shift (plain message) |
+| GET/POST | `/timetable/rooms`; PUT/DELETE `/timetable/rooms/{id}` | read / manage | Rooms |
+| POST | `/timetable/lessons`, `/timetable/lessons/seed`; PUT/DELETE `/timetable/lessons/{id}` | `timetable.manage` | Lessons; seeding returns `{created}`; deleting removes the lesson's cards |
+| PUT | `/timetable/rules` | `timetable.manage` | Upsert `{kind, entity_id, shift_ids, home_room_id, time_off, limits}` for the year |
+| POST | `/timetable/generate` | `timetable.manage` | `{timetable_id?, name?, time_limit_seconds, improve_seconds?, seed?}` → 202 `TimetableJob`; 400 with the check findings when the setup has errors; 409 while a run is in progress |
+| GET / POST | `/timetable/generate/{id}`, `/timetable/generate/{id}/cancel` | read / manage | Poll a run; stop it (the best timetable so far is kept) |
+| POST | `/timetable/timetables`; GET/PATCH/DELETE `/timetable/timetables/{id}`; POST `…/publish` | read / manage | Timetables; GET is the full view with `problems`; a published one cannot be deleted |
+| GET | `/timetable/timetables/{id}/options?lesson_id&number`, `…/swap-options` | `timetable.read` | Slot options (`ok` / `soft` / `blocked` with reasons and free rooms); sessions that can swap |
+| POST | `/timetable/timetables/{id}/move`, `…/swap`, `…/lock` | `timetable.manage` | Manual edits; 400 with the engine's reason when not possible (locked, clash) |
+| GET | `/timetable/current?academic_year_id=`, `/timetable/mine` | `timetable.read` | The published view; the caller's own week (404 without a staff record) with `covers` and `today` |
+| GET | `/timetable/print?kind=section\|teacher\|room&id=&lang=&timetable_id?` | `timetable.read` | PDF grid |
+| GET | `/timetable/substitutions?date=` | `timetable.read` | Needs with candidates, absences, cover counts, teachers, shifts |
+| POST / DELETE | `/timetable/absences`, `/timetable/absences/{id}` | `timetable.manage` | Absences (whole days or periods); deleting removes the covers |
+| PUT / DELETE | `/timetable/covers` | `timetable.manage` | Decide (`cover_staff_id` or null) or withdraw a cover; 400 for an unsuitable or unlisted teacher |
+| GET | `/timetable/cover-sheet?from&to`, `/timetable/cover-sheet/pdf` | `timetable.read` | The cover sheet (at most two months) |
+| GET | `/reports/timetable.section`, `.teacher_load`, `.free_rooms`, `.cover_sheet` | `timetable.read` | Library reports; the module is hidden from the catalogue on Lite |
 
 ### 6.11 Second alpha test report fixes
 

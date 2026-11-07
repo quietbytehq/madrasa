@@ -197,7 +197,9 @@ fn check_shift(input: &ShiftInput) -> DbResult<()> {
         return Err(DbError::Conflict("a shift lists all seven days".into()));
     }
     if input.period_times.is_empty() {
-        return Err(DbError::Conflict("a shift needs at least one period".into()));
+        return Err(DbError::Conflict(
+            "a shift needs at least one period".into(),
+        ));
     }
     for p in &input.period_times {
         let ok = |s: &str| engine::model::parse_time(s).is_some();
@@ -217,7 +219,11 @@ fn check_shift(input: &ShiftInput) -> DbResult<()> {
             "a working day has between 1 and {n} periods"
         )));
     }
-    if input.breaks.iter().any(|b| b.after_period == 0 || b.after_period >= n) {
+    if input
+        .breaks
+        .iter()
+        .any(|b| b.after_period == 0 || b.after_period >= n)
+    {
         return Err(DbError::Conflict(
             "a break comes after a period that exists, and not after the last one".into(),
         ));
@@ -275,7 +281,17 @@ pub async fn create_shift(
     .fetch_one(&mut *conn)
     .await
     .map_err(|e| map_unique(e, "a shift with this name"))?;
-    audit::record(conn, hlc, actor, Action::Create, "timetable_shift", Some(row.id), None, Some(snapshot(&row))).await?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Create,
+        "timetable_shift",
+        Some(row.id),
+        None,
+        Some(snapshot(&row)),
+    )
+    .await?;
     Ok(row)
 }
 
@@ -305,18 +321,49 @@ pub async fn update_shift(
     .fetch_one(&mut *conn)
     .await
     .map_err(|e| map_unique(e, "a shift with this name"))?;
-    audit::record(conn, hlc, actor, Action::Update, "timetable_shift", Some(id), Some(snapshot(&old)), Some(snapshot(&row))).await?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Update,
+        "timetable_shift",
+        Some(id),
+        Some(snapshot(&old)),
+        Some(snapshot(&row)),
+    )
+    .await?;
     Ok(row)
 }
 
-pub async fn delete_shift(conn: &mut PgConnection, hlc: &Hlc, actor: Actor, id: Uuid) -> DbResult<()> {
+pub async fn delete_shift(
+    conn: &mut PgConnection,
+    hlc: &Hlc,
+    actor: Actor,
+    id: Uuid,
+) -> DbResult<()> {
     let old = get_shift(&mut *conn, id).await?;
     soft_delete(&mut *conn, hlc, actor, "timetable_shifts", id).await?;
-    audit::record(conn, hlc, actor, Action::Delete, "timetable_shift", Some(id), Some(snapshot(&old)), None).await?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Delete,
+        "timetable_shift",
+        Some(id),
+        Some(snapshot(&old)),
+        None,
+    )
+    .await?;
     Ok(())
 }
 
-async fn soft_delete(conn: &mut PgConnection, hlc: &Hlc, actor: Actor, table: &str, id: Uuid) -> DbResult<()> {
+async fn soft_delete(
+    conn: &mut PgConnection,
+    hlc: &Hlc,
+    actor: Actor,
+    table: &str,
+    id: Uuid,
+) -> DbResult<()> {
     sqlx::query(sqlx::AssertSqlSafe(format!(
         "UPDATE {table} SET deleted_at = now(), updated_at = now(), updated_by = $2, hlc = $3 WHERE id = $1 AND deleted_at IS NULL"
     )))
@@ -412,7 +459,17 @@ pub async fn create_room(
     .fetch_one(&mut *conn)
     .await
     .map_err(|e| map_unique(e, "a room with this name"))?;
-    audit::record(conn, hlc, actor, Action::Create, "room", Some(row.id), None, Some(snapshot(&row))).await?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Create,
+        "room",
+        Some(row.id),
+        None,
+        Some(snapshot(&row)),
+    )
+    .await?;
     Ok(row)
 }
 
@@ -439,14 +496,39 @@ pub async fn update_room(
     .fetch_one(&mut *conn)
     .await
     .map_err(|e| map_unique(e, "a room with this name"))?;
-    audit::record(conn, hlc, actor, Action::Update, "room", Some(id), Some(snapshot(&old)), Some(snapshot(&row))).await?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Update,
+        "room",
+        Some(id),
+        Some(snapshot(&old)),
+        Some(snapshot(&row)),
+    )
+    .await?;
     Ok(row)
 }
 
-pub async fn delete_room(conn: &mut PgConnection, hlc: &Hlc, actor: Actor, id: Uuid) -> DbResult<()> {
+pub async fn delete_room(
+    conn: &mut PgConnection,
+    hlc: &Hlc,
+    actor: Actor,
+    id: Uuid,
+) -> DbResult<()> {
     let old = get_room(&mut *conn, id).await?;
     soft_delete(&mut *conn, hlc, actor, "rooms", id).await?;
-    audit::record(conn, hlc, actor, Action::Delete, "room", Some(id), Some(snapshot(&old)), None).await?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Delete,
+        "room",
+        Some(id),
+        Some(snapshot(&old)),
+        None,
+    )
+    .await?;
     Ok(())
 }
 
@@ -478,13 +560,19 @@ pub struct LessonInput {
 
 fn check_lesson(input: &LessonInput) -> DbResult<()> {
     if input.section_ids.is_empty() {
-        return Err(DbError::Conflict("a lesson needs at least one section".into()));
+        return Err(DbError::Conflict(
+            "a lesson needs at least one section".into(),
+        ));
     }
     if !(1..=3).contains(&input.periods_per_card) {
-        return Err(DbError::Conflict("a session is 1, 2 or 3 periods long".into()));
+        return Err(DbError::Conflict(
+            "a session is 1, 2 or 3 periods long".into(),
+        ));
     }
     if !(1..=40).contains(&input.cards_per_week) {
-        return Err(DbError::Conflict("a lesson is held 1 to 40 times a week".into()));
+        return Err(DbError::Conflict(
+            "a lesson is held 1 to 40 times a week".into(),
+        ));
     }
     Ok(())
 }
@@ -541,7 +629,17 @@ pub async fn create_lesson(
     .bind(hlc.now().to_string())
     .fetch_one(&mut *conn)
     .await?;
-    audit::record(conn, hlc, actor, Action::Create, "timetable_lesson", Some(row.id), None, Some(snapshot(&row))).await?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Create,
+        "timetable_lesson",
+        Some(row.id),
+        None,
+        Some(snapshot(&row)),
+    )
+    .await?;
     Ok(row)
 }
 
@@ -570,12 +668,27 @@ pub async fn update_lesson(
     .bind(hlc.now().to_string())
     .fetch_one(&mut *conn)
     .await?;
-    audit::record(conn, hlc, actor, Action::Update, "timetable_lesson", Some(id), Some(snapshot(&old)), Some(snapshot(&row))).await?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Update,
+        "timetable_lesson",
+        Some(id),
+        Some(snapshot(&old)),
+        Some(snapshot(&row)),
+    )
+    .await?;
     Ok(row)
 }
 
 /// Soft-delete a lesson and the cards placed for it in every timetable of its year.
-pub async fn delete_lesson(conn: &mut PgConnection, hlc: &Hlc, actor: Actor, id: Uuid) -> DbResult<()> {
+pub async fn delete_lesson(
+    conn: &mut PgConnection,
+    hlc: &Hlc,
+    actor: Actor,
+    id: Uuid,
+) -> DbResult<()> {
     let old = get_lesson(&mut *conn, id).await?;
     soft_delete(&mut *conn, hlc, actor, "timetable_lessons", id).await?;
     sqlx::query(
@@ -587,7 +700,17 @@ pub async fn delete_lesson(conn: &mut PgConnection, hlc: &Hlc, actor: Actor, id:
     .bind(hlc.now().to_string())
     .execute(&mut *conn)
     .await?;
-    audit::record(conn, hlc, actor, Action::Delete, "timetable_lesson", Some(id), Some(snapshot(&old)), None).await?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Delete,
+        "timetable_lesson",
+        Some(id),
+        Some(snapshot(&old)),
+        None,
+    )
+    .await?;
     Ok(())
 }
 
@@ -712,7 +835,10 @@ pub async fn set_rule(
     year_id: Uuid,
     input: &RuleInput,
 ) -> DbResult<Rule> {
-    if !matches!(input.kind.as_str(), "school" | "teacher" | "section" | "room") {
+    if !matches!(
+        input.kind.as_str(),
+        "school" | "teacher" | "section" | "room"
+    ) {
         return Err(DbError::Conflict("unknown rule kind".into()));
     }
     if (input.kind == "school") != input.entity_id.is_none() {
@@ -720,8 +846,14 @@ pub async fn set_rule(
             "school rules have no entity; other rules name one".into(),
         ));
     }
-    if input.time_off.iter().any(|c| c.day > 6 || c.period == 0 || !(1..=2).contains(&c.state)) {
-        return Err(DbError::Conflict("a time-off cell names a day, a period and a state".into()));
+    if input
+        .time_off
+        .iter()
+        .any(|c| c.day > 6 || c.period == 0 || !(1..=2).contains(&c.state))
+    {
+        return Err(DbError::Conflict(
+            "a time-off cell names a day, a period and a state".into(),
+        ));
     }
     let old = sqlx::query_as::<_, Rule>(sqlx::AssertSqlSafe(format!(
         "SELECT {RULE_COLS} FROM timetable_rules WHERE academic_year_id = $1 AND kind = $2 AND entity_id IS NOT DISTINCT FROM $3 AND deleted_at IS NULL"
@@ -771,7 +903,11 @@ pub async fn set_rule(
         conn,
         hlc,
         actor,
-        if old.is_some() { Action::Update } else { Action::Create },
+        if old.is_some() {
+            Action::Update
+        } else {
+            Action::Create
+        },
         "timetable_rule",
         Some(row.id),
         old.as_ref().map(snapshot),
@@ -811,8 +947,10 @@ pub struct Card {
     pub locked: bool,
 }
 
-const TT_COLS: &str = "id, school_id, academic_year_id, name, status, report, generated_at, created_at, hlc";
-const CARD_COLS: &str = "id, timetable_id, lesson_id, number, shift_id, day, period, length, room_id, locked";
+const TT_COLS: &str =
+    "id, school_id, academic_year_id, name, status, report, generated_at, created_at, hlc";
+const CARD_COLS: &str =
+    "id, timetable_id, lesson_id, number, shift_id, day, period, length, room_id, locked";
 
 pub async fn list_timetables(conn: &mut PgConnection, year_id: Uuid) -> DbResult<Vec<Timetable>> {
     Ok(sqlx::query_as::<_, Timetable>(sqlx::AssertSqlSafe(format!(
@@ -833,7 +971,10 @@ pub async fn get_timetable(conn: &mut PgConnection, id: Uuid) -> DbResult<Timeta
     .ok_or_else(|| DbError::NotFound("timetable".into()))
 }
 
-pub async fn published_timetable(conn: &mut PgConnection, year_id: Uuid) -> DbResult<Option<Timetable>> {
+pub async fn published_timetable(
+    conn: &mut PgConnection,
+    year_id: Uuid,
+) -> DbResult<Option<Timetable>> {
     Ok(sqlx::query_as::<_, Timetable>(sqlx::AssertSqlSafe(format!(
         "SELECT {TT_COLS} FROM timetables WHERE academic_year_id = $1 AND status = 'published' AND deleted_at IS NULL"
     )))
@@ -866,7 +1007,17 @@ pub async fn create_timetable(
     .bind(hlc.now().to_string())
     .fetch_one(&mut *conn)
     .await?;
-    audit::record(conn, hlc, actor, Action::Create, "timetable", Some(row.id), None, Some(snapshot(&row))).await?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Create,
+        "timetable",
+        Some(row.id),
+        None,
+        Some(snapshot(&row)),
+    )
+    .await?;
     Ok(row)
 }
 
@@ -891,13 +1042,28 @@ pub async fn rename_timetable(
     .bind(hlc.now().to_string())
     .fetch_one(&mut *conn)
     .await?;
-    audit::record(conn, hlc, actor, Action::Update, "timetable", Some(id), Some(snapshot(&old)), Some(snapshot(&row))).await?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Update,
+        "timetable",
+        Some(id),
+        Some(snapshot(&old)),
+        Some(snapshot(&row)),
+    )
+    .await?;
     Ok(row)
 }
 
 /// Publish a timetable: it becomes the one the school runs on; a previously published one
 /// of the year goes back to draft.
-pub async fn publish_timetable(conn: &mut PgConnection, hlc: &Hlc, actor: Actor, id: Uuid) -> DbResult<Timetable> {
+pub async fn publish_timetable(
+    conn: &mut PgConnection,
+    hlc: &Hlc,
+    actor: Actor,
+    id: Uuid,
+) -> DbResult<Timetable> {
     let old = get_timetable(&mut *conn, id).await?;
     if old.status == "published" {
         return Ok(old);
@@ -919,11 +1085,26 @@ pub async fn publish_timetable(conn: &mut PgConnection, hlc: &Hlc, actor: Actor,
     .bind(hlc.now().to_string())
     .fetch_one(&mut *conn)
     .await?;
-    audit::record(conn, hlc, actor, Action::Update, "timetable", Some(id), Some(snapshot(&old)), Some(snapshot(&row))).await?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Update,
+        "timetable",
+        Some(id),
+        Some(snapshot(&old)),
+        Some(snapshot(&row)),
+    )
+    .await?;
     Ok(row)
 }
 
-pub async fn delete_timetable(conn: &mut PgConnection, hlc: &Hlc, actor: Actor, id: Uuid) -> DbResult<()> {
+pub async fn delete_timetable(
+    conn: &mut PgConnection,
+    hlc: &Hlc,
+    actor: Actor,
+    id: Uuid,
+) -> DbResult<()> {
     let old = get_timetable(&mut *conn, id).await?;
     soft_delete(&mut *conn, hlc, actor, "timetables", id).await?;
     sqlx::query(
@@ -934,7 +1115,17 @@ pub async fn delete_timetable(conn: &mut PgConnection, hlc: &Hlc, actor: Actor, 
     .bind(hlc.now().to_string())
     .execute(&mut *conn)
     .await?;
-    audit::record(conn, hlc, actor, Action::Delete, "timetable", Some(id), Some(snapshot(&old)), None).await?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Delete,
+        "timetable",
+        Some(id),
+        Some(snapshot(&old)),
+        None,
+    )
+    .await?;
     Ok(())
 }
 
@@ -1063,7 +1254,17 @@ pub async fn set_card_locked(
     .fetch_optional(&mut *conn)
     .await?
     .ok_or_else(|| DbError::NotFound("timetable card".into()))?;
-    audit::record(conn, hlc, actor, Action::Update, "timetable_card", Some(row.id), None, Some(snapshot(&row))).await?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Update,
+        "timetable_card",
+        Some(row.id),
+        None,
+        Some(snapshot(&row)),
+    )
+    .await?;
     Ok(row)
 }
 
@@ -1130,7 +1331,8 @@ pub struct CoverInput {
     pub note: String,
 }
 
-const ABSENCE_COLS: &str = "id, school_id, academic_year_id, staff_id, from_date, to_date, periods, note, hlc";
+const ABSENCE_COLS: &str =
+    "id, school_id, academic_year_id, staff_id, from_date, to_date, periods, note, hlc";
 const COVER_COLS: &str = "id, school_id, academic_year_id, absence_id, date, lesson_id, number, absent_staff_id, cover_staff_id, shift_id, period, length, note, hlc";
 
 pub async fn list_absences(conn: &mut PgConnection, year_id: Uuid) -> DbResult<Vec<Absence>> {
@@ -1161,7 +1363,9 @@ pub async fn create_absence(
     input: &AbsenceInput,
 ) -> DbResult<Absence> {
     if input.to_date < input.from_date {
-        return Err(DbError::Conflict("the absence ends before it starts".into()));
+        return Err(DbError::Conflict(
+            "the absence ends before it starts".into(),
+        ));
     }
     let row = sqlx::query_as::<_, Absence>(sqlx::AssertSqlSafe(format!(
         "INSERT INTO timetable_absences (id, school_id, academic_year_id, staff_id, from_date, to_date, periods, note, updated_by, hlc)
@@ -1179,12 +1383,27 @@ pub async fn create_absence(
     .bind(hlc.now().to_string())
     .fetch_one(&mut *conn)
     .await?;
-    audit::record(conn, hlc, actor, Action::Create, "timetable_absence", Some(row.id), None, Some(snapshot(&row))).await?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Create,
+        "timetable_absence",
+        Some(row.id),
+        None,
+        Some(snapshot(&row)),
+    )
+    .await?;
     Ok(row)
 }
 
 /// Remove an absence and the covers decided for it.
-pub async fn delete_absence(conn: &mut PgConnection, hlc: &Hlc, actor: Actor, id: Uuid) -> DbResult<()> {
+pub async fn delete_absence(
+    conn: &mut PgConnection,
+    hlc: &Hlc,
+    actor: Actor,
+    id: Uuid,
+) -> DbResult<()> {
     let old = get_absence(&mut *conn, id).await?;
     soft_delete(&mut *conn, hlc, actor, "timetable_absences", id).await?;
     sqlx::query(
@@ -1195,7 +1414,17 @@ pub async fn delete_absence(conn: &mut PgConnection, hlc: &Hlc, actor: Actor, id
     .bind(hlc.now().to_string())
     .execute(&mut *conn)
     .await?;
-    audit::record(conn, hlc, actor, Action::Delete, "timetable_absence", Some(id), Some(snapshot(&old)), None).await?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Delete,
+        "timetable_absence",
+        Some(id),
+        Some(snapshot(&old)),
+        None,
+    )
+    .await?;
     Ok(())
 }
 
@@ -1271,7 +1500,11 @@ pub async fn set_cover(
         conn,
         hlc,
         actor,
-        if old.is_some() { Action::Update } else { Action::Create },
+        if old.is_some() {
+            Action::Update
+        } else {
+            Action::Create
+        },
         "timetable_cover",
         Some(row.id),
         old.as_ref().map(snapshot),
@@ -1302,7 +1535,17 @@ pub async fn clear_cover(
     .await?;
     let Some(o) = old else { return Ok(false) };
     soft_delete(&mut *conn, hlc, actor, "timetable_covers", o.id).await?;
-    audit::record(conn, hlc, actor, Action::Delete, "timetable_cover", Some(o.id), Some(snapshot(&o)), None).await?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Delete,
+        "timetable_cover",
+        Some(o.id),
+        Some(snapshot(&o)),
+        None,
+    )
+    .await?;
     Ok(true)
 }
 
@@ -1380,7 +1623,8 @@ pub async fn setup_for_year(
     let absences = list_absences(&mut *conn, year.id).await?;
     let covers = list_covers(&mut *conn, year.id).await?;
 
-    let rule_of = |kind: &str, id: Option<Uuid>| rules.iter().find(|r| r.kind == kind && r.entity_id == id);
+    let rule_of =
+        |kind: &str, id: Option<Uuid>| rules.iter().find(|r| r.kind == kind && r.entity_id == id);
     let enabled: Vec<&Shift> = shifts.iter().filter(|s| s.enabled).collect();
     let enabled_ids: Vec<String> = enabled.iter().map(|s| s.id.to_string()).collect();
 
@@ -1409,7 +1653,10 @@ pub async fn setup_for_year(
                         Some(d) if d.working => times
                             .iter()
                             .take(d.periods as usize)
-                            .map(|p| engine::PeriodTime { start: p.start.clone(), end: p.end.clone() })
+                            .map(|p| engine::PeriodTime {
+                                start: p.start.clone(),
+                                end: p.end.clone(),
+                            })
                             .collect(),
                         _ => vec![],
                     })
@@ -1417,26 +1664,40 @@ pub async fn setup_for_year(
                 breaks: s
                     .breaks()
                     .iter()
-                    .map(|b| engine::Break { after_period: b.after_period, name: b.name.clone(), cannot_cross: b.cannot_cross })
+                    .map(|b| engine::Break {
+                        after_period: b.after_period,
+                        name: b.name.clone(),
+                        cannot_cross: b.cannot_cross,
+                    })
                     .collect(),
             }
         })
         .collect();
 
     let class_name: HashMap<Uuid, &str> = classes.iter().map(|c| (c.id, c.name.as_str())).collect();
-    let default_shift = enabled.first().map(|s| s.id.to_string()).unwrap_or_default();
+    let default_shift = enabled
+        .first()
+        .map(|s| s.id.to_string())
+        .unwrap_or_default();
     setup.master.subjects = subjects
         .iter()
         .enumerate()
         .map(|(i, s)| engine::Subject {
             id: s.id.to_string(),
             name: s.name.clone(),
-            short_name: if s.code.trim().is_empty() { initials(&s.name) } else { s.code.clone() },
+            short_name: if s.code.trim().is_empty() {
+                initials(&s.name)
+            } else {
+                s.code.clone()
+            },
             color: COLORS[i % COLORS.len()].into(),
         })
         .collect();
     // Active staff plus anyone a lesson still names.
-    let named: HashSet<Uuid> = lessons.iter().flat_map(|l| l.teacher_ids.iter().copied()).collect();
+    let named: HashSet<Uuid> = lessons
+        .iter()
+        .flat_map(|l| l.teacher_ids.iter().copied())
+        .collect();
     setup.master.teachers = staff
         .iter()
         .filter(|t| t.status == "active" || named.contains(&t.id))
@@ -1452,12 +1713,18 @@ pub async fn setup_for_year(
                 name: t.full_name.clone(),
                 short_name: initials(&t.full_name),
                 email: t.email.clone().unwrap_or_default(),
-                shifts: if own.is_empty() { enabled_ids.clone() } else { own },
+                shifts: if own.is_empty() {
+                    enabled_ids.clone()
+                } else {
+                    own
+                },
                 max_lessons_per_day: limits.max_per_day,
                 max_periods_per_week: limits.max_per_week,
                 max_consecutive: limits.max_consecutive,
                 max_days_per_week: limits.max_days_per_week,
-                time_off: rule.map(|r| time_off_cells(&r.time_off())).unwrap_or_default(),
+                time_off: rule
+                    .map(|r| time_off_cells(&r.time_off()))
+                    .unwrap_or_default(),
             }
         })
         .collect();
@@ -1470,7 +1737,13 @@ pub async fn setup_for_year(
                 .map(ToString::to_string)
                 .filter(|id| enabled_ids.contains(id))
                 .unwrap_or_else(|| default_shift.clone());
-            let name = format!("{} {}", class_name.get(&s.class_id).copied().unwrap_or(""), s.name).trim().to_string();
+            let name = format!(
+                "{} {}",
+                class_name.get(&s.class_id).copied().unwrap_or(""),
+                s.name
+            )
+            .trim()
+            .to_string();
             engine::Class {
                 id: s.id.to_string(),
                 name: name.clone(),
@@ -1479,16 +1752,25 @@ pub async fn setup_for_year(
                 class_teacher: s.class_teacher_id.map(|t| t.to_string()),
                 home_room: rule.and_then(|r| r.home_room_id).map(|r| r.to_string()),
                 divisions: vec![],
-                time_off: rule.map(|r| time_off_cells(&r.time_off())).unwrap_or_default(),
+                time_off: rule
+                    .map(|r| time_off_cells(&r.time_off()))
+                    .unwrap_or_default(),
             }
         })
         .collect();
-    let mut buildings: Vec<String> = rooms.iter().map(|r| r.building.clone()).filter(|b| !b.is_empty()).collect();
+    let mut buildings: Vec<String> = rooms
+        .iter()
+        .map(|r| r.building.clone())
+        .filter(|b| !b.is_empty())
+        .collect();
     buildings.sort();
     buildings.dedup();
     setup.master.buildings = buildings
         .iter()
-        .map(|b| engine::master::Building { id: b.clone(), name: b.clone() })
+        .map(|b| engine::master::Building {
+            id: b.clone(),
+            name: b.clone(),
+        })
         .collect();
     setup.master.rooms = rooms
         .iter()
@@ -1496,9 +1778,15 @@ pub async fn setup_for_year(
             id: r.id.to_string(),
             name: r.name.clone(),
             short_name: r.short_name.clone(),
-            building: if r.building.is_empty() { None } else { Some(r.building.clone()) },
+            building: if r.building.is_empty() {
+                None
+            } else {
+                Some(r.building.clone())
+            },
             capacity: r.capacity.map(|c| c as u32),
-            time_off: rule_of("room", Some(r.id)).map(|x| time_off_cells(&x.time_off())).unwrap_or_default(),
+            time_off: rule_of("room", Some(r.id))
+                .map(|x| time_off_cells(&x.time_off()))
+                .unwrap_or_default(),
         })
         .collect();
     setup.lessons = lessons
@@ -1510,14 +1798,19 @@ pub async fn setup_for_year(
             parts: l
                 .section_ids
                 .iter()
-                .map(|s| engine::LessonPart { class_id: s.to_string(), group_id: None })
+                .map(|s| engine::LessonPart {
+                    class_id: s.to_string(),
+                    group_id: None,
+                })
                 .collect(),
             periods_per_card: l.periods_per_card as u32,
             cards_per_week: l.cards_per_week as u32,
             rooms: l.room_ids.iter().map(ToString::to_string).collect(),
         })
         .collect();
-    let school_rules = rule_of("school", None).map(Rule::school_rules).unwrap_or_default();
+    let school_rules = rule_of("school", None)
+        .map(Rule::school_rules)
+        .unwrap_or_default();
     setup.settings = engine::Settings {
         default_max_per_day: school_rules.default_max_per_day,
         default_max_per_week: school_rules.default_max_per_week,
@@ -1552,7 +1845,10 @@ pub async fn setup_for_year(
                 periods: a
                     .periods()
                     .iter()
-                    .map(|p| subs::PeriodRef { shift: p.shift_id.to_string(), period: p.period })
+                    .map(|p| subs::PeriodRef {
+                        shift: p.shift_id.to_string(),
+                        period: p.period,
+                    })
                     .collect(),
                 note: a.note.clone(),
             })
@@ -1599,7 +1895,10 @@ mod tests {
         assert!(check_shift(&s).is_ok());
         assert_eq!(s.period_times.len(), 7);
         assert_eq!(s.period_times[0].start, "08:00");
-        assert_eq!(s.period_times[3].start, "10:20", "the break is after the third period");
+        assert_eq!(
+            s.period_times[3].start, "10:20",
+            "the break is after the third period"
+        );
         assert_eq!(s.days[4].periods, 5, "Friday is short");
         assert!(!s.days[5].working && !s.days[6].working);
     }
@@ -1628,9 +1927,21 @@ mod tests {
             cards_per_week: 3,
         };
         assert!(check_lesson(&ok).is_ok());
-        assert!(check_lesson(&LessonInput { section_ids: vec![], ..ok.clone() }).is_err());
-        assert!(check_lesson(&LessonInput { periods_per_card: 4, ..ok.clone() }).is_err());
-        assert!(check_lesson(&LessonInput { cards_per_week: 0, ..ok }).is_err());
+        assert!(check_lesson(&LessonInput {
+            section_ids: vec![],
+            ..ok.clone()
+        })
+        .is_err());
+        assert!(check_lesson(&LessonInput {
+            periods_per_card: 4,
+            ..ok.clone()
+        })
+        .is_err());
+        assert!(check_lesson(&LessonInput {
+            cards_per_week: 0,
+            ..ok
+        })
+        .is_err());
     }
 
     #[test]

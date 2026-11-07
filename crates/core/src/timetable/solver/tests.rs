@@ -384,7 +384,7 @@ fn locked_cards_stay_exactly_where_they_are() {
     s.master.classes.push(class("a"));
     s.lessons = vec![lesson("l", &["t"], &["a"], 1, 5), lesson("m", &["t"], &["a"], 1, 5)];
     let lock = PlacedCard { lesson_id: "l".into(), number: 1, shift: "morning".into(), day: 3, period: 4, length: 1, room: None, locked: true };
-    let r = run_with(&s, &[lock.clone()], Options::default());
+    let r = run_with(&s, std::slice::from_ref(&lock), Options::default());
     assert!(r.unplaced.is_empty());
     assert!(r.timetable.cards.iter().any(|c| c.lesson_id == "l" && c.number == 1 && c.day == 3 && c.period == 4 && c.locked));
     assert!(verify::check(&s, &r.timetable).is_empty());

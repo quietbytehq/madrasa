@@ -8,6 +8,19 @@
 //! Kept as close to the original as practical so fixes can be carried across; only the
 //! module paths changed.
 
+// The engine is vendored from quietbytehq/timewizer and kept close to upstream so fixes can
+// be carried over; its style differs from the rest of the crate in these respects.
+#![allow(
+    clippy::unnecessary_map_or,
+    clippy::single_match,
+    clippy::len_zero,
+    clippy::type_complexity,
+    clippy::needless_range_loop,
+    clippy::manual_div_ceil,
+    clippy::redundant_locals,
+    clippy::unnecessary_sort_by
+)]
+
 pub mod check;
 pub mod lessons;
 pub mod links;

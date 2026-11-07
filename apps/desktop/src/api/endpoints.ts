@@ -1,5 +1,26 @@
 import { download, request } from "./client";
 import type {
+  AbsenceBody,
+  CoverBody,
+  GenerateBody,
+  LessonBody,
+  Room,
+  RoomBody,
+  RuleBody,
+  SheetDay,
+  ShiftBody,
+  SlotOption,
+  SubstitutionsView,
+  SwapOption,
+  Timetable,
+  TimetableAbsence,
+  TimetableCard,
+  TimetableJob,
+  TimetableLesson,
+  TimetableRule,
+  TimetableSetup,
+  TimetableShift,
+  TimetableView,
   RolloverPreview,
   RolloverReport,
   ImportBatch,
@@ -633,4 +654,95 @@ export const api = {
   rolloverPreview: () => request<RolloverPreview>("/academic-years/rollover/preview"),
   rollover: (body: { retain: string[]; graduate: string[] }) =>
     request<RolloverReport>("/academic-years/rollover", { method: "POST", body }),
+
+  // Timetable (Standard stage 1)
+  timetableSetup: (academic_year_id?: string) =>
+    request<TimetableSetup>(`/timetable/setup${qs({ academic_year_id })}`),
+  createShift: (body: ShiftBody) =>
+    request<TimetableShift>("/timetable/shifts", { method: "POST", body }),
+  createDefaultShift: (academic_year_id?: string, name?: string) =>
+    request<TimetableShift>("/timetable/shifts/default", {
+      method: "POST",
+      body: { academic_year_id, name },
+    }),
+  updateShift: (id: string, body: ShiftBody) =>
+    request<TimetableShift>(`/timetable/shifts/${id}`, { method: "PUT", body }),
+  deleteShift: (id: string) => request<void>(`/timetable/shifts/${id}`, { method: "DELETE" }),
+  rooms: () => request<Room[]>("/timetable/rooms"),
+  createRoom: (body: RoomBody) => request<Room>("/timetable/rooms", { method: "POST", body }),
+  updateRoom: (id: string, body: RoomBody) =>
+    request<Room>(`/timetable/rooms/${id}`, { method: "PUT", body }),
+  deleteRoom: (id: string) => request<void>(`/timetable/rooms/${id}`, { method: "DELETE" }),
+  createLesson: (body: LessonBody) =>
+    request<TimetableLesson>("/timetable/lessons", { method: "POST", body }),
+  updateLesson: (id: string, body: LessonBody) =>
+    request<TimetableLesson>(`/timetable/lessons/${id}`, { method: "PUT", body }),
+  deleteLesson: (id: string) => request<void>(`/timetable/lessons/${id}`, { method: "DELETE" }),
+  seedLessons: (academic_year_id?: string, cards_per_week = 5) =>
+    request<{ created: number }>("/timetable/lessons/seed", {
+      method: "POST",
+      body: { academic_year_id, cards_per_week },
+    }),
+  setTimetableRule: (body: RuleBody) =>
+    request<TimetableRule>("/timetable/rules", { method: "PUT", body }),
+  generateTimetable: (body: GenerateBody) =>
+    request<TimetableJob>("/timetable/generate", { method: "POST", body }),
+  timetableJob: (id: string) => request<TimetableJob>(`/timetable/generate/${id}`),
+  cancelTimetableJob: (id: string) =>
+    request<void>(`/timetable/generate/${id}/cancel`, { method: "POST" }),
+  createTimetable: (name: string, academic_year_id?: string) =>
+    request<Timetable>("/timetable/timetables", {
+      method: "POST",
+      body: { name, academic_year_id },
+    }),
+  timetable: (id: string) => request<TimetableView>(`/timetable/timetables/${id}`),
+  currentTimetable: (academic_year_id?: string) =>
+    request<TimetableView>(`/timetable/current${qs({ academic_year_id })}`),
+  myTimetable: () => request<TimetableView>("/timetable/mine"),
+  renameTimetable: (id: string, name: string) =>
+    request<Timetable>(`/timetable/timetables/${id}`, { method: "PATCH", body: { name } }),
+  deleteTimetable: (id: string) =>
+    request<void>(`/timetable/timetables/${id}`, { method: "DELETE" }),
+  publishTimetable: (id: string) =>
+    request<Timetable>(`/timetable/timetables/${id}/publish`, { method: "POST" }),
+  slotOptions: (id: string, lesson_id: string, number: number) =>
+    request<SlotOption[]>(`/timetable/timetables/${id}/options${qs({ lesson_id, number })}`),
+  moveCard: (
+    id: string,
+    body: {
+      lesson_id: string;
+      number: number;
+      day: number;
+      period: number;
+      room_id?: string | null;
+    },
+  ) => request<TimetableView>(`/timetable/timetables/${id}/move`, { method: "POST", body }),
+  swapOptions: (id: string, lesson_id: string, number: number) =>
+    request<SwapOption[]>(`/timetable/timetables/${id}/swap-options${qs({ lesson_id, number })}`),
+  swapCards: (
+    id: string,
+    body: { lesson_id: string; number: number; with_lesson_id: string; with_number: number },
+  ) => request<TimetableView>(`/timetable/timetables/${id}/swap`, { method: "POST", body }),
+  lockCard: (id: string, body: { lesson_id: string; number: number; locked: boolean }) =>
+    request<TimetableCard>(`/timetable/timetables/${id}/lock`, { method: "POST", body }),
+  printTimetable: (
+    kind: "section" | "teacher" | "room",
+    id: string,
+    lang: string,
+    timetable_id?: string,
+  ) => download(`/timetable/print${qs({ kind, id, lang, timetable_id })}`),
+  substitutions: (date?: string, academic_year_id?: string) =>
+    request<SubstitutionsView>(`/timetable/substitutions${qs({ date, academic_year_id })}`),
+  createAbsence: (body: AbsenceBody) =>
+    request<TimetableAbsence>("/timetable/absences", { method: "POST", body }),
+  deleteAbsence: (id: string) => request<void>(`/timetable/absences/${id}`, { method: "DELETE" }),
+  setCover: (body: CoverBody) => request<unknown>("/timetable/covers", { method: "PUT", body }),
+  clearCover: (absence_id: string, date: string, lesson_id: string, number: number) =>
+    request<void>(`/timetable/covers${qs({ absence_id, date, lesson_id, number })}`, {
+      method: "DELETE",
+    }),
+  coverSheet: (from: string, to: string) =>
+    request<SheetDay[]>(`/timetable/cover-sheet${qs({ from, to })}`),
+  downloadCoverSheet: (from: string, to: string, lang: string) =>
+    download(`/timetable/cover-sheet/pdf${qs({ from, to, lang })}`),
 };

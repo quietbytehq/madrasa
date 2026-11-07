@@ -182,3 +182,27 @@ attendance, marks or staff), tick the columns, add filters, sort and group, prev
 Saved reports run like built-in ones. The principal and administrators can share a report
 with everyone who runs reports; other users keep theirs private.
 
+
+## 9. Timetable (Standard)
+
+Available after Settings → Edition → Standard. Office roles see every tab; teachers see the
+timetable and the substitutions.
+
+1. **Setup**: add the morning shift (Mon–Thu 7 periods, Fri 5, a break after period 3) and
+   adjust the days, period times and break. Add a second shift only if the school runs an
+   afternoon shift. Add rooms if lessons need them. Set the school rules (max periods per
+   day and week) and, per teacher, section or room, when they are not available (click a
+   period: avoid, then never).
+2. **Lessons**: "Seed from allocations" creates one lesson per section and subject from the
+   teacher allocation grid (five sessions a week); then adjust sessions per week, make
+   doubles, add room pools or joint classes. The Check card says what would stop the
+   generator; the Load card shows periods used against the week.
+3. **Generate**: give it a name and a time limit (start with 60 s) and generate. Watch the
+   progress; the report lists anything left out with a reason and a fix. Publish the
+   timetable the school will run on.
+4. **Timetable**: show it by section, teacher or room; print it (PDF, English or Urdu).
+   The office can click a session to move it to a free slot, swap it or lock it in place.
+5. **Substitutions**: record a teacher's absence (whole days or periods). Every session
+   they would teach gets suggestions: same subject first, fewest covers so far first.
+   Choose the cover or "No cover needed", then print the cover sheet for the day or week.
+   Teachers see their own week and cover duties on the Dashboard.

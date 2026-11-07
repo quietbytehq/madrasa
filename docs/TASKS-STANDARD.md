@@ -57,23 +57,24 @@ solver of quietbytehq/timewizer (Apache-2.0, same owner): its compile → diffic
 ejection-chain placement → relaxation → verify pipeline is ported into
 `madrasa_core::timetable` with Madrasa's entities (sections, subjects, staff, rooms).
 
-- [ ] `timetable_shifts` (name, working days, period times, breaks that lessons cannot
+- [x] `timetable_shifts` (name, working days, period times, breaks that lessons cannot
       cross), one per shift (morning/afternoon); `rooms` (name, short name, building,
       capacity); `timetable_lessons` (section or group of sections, subject, teacher(s),
       sessions per week, length 1–3, room pool); time-off grids per teacher, section and
       room; teacher limits (max per day, per week, consecutive)
-- [ ] Generator: `POST /timetable/generate` runs the ported solver in the background with a
+- [x] Generator: `POST /timetable/generate` runs the ported solver in the background with a
       time limit, reports placed/unplaced with plain-language reasons and fixes; manual
       moves with live collision checks and locks; `verify` as an independent checker
-- [ ] Views: by section, by teacher, by room, for a day or the week; printable (PDF, en/ur);
+- [x] Views: by section, by teacher, by room, for a day or the week; printable (PDF, en/ur);
       the teacher's own timetable on the Dashboard; substitutions: a teacher away for a
       day or a period gets cover suggestions (same subject first, fewest covers first) and
       a cover sheet
-- [ ] Attendance per period (optional, behind a setting): a period-marked sheet reuses the
+- [ ] Attendance per period (optional, behind a setting) — deferred: it changes the Lite
+      attendance tables; to be done in a later stage. A period-marked sheet reuses the
       daily attendance engine and the timetable's lesson
-- [ ] Permissions `timetable.read` (everyone), `timetable.manage` (principal, admin);
+- [x] Permissions `timetable.read` (everyone), `timetable.manage` (principal, admin);
       reports: section timetable, teacher load, free rooms, cover sheet
-- [ ] Tests: core solver (ported tests), generation on the demo school, collisions, cover
+- [x] Tests: core solver (ported tests), generation on the demo school, collisions, cover
       suggestions, vitest for the grid
 
 ## Stage 2 — Leave: student leave requests and HR basics

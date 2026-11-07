@@ -26,9 +26,9 @@ pub mod settings;
 pub mod staff;
 pub mod students;
 pub mod subjects;
-pub mod timetable;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
+pub mod timetable;
 pub mod users;
 
 use sqlx::postgres::PgPoolOptions;

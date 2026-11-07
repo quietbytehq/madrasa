@@ -122,7 +122,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
     labelKey: "nav.timetable",
     icon: CalendarClock,
     feature: "timetable",
-    available: false,
+    available: true,
+    permission: "timetable.read",
   },
   {
     path: "/leave",
