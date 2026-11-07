@@ -23,6 +23,7 @@ pub mod staff;
 pub mod students;
 pub mod subjects;
 pub mod system;
+pub mod timetable;
 pub mod users;
 
 use madrasa_db::models::User;

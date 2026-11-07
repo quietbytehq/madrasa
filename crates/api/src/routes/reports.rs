@@ -6,6 +6,7 @@ use axum::extract::{Path, Query, State};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use madrasa_core::edition::Feature;
 use madrasa_core::permissions::Permission;
 use madrasa_db::audit::{self, Action};
 use serde_json::json;
@@ -13,11 +14,11 @@ use serde_json::json;
 use crate::auth::CurrentUser;
 use crate::export::file_response;
 use crate::reports::catalogue::{Access, ReportDef};
-use crate::reports::consents;
 use crate::reports::{
     attendance, boards, builder, catalogue, exams, fees, pdf, students, Context, Lang, Params,
     Report,
 };
+use crate::reports::{consents, timetable};
 use crate::{ApiError, ApiResult, AppState};
 use madrasa_db::report_definitions::{self as defs, ReportDefinition};
 use serde::{Deserialize, Serialize};
@@ -44,21 +45,34 @@ fn may_run(user: &CurrentUser, def: &ReportDef) -> bool {
             Access::ReportsRead => false,
             Access::AttendanceRead => user.can(Permission::AttendanceRead),
             Access::ExamsRead => user.can(Permission::ExamsRead),
+            Access::TimetableRead => user.can(Permission::TimetableRead),
         }
 }
 
+/// Reports of a module gated by the edition are hidden and refused on editions without it.
+fn module_enabled(state: &AppState, def: &ReportDef) -> bool {
+    match def.module {
+        catalogue::Module::Timetable => state.has_feature(Feature::Timetable),
+        _ => true,
+    }
+}
+
 async fn list(
+    State(state): State<AppState>,
     user: CurrentUser,
     Query(q): Query<HashMap<String, String>>,
 ) -> ApiResult<Json<Vec<catalogue::CatalogueModule>>> {
     if !user.can(Permission::ReportsRead)
         && !user.can(Permission::AttendanceRead)
         && !user.can(Permission::ExamsRead)
+        && !user.can(Permission::TimetableRead)
     {
         return Err(ApiError::forbidden());
     }
     let lang = Lang::parse(q.get("lang").map(String::as_str));
-    Ok(Json(catalogue::catalogue(lang, |d| may_run(&user, d))))
+    Ok(Json(catalogue::catalogue(lang, |d| {
+        module_enabled(&state, d) && may_run(&user, d)
+    })))
 }
 
 /// Build the report document for a code. Shared by the formats and by later stages.
@@ -69,6 +83,9 @@ pub async fn build(
     params: &Params,
 ) -> Result<Report, ApiError> {
     let def = catalogue::find(code).ok_or_else(|| ApiError::not_found("report"))?;
+    if !module_enabled(state, def) {
+        return Err(ApiError::feature_unavailable(Feature::Timetable.as_str()));
+    }
     if !may_run(user, def) {
         return Err(ApiError::forbidden());
     }
@@ -128,6 +145,10 @@ pub async fn build(
         "exams.board_merit" => boards::merit(&mut c, user, &ctx, params).await?,
         "exams.board_pass" => boards::pass_rates(&mut c, user, &ctx, params).await?,
         "exams.board_card" => boards::card(&mut c, user, &ctx, params).await?,
+        "timetable.section" => timetable::section(&mut c, &ctx, params).await?,
+        "timetable.teacher_load" => timetable::teacher_load(&mut c, &ctx, params).await?,
+        "timetable.free_rooms" => timetable::free_rooms(&mut c, &ctx, params).await?,
+        "timetable.cover_sheet" => timetable::cover_sheet(&mut c, &ctx, params).await?,
         _ => return Err(ApiError::not_found("report")),
     };
     audit::record(

@@ -854,6 +854,33 @@ depend on each other and were built together)
 - Tests: core edition tests, `tests/api.rs` (switch both ways, Nexus refused, features
   reload), vitest for the card and the sidebar in both editions.
 
+### 2026-11-07 — Stage 1: Timetable (branch `dev/std-stage-1-timetable`)
+- `madrasa_core::timetable`: the timewizer engine vendored (ADR 0003) with its 135 tests;
+  kept close to upstream (`#[rustfmt::skip]`, a few clippy allows) so fixes carry across.
+- Migration 0017: `timetable_shifts`, `rooms`, `timetable_lessons`, `timetable_rules`,
+  `timetables` + `timetable_cards`, `timetable_absences` + `timetable_covers`; permissions
+  `timetable.read` (every role) and `timetable.manage` (principal, admin), granted to
+  existing roles only on Standard/Nexus installs (Lite roles get them on the edition switch).
+- `crates/db::timetable`: CRUD for the above, seeding lessons from the allocation grid,
+  `setup_for_year` (Madrasa entities → engine setup), cards replaced per generation/edit.
+- API `routes/timetable.rs` + `timetable_jobs.rs`: setup view with pre-check and load,
+  background generation with progress and cancel, manual moves/swaps/locks with the
+  engine's reasons, publish, views (current, by timetable, own week with cover duties),
+  PDF printouts, substitutions (absences, candidates, covers, counts, cover sheet). Reports
+  `timetable.section`, `teacher_load`, `free_rooms`, `cover_sheet` (en/ur), hidden on Lite.
+- UI: Timetable module (tabs Timetable, Substitutions, and for `timetable.manage` Setup,
+  Lessons, Generate); grid by section/teacher/room with a move/swap/lock dialog; shift
+  editor (days, periods, times, break); rooms; school rules; per-teacher/section/room
+  availability grid; lessons with seeding and load; generation progress and report;
+  Dashboard card "My timetable" for teachers. Strings en/ur.
+- Tests: core (231 incl. the ported solver), db unit tests, `tests/timetable.rs` (Lite
+  refusal, full Standard flow: shifts, lessons, rules, generation on a 4-section school
+  with 84 sessions, collision assertions, move/blocked/lock, publish, own week, PDFs,
+  reports, absence → candidates → cover → cover sheet, lesson deletion, back to Lite),
+  report unit tests, vitest for the grid helper, the page tabs and the Dashboard card.
+- Deferred: attendance per period (behind a setting): it changes the Lite attendance
+  tables; left for a later stage (noted in TASKS-STANDARD.md).
+
 ## Summary for the owner — M2 (Lite complete)
 
 M2 was built in nine pull requests, each from a clean `main` with CI green on Linux and

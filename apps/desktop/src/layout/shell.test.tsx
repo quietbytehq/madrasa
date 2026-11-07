@@ -117,7 +117,9 @@ describe("App shell", () => {
           version: "0.2.1-test",
         }}
       >
-        <SessionProvider initial={{ user, permissions: ["school.read", "students.read"] }}>
+        <SessionProvider
+          initial={{ user, permissions: ["school.read", "students.read", "timetable.read"] }}
+        >
           <AppRoutes login={<div>login page</div>} setup={<div>setup page</div>} />
         </SessionProvider>
       </FeaturesProvider>,
@@ -128,8 +130,8 @@ describe("App shell", () => {
       expect(within(nav).getByRole("link", { name })).toBeInTheDocument();
     }
     expect(within(nav).queryByRole("link", { name: "Transport" })).not.toBeInTheDocument();
-    await userEvent.click(within(nav).getByRole("link", { name: "Timetable" }));
-    expect(screen.getByRole("heading", { level: 1, name: "Timetable" })).toBeInTheDocument();
+    await userEvent.click(within(nav).getByRole("link", { name: "Leave" }));
+    expect(screen.getByRole("heading", { level: 1, name: "Leave" })).toBeInTheDocument();
     expect(screen.getAllByText("Coming soon").length).toBeGreaterThan(0);
   });
 
