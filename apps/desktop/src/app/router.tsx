@@ -18,6 +18,7 @@ import { StaffPage } from "@/pages/staff/StaffPage";
 import { StudentFormPage } from "@/pages/students/StudentForm";
 import { StudentProfile } from "@/pages/students/StudentProfile";
 import { StudentsPage } from "@/pages/students/StudentsPage";
+import { SubjectAllocationPage } from "@/pages/students/SubjectAllocationPage";
 import { Spinner } from "@/components/ui/Spinner";
 import { NAV_ITEMS } from "./navigation";
 import { useFeatures } from "./features";
@@ -88,6 +89,7 @@ export function AppRoutes({ login, setup }: AppRoutesProps) {
           <>
             <Route path="/students" element={<StudentsPage />} />
             <Route path="/students/new" element={<StudentFormPage />} />
+            <Route path="/students/subjects" element={<SubjectAllocationPage />} />
             <Route path="/students/:id" element={<StudentProfile />} />
             <Route path="/students/:id/edit" element={<StudentFormPage />} />
             <Route

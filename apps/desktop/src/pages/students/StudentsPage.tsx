@@ -107,6 +107,9 @@ export function StudentsPage() {
                 status: status || undefined,
               }}
             />
+            <Button variant="secondary" onClick={() => navigate("/students/subjects")}>
+              {t("subjects.alloc.title")}
+            </Button>
             {can("students.manage") && (
               <Button variant="secondary" onClick={() => navigate("/import")}>
                 {t("import.title")}

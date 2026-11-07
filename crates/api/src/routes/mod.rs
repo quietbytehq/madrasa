@@ -18,6 +18,7 @@ pub mod schools;
 pub mod setup;
 pub mod staff;
 pub mod students;
+pub mod subjects;
 pub mod system;
 pub mod users;
 

@@ -23,6 +23,7 @@ pub mod sessions;
 pub mod settings;
 pub mod staff;
 pub mod students;
+pub mod subjects;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 pub mod users;

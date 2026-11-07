@@ -1097,6 +1097,55 @@ export const en = {
   "dashboard.fees.sinceMonthStart": "since {date}",
   "dashboard.fees.outstanding": "{amount} outstanding",
   "dashboard.staff.active": "active staff",
+
+  // Subject allocation (M2 stage 6)
+  "academics.subjects.elective": "Elective",
+  "academics.groups": "Subject groups",
+  "academics.groups.hint":
+    "A named set of electives (for example Pre-Medical) that a student picks in one go. Mark the electives of a class first under Classes.",
+  "academics.groups.new": "New group",
+  "academics.groups.name": "Group",
+  "academics.groups.subjects": "Electives in the group",
+  "academics.groups.empty": "No groups for this class yet.",
+  "academics.groups.noElectives":
+    "This class has no electives yet. Open the class under Classes and tick Elective next to a subject.",
+  "students.tabs.subjects": "Subjects",
+  "subjects.alloc.title": "Subject allocation",
+  "subjects.alloc.anyClass": "Any class",
+  "subjects.alloc.pickSection": "Pick a section",
+  "subjects.alloc.noElectives":
+    "This class has no electives: every student takes all its subjects. Mark electives under Settings → Academics → Classes.",
+  "subjects.alloc.student": "Student",
+  "subjects.alloc.group": "Group",
+  "subjects.alloc.none": "—",
+  "subjects.alloc.allSubjects": "All subjects",
+  "subjects.alloc.allocated": "Allocated",
+  "subjects.alloc.compulsory": "Compulsory",
+  "subjects.alloc.electives": "Electives",
+  "subjects.alloc.clear": "Clear",
+  "subjects.alloc.save": "Save allocations",
+  "subjects.alloc.saved": "Allocations saved.",
+  "subjects.alloc.applyGroup": "Set group for everyone",
+  "subjects.alloc.template": "Download Excel sheet",
+  "subjects.alloc.import": "Import from Excel",
+  "subjects.alloc.importHint":
+    "One row per student with the student number, a group name and/or the elective codes or names (separated by commas). Download the Excel sheet of a section to start from the current allocation.",
+  "subjects.alloc.file": "Choose file",
+  "subjects.alloc.mapping": "Column matching",
+  "subjects.alloc.field.ignore": "Ignore",
+  "subjects.alloc.field.student_number": "Student number",
+  "subjects.alloc.field.group": "Group",
+  "subjects.alloc.field.subjects": "Electives",
+  "subjects.alloc.check": "Check",
+  "subjects.alloc.apply": "Import",
+  "subjects.alloc.rollback": "Undo this import",
+  "subjects.alloc.summary":
+    "{rows} rows: {changed} to change, {unchanged} unchanged, {errors} with errors",
+  "subjects.alloc.applied": "{changed} allocations imported.",
+  "subjects.alloc.rolledBack": "The import was undone.",
+  "subjects.alloc.row": "Row",
+  "subjects.alloc.changes": "Will change",
+  "subjects.alloc.unchanged": "No change",
 } as const;
 
 export type TranslationKey = keyof typeof en;

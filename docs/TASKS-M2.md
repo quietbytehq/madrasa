@@ -161,16 +161,16 @@ each (class test, assignment, mid-term, final) and calculated columns.
 
 ## Stage 6 — Subject allocation per student
 
-- [ ] Subject groups per class (e.g. Science, Commerce, Arts for grades 9–12): a named set of
+- [x] Subject groups per class (e.g. Science, Commerce, Arts for grades 9–12): a named set of
       subjects; compulsory subjects per class; electives chosen per student
-- [ ] `student_subjects` per enrolment: the subjects a student takes this year; defaults to
+- [x] `student_subjects` per enrolment: the subjects a student takes this year; defaults to
       every class subject when nothing is allocated, so existing schools see no change
-- [ ] Allocation UI on the student profile and in bulk per section (pick a group, tick
+- [x] Allocation UI on the student profile and in bulk per section (pick a group, tick
       electives); import of allocations from Excel; audit-logged
-- [ ] Marks entry rosters, Excel marks templates, result sheets, report cards, merit lists
+- [x] Marks entry rosters, Excel marks templates, result sheets, report cards, merit lists
       and the exam reports show only a student's own subjects; a subject nobody takes in a
       section has no sheet
-- [ ] Tests: default-to-all when nothing is allocated, roster and report card filtering,
+- [x] Tests: default-to-all when nothing is allocated, roster and report card filtering,
       result totals over own subjects only, import of allocations, vitest
 
 ## Stage 7 — Allocation screens

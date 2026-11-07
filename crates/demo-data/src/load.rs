@@ -49,6 +49,7 @@ pub struct LoadReport {
     pub staff_attendance_days: usize,
     pub mark_sheets: usize,
     pub board_candidates: usize,
+    pub allocated_students: usize,
     pub files_written: Vec<PathBuf>,
 }
 
@@ -178,6 +179,7 @@ pub async fn load(
         subject_ids.insert(subj.name.clone(), row.id);
     }
     let mut class_ids: HashMap<u8, uuid::Uuid> = HashMap::new();
+    let mut groups_by_class: HashMap<uuid::Uuid, (uuid::Uuid, uuid::Uuid)> = HashMap::new();
     for grade in 0..=12u8 {
         let class = academics::create_class(
             &mut tx,
@@ -195,6 +197,39 @@ pub async fn load(
             .filter_map(|s| subject_ids.get(&s.name).copied())
             .collect();
         academics::set_class_subjects(&mut tx, hlc, actor, class.id, &ids).await?;
+        // Grades 9–12 choose a science or computer group (M2 stage 6).
+        if grade >= 9 {
+            let pick = |names: &[&str]| -> Vec<uuid::Uuid> {
+                names
+                    .iter()
+                    .filter_map(|n| subject_ids.get(*n).copied())
+                    .collect()
+            };
+            let electives = pick(&["Physics", "Chemistry", "Biology", "Computer"]);
+            madrasa_db::subjects::set_class_electives(&mut tx, hlc, actor, class.id, &electives)
+                .await?;
+            let pre_med = madrasa_db::subjects::create_group(
+                &mut tx,
+                hlc,
+                actor,
+                class.id,
+                "Pre-Medical",
+                0,
+                &pick(&["Physics", "Chemistry", "Biology"]),
+            )
+            .await?;
+            let computer = madrasa_db::subjects::create_group(
+                &mut tx,
+                hlc,
+                actor,
+                class.id,
+                "Computer Science",
+                1,
+                &pick(&["Physics", "Chemistry", "Computer"]),
+            )
+            .await?;
+            groups_by_class.insert(class.id, (pre_med.group.id, computer.group.id));
+        }
         class_ids.insert(grade, class.id);
     }
     let mut section_ids: HashMap<String, uuid::Uuid> = HashMap::new();
@@ -644,6 +679,41 @@ pub async fn load(
                 .map(|sid| (*sid, class_ids[&c.grade]))
         })
         .collect();
+    // Subject allocation (M2 stage 6): in grades 9–12 students alternate between the two
+    // groups by roll order; one student per section is left unallocated (takes everything).
+    let mut allocated_students = 0usize;
+    let mut own_subjects: HashMap<uuid::Uuid, Vec<uuid::Uuid>> = HashMap::new();
+    for (section_id, members) in &students_by_section {
+        let Some(class_id) = section_class.get(section_id) else {
+            continue;
+        };
+        let groups = groups_by_class.get(class_id).copied();
+        for (i, student_id) in members.iter().enumerate() {
+            if let (Some((pre_med, computer)), true) = (groups, i + 1 < members.len()) {
+                let enrol = students::enrollments(&mut tx, *student_id)
+                    .await?
+                    .into_iter()
+                    .find(|e| e.academic_year_id == year.id)
+                    .ok_or_else(|| anyhow::anyhow!("student without enrolment"))?;
+                let group_id = if i % 2 == 0 { pre_med } else { computer };
+                let group = madrasa_db::subjects::get_group(&mut tx, group_id).await?;
+                madrasa_db::subjects::set_allocation(
+                    &mut tx,
+                    hlc,
+                    actor,
+                    enrol.id,
+                    &madrasa_db::subjects::AllocationValue {
+                        group_id: Some(group_id),
+                        subject_ids: group.subject_ids,
+                    },
+                )
+                .await?;
+                allocated_students += 1;
+            }
+        }
+        own_subjects
+            .extend(madrasa_db::subjects::effective_for_section(&mut tx, *section_id).await?);
+    }
     // Test 1 and Mid-year are held (positions 0 and 2); Test 2 and the Final are not yet.
     for (position, (assessment_id, max)) in maxima.iter().enumerate() {
         if position != 0 && position != 2 {
@@ -660,6 +730,11 @@ pub async fn load(
             for subject_id in &subjects_by_class[class_id] {
                 let marks: Vec<exams::MarkInput> = members
                     .iter()
+                    .filter(|student_id| {
+                        own_subjects
+                            .get(*student_id)
+                            .is_none_or(|own| own.contains(subject_id))
+                    })
                     .map(|student_id| {
                         let roll: f64 = exam_rng.gen();
                         if roll < 0.02 {
@@ -882,6 +957,7 @@ pub async fn load(
         staff_attendance_days,
         mark_sheets,
         board_candidates,
+        allocated_students,
         files_written,
     })
 }

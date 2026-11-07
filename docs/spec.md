@@ -561,6 +561,38 @@ compatibility): two terms gives Term 1 and Term 2 (50 each) with Bi-monthly Test
 Mid-year (70) and Bi-monthly Test 2 (30) + Final (70); the Setup page proposes two terms for
 a new year. A term with components cannot be removed.
 
+### 5.15 Subject allocation per student (M2 stage 6)
+
+| Table | Purpose |
+| --- | --- |
+| `class_subjects` | Gains `is_elective` (default false): a class subject is compulsory unless marked elective. |
+| `subject_groups` | A named set of electives per class (`name` unique per class, `position`), e.g. Pre-Medical, Computer Science. |
+| `subject_group_subjects` | The electives in a group (only electives of the class). |
+| `student_subjects` | The electives allocated to an enrolment (`enrollment_id`, `subject_id`); the enrolment also records the chosen `subject_group_id` as a label. |
+
+Rule (`madrasa_core::subjects::effective_subjects`): a student with no allocation takes
+every subject of the class, exactly as before; a student with an allocation (a group or at
+least one elective) takes the class's compulsory subjects plus the allocated electives; an
+allocated subject the class no longer teaches is ignored. Choosing a group stores the
+group's electives; the electives can then be changed one by one. Clearing the allocation
+returns the student to "all subjects". Every change is audit-logged with the old and new
+allocation.
+
+Exams follow the allocation: marks rosters, the Excel marks template and upload, and
+submission consider only the students who take the subject; marks for a student who does not
+take the subject are refused; a subject nobody in the section takes has no sheet; result
+sheets mark the cells of subjects a student does not take (`takes = false`) and total over
+the student's own subjects, with the subject analysis counting takers only; report cards and
+the exam reports show the student's own subjects. Removing a group keeps the students'
+subjects and drops the label.
+
+Import: an Excel/CSV file with a student number column and a group and/or electives column
+(codes or names separated by commas); rows are matched to the active year's enrolment, the
+group by name within the student's class, and electives against the class's electives
+(compulsory subjects are a warning, unknown ones an error). Nothing is written while a row
+has an error; applied rows form an `import_batches` batch of kind `student_subjects` whose
+rows hold the previous allocation, so the batch rolls back like any other.
+
 ## 6. API conventions
 
 - Base path `/api/v1`. JSON request and response bodies. `snake_case` keys.
@@ -857,6 +889,24 @@ Sheet, template, upload and maximum-marks endpoints answer 400 for a calculated 
 `/exams/results/*` and the report cards return `terms` (id, name, weight, component ids,
 percent, grade) and `term_percents` per subject; `assessments` entries carry `term_id` and
 `kind`.
+
+### 6.18 M2 stage 6 endpoints
+
+| Method | Path | Permission | Notes |
+| --- | --- | --- | --- |
+| GET / PUT | `/classes/{id}/subjects` | `academics.read` / `academics.manage` | Now returns `elective_ids`; PUT takes `elective_ids` (optional; omitted keeps the flags) |
+| GET / POST | `/classes/{id}/subject-groups` | `academics.read` / `academics.manage` | `{name, position?, subject_ids}`; 409 for a non-elective subject or a duplicate name |
+| PUT / DELETE | `/subject-groups/{id}` | `academics.manage` | Removing a group clears the label on enrolments that chose it |
+| GET / PUT | `/sections/{id}/subject-allocations` | `students.read` / `students.manage` (teacher scope) | Class subjects with elective flags, groups, and every active student with `group_id`, `allocated`, `allocated_ids`, `subject_ids`; PUT `{rows:[{enrollment_id, group_id?, subject_ids?}]}` (a group with no subjects uses the group's) |
+| GET / PUT | `/students/{id}/subjects?academic_year_id?` | `students.read` / `students.manage` (teacher scope) | The student's subjects with `taken` flags and the class's groups; PUT `{academic_year_id?, group_id?, subject_ids?}` |
+| GET | `/subject-allocations/import/template?section_id&format?` | `students.read` | Excel (or CSV) sheet with the section's students, group and electives |
+| POST | `/subject-allocations/import/parse` | `students.manage` | `{file_name, content_base64, sheet?}` → headers, rows, guessed mapping (`student_number`, `group`, `subjects`) |
+| POST | `/subject-allocations/import/preview` | `students.manage` | `{headers, rows, mapping}` → planned rows with errors, warnings and `changed` |
+| POST | `/subject-allocations/import/apply` | `students.manage` | Same body; 400 while any row has an error; returns `batch_id` |
+| POST | `/imports/batches/{id}/rollback` | `students.manage` for `student_subjects` batches | Restores the previous allocations |
+
+`/exams/results/*` rows carry `takes` per subject cell; `/exams/sheets` counts the takers of
+each subject as `students`.
 
 ### 6.11 Second alpha test report fixes
 

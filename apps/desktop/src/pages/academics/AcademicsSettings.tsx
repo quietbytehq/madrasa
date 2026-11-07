@@ -19,6 +19,7 @@ import { firstYearStart, monthOptions } from "@/lib/months";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 import { useSession } from "@/app/session";
 import { RolloverDialog } from "./RolloverDialog";
+import { SubjectGroupsCard } from "./SubjectGroupsCard";
 
 const DEFAULT_CLASSES = ["KG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
 /** North American naming: kindergarten is "K". */
@@ -99,6 +100,12 @@ export function AcademicsSettings() {
         subjects={subjects.data ?? []}
         manage={manage}
         onChange={() => void subjects.reload()}
+        onError={fail}
+      />
+      <SubjectGroupsCard
+        classes={classes.data ?? []}
+        subjects={subjects.data ?? []}
+        manage={manage}
         onError={fail}
       />
     </div>
@@ -260,6 +267,7 @@ function ClassesCard({
   const [editName, setEditName] = useState("");
   const [editLevel, setEditLevel] = useState("0");
   const [editSubjects, setEditSubjects] = useState<string[]>([]);
+  const [editElectives, setEditElectives] = useState<string[]>([]);
 
   const add = async (e: FormEvent) => {
     e.preventDefault();
@@ -298,6 +306,7 @@ function ClassesCard({
     try {
       const res = await api.classSubjects(c.id);
       setEditSubjects(res.subject_ids);
+      setEditElectives(res.elective_ids);
     } catch (err) {
       onError(err);
     }
@@ -309,7 +318,11 @@ function ClassesCard({
     setBusy(true);
     try {
       await api.updateClass(editing.id, { name: editName.trim(), level: Number(editLevel) });
-      await api.setClassSubjects(editing.id, editSubjects);
+      await api.setClassSubjects(
+        editing.id,
+        editSubjects,
+        editElectives.filter((id) => editSubjects.includes(id)),
+      );
       setEditing(null);
       onChange();
     } catch (err) {
@@ -396,19 +409,37 @@ function ClassesCard({
             ) : (
               <div className="grid grid-cols-2 gap-1">
                 {subjects.map((s) => (
-                  <label key={s.id} className="flex items-center gap-2 text-sm text-text">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 accent-blue"
-                      checked={editSubjects.includes(s.id)}
-                      onChange={(e) =>
-                        setEditSubjects((prev) =>
-                          e.target.checked ? [...prev, s.id] : prev.filter((x) => x !== s.id),
-                        )
-                      }
-                    />
-                    {s.name}
-                  </label>
+                  <div key={s.id} className="flex items-center justify-between gap-2 text-sm">
+                    <label className="flex items-center gap-2 text-text">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 accent-blue"
+                        checked={editSubjects.includes(s.id)}
+                        onChange={(e) =>
+                          setEditSubjects((prev) =>
+                            e.target.checked ? [...prev, s.id] : prev.filter((x) => x !== s.id),
+                          )
+                        }
+                      />
+                      {s.name}
+                    </label>
+                    {editSubjects.includes(s.id) && (
+                      <label className="flex items-center gap-1 text-xs text-muted">
+                        <input
+                          type="checkbox"
+                          className="h-3.5 w-3.5 accent-blue"
+                          aria-label={`${s.name}: ${t("academics.subjects.elective")}`}
+                          checked={editElectives.includes(s.id)}
+                          onChange={(e) =>
+                            setEditElectives((prev) =>
+                              e.target.checked ? [...prev, s.id] : prev.filter((x) => x !== s.id),
+                            )
+                          }
+                        />
+                        {t("academics.subjects.elective")}
+                      </label>
+                    )}
+                  </div>
                 ))}
               </div>
             )}

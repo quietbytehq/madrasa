@@ -208,6 +208,8 @@ async fn rollback(
     }
     if batch.kind == "board_results" {
         user.require(Permission::AcademicsManage)?;
+    } else if batch.kind == "student_subjects" {
+        user.require(Permission::StudentsManage)?;
     } else {
         user.require(permission_for(kind_of(&batch.kind)?))?;
     }

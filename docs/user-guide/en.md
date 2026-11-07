@@ -49,6 +49,15 @@ list is in `docs/permissions.md`.
   Excel, then import. Every import can be rolled back from the history on the same page.
 - **Export to Excel/CSV** is available on every list.
 
+- **Subjects per student** (grades with electives): under Settings → Academics, tick
+  **Elective** next to a class subject and define **Subject groups** (for example Pre-Medical:
+  Physics, Chemistry, Biology). Then Students → **Subject allocation**: pick the section, set
+  each student's group or tick their electives, and **Save**. A student with no allocation
+  takes every subject of the class. Marks entry, result sheets and report cards then show only
+  a student's own subjects. Allocations can also be imported from an Excel sheet (download the
+  section's sheet, fill the Group or Electives column, import, and undo if needed). The
+  student's profile has a **Subjects** tab.
+
 ## 3. Fees
 
 - **Fees → Setup**: fee heads (tuition, exam, transport, admission…), the fee structure per
