@@ -872,6 +872,29 @@ pub async fn load(
         }
     }
 
+    // A saved custom report (M2 stage 3), shared with everyone who can run reports.
+    madrasa_db::report_definitions::create(
+        &mut tx,
+        hlc,
+        Actor::user(principal_user, school.id),
+        madrasa_db::report_definitions::NewDefinition {
+            school_id: school.id,
+            name: "Girls by section".into(),
+            description: "Female students with their guardian's phone, grouped by section".into(),
+            source: "students".into(),
+            definition: json!({
+                "source": "students",
+                "columns": ["student_number", "full_name", "father_name", "roll_no", "guardian_phone"],
+                "filters": [{ "field": "gender", "op": "eq", "value": "female" }],
+                "sort": [{ "field": "full_name", "desc": false }],
+                "group_by": "section"
+            }),
+            owner_user_id: principal_user,
+            is_shared: true,
+        },
+    )
+    .await?;
+
     // Board exams: BISE Karachi, SSC Part I for grade 9 and Part II for grade 10, every
     // student registered with a roll number and a full set of results.
     let mut board_candidates = 0usize;
