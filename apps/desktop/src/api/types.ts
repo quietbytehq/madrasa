@@ -392,6 +392,15 @@ export interface StudentListQuery {
 
 export interface SchoolSettings {
   student_number_prefix: string;
+  /** Heading of the payment-reference block on vouchers (country default until edited). */
+  payment_reference_label: string;
+  payment_reference_note: string;
+}
+
+export interface PaymentReference {
+  label: string;
+  note: string;
+  reference: string;
 }
 
 // ---- M1 stage 2: fees ----------------------------------------------------------------------
@@ -519,6 +528,7 @@ export interface SchoolHeader {
 }
 
 export interface VoucherDetail extends FeeVoucher {
+  payment_reference: PaymentReference;
   balance: Money;
   lines: FeeVoucherLine[];
   receipts: FeeReceipt[];
@@ -825,10 +835,14 @@ export type SheetStatus = "draft" | "submitted" | "approved";
 
 export type FormulaOp = "sum" | "average" | "weighted" | "best_of";
 
+export type AbsentRule = "zero" | "skip";
+
 export interface Formula {
   op: FormulaOp;
   inputs: Array<{ assessment_type_id: string; weight?: string | null }>;
   n?: number | null;
+  /** How an absence in an input counts; omitted = the operation's default. */
+  absent?: AbsentRule | null;
 }
 
 export interface AssessmentType {
@@ -1669,6 +1683,7 @@ export interface AllocationStudent {
 }
 
 export interface SectionAllocations {
+  warnings?: string[];
   section_id: string;
   class_id: string;
   class_name: string;
@@ -1685,6 +1700,7 @@ export interface AllocationLine {
 }
 
 export interface StudentSubjects {
+  warnings?: string[];
   enrollment_id: string;
   academic_year_id: string;
   class_id: string;

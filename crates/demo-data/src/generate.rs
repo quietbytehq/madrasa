@@ -14,6 +14,10 @@ pub struct DemoOptions {
     pub students: usize,
     pub staff: usize,
     pub sections_per_grade: usize,
+    /// The install date the data is generated for (`None` = today). The active academic
+    /// year is the one running on this date, so the demo always shows the current year
+    /// with fees, attendance and marks up to today (v0.2.0-alpha B7).
+    pub today: Option<NaiveDate>,
 }
 
 impl Default for DemoOptions {
@@ -23,7 +27,18 @@ impl Default for DemoOptions {
             students: 1_200,
             staff: 120,
             sections_per_grade: 3,
+            today: None,
         }
+    }
+}
+
+/// The calendar year the academic year running on `today` started in (April start).
+pub fn academic_year_start_for(today: NaiveDate) -> i32 {
+    use chrono::Datelike;
+    if today.month() >= 4 {
+        today.year()
+    } else {
+        today.year() - 1
     }
 }
 
@@ -215,7 +230,10 @@ pub fn subject_catalogue() -> Vec<Subject> {
 /// Generate a reproducible demo school.
 pub fn generate(options: &DemoOptions) -> DemoSchool {
     let mut rng = StdRng::seed_from_u64(options.seed);
-    let year0 = 2026;
+    let today = options
+        .today
+        .unwrap_or_else(|| chrono::Utc::now().date_naive());
+    let year0 = academic_year_start_for(today);
 
     let school = SchoolInfo {
         name: format!("{DEMO_MARK} Gulshan Model School"),
@@ -461,8 +479,34 @@ mod tests {
         let codes: HashSet<_> = d.subjects.iter().map(|s| s.code.as_str()).collect();
         assert_eq!(codes.len(), d.subjects.len());
         for s in &d.students {
-            assert!(s.admission_date <= NaiveDate::from_ymd_opt(2026, 4, 30).unwrap());
+            assert!(
+                s.admission_date <= NaiveDate::from_ymd_opt(d.academic_year_start, 4, 30).unwrap()
+            );
             assert_eq!(s.b_form.len(), 15);
         }
+    }
+
+    #[test]
+    fn the_academic_year_follows_the_install_date() {
+        assert_eq!(
+            academic_year_start_for(NaiveDate::from_ymd_opt(2026, 11, 7).unwrap()),
+            2026
+        );
+        assert_eq!(
+            academic_year_start_for(NaiveDate::from_ymd_opt(2027, 2, 1).unwrap()),
+            2026
+        );
+        assert_eq!(
+            academic_year_start_for(NaiveDate::from_ymd_opt(2027, 4, 1).unwrap()),
+            2027
+        );
+        let d = generate(&DemoOptions {
+            students: 20,
+            staff: 6,
+            sections_per_grade: 1,
+            today: NaiveDate::from_ymd_opt(2028, 1, 15),
+            ..DemoOptions::default()
+        });
+        assert_eq!(d.academic_year_start, 2027);
     }
 }

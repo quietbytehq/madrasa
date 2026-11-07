@@ -5,13 +5,37 @@ import type { ReceiptDetail, VoucherDetail } from "@/api/types";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Spinner } from "@/components/ui/Spinner";
+import { useState } from "react";
+import { useToast } from "@/components/ui/Toast";
 import { useI18n } from "@/i18n";
 import { formatMoney, monthLabel } from "@/lib/money";
+import { useMoney } from "@/lib/useMoney";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 import { methodLabel } from "./common";
 
-function PrintToolbar({ title }: { title: string }) {
+/**
+ * Print toolbar. With `onPdf` the Print button fetches the PDF typeset by the server (the
+ * same engine as the reports, so amounts and names stay real text); without it the browser
+ * print dialog is used (receipts).
+ */
+export function PrintToolbar({ title, onPdf }: { title: string; onPdf?: () => Promise<void> }) {
   const { t } = useI18n();
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const print = async () => {
+    if (!onPdf) {
+      window.print();
+      return;
+    }
+    setBusy(true);
+    try {
+      await onPdf();
+    } catch (err) {
+      toast.push({ kind: "error", title: errorMessage(err, t("app.error.generic")) });
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <div className="mb-3 flex items-center gap-2 print:hidden">
       <h1 className="text-lg font-semibold text-navy">{title}</h1>
@@ -19,8 +43,12 @@ function PrintToolbar({ title }: { title: string }) {
       <Button variant="secondary" onClick={() => window.history.back()}>
         {t("action.back")}
       </Button>
-      <Button icon={<Printer className="h-4 w-4" aria-hidden />} onClick={() => window.print()}>
-        {t("action.print")} / {t("fees.print.pdf")}
+      <Button
+        icon={<Printer className="h-4 w-4" aria-hidden />}
+        loading={busy}
+        onClick={() => void print()}
+      >
+        {onPdf ? t("fees.print.download") : `${t("action.print")} / ${t("fees.print.pdf")}`}
       </Button>
     </div>
   );
@@ -29,7 +57,7 @@ function PrintToolbar({ title }: { title: string }) {
 /** Voucher: school copy and parent copy on one sheet, with a bank/1Bill/Kuickpay reference box. */
 export function VoucherPrintPage() {
   const { id = "" } = useParams();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const v = useAsync(() => api.voucher(id), [id]);
   if (v.loading && !v.data)
     return (
@@ -41,7 +69,11 @@ export function VoucherPrintPage() {
     return <EmptyState title={errorMessage(v.error, t("common.error.load"))} />;
   return (
     <>
-      <PrintToolbar title={`${t("fees.print.voucher")} ${v.data.voucher_no}`} />
+      <PrintToolbar
+        title={`${t("fees.print.voucher")} ${v.data.voucher_no}`}
+        onPdf={() => api.voucherPdf(id, locale === "ur" ? "ur" : "en")}
+      />
+      <p className="mb-2 text-xs text-muted print:hidden">{t("fees.print.downloadHint")}</p>
       <div className="print-area grid gap-4 xl:grid-cols-2 print:grid-cols-2 print:gap-2">
         <VoucherCopy v={v.data} copy={t("fees.print.schoolCopy")} />
         <VoucherCopy v={v.data} copy={t("fees.print.parentCopy")} />
@@ -61,6 +93,8 @@ function Row({ label, value, strong }: { label: string; value: string; strong?: 
 
 function VoucherCopy({ v, copy }: { v: VoucherDetail; copy: string }) {
   const { t, formatDate } = useI18n();
+  // Every amount carries the school's currency (v0.2.0-alpha B2).
+  const formatMoney = useMoney();
   const discounts = Number(v.sibling_discount) + Number(v.concession_discount);
   return (
     <section className="rounded border border-border bg-card p-4 text-sm text-text print:rounded-none print:border-black">
@@ -125,10 +159,9 @@ function VoucherCopy({ v, copy }: { v: VoucherDetail; copy: string }) {
         })}
       </p>
       <div className="rounded border border-dashed border-border p-2 text-2xs text-muted print:border-black">
-        <div className="font-semibold uppercase">{t("fees.print.bankArea")}</div>
-        <div className="mt-1 font-mono text-sm text-text">
-          {v.school.code}-{v.voucher_no}
-        </div>
+        <div className="font-semibold uppercase">{v.payment_reference.label}</div>
+        <div className="mt-1 font-mono text-sm text-text">{v.payment_reference.reference}</div>
+        {v.payment_reference.note && <div className="mt-1">{v.payment_reference.note}</div>}
         <div className="mt-3 flex justify-between">
           <span>{t("fees.print.receivedBy")}: ____________</span>
           <span>{t("fees.print.signature")}: ____________</span>

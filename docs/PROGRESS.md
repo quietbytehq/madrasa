@@ -827,11 +827,24 @@ depend on each other and were built together)
   and the user guides cover every stage.
 - The owner summary below lists what to test by hand and the decisions left open.
 
+### 2026-11-07 — v0.2.0-alpha test report fixes (branch `dev/alpha3-fixes`, v0.2.1)
+- B1 backup status restricted to `backup.manage`; B2/B3 vouchers and report cards typeset
+  by the report PDF engine with the currency on every amount (`/fees/vouchers/{id}/pdf`,
+  `/fees/vouchers/pdf`, `/exams/report-cards/pdf`); B5 payment-reference block by country,
+  editable in Settings → School; B7 demo data relative to the install date with the DEMO
+  banner on every screen; O1 absence rule per calculated component; O5 rollover keeps every
+  class's sections; B4, B6, O3, O2, O8 polish. Spec §6.21.
+- Tests: backup (teacher 403), voucher PDF unit and route tests, report-card PDF route,
+  payment reference defaults (PK and US) and setting, demo year relative to today, formula
+  absence rule (core and route), rollover sections, import rollback keeps re-linked
+  guardians, defaulters unpaid months, guardian phone search, allocation warnings; vitest for
+  the banner, the absence option, the print buttons and the derived import hint.
+
 ## Summary for the owner — M2 (Lite complete)
 
 M2 was built in nine pull requests, each from a clean `main` with CI green on Linux and
-Windows (#18 stage 1, #19 stage 2, #20 stage 3, #21 stage 4, #22 stage 5, #23 stage 6,
-#24 stage 7, #25 stage 8 and #26 the close-out). Nothing that worked in M1 behaves differently unless a stage says so:
+Windows (#18 stage 1, #19 stage 2, #20 stage 3, #21 stage 4, #22 stage 5, then stages 6, 7,
+8 and the close-out). Nothing that worked in M1 behaves differently unless a stage says so:
 every existing exam setup became one term holding its assessments, every student still takes
 every class subject until the office allocates subjects, and no permission changed meaning.
 

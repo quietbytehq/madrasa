@@ -1215,4 +1215,18 @@ export const ur: Translation = {
   "consents.section.guardian": "سرپرست",
   "students.tabs.consents": "رضامندیاں",
   "reports.pickConsentType": "تمام اقسام",
+
+  // v0.2.0-alpha test report fixes
+  "fees.print.download": "پرنٹ / PDF محفوظ کریں",
+  "fees.print.downloadHint": "PDF مدرسہ تیار کرتا ہے: رقمیں اور نام اصل متن ہیں۔",
+  "settings.paymentReference": "واؤچر پر ادائیگی کا حوالہ",
+  "settings.paymentReference.label": "سرخی",
+  "settings.paymentReference.note": "حوالے کے نیچے نوٹ",
+  "settings.paymentReference.hint":
+    "ہر واؤچر کے نقطے دار خانے میں چھپتا ہے۔ اپنے ملک کے عام الفاظ پر واپس جانے کے لیے سرخی خالی چھوڑ دیں۔",
+  "exams.setup.absent": "غیر حاضری",
+  "exams.setup.absent.zero": "صفر شمار کریں",
+  "exams.setup.absent.skip": "غیر حاضر پرچہ چھوڑ دیں",
+  "import.mapping.derived.full_name": "پہلے نام + آخری نام سے",
+  "import.mapping.derived.father_name": "سرپرست 1 سے",
 };

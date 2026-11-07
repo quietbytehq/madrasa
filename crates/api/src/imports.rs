@@ -1273,6 +1273,10 @@ async fn attach_guardian_slot(
     let relationship =
         r.get(&key("relationship"))
             .unwrap_or(if primary { "father" } else { "guardian" });
+    // A link that already exists (an update import re-linking the same guardian) is recorded
+    // as an update with its old values, so rolling the batch back restores it instead of
+    // removing it (v0.2.0-alpha O3).
+    let before = guardians::link_between(tx, student_id, guardian_id).await?;
     let link = guardians::link(
         tx,
         &state.hlc,
@@ -1283,18 +1287,36 @@ async fn attach_guardian_slot(
         primary,
     )
     .await?;
-    repo::add_row(
-        tx,
-        &state.hlc,
-        actor,
-        batch,
-        row_no,
-        "created",
-        "student_guardian",
-        Some(link.id),
-        None,
-    )
-    .await?;
+    match before {
+        Some(old) => {
+            repo::add_row(
+                tx,
+                &state.hlc,
+                actor,
+                batch,
+                row_no,
+                "updated",
+                "student_guardian",
+                Some(link.id),
+                Some(serde_json::json!({ "relationship": old.relationship, "is_primary": old.is_primary })),
+            )
+            .await?;
+        }
+        None => {
+            repo::add_row(
+                tx,
+                &state.hlc,
+                actor,
+                batch,
+                row_no,
+                "created",
+                "student_guardian",
+                Some(link.id),
+                None,
+            )
+            .await?;
+        }
+    }
     Ok(())
 }
 

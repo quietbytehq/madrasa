@@ -442,7 +442,7 @@ async fn backup_restore_round_trip_wrong_password_tampering_and_password_change(
         StatusCode::OK,
         "old backup still opens with the old password"
     );
-    // Permissions: a teacher cannot touch backups but can read the status for the dashboard.
+    // Permissions: a teacher cannot touch backups, nor read the status (v0.2.0-alpha B1).
     let (_, teacher) = app
         .user_with_role(&school_id, "sana", RoleCode::Teacher)
         .await;
@@ -451,6 +451,8 @@ async fn backup_restore_round_trip_wrong_password_tampering_and_password_change(
     let (s, _) = app.get("/backup/files", &teacher).await;
     assert_eq!(s, StatusCode::FORBIDDEN);
     let (s, _) = app.get("/backup/status", &teacher).await;
+    assert_eq!(s, StatusCode::FORBIDDEN);
+    let (s, _) = app.get("/backup/status", &admin).await;
     assert_eq!(s, StatusCode::OK);
     std::fs::remove_dir_all(&dir).ok();
     app.finish().await;

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
 import { useI18n } from "@/i18n";
+import { useSchool } from "@/app/session";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 
@@ -8,6 +9,7 @@ const COLLAPSE_KEY = "madrasa.sidebarCollapsed";
 
 export function AppShell() {
   const { t } = useI18n();
+  const school = useSchool();
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try {
       return globalThis.localStorage?.getItem(COLLAPSE_KEY) === "1";
@@ -34,6 +36,15 @@ export function AppShell() {
       </a>
       <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
       <div className="flex min-w-0 flex-1 flex-col">
+        {school.is_demo && (
+          <div
+            role="status"
+            data-testid="demo-banner"
+            className="bg-warning-bg px-4 py-1 text-center text-xs font-semibold uppercase tracking-wide text-text"
+          >
+            {t("misc.demoBanner")}
+          </div>
+        )}
         <TopBar />
         <main id="main" tabIndex={-1} className="scrollbar-thin min-h-0 flex-1 overflow-auto p-4">
           <Outlet />

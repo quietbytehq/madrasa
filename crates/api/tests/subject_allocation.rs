@@ -253,6 +253,31 @@ async fn students_take_only_their_own_subjects() {
     assert_eq!(sara_own, want);
     assert_eq!(own(&view, &omar).len(), 5);
     assert_eq!(enrol_of(&view, &omar)["allocated"], false);
+    assert!(view.get("warnings").is_none());
+    // Asking to allocate (or drop) a compulsory subject is ignored and said so (B6).
+    let (s, view) = app
+        .put(
+            &format!("/sections/{s9a}/subject-allocations"),
+            &admin,
+            json!({ "rows": [{ "enrollment_id": sara_e, "subject_ids": [cs, eng] }] }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{view}");
+    assert_eq!(view["warnings"].as_array().unwrap().len(), 1);
+    assert!(view["warnings"][0]
+        .as_str()
+        .unwrap()
+        .starts_with("English is compulsory in the class and stays allocated to Sara Khan"));
+    assert_eq!(own(&view, &sara).len(), 2);
+    let (s, mine) = app
+        .put(
+            &format!("/students/{sara}/subjects"),
+            &admin,
+            json!({ "subject_ids": [cs, eng] }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{mine}");
+    assert_eq!(mine["warnings"].as_array().unwrap().len(), 1);
     // A subject outside the class is refused.
     let (_, other) = app
         .post("/subjects", &admin, json!({ "name": "Art", "code": "ART" }))

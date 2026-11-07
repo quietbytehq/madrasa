@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { api } from "@/api/endpoints";
-import type { AssessmentType, FormulaOp, GradingScheme, Term } from "@/api/types";
+import type { AssessmentType, FormulaOp, GradingScheme, Term, AbsentRule } from "@/api/types";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -79,7 +79,11 @@ function StructureCard({
     op: FormulaOp;
     inputs: Record<string, string>;
     n: string;
+    absent: AbsentRule;
   } | null>(null);
+  // Best-of and average skip an absent paper by default; sum and weighted count it as zero.
+  const defaultAbsent = (op: FormulaOp): AbsentRule =>
+    op === "best_of" || op === "average" ? "skip" : "zero";
   const [busy, setBusy] = useState(false);
   const terms = structure.data?.terms ?? [];
   const groups: Array<{ term: Term | null; components: AssessmentType[] }> = [
@@ -146,7 +150,12 @@ function StructureCard({
           term_id: calc.termId,
           kind: "calculated",
           weight: "0",
-          formula: { op: calc.op, inputs, n: calc.op === "best_of" ? Number(calc.n) || 1 : null },
+          formula: {
+            op: calc.op,
+            inputs,
+            n: calc.op === "best_of" ? Number(calc.n) || 1 : null,
+            absent: calc.absent,
+          },
         })
         .then(() => setCalc(null)),
     );
@@ -413,7 +422,14 @@ function StructureCard({
                 type="button"
                 variant="secondary"
                 onClick={() =>
-                  setCalc({ termId: terms[0]!.id, name: "", op: "average", inputs: {}, n: "1" })
+                  setCalc({
+                    termId: terms[0]!.id,
+                    name: "",
+                    op: "average",
+                    inputs: {},
+                    n: "1",
+                    absent: "skip",
+                  })
                 }
               >
                 {t("exams.setup.addCalculated")}
@@ -442,12 +458,28 @@ function StructureCard({
                 <Select
                   label={t("exams.setup.formula")}
                   value={calc.op}
-                  onChange={(e) => setCalc({ ...calc, op: e.target.value as FormulaOp })}
+                  onChange={(e) =>
+                    setCalc({
+                      ...calc,
+                      op: e.target.value as FormulaOp,
+                      absent: defaultAbsent(e.target.value as FormulaOp),
+                    })
+                  }
                   options={(["sum", "average", "weighted", "best_of"] as const).map((op) => ({
                     value: op,
                     label: t(`exams.setup.op.${op}`),
                   }))}
                   className="w-52"
+                />
+                <Select
+                  label={t("exams.setup.absent")}
+                  value={calc.absent}
+                  onChange={(e) => setCalc({ ...calc, absent: e.target.value as AbsentRule })}
+                  options={(["skip", "zero"] as const).map((a) => ({
+                    value: a,
+                    label: t(`exams.setup.absent.${a}`),
+                  }))}
+                  className="w-48"
                 />
                 {calc.op === "best_of" && (
                   <Input

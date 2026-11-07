@@ -348,6 +348,19 @@ impl std::str::FromStr for PaymentMethod {
     }
 }
 
+/// The payment-reference block printed on vouchers, by country (v0.2.0-alpha B5): the
+/// heading and the note under the reference. Pakistani schools collect through bank
+/// branches, 1Bill and Kuickpay; everywhere else the block is a plain payment reference.
+pub fn payment_reference_default(country: &str) -> (&'static str, &'static str) {
+    match country.trim().to_ascii_uppercase().as_str() {
+        "PK" => (
+            "Bank / 1Bill / Kuickpay reference",
+            "Pay at any branch of the school's bank, or through 1Bill or Kuickpay, quoting this reference.",
+        ),
+        _ => ("Payment reference", "Quote this reference when paying."),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -494,6 +494,16 @@ pub struct FormulaInput {
     pub weight: Option<Decimal>,
 }
 
+/// How an absence in an input counts for a calculated component (v0.2.0-alpha O1).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AbsentRule {
+    /// The absent input counts as zero marks.
+    Zero,
+    /// The absent input is left out, as if it had not been held for the student.
+    Skip,
+}
+
 /// Stored as JSON on a calculated component.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Formula {
@@ -501,9 +511,21 @@ pub struct Formula {
     pub inputs: Vec<FormulaInput>,
     #[serde(default)]
     pub n: Option<u32>,
+    /// Absence handling; `None` means the operation's default (`absent_rule`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub absent: Option<AbsentRule>,
 }
 
 impl Formula {
+    /// The absence rule in force: best-of and average skip absences, sum and weighted
+    /// average count them as zero, unless the component says otherwise.
+    pub fn absent_rule(&self) -> AbsentRule {
+        self.absent.unwrap_or(match self.op {
+            FormulaOp::BestOf | FormulaOp::Average => AbsentRule::Skip,
+            FormulaOp::Sum | FormulaOp::Weighted => AbsentRule::Zero,
+        })
+    }
+
     /// Check a formula against the components of its term: `(id, formula if calculated)`.
     /// Inputs must be other components of the same term, with no cycle through other
     /// calculated components; weighted needs positive weights; best-of needs 1 ≤ n ≤ inputs.
@@ -556,11 +578,15 @@ impl Formula {
     }
 
     /// Evaluate over the inputs' scores (`None` when an input is not held yet). Inputs not
-    /// held are left out; the result is `None` when none is held.
-    pub fn evaluate(&self, scores: &[(Uuid, Option<Score>)]) -> Option<Score> {
+    /// held are left out; the result is `None` when none is held. `absent` lists the inputs
+    /// the student was absent for: under `AbsentRule::Skip` they are left out too, under
+    /// `AbsentRule::Zero` their score counts as zero.
+    pub fn evaluate(&self, scores: &[(Uuid, Option<Score>)], absent: &[Uuid]) -> Option<Score> {
+        let skip_absent = self.absent_rule() == AbsentRule::Skip;
         let held: Vec<(&FormulaInput, Score)> = self
             .inputs
             .iter()
+            .filter(|i| !(skip_absent && absent.contains(&i.assessment_type_id)))
             .filter_map(|i| {
                 scores
                     .iter()
@@ -651,9 +677,10 @@ mod formula_tests {
             op: FormulaOp::Sum,
             inputs: inputs(&[1, 2, 3]),
             n: None,
+            absent: None,
         };
         assert_eq!(
-            sum.evaluate(&scores),
+            sum.evaluate(&scores, &[]),
             Some(Score {
                 max: dec!(100),
                 obtained: Some(dec!(70))
@@ -663,8 +690,9 @@ mod formula_tests {
             op: FormulaOp::Average,
             inputs: inputs(&[1, 2, 3]),
             n: None,
+            absent: None,
         };
-        assert_eq!(avg.evaluate(&scores).unwrap().obtained, Some(dec!(70)));
+        assert_eq!(avg.evaluate(&scores, &[]).unwrap().obtained, Some(dec!(70)));
         let weighted = Formula {
             op: FormulaOp::Weighted,
             inputs: vec![
@@ -678,22 +706,34 @@ mod formula_tests {
                 },
             ],
             n: None,
+            absent: None,
         };
-        assert_eq!(weighted.evaluate(&scores).unwrap().obtained, Some(dec!(75)));
+        assert_eq!(
+            weighted.evaluate(&scores, &[]).unwrap().obtained,
+            Some(dec!(75))
+        );
         let best = Formula {
             op: FormulaOp::BestOf,
             inputs: inputs(&[1, 2, 3]),
+            absent: None,
             n: Some(1),
         };
-        assert_eq!(best.evaluate(&scores).unwrap().obtained, Some(dec!(80)));
+        assert_eq!(
+            best.evaluate(&scores, &[]).unwrap().obtained,
+            Some(dec!(80))
+        );
         let best2 = Formula {
             op: FormulaOp::BestOf,
             inputs: inputs(&[1, 2, 3]),
+            absent: None,
             n: Some(2),
         };
-        assert_eq!(best2.evaluate(&scores).unwrap().obtained, Some(dec!(70)));
         assert_eq!(
-            sum.evaluate(&[(id(1), None), (id(2), None)]),
+            best2.evaluate(&scores, &[]).unwrap().obtained,
+            Some(dec!(70))
+        );
+        assert_eq!(
+            sum.evaluate(&[(id(1), None), (id(2), None)], &[]),
             None,
             "nothing held"
         );
@@ -708,7 +748,7 @@ mod formula_tests {
             ),
             (id(2), score(50, 50)),
         ];
-        assert_eq!(avg.evaluate(&absent).unwrap().obtained, Some(dec!(50)));
+        assert_eq!(avg.evaluate(&absent, &[]).unwrap().obtained, Some(dec!(50)));
     }
 
     #[test]
@@ -722,6 +762,7 @@ mod formula_tests {
                     op: FormulaOp::Average,
                     inputs: inputs(&[1, 2]),
                     n: None,
+                    absent: None,
                 }),
             ),
         ];
@@ -729,35 +770,41 @@ mod formula_tests {
             op: FormulaOp::Average,
             inputs: inputs(&[1, 2]),
             n: None,
+            absent: None,
         };
         assert!(ok.validate(Some(id(5)), &term).is_ok());
         let empty = Formula {
             op: FormulaOp::Sum,
             inputs: vec![],
             n: None,
+            absent: None,
         };
         assert!(empty.validate(None, &term).is_err());
         let outside = Formula {
             op: FormulaOp::Sum,
             inputs: inputs(&[7]),
             n: None,
+            absent: None,
         };
         assert!(outside.validate(None, &term).is_err());
         let selfref = Formula {
             op: FormulaOp::Sum,
             inputs: inputs(&[5]),
             n: None,
+            absent: None,
         };
         assert!(selfref.validate(Some(id(5)), &term).is_err());
         let twice = Formula {
             op: FormulaOp::Sum,
             inputs: inputs(&[1, 1]),
             n: None,
+            absent: None,
         };
         assert!(twice.validate(None, &term).is_err());
         let bad_n = Formula {
             op: FormulaOp::BestOf,
             inputs: inputs(&[1, 2]),
+            absent: None,
             n: Some(3),
         };
         assert!(bad_n.validate(None, &term).is_err());
@@ -765,6 +812,7 @@ mod formula_tests {
             op: FormulaOp::Weighted,
             inputs: inputs(&[1, 2]),
             n: None,
+            absent: None,
         };
         assert!(no_weight.validate(None, &term).is_err());
         // 9 is calculated from 1 and 2; a component 1 that used 9 would be a cycle.
@@ -772,16 +820,74 @@ mod formula_tests {
             op: FormulaOp::Sum,
             inputs: inputs(&[9]),
             n: None,
+            absent: None,
         };
         assert!(cycle.validate(Some(id(1)), &term).is_err());
         let fine = Formula {
             op: FormulaOp::Sum,
             inputs: inputs(&[9]),
             n: None,
+            absent: None,
         };
         assert!(
             fine.validate(Some(id(5)), &term).is_ok(),
             "using a calculated input is fine"
         );
+    }
+
+    #[test]
+    fn absences_skip_or_count_as_zero_by_rule() {
+        let held = |o: i64| {
+            Some(Score {
+                max: dec!(100),
+                obtained: Some(Decimal::from(o)),
+            })
+        };
+        let absent_score = Some(Score {
+            max: dec!(100),
+            obtained: None,
+        });
+        let scores = vec![(id(1), held(80)), (id(2), absent_score)];
+        let avg = Formula {
+            op: FormulaOp::Average,
+            inputs: inputs(&[1, 2]),
+            n: None,
+            absent: None,
+        };
+        // Average skips the absent input by default: 80, not 40.
+        assert_eq!(avg.absent_rule(), AbsentRule::Skip);
+        assert_eq!(
+            avg.evaluate(&scores, &[id(2)]).unwrap().obtained,
+            Some(dec!(80))
+        );
+        let avg_zero = Formula {
+            absent: Some(AbsentRule::Zero),
+            ..avg.clone()
+        };
+        assert_eq!(
+            avg_zero.evaluate(&scores, &[id(2)]).unwrap().obtained,
+            Some(dec!(40))
+        );
+        // Sum counts absences as zero by default; told to skip, it drops the paper.
+        let sum = Formula {
+            op: FormulaOp::Sum,
+            inputs: inputs(&[1, 2]),
+            n: None,
+            absent: None,
+        };
+        assert_eq!(sum.absent_rule(), AbsentRule::Zero);
+        assert_eq!(sum.evaluate(&scores, &[id(2)]).unwrap().max, dec!(200));
+        let sum_skip = Formula {
+            absent: Some(AbsentRule::Skip),
+            ..sum.clone()
+        };
+        assert_eq!(sum_skip.evaluate(&scores, &[id(2)]).unwrap().max, dec!(100));
+        // Absent everywhere under skip: nothing to evaluate.
+        assert!(avg.evaluate(&scores, &[id(1), id(2)]).is_none());
+        // Serialised without the field when unset, so stored formulas keep their meaning.
+        assert!(!serde_json::to_string(&avg).unwrap().contains("absent"));
+        let parsed: Formula =
+            serde_json::from_str(r#"{"op":"best_of","inputs":[],"n":1}"#).unwrap();
+        assert_eq!(parsed.absent_rule(), AbsentRule::Skip);
     }
 }

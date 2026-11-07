@@ -29,6 +29,24 @@ impl App {
             app,
         })
     }
+    async fn get_bytes(&self, p: &str, t: &str) -> (StatusCode, String, Vec<u8>) {
+        let req = Request::builder()
+            .method(Method::GET)
+            .uri(format!("/api/v1{p}"))
+            .header(header::AUTHORIZATION, format!("Bearer {t}"))
+            .body(Body::empty())
+            .unwrap();
+        let res = self.app.clone().oneshot(req).await.unwrap();
+        let status = res.status();
+        let ctype = res
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("")
+            .to_string();
+        let bytes = res.into_body().collect().await.unwrap().to_bytes();
+        (status, ctype, bytes.to_vec())
+    }
     async fn call(
         &self,
         method: Method,
@@ -678,6 +696,65 @@ async fn generate_collect_waive_reverse_ledger_defaulters_collections() {
             defs[0]["guardian_phone"].is_null()
         ),
         (Some(47), Some("9440.00"), true)
+    );
+    // Unpaid months match the balance: April was carried into May, so one voucher is
+    // unpaid, not two (v0.2.0-alpha O2).
+    assert_eq!(defs[0]["unpaid_vouchers"], 1, "{}", defs[0]);
+    // The voucher PDF (v0.2.0-alpha B2/B3) and its payment-reference block (B5).
+    let (_, v) = app.get(&format!("/fees/vouchers/{vid}"), &accountant).await;
+    assert_eq!(
+        v["payment_reference"]["label"],
+        "Bank / 1Bill / Kuickpay reference"
+    );
+    assert_eq!(
+        v["payment_reference"]["reference"],
+        format!("KHI-MC-{}", v["voucher_no"].as_str().unwrap())
+    );
+    for lang in ["en", "ur"] {
+        let (s, ctype, bytes) = app
+            .get_bytes(
+                &format!("/fees/vouchers/{vid}/pdf?lang={lang}"),
+                &accountant,
+            )
+            .await;
+        assert_eq!(s, StatusCode::OK, "{lang}");
+        assert_eq!(ctype, "application/pdf");
+        assert!(bytes.starts_with(b"%PDF"));
+    }
+    let (s, _, _) = app
+        .get_bytes(&format!("/fees/vouchers/pdf?ids={vid},{vid}"), &accountant)
+        .await;
+    assert_eq!(s, StatusCode::OK);
+    let (s, _, _) = app
+        .get_bytes("/fees/vouchers/pdf?ids=nope", &accountant)
+        .await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
+    let (s, _, _) = app
+        .get_bytes(&format!("/fees/vouchers/{vid}/pdf"), &teacher)
+        .await;
+    assert_eq!(s, StatusCode::FORBIDDEN);
+    // The wording is editable in Settings and an empty heading restores the default.
+    let (s, st) = app
+        .put(
+            "/settings/school",
+            &admin,
+            json!({ "student_number_prefix": "KHI-MC", "payment_reference_label": "HBL account 1234", "payment_reference_note": "Deposit at any HBL branch." }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{st}");
+    let (_, v) = app.get(&format!("/fees/vouchers/{vid}"), &accountant).await;
+    assert_eq!(v["payment_reference"]["label"], "HBL account 1234");
+    assert_eq!(v["payment_reference"]["note"], "Deposit at any HBL branch.");
+    let (_, st) = app
+        .put(
+            "/settings/school",
+            &admin,
+            json!({ "student_number_prefix": "KHI-MC", "payment_reference_label": "", "payment_reference_note": "" }),
+        )
+        .await;
+    assert_eq!(
+        st["payment_reference_label"],
+        "Bank / 1Bill / Kuickpay reference"
     );
     let (_, defs) = app
         .get("/fees/defaulters?as_of=2026-06-01&min_days=30", &accountant)

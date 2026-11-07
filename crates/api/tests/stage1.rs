@@ -693,6 +693,20 @@ async fn students_create_duplicates_directory_and_withdraw() {
     );
     let (s, _) = app.get("/guardians?q=x", &admin).await;
     assert_eq!(s, StatusCode::OK);
+    // Search by phone returns only the matching guardian (v0.2.0-alpha O8): the full number,
+    // with dashes or spaces, a prefix, and nobody for a number no guardian has.
+    for q in ["03003333333", "0300-3333333", "0300%203333333", "0300333"] {
+        let (_, gs) = app.get(&format!("/guardians?q={q}"), &admin).await;
+        assert_eq!(gs.as_array().unwrap().len(), 1, "{q}");
+        assert_eq!(gs[0]["full_name"], "Nadia Khan", "{q}");
+    }
+    let (_, gs) = app.get("/guardians?q=0300-1111111", &admin).await;
+    assert_eq!(gs.as_array().unwrap().len(), 1);
+    assert_eq!(gs[0]["full_name"], "Ahmed Khan");
+    let (_, gs) = app.get("/guardians?q=0300999", &admin).await;
+    assert_eq!(gs.as_array().unwrap().len(), 0);
+    let (_, gs) = app.get("/guardians?q=Nad", &admin).await;
+    assert_eq!(gs.as_array().unwrap().len(), 1);
 
     // Student number prefix setting.
     let (s, st) = app.get("/settings/school", &admin).await;

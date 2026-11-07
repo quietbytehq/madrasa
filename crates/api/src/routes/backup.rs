@@ -30,6 +30,9 @@ pub fn router() -> Router<AppState> {
 type JsonBody<T> = Result<Json<T>, axum::extract::rejection::JsonRejection>;
 
 async fn status(State(state): State<AppState>, user: CurrentUser) -> ApiResult<Json<BackupStatus>> {
+    // v0.2.0-alpha B1: the status names the backup folder and files, so it is for the
+    // people who manage backups (principal, admin), like every other backup route.
+    user.require(Permission::BackupManage)?;
     let mut c = state.pool.acquire().await?;
     Ok(Json(backup::status(&mut c, user.user.school_id).await?))
 }

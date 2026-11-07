@@ -1237,7 +1237,7 @@ pub async fn defaulters(
                   WHERE sg.student_id = s.id AND sg.deleted_at IS NULL ORDER BY sg.is_primary DESC LIMIT 1) AS guardian_phone,
                 min(v.due_date) AS oldest_due_date,
                 ($2::date - min(v.due_date))::int AS days_overdue,
-                count(*) AS unpaid_vouchers,
+                count(*) FILTER (WHERE v.status IN ('unpaid', 'partial')) AS unpaid_vouchers,
                 (SELECT coalesce(sum(o.total_due + o.late_fee - o.net_paid), 0)::numeric(14,2) FROM fee_vouchers o
                   WHERE o.student_id = s.id AND o.status IN ('unpaid', 'partial') AND o.deleted_at IS NULL) AS balance
          FROM fee_vouchers v JOIN students s ON s.id = v.student_id

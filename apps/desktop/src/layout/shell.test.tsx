@@ -5,6 +5,7 @@ import { FeaturesProvider } from "@/app/features";
 import { SessionProvider } from "@/app/session";
 import { AppRoutes } from "@/app/router";
 import type { UserSummary } from "@/api/types";
+import { DEFAULT_SCHOOL } from "@/lib/school";
 
 const user: UserSummary = {
   id: "u1",
@@ -162,6 +163,31 @@ describe("App shell", () => {
     expect(document.activeElement).toHaveAttribute("href", "/");
     await userEvent.tab();
     expect(document.activeElement).toHaveAttribute("href", "/students");
+  });
+
+  it("shows the DEMO banner on every screen of a demo school", async () => {
+    renderWithProviders(
+      <FeaturesProvider initial={{ edition: "lite", features: ["dashboard", "students"] }}>
+        <SessionProvider
+          initial={{
+            user,
+            permissions: ["school.read", "students.read"],
+            school: { ...DEFAULT_SCHOOL, name: "DEMO Gulshan", is_demo: true },
+          }}
+        >
+          <AppRoutes login={<div>login page</div>} setup={<div />} />
+        </SessionProvider>
+      </FeaturesProvider>,
+      { route: "/" },
+    );
+    expect(screen.getByTestId("demo-banner")).toHaveTextContent("DEMO data");
+    await userEvent.click(screen.getByRole("link", { name: "Students" }));
+    expect(screen.getByTestId("demo-banner")).toBeInTheDocument();
+  });
+
+  it("has no banner for a real school", () => {
+    renderShell();
+    expect(screen.queryByTestId("demo-banner")).not.toBeInTheDocument();
   });
 
   it("redirects anonymous users to login", () => {

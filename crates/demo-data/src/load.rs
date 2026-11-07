@@ -715,9 +715,13 @@ pub async fn load(
         own_subjects
             .extend(madrasa_db::subjects::effective_for_section(&mut tx, *section_id).await?);
     }
-    // Test 1 and Mid-year are held (positions 0 and 2); Test 2 and the Final are not yet.
+    // An assessment is held once its usual date has passed: Test 1 in mid-June, Test 2 in
+    // mid-September, the Mid-year in mid-October and the Final in mid-March, relative to the
+    // install date (v0.2.0-alpha B7). The marks date is the day the sheet was approved.
+    let today = Utc::now().date_naive();
+    let held_on = [75i64, 165, 200, 345].map(|days| start + chrono::Duration::days(days));
     for (position, (assessment_id, max)) in maxima.iter().enumerate() {
-        if position != 0 && position != 2 {
+        if held_on[position] > today {
             continue;
         }
         for (section_id, members) in &students_by_section {

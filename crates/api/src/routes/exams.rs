@@ -39,6 +39,7 @@ pub fn router() -> Router<AppState> {
         )
         .route("/exams/grading", get(get_grading).put(put_grading))
         .route("/exams/max-marks", get(get_max_marks).put(put_max_marks))
+        .route("/exams/report-cards/pdf", get(report_cards_pdf))
         .route("/exams/sheets", get(list_sheets))
         .route("/exams/sheet", get(get_sheet).put(put_sheet))
         .route("/exams/sheet/template", get(sheet_template))
@@ -1262,7 +1263,16 @@ pub(crate) fn evaluate_rows(
                 )
             })
             .collect();
-        let Some(score) = formula.evaluate(&scores) else {
+        let absent: Vec<Uuid> = inputs
+            .iter()
+            .filter(|(_, rows)| {
+                rows.iter().any(|r| {
+                    r.student_id == student_id && r.subject_id == subject_id && r.is_absent
+                })
+            })
+            .map(|(id, _)| *id)
+            .collect();
+        let Some(score) = formula.evaluate(&scores, &absent) else {
             continue;
         };
         let statuses: Vec<&str> = inputs
@@ -1940,6 +1950,90 @@ async fn student_report_card(
 #[derive(Debug, Deserialize)]
 pub struct SectionCardsQuery {
     pub section_id: Uuid,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CardsPdfQuery {
+    pub section_id: Option<Uuid>,
+    pub student_id: Option<Uuid>,
+    pub academic_year_id: Option<Uuid>,
+    #[serde(default)]
+    pub lang: Option<String>,
+}
+
+/// Report cards as a PDF typeset like the reports (v0.2.0-alpha B3): every card of a
+/// section, or one student's card. Same access rules as the JSON cards.
+async fn report_cards_pdf(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    Query(q): Query<CardsPdfQuery>,
+) -> ApiResult<axum::response::Response> {
+    user.require(Permission::ExamsRead)?;
+    let mut c = state.pool.acquire().await?;
+    let year = match q.academic_year_id {
+        Some(y) => year_of(&mut c, &user, y).await?,
+        None => academics::active_year(&mut c, user.user.school_id)
+            .await?
+            .ok_or_else(|| ApiError::validation("No active academic year."))?,
+    };
+    let lang = match q.lang.as_deref() {
+        Some("ur") => crate::reports::Lang::Ur,
+        _ => crate::reports::Lang::En,
+    };
+    let (cards, stem) = match (q.student_id, q.section_id) {
+        (Some(student_id), _) => {
+            let student = students::get(&mut c, student_id).await?;
+            if student.school_id != user.user.school_id {
+                return Err(ApiError::not_found("student"));
+            }
+            let section = match students::section_in_year(&mut c, student_id, year.id).await? {
+                Some(sid) => Some(load_section(&mut c, &user, sid).await?),
+                None => {
+                    if user.section_scope(&mut c).await?.is_some() {
+                        return Err(ApiError::forbidden());
+                    }
+                    None
+                }
+            };
+            let mut cache = HashMap::new();
+            let card = build_report_card(
+                &mut c,
+                &user,
+                student_id,
+                &year,
+                section.as_ref(),
+                &mut cache,
+            )
+            .await?;
+            (
+                vec![card],
+                format!("report-card-{}", student.student_number),
+            )
+        }
+        (None, Some(section_id)) => {
+            let section = load_section(&mut c, &user, section_id).await?;
+            let header = section_header(&mut c, &section).await?;
+            let cards = section_cards_for(&mut c, &user, &year, &section).await?;
+            (
+                cards,
+                format!("report-cards-{}-{}", header.class_name, header.section_name),
+            )
+        }
+        (None, None) => return Err(ApiError::validation("Give a section_id or a student_id.")),
+    };
+    let school = schools::get(&mut c, user.user.school_id).await?;
+    let mut report = crate::reports::Report::new(
+        "exams.report_cards",
+        lang,
+        &school.name,
+        crate::reports::text::tr(lang, "report.exams.report_cards"),
+    );
+    report.cards = cards;
+    let name = format!("{}.pdf", stem.replace(' ', "-"));
+    let bytes = tokio::task::spawn_blocking(move || crate::reports::pdf::render(&report))
+        .await
+        .map_err(|_| ApiError::internal())??;
+    Ok(crate::export::file_response(&name, bytes))
 }
 
 /// Every student's report card for a section (shared with the report library).

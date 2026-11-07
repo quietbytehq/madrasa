@@ -14,6 +14,7 @@ import type {
   VoucherDetail,
 } from "@/api/types";
 import { LedgerView } from "./LedgerView";
+import { VoucherPrintPage } from "./PrintPages";
 import { PayDialog } from "./PayDialog";
 import { VouchersTab } from "./tabs/VouchersTab";
 import { SetupTab } from "./tabs/SetupTab";
@@ -23,6 +24,7 @@ vi.mock("@/api/endpoints", () => ({
     classes: vi.fn(async () => [{ id: "c1", school_id: "s", name: "1", level: 1 }]),
     ledger: vi.fn(),
     voucher: vi.fn(),
+    voucherPdf: vi.fn(async () => undefined),
     vouchers: vi.fn(),
     payVoucher: vi.fn(),
     waiveLateFee: vi.fn(),
@@ -124,6 +126,11 @@ const detail: VoucherDetail = {
   class_name: "1",
   section_name: "A",
   guardian_phone: null,
+  payment_reference: {
+    label: "Bank / 1Bill / Kuickpay reference",
+    note: "Pay at any branch quoting this reference.",
+    reference: "GHS-V202605-00001",
+  },
   school: { name: "Gulshan High", code: "GHS", city: "Karachi", currency: "PKR" },
   policy,
 };
@@ -437,5 +444,25 @@ describe("SetupTab policy", () => {
     );
     expect(await screen.findByLabelText("Sibling discount (% of monthly fee)")).toBeDisabled();
     expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+  });
+});
+
+describe("VoucherPrintPage", () => {
+  it("shows the currency on every amount, the payment block, and prints through the PDF engine", async () => {
+    renderWithProviders(
+      <SessionProvider initial={{ user, permissions: ADMIN }}>
+        <Routes>
+          <Route path="/fees/vouchers/:id/print" element={<VoucherPrintPage />} />
+        </Routes>
+      </SessionProvider>,
+      { route: "/fees/vouchers/v1/print" },
+    );
+    expect(await screen.findByText("School copy")).toBeInTheDocument();
+    // Balance on both copies, with the currency symbol.
+    expect(screen.getAllByText("Rs 2,300.00").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText("Bank / 1Bill / Kuickpay reference")).toHaveLength(2);
+    expect(screen.getAllByText("GHS-V202605-00001")).toHaveLength(2);
+    await userEvent.click(screen.getByRole("button", { name: "Print / Save as PDF" }));
+    await waitFor(() => expect(api.voucherPdf).toHaveBeenCalledWith("v1", "en"));
   });
 });

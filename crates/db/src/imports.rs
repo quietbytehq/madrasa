@@ -240,6 +240,7 @@ async fn restore_old(
             "address",
         ],
         "board_results" => &["obtained", "max_marks", "grade", "status", "remarks"],
+        "student_guardians" => &["relationship", "is_primary"],
         _ => return Err(DbError::Conflict(format!("cannot roll back {table}"))),
     };
     let Some(obj) = old.as_object() else {
@@ -268,6 +269,7 @@ async fn restore_old(
             }
             ("obtained" | "max_marks", _) => q.bind(None::<rust_decimal::Decimal>),
             (_, Value::String(s)) => q.bind(Some(s.clone())),
+            (_, Value::Bool(b)) => q.bind(*b),
             (_, Value::Null) => q.bind(None::<String>),
             (_, other) => q.bind(Some(other.to_string())),
         };
@@ -312,6 +314,17 @@ pub async fn rollback(
             ("created", "guardian") => soft_delete(&mut *conn, hlc, actor, "guardians", id).await?,
             ("created", "student_guardian") => {
                 soft_delete(&mut *conn, hlc, actor, "student_guardians", id).await?
+            }
+            ("updated", "student_guardian") => {
+                restore_old(
+                    &mut *conn,
+                    hlc,
+                    actor,
+                    "student_guardians",
+                    id,
+                    r.old_value.as_ref().unwrap_or(&Value::Null),
+                )
+                .await?
             }
             ("created", "enrollment") => {
                 soft_delete(&mut *conn, hlc, actor, "enrollments", id).await?

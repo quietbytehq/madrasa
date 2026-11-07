@@ -64,7 +64,7 @@ export function SubjectAllocationPage() {
     if (!sectionId || changed === 0) return;
     setBusy(true);
     try {
-      await api.setSectionAllocations(
+      const saved = await api.setSectionAllocations(
         sectionId,
         Object.entries(drafts).map(([enrollment_id, d]) => ({
           enrollment_id,
@@ -73,6 +73,7 @@ export function SubjectAllocationPage() {
         })),
       );
       toast.push({ kind: "success", title: t("subjects.alloc.saved") });
+      for (const w of saved.warnings ?? []) toast.push({ kind: "warning", title: w });
       await view.reload();
     } catch (err) {
       fail(err);

@@ -1,33 +1,16 @@
-import { Printer } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "@/api/endpoints";
-import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Spinner } from "@/components/ui/Spinner";
 import { useI18n } from "@/i18n";
 import { errorMessage, useAsync } from "@/lib/useAsync";
+import { PrintToolbar } from "../fees/PrintPages";
 import { ReportCardView } from "./ReportCardView";
 import { ResultSheetView } from "./tabs/ResultsTab";
 
-function PrintToolbar({ title }: { title: string }) {
-  const { t } = useI18n();
-  return (
-    <div className="mb-3 flex items-center gap-2 print:hidden">
-      <h1 className="text-lg font-semibold text-navy">{title}</h1>
-      <span className="flex-1" />
-      <Button variant="secondary" onClick={() => window.history.back()}>
-        {t("action.back")}
-      </Button>
-      <Button icon={<Printer className="h-4 w-4" aria-hidden />} onClick={() => window.print()}>
-        {t("action.print")} / {t("fees.print.pdf")}
-      </Button>
-    </div>
-  );
-}
-
 /** `/exams/report-cards/print?section_id=…` (every student) or `&student_id=…` (one). */
 export function ReportCardsPrintPage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [params] = useSearchParams();
   const sectionId = params.get("section_id") ?? "";
   const studentId = params.get("student_id");
@@ -48,7 +31,16 @@ export function ReportCardsPrintPage() {
     return <EmptyState title={errorMessage(cards.error, t("common.error.load"))} />;
   return (
     <>
-      <PrintToolbar title={t("exams.card.title")} />
+      <PrintToolbar
+        title={t("exams.card.title")}
+        onPdf={() =>
+          api.reportCardsPdf(
+            studentId ? { student_id: studentId } : { section_id: sectionId },
+            locale === "ur" ? "ur" : "en",
+          )
+        }
+      />
+      <p className="mb-2 text-xs text-muted print:hidden">{t("fees.print.downloadHint")}</p>
       <div className="print-area flex flex-col gap-4">
         {cards.data.map((c) => (
           <ReportCardView key={c.student_id} card={c} t={t} print />

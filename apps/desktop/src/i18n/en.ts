@@ -1234,6 +1234,20 @@ export const en = {
   "consents.section.guardian": "Guardian",
   "students.tabs.consents": "Consents",
   "reports.pickConsentType": "All consent types",
+
+  // v0.2.0-alpha test report fixes
+  "fees.print.download": "Print / Save as PDF",
+  "fees.print.downloadHint": "The PDF is typeset by Madrasa: amounts and names are real text.",
+  "settings.paymentReference": "Payment reference on vouchers",
+  "settings.paymentReference.label": "Heading",
+  "settings.paymentReference.note": "Note under the reference",
+  "settings.paymentReference.hint":
+    "Printed in the dashed box on every voucher. Leave the heading empty to go back to the wording usual in your country.",
+  "exams.setup.absent": "Absences",
+  "exams.setup.absent.zero": "Count as zero",
+  "exams.setup.absent.skip": "Skip the absent paper",
+  "import.mapping.derived.full_name": "from First name + Last name",
+  "import.mapping.derived.father_name": "from Guardian 1",
 } as const;
 
 export type TranslationKey = keyof typeof en;

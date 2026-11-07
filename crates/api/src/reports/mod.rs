@@ -12,6 +12,7 @@ pub mod fees;
 pub mod pdf;
 pub mod students;
 pub mod text;
+pub mod vouchers;
 
 use std::collections::HashMap;
 

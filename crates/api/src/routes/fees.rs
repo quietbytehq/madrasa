@@ -37,6 +37,8 @@ pub fn router() -> Router<AppState> {
         .route("/fees/vouchers", get(list_vouchers))
         .route("/fees/vouchers/generate", post(generate))
         .route("/fees/vouchers/{id}", get(get_voucher))
+        .route("/fees/vouchers/{id}/pdf", get(voucher_pdf))
+        .route("/fees/vouchers/pdf", get(vouchers_pdf))
         .route("/fees/vouchers/{id}/payments", post(pay))
         .route("/fees/vouchers/{id}/waive-late-fee", post(waive))
         .route("/fees/vouchers/{id}/cancel", post(cancel))
@@ -466,6 +468,9 @@ pub struct VoucherDetail {
     #[serde(flatten)]
     pub voucher: FeeVoucher,
     pub balance: Decimal,
+    /// The payment-reference block (v0.2.0-alpha B5): heading and note from Settings (or
+    /// the country's default) and the reference the parent quotes when paying.
+    pub payment_reference: PaymentReference,
     pub lines: Vec<FeeVoucherLine>,
     pub receipts: Vec<FeeReceipt>,
     pub student_name: String,
@@ -485,6 +490,14 @@ pub struct SchoolHeader {
     pub city: String,
     /// ISO 4217 code printed next to amounts.
     pub currency: String,
+}
+
+/// Mirrored by `PaymentReference` in the UI.
+#[derive(Debug, Clone, Serialize)]
+pub struct PaymentReference {
+    pub label: String,
+    pub note: String,
+    pub reference: String,
 }
 
 impl From<School> for SchoolHeader {
@@ -514,8 +527,16 @@ async fn voucher_detail(c: &mut sqlx::PgConnection, v: FeeVoucher) -> ApiResult<
         .find_map(|g| g.phone);
     let school = schools::get(c, v.school_id).await?;
     let policy = fees::policy(c, v.school_id).await?;
+    let text =
+        super::school_settings::payment_reference_text(c, school.id, &school.country).await?;
+    let payment_reference = PaymentReference {
+        label: text.label,
+        note: text.note,
+        reference: format!("{}-{}", school.code, v.voucher_no),
+    };
     Ok(VoucherDetail {
         balance: v.balance(),
+        payment_reference,
         lines: fees::voucher_lines(c, v.id).await?,
         receipts: fees::receipts_for_voucher(c, v.id).await?,
         student_name: student.full_name,
@@ -528,6 +549,123 @@ async fn voucher_detail(c: &mut sqlx::PgConnection, v: FeeVoucher) -> ApiResult<
         policy,
         voucher: v,
     })
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PdfQuery {
+    #[serde(default)]
+    pub lang: Option<String>,
+    /// Comma-separated voucher ids (batch endpoint).
+    #[serde(default)]
+    pub ids: Option<String>,
+}
+
+fn lang_of(q: &PdfQuery) -> crate::reports::Lang {
+    match q.lang.as_deref() {
+        Some("ur") => crate::reports::Lang::Ur,
+        _ => crate::reports::Lang::En,
+    }
+}
+
+fn voucher_doc(d: &VoucherDetail, symbol: &str) -> crate::reports::vouchers::VoucherDoc {
+    crate::reports::vouchers::VoucherDoc {
+        school_name: d.school.name.clone(),
+        school_city: d.school.city.clone(),
+        school_code: d.school.code.clone(),
+        currency: symbol.to_string(),
+        voucher_no: d.voucher.voucher_no.clone(),
+        student_name: d.student_name.clone(),
+        father_name: d.father_name.clone(),
+        student_number: d.student_number.clone(),
+        class_section: match (&d.class_name, &d.section_name) {
+            (Some(c), Some(s)) => format!("{c}-{s}"),
+            (Some(c), None) => c.clone(),
+            _ => "—".into(),
+        },
+        billing_month: d.voucher.billing_month,
+        issue_date: d.voucher.issue_date,
+        due_date: d.voucher.due_date,
+        lines: d
+            .lines
+            .iter()
+            .map(|l| (l.description.clone(), l.amount))
+            .collect(),
+        gross: d.voucher.gross,
+        sibling_discount: d.voucher.sibling_discount,
+        concession_discount: d.voucher.concession_discount,
+        net_monthly: d.voucher.net_monthly,
+        arrears: d.voucher.arrears,
+        total_due: d.voucher.total_due,
+        late_fee: d.voucher.late_fee,
+        net_paid: d.voucher.net_paid,
+        balance: d.balance,
+        late_fee_percent: d.policy.late_fee_percent,
+        reference_label: d.payment_reference.label.clone(),
+        reference_note: d.payment_reference.note.clone(),
+        reference: d.payment_reference.reference.clone(),
+    }
+}
+
+async fn vouchers_pdf_response(
+    c: &mut sqlx::PgConnection,
+    user: &CurrentUser,
+    ids: &[Uuid],
+    q: &PdfQuery,
+) -> ApiResult<axum::response::Response> {
+    let school = schools::get(c, user.user.school_id).await?;
+    let symbol = madrasa_core::locale::currency(&school.currency)
+        .map(|cur| cur.symbol.to_string())
+        .unwrap_or_else(|| school.currency.clone());
+    let mut docs = Vec::with_capacity(ids.len());
+    for id in ids {
+        let v = load_voucher(c, user, *id).await?;
+        let d = voucher_detail(c, v).await?;
+        docs.push(voucher_doc(&d, &symbol));
+    }
+    let name = match docs.as_slice() {
+        [one] => format!("voucher-{}.pdf", one.voucher_no),
+        _ => "vouchers.pdf".into(),
+    };
+    let lang = lang_of(q);
+    let bytes = tokio::task::spawn_blocking(move || crate::reports::vouchers::render(&docs, lang))
+        .await
+        .map_err(|_| ApiError::internal())??;
+    Ok(crate::export::file_response(&name, bytes))
+}
+
+/// One voucher as a PDF (school copy and parent copy), typeset like the reports.
+async fn voucher_pdf(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    Path(id): Path<Uuid>,
+    Query(q): Query<PdfQuery>,
+) -> ApiResult<axum::response::Response> {
+    user.require(Permission::FeesRead)?;
+    let mut c = state.pool.acquire().await?;
+    vouchers_pdf_response(&mut c, &user, &[id], &q).await
+}
+
+/// Several vouchers in one PDF, one per page (`ids=a,b,c`, at most 500).
+async fn vouchers_pdf(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    Query(q): Query<PdfQuery>,
+) -> ApiResult<axum::response::Response> {
+    user.require(Permission::FeesRead)?;
+    let ids: Vec<Uuid> = q
+        .ids
+        .as_deref()
+        .unwrap_or("")
+        .split(',')
+        .filter(|s| !s.trim().is_empty())
+        .map(|s| s.trim().parse::<Uuid>())
+        .collect::<Result<_, _>>()
+        .map_err(|_| ApiError::validation("ids must be voucher ids separated by commas."))?;
+    if ids.is_empty() || ids.len() > 500 {
+        return Err(ApiError::validation("Give between 1 and 500 voucher ids."));
+    }
+    let mut c = state.pool.acquire().await?;
+    vouchers_pdf_response(&mut c, &user, &ids, &q).await
 }
 
 async fn load_voucher(

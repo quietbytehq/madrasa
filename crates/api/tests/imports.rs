@@ -488,6 +488,9 @@ async fn students_import_preview_apply_update_and_rollback() {
     );
     let (_, ali) = app.get(&format!("/students/{ali_id}"), &admin).await;
     assert_eq!(ali["address"], "");
+    // The update re-linked Ali's existing guardian; rolling it back keeps the link
+    // (v0.2.0-alpha O3).
+    assert_eq!(ali["guardians"].as_array().unwrap().len(), 1, "{ali}");
     let (s, _) = app
         .post(
             &format!("/imports/batches/{batch_id}/rollback"),
