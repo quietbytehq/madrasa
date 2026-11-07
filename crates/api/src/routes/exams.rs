@@ -125,6 +125,21 @@ async fn load_assessment(
     Ok(a)
 }
 
+/// Marks are entered only for entered components; a calculated one has no sheets.
+async fn load_entered_assessment(
+    c: &mut sqlx::PgConnection,
+    user: &CurrentUser,
+    id: Uuid,
+) -> ApiResult<AssessmentType> {
+    let a = load_assessment(c, user, id).await?;
+    if a.kind == "calculated" {
+        return Err(ApiError::validation(
+            "This component is calculated from others; it has no marks sheet.",
+        ));
+    }
+    Ok(a)
+}
+
 #[derive(Debug, Serialize)]
 pub struct SectionHeader {
     pub id: Uuid,
@@ -189,6 +204,14 @@ pub struct NewAssessmentRequest {
     pub weight: Decimal,
     #[serde(default)]
     pub position: i32,
+    /// The term the component belongs to (defaults to the year's first term).
+    #[serde(default)]
+    pub term_id: Option<Uuid>,
+    /// `entered` (default) or `calculated`.
+    #[serde(default)]
+    pub kind: Option<String>,
+    #[serde(default)]
+    pub formula: Option<madrasa_core::exams::Formula>,
 }
 
 async fn create_assessment(
@@ -201,38 +224,81 @@ async fn create_assessment(
     if req.name.trim().is_empty() {
         return Err(ApiError::validation("Assessment name is required."));
     }
+    let kind = req.kind.clone().unwrap_or_else(|| "entered".into());
+    if !["entered", "calculated"].contains(&kind.as_str()) {
+        return Err(ApiError::validation("kind must be entered or calculated."));
+    }
     let mut c = state.pool.acquire().await?;
     year_of(&mut c, &user, req.academic_year_id).await?;
-    let a = repo::create_assessment(
+    let term_id = match req.term_id {
+        Some(t) => {
+            let term = repo::get_term(&mut c, t).await?;
+            if term.academic_year_id != req.academic_year_id {
+                return Err(ApiError::validation("The term belongs to another year."));
+            }
+            Some(t)
+        }
+        None => repo::list_terms(&mut c, req.academic_year_id)
+            .await?
+            .first()
+            .map(|t| t.id),
+    };
+    let formula = if kind == "calculated" {
+        let f = req
+            .formula
+            .clone()
+            .ok_or_else(|| ApiError::validation("A calculated component needs a formula."))?;
+        super::exam_terms::validate_formula(&mut c, req.academic_year_id, term_id, None, &f)
+            .await?;
+        Some(serde_json::to_value(f).map_err(|_| ApiError::internal())?)
+    } else {
+        None
+    };
+    let a = repo::create_component(
         &mut c,
         &state.hlc,
         user.actor(),
         user.user.school_id,
         req.academic_year_id,
-        &req.name,
-        req.weight,
-        req.position,
+        repo::NewComponent {
+            name: req.name,
+            weight: req.weight,
+            position: req.position,
+            term_id,
+            kind,
+            formula,
+        },
     )
     .await?;
     Ok((StatusCode::CREATED, Json(a)))
 }
 
+#[derive(Debug, Deserialize)]
+pub struct DefaultsRequest {
+    pub academic_year_id: Uuid,
+    /// 1 = one term "Year" with the four assessments (as before); 2 = two terms with the
+    /// assessments split between them.
+    #[serde(default)]
+    pub terms: Option<u8>,
+}
+
 async fn default_assessments(
     State(state): State<AppState>,
     user: CurrentUser,
-    body: JsonBody<YearQuery>,
+    body: JsonBody<DefaultsRequest>,
 ) -> ApiResult<Json<Vec<AssessmentType>>> {
     user.require(Permission::AcademicsManage)?;
     let Json(req) = body?;
     let mut c = state.pool.acquire().await?;
     year_of(&mut c, &user, req.academic_year_id).await?;
     Ok(Json(
-        repo::create_default_assessments(
+        repo::create_default_structure(
             &mut c,
             &state.hlc,
             user.actor(),
             user.user.school_id,
             req.academic_year_id,
+            req.terms.unwrap_or(1),
         )
         .await?,
     ))
@@ -243,6 +309,10 @@ pub struct RenameRequest {
     pub name: String,
     #[serde(default)]
     pub position: i32,
+    #[serde(default)]
+    pub term_id: Option<Uuid>,
+    #[serde(default)]
+    pub formula: Option<madrasa_core::exams::Formula>,
 }
 
 async fn rename_assessment(
@@ -253,16 +323,54 @@ async fn rename_assessment(
 ) -> ApiResult<Json<AssessmentType>> {
     user.require(Permission::AcademicsManage)?;
     let Json(req) = body?;
+    if req.name.trim().is_empty() {
+        return Err(ApiError::validation("Assessment name is required."));
+    }
     let mut c = state.pool.acquire().await?;
-    load_assessment(&mut c, &user, id).await?;
+    let existing = load_assessment(&mut c, &user, id).await?;
+    let term_id = match req.term_id {
+        Some(t) => {
+            let term = repo::get_term(&mut c, t).await?;
+            if term.academic_year_id != existing.academic_year_id {
+                return Err(ApiError::validation("The term belongs to another year."));
+            }
+            Some(t)
+        }
+        None => existing.term_id,
+    };
+    let formula = if existing.kind == "calculated" {
+        let f = req
+            .formula
+            .clone()
+            .or_else(|| {
+                existing
+                    .formula
+                    .clone()
+                    .and_then(|v| serde_json::from_value(v).ok())
+            })
+            .ok_or_else(|| ApiError::validation("A calculated component needs a formula."))?;
+        super::exam_terms::validate_formula(
+            &mut c,
+            existing.academic_year_id,
+            term_id,
+            Some(id),
+            &f,
+        )
+        .await?;
+        Some(serde_json::to_value(f).map_err(|_| ApiError::internal())?)
+    } else {
+        None
+    };
     Ok(Json(
-        repo::rename_assessment(
+        repo::update_component(
             &mut c,
             &state.hlc,
             user.actor(),
             id,
             &req.name,
             req.position,
+            term_id,
+            formula,
         )
         .await?,
     ))
@@ -398,7 +506,7 @@ async fn get_max_marks(
 ) -> ApiResult<Json<Vec<MaxMarksLine>>> {
     user.require(Permission::ExamsRead)?;
     let mut c = state.pool.acquire().await?;
-    load_assessment(&mut c, &user, q.assessment_id).await?;
+    load_entered_assessment(&mut c, &user, q.assessment_id).await?;
     Ok(Json(
         max_marks_lines(&mut c, user.user.school_id, q.assessment_id, q.class_id).await?,
     ))
@@ -425,7 +533,7 @@ async fn put_max_marks(
     user.require(Permission::AcademicsManage)?;
     let Json(req) = body?;
     let mut tx = state.pool.begin().await?;
-    load_assessment(&mut tx, &user, req.assessment_id).await?;
+    load_entered_assessment(&mut tx, &user, req.assessment_id).await?;
     let class = academics::get_class(&mut tx, req.class_id).await?;
     if class.school_id != user.user.school_id {
         return Err(ApiError::not_found("class"));
@@ -504,7 +612,7 @@ async fn list_sheets(
 ) -> ApiResult<Json<SheetsView>> {
     user.require(Permission::ExamsRead)?;
     let mut c = state.pool.acquire().await?;
-    let assessment = load_assessment(&mut c, &user, q.assessment_id).await?;
+    let assessment = load_entered_assessment(&mut c, &user, q.assessment_id).await?;
     let section = load_section(&mut c, &user, q.section_id).await?;
     let scope = marks_scope(&mut c, &user).await?;
     let students = repo::roster(&mut c, section.id).await?.len();
@@ -637,7 +745,7 @@ async fn get_sheet(
 ) -> ApiResult<Json<MarksSheetView>> {
     user.require(Permission::ExamsRead)?;
     let mut c = state.pool.acquire().await?;
-    let assessment = load_assessment(&mut c, &user, q.assessment_id).await?;
+    let assessment = load_entered_assessment(&mut c, &user, q.assessment_id).await?;
     let section = load_section(&mut c, &user, q.section_id).await?;
     Ok(Json(
         sheet_view(&mut c, &user, assessment, section, q.subject_id).await?,
@@ -679,7 +787,7 @@ async fn save_sheet(
     req: SaveMarksRequest,
 ) -> ApiResult<MarksSheetView> {
     let mut tx = state.pool.begin().await?;
-    let assessment = load_assessment(&mut tx, user, req.assessment_id).await?;
+    let assessment = load_entered_assessment(&mut tx, user, req.assessment_id).await?;
     let section = load_section(&mut tx, user, req.section_id).await?;
     let scope = marks_scope(&mut tx, user).await?;
     if !allows(&scope, section.id, req.subject_id) {
@@ -730,7 +838,7 @@ async fn sheet_template(
 ) -> ApiResult<Response> {
     user.require(Permission::ExamsRead)?;
     let mut c = state.pool.acquire().await?;
-    let assessment = load_assessment(&mut c, &user, q.assessment_id).await?;
+    let assessment = load_entered_assessment(&mut c, &user, q.assessment_id).await?;
     let section = load_section(&mut c, &user, q.section_id).await?;
     let view = sheet_view(&mut c, &user, assessment, section, q.subject_id).await?;
     let max = view
@@ -823,7 +931,7 @@ async fn upload_sheet(
     let Json(req) = body?;
     let (view, max) = {
         let mut c = state.pool.acquire().await?;
-        let assessment = load_assessment(&mut c, &user, req.assessment_id).await?;
+        let assessment = load_entered_assessment(&mut c, &user, req.assessment_id).await?;
         let section = load_section(&mut c, &user, req.section_id).await?;
         let scope = marks_scope(&mut c, &user).await?;
         if !allows(&scope, section.id, req.subject_id) {
@@ -1086,6 +1194,98 @@ fn grade_of(scheme: &GradingScheme, pct: Decimal) -> String {
         .unwrap_or_default()
 }
 
+/// Marks of a component for a section. An entered component reads its sheets; a calculated
+/// one evaluates its formula over the inputs' marks (recursively), student by student and
+/// subject by subject, carrying the weakest sheet status of its inputs.
+pub(crate) async fn marks_for(
+    c: &mut sqlx::PgConnection,
+    assessment: &AssessmentType,
+    section_id: Uuid,
+    depth: u8,
+) -> ApiResult<Vec<MarkRow>> {
+    if assessment.kind != "calculated" {
+        return Ok(repo::section_marks(c, assessment.id, section_id).await?);
+    }
+    if depth > 8 {
+        return Err(ApiError::validation("The formula refers to itself."));
+    }
+    let formula: madrasa_core::exams::Formula = assessment
+        .formula
+        .clone()
+        .and_then(|v| serde_json::from_value(v).ok())
+        .ok_or_else(|| ApiError::validation("The calculated component has no formula."))?;
+    let mut inputs: Vec<(Uuid, Vec<MarkRow>)> = Vec::new();
+    for i in &formula.inputs {
+        let a = repo::get_assessment(c, i.assessment_type_id).await?;
+        let rows = Box::pin(marks_for(c, &a, section_id, depth + 1)).await?;
+        inputs.push((a.id, rows));
+    }
+    Ok(evaluate_rows(assessment.id, &formula, &inputs))
+}
+
+/// Combine input rows into one row per (student, subject).
+pub(crate) fn evaluate_rows(
+    component_id: Uuid,
+    formula: &madrasa_core::exams::Formula,
+    inputs: &[(Uuid, Vec<MarkRow>)],
+) -> Vec<MarkRow> {
+    let mut keys: Vec<(Uuid, Uuid)> = inputs
+        .iter()
+        .flat_map(|(_, rows)| rows.iter().map(|r| (r.student_id, r.subject_id)))
+        .collect();
+    keys.sort();
+    keys.dedup();
+    let mut out = Vec::new();
+    for (student_id, subject_id) in keys {
+        let scores: Vec<(Uuid, Option<Score>)> = inputs
+            .iter()
+            .map(|(id, rows)| {
+                let found = rows
+                    .iter()
+                    .find(|r| r.student_id == student_id && r.subject_id == subject_id);
+                (
+                    *id,
+                    found.map(|r| Score {
+                        max: r.max_marks,
+                        obtained: if r.is_absent { None } else { r.obtained },
+                    }),
+                )
+            })
+            .collect();
+        let Some(score) = formula.evaluate(&scores) else {
+            continue;
+        };
+        let statuses: Vec<&str> = inputs
+            .iter()
+            .filter_map(|(_, rows)| {
+                rows.iter()
+                    .find(|r| r.student_id == student_id && r.subject_id == subject_id)
+                    .map(|r| r.sheet_status.as_str())
+            })
+            .collect();
+        let status = if statuses
+            .iter()
+            .all(|s| *s == SheetStatus::Approved.as_str())
+        {
+            SheetStatus::Approved
+        } else if statuses.iter().all(|s| *s != SheetStatus::Draft.as_str()) {
+            SheetStatus::Submitted
+        } else {
+            SheetStatus::Draft
+        };
+        out.push(MarkRow {
+            assessment_type_id: component_id,
+            subject_id,
+            student_id,
+            max_marks: score.max,
+            obtained: Some(score.obtained_or_zero()),
+            is_absent: false,
+            sheet_status: status.as_str().into(),
+        });
+    }
+    out
+}
+
 async fn build_result_sheet(
     c: &mut sqlx::PgConnection,
     user: &CurrentUser,
@@ -1094,24 +1294,54 @@ async fn build_result_sheet(
 ) -> ApiResult<ResultSheet> {
     let grading = repo::grading(c, user.user.school_id).await?;
     let subjects_all = academics::list_subjects(c, user.user.school_id).await?;
-    let summaries = repo::sheet_summaries(c, assessment.id, section.id).await?;
-    let subjects: Vec<SubjectHeader> = summaries
-        .iter()
-        .filter_map(|s| {
-            s.max_marks.map(|max| SubjectHeader {
-                subject_id: s.subject_id,
-                subject_name: s.subject_name.clone(),
-                max_marks: max,
-                sheet_status: s
-                    .status
-                    .as_deref()
-                    .and_then(|st| st.parse().ok())
+    let rows_raw = marks_for(c, &assessment, section.id, 0).await?;
+    let subjects: Vec<SubjectHeader> = if assessment.kind == "calculated" {
+        // Subjects and maxima come from the computed rows; the status is approved only when
+        // every contributing sheet is.
+        let mut out: Vec<SubjectHeader> = Vec::new();
+        for r in &rows_raw {
+            if out.iter().any(|s| s.subject_id == r.subject_id) {
+                continue;
+            }
+            let all_approved = rows_raw
+                .iter()
+                .filter(|x| x.subject_id == r.subject_id)
+                .all(|x| x.sheet_status == SheetStatus::Approved.as_str());
+            out.push(SubjectHeader {
+                subject_id: r.subject_id,
+                subject_name: subjects_all
+                    .iter()
+                    .find(|s| s.id == r.subject_id)
+                    .map(|s| s.name.clone())
                     .unwrap_or_default(),
+                max_marks: r.max_marks,
+                sheet_status: if all_approved {
+                    SheetStatus::Approved
+                } else {
+                    SheetStatus::Draft
+                },
+            });
+        }
+        out.sort_by(|a, b| a.subject_name.cmp(&b.subject_name));
+        out
+    } else {
+        let summaries = repo::sheet_summaries(c, assessment.id, section.id).await?;
+        summaries
+            .iter()
+            .filter_map(|s| {
+                s.max_marks.map(|max| SubjectHeader {
+                    subject_id: s.subject_id,
+                    subject_name: s.subject_name.clone(),
+                    max_marks: max,
+                    sheet_status: s
+                        .status
+                        .as_deref()
+                        .and_then(|st| st.parse().ok())
+                        .unwrap_or_default(),
+                })
             })
-        })
-        .collect();
-    let _ = subjects_all;
-    let rows_raw = repo::section_marks(c, assessment.id, section.id).await?;
+            .collect()
+    };
     let by_key: HashMap<(Uuid, Uuid), &MarkRow> = rows_raw
         .iter()
         .map(|r| ((r.student_id, r.subject_id), r))
@@ -1248,9 +1478,25 @@ async fn section_results(
 pub struct AssessmentHeader {
     pub id: Uuid,
     pub name: String,
+    /// Weight within its term.
     pub weight: Decimal,
     /// The student has marks in at least one subject of this assessment.
     pub held: bool,
+    pub term_id: Option<Uuid>,
+    /// `entered` or `calculated`.
+    pub kind: String,
+}
+
+/// A term of the year on the card: its components (by id, in order) and the term's totals.
+#[derive(Debug, Clone, Serialize)]
+pub struct CardTerm {
+    pub id: Uuid,
+    pub name: String,
+    pub weight: Decimal,
+    pub component_ids: Vec<Uuid>,
+    /// Weighted percentage of the term's assessment totals (held components only).
+    pub percent: Option<Decimal>,
+    pub grade: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1268,6 +1514,9 @@ pub struct CardSubject {
     pub subject_name: String,
     /// One per assessment, in order.
     pub cells: Vec<CardCell>,
+    /// One per term, in order: the weighted percentage of the term's held components.
+    pub term_percents: Vec<Option<Decimal>>,
+    /// Year result: term percentages weighted by term weight.
     pub weighted_percent: Option<Decimal>,
     pub grade: Option<String>,
 }
@@ -1310,6 +1559,7 @@ pub struct ReportCard {
     pub section_name: Option<String>,
     pub roll_no: Option<i32>,
     pub assessments: Vec<AssessmentHeader>,
+    pub terms: Vec<CardTerm>,
     pub subjects: Vec<CardSubject>,
     pub totals: Vec<CardAssessmentTotal>,
     pub overall_percent: Option<Decimal>,
@@ -1331,8 +1581,47 @@ async fn build_report_card(
     let student = students::get(c, student_id).await?;
     let school = schools::get(c, user.user.school_id).await?;
     let grading = repo::grading(c, user.user.school_id).await?;
-    let assessments_all = repo::list_assessments(c, year.id).await?;
-    let rows = repo::student_marks(c, student_id, year.id).await?;
+    let structure = super::exam_terms::structure_of(c, year.id).await?;
+    // Components in term order; components without a term come last (pre-term years).
+    let mut components: Vec<AssessmentType> = structure
+        .terms
+        .iter()
+        .flat_map(|t| t.components.iter().cloned())
+        .chain(structure.unassigned.iter().cloned())
+        .collect();
+    components.sort_by_key(|a| {
+        let term_pos = structure
+            .terms
+            .iter()
+            .position(|t| Some(t.term.id) == a.term_id)
+            .unwrap_or(usize::MAX);
+        (term_pos, a.position, a.name.clone())
+    });
+    let entered_rows = repo::student_marks(c, student_id, year.id).await?;
+    // Rows for every component: entered ones from the sheets, calculated ones evaluated.
+    let mut rows: Vec<MarkRow> = entered_rows.clone();
+    for a in components.iter().filter(|a| a.kind == "calculated") {
+        if let Some(formula) = a
+            .formula
+            .clone()
+            .and_then(|v| serde_json::from_value::<madrasa_core::exams::Formula>(v).ok())
+        {
+            let inputs: Vec<(Uuid, Vec<MarkRow>)> = formula
+                .inputs
+                .iter()
+                .map(|i| {
+                    (
+                        i.assessment_type_id,
+                        rows.iter()
+                            .filter(|r| r.assessment_type_id == i.assessment_type_id)
+                            .cloned()
+                            .collect(),
+                    )
+                })
+                .collect();
+            rows.extend(evaluate_rows(a.id, &formula, &inputs));
+        }
+    }
     let subjects_all = academics::list_subjects(c, user.user.school_id).await?;
     let (class_name, section_name, roll_no) = match section {
         Some(s) => {
@@ -1346,13 +1635,27 @@ async fn build_report_card(
         }
         None => (None, None, None),
     };
-    let assessments: Vec<AssessmentHeader> = assessments_all
+    let assessments: Vec<AssessmentHeader> = components
         .iter()
         .map(|a| AssessmentHeader {
             id: a.id,
             name: a.name.clone(),
             weight: a.weight,
             held: rows.iter().any(|r| r.assessment_type_id == a.id),
+            term_id: a.term_id,
+            kind: a.kind.clone(),
+        })
+        .collect();
+    let term_defs: Vec<(Uuid, String, Decimal, Vec<Uuid>)> = structure
+        .terms
+        .iter()
+        .map(|t| {
+            (
+                t.term.id,
+                t.term.name.clone(),
+                t.term.weight,
+                t.components.iter().map(|a| a.id).collect(),
+            )
         })
         .collect();
     let mut subject_ids: Vec<Uuid> = rows.iter().map(|r| r.subject_id).collect();
@@ -1361,6 +1664,41 @@ async fn build_report_card(
     }
     subject_ids.sort();
     subject_ids.dedup();
+    // Year result of a list of (weight, score) by term: weight within the term first, then
+    // the term weights. A year without terms is one group.
+    let year_percent = |cells: &[(Option<Uuid>, Decimal, Option<Score>)]| -> (Vec<Option<Decimal>>, Option<Decimal>) {
+        if term_defs.is_empty() {
+            let parts: Vec<(Decimal, Score)> = cells.iter().filter_map(|(_, w, s)| s.map(|s| (*w, s))).collect();
+            return (Vec::new(), exams::weighted_percent(&parts));
+        }
+        let term_percents: Vec<Option<Decimal>> = term_defs
+            .iter()
+            .map(|(tid, _, _, _)| {
+                let parts: Vec<(Decimal, Score)> = cells
+                    .iter()
+                    .filter(|(t, _, _)| *t == Some(*tid))
+                    .filter_map(|(_, w, s)| s.map(|s| (*w, s)))
+                    .collect();
+                exams::weighted_percent(&parts)
+            })
+            .collect();
+        let year_parts: Vec<(Decimal, Score)> = term_defs
+            .iter()
+            .zip(&term_percents)
+            .filter_map(|((_, _, w, _), p)| {
+                p.map(|p| {
+                    (
+                        *w,
+                        Score {
+                            max: Decimal::ONE_HUNDRED,
+                            obtained: Some(p),
+                        },
+                    )
+                })
+            })
+            .collect();
+        (term_percents, exams::weighted_percent(&year_parts))
+    };
     let mut subjects: Vec<CardSubject> = subject_ids
         .iter()
         .filter_map(|sid| {
@@ -1392,26 +1730,26 @@ async fn build_report_card(
                     }
                 })
                 .collect();
-            let parts: Vec<(Decimal, Score)> = assessments
+            let scored: Vec<(Option<Uuid>, Decimal, Option<Score>)> = assessments
                 .iter()
                 .zip(&cells)
-                .filter_map(|(a, cell)| {
-                    cell.max_marks.map(|max| {
-                        (
-                            a.weight,
-                            Score {
-                                max,
-                                obtained: cell.obtained,
-                            },
-                        )
-                    })
+                .map(|(a, cell)| {
+                    (
+                        a.term_id,
+                        a.weight,
+                        cell.max_marks.map(|max| Score {
+                            max,
+                            obtained: cell.obtained,
+                        }),
+                    )
                 })
                 .collect();
-            let weighted = exams::weighted_percent(&parts);
+            let (term_percents, weighted) = year_percent(&scored);
             Some(CardSubject {
                 subject_id: *sid,
                 subject_name: name,
                 cells,
+                term_percents,
                 weighted_percent: weighted,
                 grade: weighted.map(|w| grade_of(&grading, w)),
             })
@@ -1466,21 +1804,33 @@ async fn build_report_card(
             students: count,
         });
     }
-    let overall_parts: Vec<(Decimal, Score)> = assessments
+    let total_scores: Vec<(Option<Uuid>, Decimal, Option<Score>)> = assessments
         .iter()
         .zip(&totals)
-        .filter(|(_, t)| t.max > Decimal::ZERO)
         .map(|(a, t)| {
             (
+                a.term_id,
                 a.weight,
-                Score {
+                (t.max > Decimal::ZERO).then_some(Score {
                     max: t.max,
                     obtained: Some(t.total),
-                },
+                }),
             )
         })
         .collect();
-    let overall = exams::weighted_percent(&overall_parts);
+    let (term_percents, overall) = year_percent(&total_scores);
+    let terms: Vec<CardTerm> = term_defs
+        .iter()
+        .zip(term_percents.iter().chain(std::iter::repeat(&None)))
+        .map(|((id, name, weight, ids), p)| CardTerm {
+            id: *id,
+            name: name.clone(),
+            weight: *weight,
+            component_ids: ids.clone(),
+            percent: *p,
+            grade: p.map(|p| grade_of(&grading, p)),
+        })
+        .collect();
     let band = overall.and_then(|o| grading.grade_for(o).cloned());
     let att = attendance::student_summary(c, student_id, year.start_date, year.end_date).await?;
     Ok(ReportCard {
@@ -1498,6 +1848,7 @@ async fn build_report_card(
         section_name,
         roll_no,
         assessments,
+        terms,
         subjects,
         totals,
         overall_percent: overall,

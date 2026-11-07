@@ -11,6 +11,8 @@ import type {
   ResultSheet,
   StatusView,
   UserSummary,
+  Term,
+  ExamStructure,
 } from "@/api/types";
 import { MarksTab } from "./tabs/MarksTab";
 import { SetupTab } from "./tabs/SetupTab";
@@ -37,7 +39,14 @@ vi.mock("@/api/endpoints", () => ({
     setWeights: vi.fn(),
     defaultAssessments: vi.fn(),
     createAssessment: vi.fn(),
+    renameAssessment: vi.fn(),
     deleteAssessment: vi.fn(),
+    examStructure: vi.fn(),
+    terms: vi.fn(),
+    createTerm: vi.fn(),
+    updateTerm: vi.fn(),
+    deleteTerm: vi.fn(),
+    setTermWeights: vi.fn(),
     classes: vi.fn(async () => [{ id: "c1", school_id: "s", name: "1", level: 1 }]),
   },
 }));
@@ -68,9 +77,36 @@ const assessments: AssessmentType[] = [
     name: "Bi-monthly Test 1",
     position: 0,
     weight: "15.00",
+    term_id: "t1",
+    kind: "entered",
+    formula: null,
   },
-  { id: "a2", school_id: "s", academic_year_id: "y", name: "Final", position: 1, weight: "85.00" },
+  {
+    id: "a2",
+    school_id: "s",
+    academic_year_id: "y",
+    name: "Final",
+    position: 1,
+    weight: "85.00",
+    term_id: "t1",
+    kind: "entered",
+    formula: null,
+  },
 ];
+const term1: Term = {
+  id: "t1",
+  school_id: "s",
+  academic_year_id: "y",
+  name: "Year",
+  position: 0,
+  starts_on: null,
+  ends_on: null,
+  weight: "100.00",
+};
+const structure: ExamStructure = {
+  terms: [{ ...term1, components: assessments }],
+  unassigned: [],
+};
 const status: StatusView = {
   date: "2026-04-06",
   day_kind: { kind: "school" },
@@ -154,6 +190,7 @@ beforeEach(() => {
     },
   ]);
   vi.mocked(api.assessments).mockResolvedValue(assessments);
+  vi.mocked(api.examStructure).mockResolvedValue(structure);
   vi.mocked(api.attendanceStatus).mockResolvedValue(status);
   vi.mocked(api.examSheets).mockResolvedValue({
     assessment: assessments[0]!,
@@ -391,6 +428,77 @@ describe("MarksTab", () => {
   });
 });
 
+function singleTermCard(): ReportCard {
+  return {
+    school: { name: "Gulshan High", code: "GHS", city: "Karachi" },
+    academic_year: "2026-27",
+    student_id: "ali",
+    student_number: "KHI-MC-2026-00001",
+    full_name: "Ali Khan",
+    father_name: "Ahmed Khan",
+    class_name: "1",
+    section_name: "A",
+    roll_no: 1,
+    assessments: [
+      {
+        id: "a1",
+        name: "Bi-monthly Test 1",
+        weight: "15.00",
+        held: true,
+        term_id: "t1",
+        kind: "entered",
+      },
+      { id: "a2", name: "Final", weight: "85.00", held: false, term_id: "t1", kind: "entered" },
+    ],
+    subjects: [
+      {
+        subject_id: "eng",
+        subject_name: "English",
+        cells: [
+          {
+            max_marks: "50.00",
+            obtained: "45.00",
+            is_absent: false,
+            percent: "90.00",
+            approved: true,
+          },
+          { max_marks: null, obtained: null, is_absent: false, percent: null, approved: false },
+        ],
+        weighted_percent: "90.00",
+        term_percents: [],
+        grade: "A+",
+      },
+    ],
+    terms: [],
+    totals: [
+      {
+        assessment_id: "a1",
+        total: "45.00",
+        max: "50.00",
+        percent: "90.00",
+        grade: "A+",
+        position: 1,
+        students: 30,
+      },
+      {
+        assessment_id: "a2",
+        total: "0.00",
+        max: "0.00",
+        percent: null,
+        grade: null,
+        position: null,
+        students: 0,
+      },
+    ],
+    overall_percent: "90.00",
+    overall_grade: "A+",
+    overall_remarks: "Outstanding",
+    pass: true,
+    attendance: { present: 45, total: 47, percent: 95.7 },
+    grading: { bands: [], pass_percent: "40" },
+  };
+}
+
 describe("ResultSheetView and ReportCardView", () => {
   it("renders totals, grades, positions and analysis", () => {
     const r: ResultSheet = {
@@ -492,65 +600,7 @@ describe("ResultSheetView and ReportCardView", () => {
   });
 
   it("renders a report card with weighted results, position, attendance and signatures", () => {
-    const card: ReportCard = {
-      school: { name: "Gulshan High", code: "GHS", city: "Karachi" },
-      academic_year: "2026-27",
-      student_id: "ali",
-      student_number: "KHI-MC-2026-00001",
-      full_name: "Ali Khan",
-      father_name: "Ahmed Khan",
-      class_name: "1",
-      section_name: "A",
-      roll_no: 1,
-      assessments: [
-        { id: "a1", name: "Bi-monthly Test 1", weight: "15.00", held: true },
-        { id: "a2", name: "Final", weight: "85.00", held: false },
-      ],
-      subjects: [
-        {
-          subject_id: "eng",
-          subject_name: "English",
-          cells: [
-            {
-              max_marks: "50.00",
-              obtained: "45.00",
-              is_absent: false,
-              percent: "90.00",
-              approved: true,
-            },
-            { max_marks: null, obtained: null, is_absent: false, percent: null, approved: false },
-          ],
-          weighted_percent: "90.00",
-          grade: "A+",
-        },
-      ],
-      totals: [
-        {
-          assessment_id: "a1",
-          total: "45.00",
-          max: "50.00",
-          percent: "90.00",
-          grade: "A+",
-          position: 1,
-          students: 30,
-        },
-        {
-          assessment_id: "a2",
-          total: "0.00",
-          max: "0.00",
-          percent: null,
-          grade: null,
-          position: null,
-          students: 0,
-        },
-      ],
-      overall_percent: "90.00",
-      overall_grade: "A+",
-      overall_remarks: "Outstanding",
-      pass: true,
-      attendance: { present: 45, total: 47, percent: 95.7 },
-      grading: { bands: [], pass_percent: "40" },
-    };
+    const card = singleTermCard();
     renderWithProviders(<ReportCardView card={card} t={t as never} />);
     expect(screen.getByText("Gulshan High")).toBeInTheDocument();
     expect(screen.getAllByText("45/50")).toHaveLength(2);
@@ -560,6 +610,45 @@ describe("ResultSheetView and ReportCardView", () => {
     expect(screen.getByText("Outstanding")).toBeInTheDocument();
     expect(screen.getByText("45/47 (95.7%)")).toBeInTheDocument();
     expect(screen.getByText("Principal")).toBeInTheDocument();
+    expect(screen.queryByTestId("term-header")).not.toBeInTheDocument();
+  });
+
+  it("groups columns by term and shows term results on a two-term card", () => {
+    const base = singleTermCard();
+    const card: ReportCard = {
+      ...base,
+      assessments: [
+        { ...base.assessments[0]!, term_id: "t1" },
+        { ...base.assessments[1]!, term_id: "t2" },
+      ],
+      subjects: base.subjects.map((s) => ({ ...s, term_percents: ["90.00", null] })),
+      terms: [
+        {
+          id: "t1",
+          name: "Term 1",
+          weight: "50.00",
+          component_ids: ["a1"],
+          percent: "90.00",
+          grade: "A+",
+        },
+        {
+          id: "t2",
+          name: "Term 2",
+          weight: "50.00",
+          component_ids: ["a2"],
+          percent: null,
+          grade: null,
+        },
+      ],
+    };
+    renderWithProviders(<ReportCardView card={card} t={t as never} />);
+    const header = screen.getByTestId("term-header");
+    expect(within(header).getByText("Term 1")).toBeInTheDocument();
+    expect(within(header).getByText("Term 2")).toBeInTheDocument();
+    const result = screen.getByTestId("term-result");
+    expect(result).toHaveTextContent("Term result");
+    expect(result).toHaveTextContent("90.00% · A+");
+    expect(result).toHaveTextContent("—");
   });
 });
 
@@ -593,6 +682,69 @@ describe("SetupTab", () => {
         { id: "a1", weight: "20" },
         { id: "a2", weight: "80" },
       ]),
+    );
+  });
+
+  it("offers one- or two-term defaults when the year is empty", async () => {
+    vi.mocked(api.assessments).mockResolvedValue([]);
+    vi.mocked(api.examStructure).mockResolvedValue({ terms: [], unassigned: [] });
+    vi.mocked(api.grading).mockResolvedValue({ bands: [], pass_percent: "40" });
+    vi.mocked(api.maxMarks).mockResolvedValue([]);
+    vi.mocked(api.defaultAssessments).mockResolvedValue([]);
+    renderWithProviders(
+      <SessionProvider initial={{ user, permissions: ADMIN }}>
+        <SetupTab />
+      </SessionProvider>,
+    );
+    const terms = await screen.findByLabelText("Terms");
+    expect(terms).toHaveValue("2");
+    await userEvent.selectOptions(terms, "1");
+    await userEvent.click(screen.getByRole("button", { name: "Add default assessments" }));
+    await waitFor(() => expect(api.defaultAssessments).toHaveBeenCalledWith("y", 1));
+  });
+
+  it("creates a calculated component from the formula editor", async () => {
+    vi.mocked(api.grading).mockResolvedValue({ bands: [], pass_percent: "40" });
+    vi.mocked(api.maxMarks).mockResolvedValue([]);
+    vi.mocked(api.createAssessment).mockResolvedValue({
+      ...assessments[0]!,
+      id: "a3",
+      name: "Best test",
+      kind: "calculated",
+    });
+    renderWithProviders(
+      <SessionProvider initial={{ user, permissions: ADMIN }}>
+        <SetupTab />
+      </SessionProvider>,
+    );
+    expect(await screen.findByText("Year")).toBeInTheDocument();
+    expect(screen.getByLabelText("Year: Weight in year (%)")).toHaveValue("100");
+    await userEvent.click(screen.getByRole("button", { name: "Add calculated component" }));
+    const editor = screen.getByTestId("formula-editor");
+    await userEvent.type(within(editor).getByLabelText("Name"), "Best test");
+    await userEvent.selectOptions(within(editor).getByLabelText("Formula"), "best_of");
+    await userEvent.clear(within(editor).getByLabelText("N"));
+    await userEvent.type(within(editor).getByLabelText("N"), "1");
+    await userEvent.click(within(editor).getByRole("checkbox", { name: "Bi-monthly Test 1" }));
+    await userEvent.click(within(editor).getByRole("checkbox", { name: "Final" }));
+    await userEvent.click(within(editor).getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(api.createAssessment).toHaveBeenCalledWith({
+        academic_year_id: "y",
+        name: "Best test",
+        position: 2,
+        term_id: "t1",
+        kind: "calculated",
+        weight: "0",
+        formula: {
+          op: "best_of",
+          inputs: [
+            { assessment_type_id: "a1", weight: null },
+            { assessment_type_id: "a2", weight: null },
+          ],
+          n: 1,
+        },
+      }),
     );
   });
 });

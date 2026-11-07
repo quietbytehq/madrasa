@@ -113,6 +113,7 @@ async fn migrations_apply_and_tables_follow_the_rules() {
             "student_guardians",
             "students",
             "subjects",
+            "terms",
             "user_roles",
             "users",
         ]

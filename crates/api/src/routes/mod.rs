@@ -4,6 +4,7 @@ pub mod audit;
 pub mod auth;
 pub mod backup;
 pub mod boards;
+pub mod exam_terms;
 pub mod exams;
 pub mod export;
 pub mod fees;

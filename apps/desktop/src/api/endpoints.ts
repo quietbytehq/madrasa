@@ -94,6 +94,9 @@ import type {
   CustomReport,
   CustomReportRequest,
   ReportDefinition,
+  ExamStructure,
+  Formula,
+  Term,
   BoardCandidate,
   BoardExamRequest,
   BoardExamView,
@@ -339,14 +342,37 @@ export const api = {
     name: string;
     weight?: string;
     position?: number;
+    term_id?: string;
+    kind?: "entered" | "calculated";
+    formula?: Formula;
   }) => request<AssessmentType>("/exams/assessments", { method: "POST", body }),
-  defaultAssessments: (academic_year_id: string) =>
+  defaultAssessments: (academic_year_id: string, terms = 1) =>
     request<AssessmentType[]>("/exams/assessments/defaults", {
       method: "POST",
-      body: { academic_year_id },
+      body: { academic_year_id, terms },
     }),
-  renameAssessment: (id: string, body: { name: string; position?: number }) =>
-    request<AssessmentType>(`/exams/assessments/${id}`, { method: "PATCH", body }),
+  renameAssessment: (
+    id: string,
+    body: { name: string; position?: number; term_id?: string; formula?: Formula },
+  ) => request<AssessmentType>(`/exams/assessments/${id}`, { method: "PATCH", body }),
+  examStructure: (academic_year_id: string) =>
+    request<ExamStructure>(`/exams/structure${qs({ academic_year_id })}`),
+  terms: (academic_year_id: string) => request<Term[]>(`/exams/terms${qs({ academic_year_id })}`),
+  createTerm: (body: {
+    academic_year_id: string;
+    name: string;
+    position?: number;
+    starts_on?: string | null;
+    ends_on?: string | null;
+    weight?: string;
+  }) => request<Term>("/exams/terms", { method: "POST", body }),
+  updateTerm: (
+    id: string,
+    body: { name: string; position?: number; starts_on?: string | null; ends_on?: string | null },
+  ) => request<Term>(`/exams/terms/${id}`, { method: "PUT", body }),
+  deleteTerm: (id: string) => request<void>(`/exams/terms/${id}`, { method: "DELETE" }),
+  setTermWeights: (academic_year_id: string, weights: Array<{ id: string; weight: string }>) =>
+    request<Term[]>("/exams/terms/weights", { method: "PUT", body: { academic_year_id, weights } }),
   deleteAssessment: (id: string) => request<void>(`/exams/assessments/${id}`, { method: "DELETE" }),
   setWeights: (academic_year_id: string, weights: Array<{ id: string; weight: string }>) =>
     request<AssessmentType[]>("/exams/assessments/weights", {

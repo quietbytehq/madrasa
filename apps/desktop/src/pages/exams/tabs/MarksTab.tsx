@@ -44,7 +44,7 @@ export function MarksTab() {
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-end gap-2">
         <AssessmentSectionPickers
-          assessments={ctx.assessments}
+          assessments={ctx.assessments.filter((a) => a.kind !== "calculated")}
           sections={ctx.sections}
           assessmentId={sel.assessmentId}
           sectionId={sel.sectionId}

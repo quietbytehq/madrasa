@@ -316,10 +316,29 @@ pub fn cards_source(report: &Report) -> String {
             widths.join(", "),
             aligns.join(", ")
         ));
-        let mut header = vec![format!(
+        let mut header = Vec::new();
+        if c.terms.len() > 1 {
+            // A first header row with each term spanning its components.
+            header.push("table.cell(fill: luma(225))[]".to_string());
+            for t in &c.terms {
+                let span = c
+                    .assessments
+                    .iter()
+                    .filter(|a| a.term_id == Some(t.id))
+                    .count()
+                    .max(1);
+                header.push(format!(
+                    "table.cell(colspan: {span}, fill: luma(225), align: center)[#text(weight: \"bold\")[#{}]#linebreak()#text(size: 7.5pt, fill: luma(90))[{}%]]",
+                    lit(&t.name),
+                    d(t.weight)
+                ));
+            }
+            header.push("table.cell(colspan: 2, fill: luma(225))[]".to_string());
+        }
+        header.push(format!(
             "table.cell(fill: luma(235))[#text(weight: \"bold\")[#{}]]",
             lit(tr(lang, "col.subject"))
-        )];
+        ));
         for a in &c.assessments {
             header.push(format!(
                 "table.cell(fill: luma(235))[#text(weight: \"bold\")[#{}]#linebreak()#text(size: 7.5pt, fill: luma(90))[{}%]]",
@@ -398,7 +417,36 @@ pub fn cards_source(report: &Report) -> String {
         ));
         s.push_str("  ");
         s.push_str(&tot.join(", "));
-        s.push_str(",\n)\n");
+        s.push_str(",\n");
+        if c.terms.len() > 1 {
+            // Term results under their components.
+            let mut row = vec![format!(
+                "table.cell(fill: luma(245)){}",
+                bold(tr(lang, "card.term_result"))
+            )];
+            for t in &c.terms {
+                let span = c
+                    .assessments
+                    .iter()
+                    .filter(|a| a.term_id == Some(t.id))
+                    .count()
+                    .max(1);
+                let text = match (t.percent, &t.grade) {
+                    (Some(p), Some(g)) => format!("{:.1}% · {g}", p.round_dp(1)),
+                    (Some(p), None) => format!("{:.1}%", p.round_dp(1)),
+                    _ => tr(lang, "value.not_held").to_string(),
+                };
+                row.push(format!(
+                    "table.cell(colspan: {span}, fill: luma(245), align: center){}",
+                    bold(&text)
+                ));
+            }
+            row.push("table.cell(colspan: 2, fill: luma(245))[]".to_string());
+            s.push_str("  ");
+            s.push_str(&row.join(", "));
+            s.push_str(",\n");
+        }
+        s.push_str(")\n");
         let _ = ncols;
         let result = match c.pass {
             Some(true) => tr(lang, "value.pass"),
@@ -545,7 +593,10 @@ mod tests {
                 name: "Mid-year".into(),
                 weight: Decimal::from(30),
                 held: true,
+                term_id: None,
+                kind: "entered".into(),
             }],
+            terms: Vec::new(),
             subjects: vec![CardSubject {
                 subject_id: uuid::Uuid::now_v7(),
                 subject_name: "English".into(),
@@ -556,6 +607,7 @@ mod tests {
                     percent: Some(Decimal::from(90)),
                     approved: true,
                 }],
+                term_percents: Vec::new(),
                 weighted_percent: Some(Decimal::from(90)),
                 grade: Some("A+".into()),
             }],

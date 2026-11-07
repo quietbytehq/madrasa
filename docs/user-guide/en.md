@@ -83,9 +83,13 @@ list is in `docs/permissions.md`.
 
 ## 5. Exams and report cards
 
-- **Examinations → Setup**: the assessment types of the year (default Bi-monthly Test 1 and
-  2, Mid-year, Final) with weights that must total 100%, the maximum marks per subject for
-  each class, and the grading scheme (grade bands and pass mark).
+- **Examinations → Setup**: the year's **terms** (for example Term 1 and Term 2, with their
+  weight in the year) and the **assessment components** of each term (default Bi-monthly
+  Test 1 and 2, Mid-year, Final) with weights that total 100% within a term; the maximum
+  marks per subject for each class; and the grading scheme (grade bands and pass mark). A
+  component is either *entered* (marks are typed in or uploaded) or *calculated* from other
+  components of the same term (sum, average, weighted average, best of N). A school that
+  works without terms keeps one term for the whole year.
 - **Marks entry**: a teacher opens a subject of a section, enters marks (or ticks absent),
   saves, and submits for approval. The principal approves; approved sheets are locked and can
   be reopened by the principal only.
@@ -96,7 +100,8 @@ list is in `docs/permissions.md`.
   submit and approve as usual.
 - **Results**: the section's result sheet with totals, percentages, grades, positions and a
   subject analysis. **Report cards** can be printed one by one or for the whole section;
-  they show every assessment, the weighted year result and the attendance.
+  they show every assessment, the term results when the year has more than one term, the
+  weighted year result and the attendance.
 
 ## 6. Backup and restore
 

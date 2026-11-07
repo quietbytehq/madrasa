@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { api } from "@/api/endpoints";
-import type { AssessmentType, GradingScheme } from "@/api/types";
+import type { AssessmentType, FormulaOp, GradingScheme, Term } from "@/api/types";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -32,7 +32,7 @@ export function SetupTab() {
   if (!ctx.year) return <EmptyState title={t("exams.setup.noYear")} />;
   return (
     <div className="grid gap-4 xl:grid-cols-2">
-      <AssessmentsCard
+      <StructureCard
         yearId={ctx.year.id}
         assessments={ctx.assessments}
         canEdit={canEdit}
@@ -42,7 +42,7 @@ export function SetupTab() {
       />
       <GradingCard canEdit={canEdit} onError={fail} onSaved={saved} />
       <MaxMarksCard
-        assessments={ctx.assessments}
+        assessments={ctx.assessments.filter((a) => a.kind !== "calculated")}
         canEdit={canEdit}
         onError={fail}
         onSaved={saved}
@@ -51,7 +51,7 @@ export function SetupTab() {
   );
 }
 
-function AssessmentsCard({
+function StructureCard({
   yearId,
   assessments,
   canEdit,
@@ -67,17 +67,41 @@ function AssessmentsCard({
   onSaved: () => void;
 }) {
   const { t } = useI18n();
+  const structure = useAsync(() => api.examStructure(yearId), [yearId, assessments]);
   const [weights, setWeights] = useState<Record<string, string>>({});
+  const [termWeights, setTermWeights] = useState<Record<string, string>>({});
   const [name, setName] = useState("");
+  const [termName, setTermName] = useState("");
+  const [defaultTerms, setDefaultTerms] = useState("2");
+  const [calc, setCalc] = useState<{
+    termId: string;
+    name: string;
+    op: FormulaOp;
+    inputs: Record<string, string>;
+    n: string;
+  } | null>(null);
   const [busy, setBusy] = useState(false);
+  const terms = structure.data?.terms ?? [];
+  const groups: Array<{ term: Term | null; components: AssessmentType[] }> = [
+    ...terms.map((tm) => ({ term: tm as Term, components: tm.components })),
+    ...(structure.data && structure.data.unassigned.length > 0
+      ? [{ term: null, components: structure.data.unassigned }]
+      : []),
+  ];
   const weightOf = (a: AssessmentType) => weights[a.id] ?? num(a.weight);
-  const total = assessments.reduce((sum, a) => sum + (Number(weightOf(a)) || 0), 0);
+  const termWeightOf = (tm: Term) => termWeights[tm.id] ?? num(tm.weight);
+  const groupTotal = (components: AssessmentType[]) =>
+    components.reduce((sum, a) => sum + (Number(weightOf(a)) || 0), 0);
+  const termsTotal = terms.reduce((sum, tm) => sum + (Number(termWeightOf(tm)) || 0), 0);
+  const allGroupsOk = groups.every((g) => Math.abs(groupTotal(g.components) - 100) < 0.001);
   const run = async (f: () => Promise<unknown>) => {
     setBusy(true);
     try {
       await f();
       setWeights({});
+      setTermWeights({});
       onChanged();
+      await structure.reload();
       onSaved();
     } catch (err) {
       onError(err);
@@ -85,7 +109,7 @@ function AssessmentsCard({
       setBusy(false);
     }
   };
-  const add = (e: FormEvent) => {
+  const addEntered = (e: FormEvent, termId: string | null) => {
     e.preventDefault();
     if (!name.trim()) return;
     void run(() =>
@@ -94,107 +118,400 @@ function AssessmentsCard({
           academic_year_id: yearId,
           name: name.trim(),
           position: assessments.length,
+          term_id: termId ?? undefined,
         })
         .then(() => setName("")),
     );
   };
+  const addTerm = (e: FormEvent) => {
+    e.preventDefault();
+    if (!termName.trim()) return;
+    void run(() =>
+      api
+        .createTerm({ academic_year_id: yearId, name: termName.trim(), position: terms.length })
+        .then(() => setTermName("")),
+    );
+  };
+  const saveCalc = () => {
+    if (!calc) return;
+    const inputs = Object.entries(calc.inputs)
+      .filter(([, w]) => w !== "")
+      .map(([id, w]) => ({ assessment_type_id: id, weight: calc.op === "weighted" ? w : null }));
+    void run(() =>
+      api
+        .createAssessment({
+          academic_year_id: yearId,
+          name: calc.name.trim(),
+          position: assessments.length,
+          term_id: calc.termId,
+          kind: "calculated",
+          weight: "0",
+          formula: { op: calc.op, inputs, n: calc.op === "best_of" ? Number(calc.n) || 1 : null },
+        })
+        .then(() => setCalc(null)),
+    );
+  };
+  const formulaText = (a: AssessmentType) => {
+    if (!a.formula) return "";
+    const names = a.formula.inputs
+      .map((i) => {
+        const n = assessments.find((x) => x.id === i.assessment_type_id)?.name ?? "?";
+        return a.formula?.op === "weighted" && i.weight ? `${n} ×${num(i.weight)}` : n;
+      })
+      .join(", ");
+    return `${t(`exams.setup.op.${a.formula.op}`)}${a.formula.op === "best_of" ? ` (${a.formula.n ?? 1})` : ""}: ${names}`;
+  };
+  if (structure.loading && !structure.data) return <Spinner />;
   return (
     <Card title={t("exams.setup.assessments")} padded={false}>
-      <p className="px-4 pt-3 text-xs text-muted">{t("exams.setup.weightsHint")}</p>
-      {assessments.length === 0 ? (
+      <p className="px-4 pt-3 text-xs text-muted">{t("exams.setup.termWeightsHint")}</p>
+      {assessments.length === 0 && terms.length === 0 ? (
         <div className="p-4">
           <EmptyState
             title={t("exams.setup.assessments")}
             action={
               canEdit && (
-                <Button
-                  loading={busy}
-                  onClick={() => void run(() => api.defaultAssessments(yearId))}
-                >
-                  {t("exams.setup.addDefaults")}
-                </Button>
+                <div className="flex flex-wrap items-end gap-2">
+                  <Select
+                    label={t("exams.setup.defaultsTerms")}
+                    value={defaultTerms}
+                    onChange={(e) => setDefaultTerms(e.target.value)}
+                    options={[
+                      { value: "2", label: t("exams.setup.defaultsTwo") },
+                      { value: "1", label: t("exams.setup.defaultsOne") },
+                    ]}
+                    className="w-64"
+                  />
+                  <Button
+                    loading={busy}
+                    onClick={() =>
+                      void run(() => api.defaultAssessments(yearId, Number(defaultTerms)))
+                    }
+                  >
+                    {t("exams.setup.addDefaults")}
+                  </Button>
+                </div>
               )
             }
           />
         </div>
       ) : (
-        <table className="w-full text-sm">
-          <thead className="bg-hover text-xs uppercase tracking-wide text-muted">
-            <tr>
-              <th className="px-3 py-2 text-start">{t("exams.setup.name")}</th>
-              <th className="w-32 px-3 py-2 text-start">{t("exams.setup.weight")}</th>
-              <th className="px-3 py-2 text-end" />
-            </tr>
-          </thead>
-          <tbody>
-            {assessments.map((a) => (
-              <tr key={a.id} className="border-t border-border">
-                <td className="px-3 py-1.5">{a.name}</td>
-                <td className="px-3 py-1.5">
-                  <input
-                    aria-label={`${a.name}: ${t("exams.setup.weight")}`}
-                    inputMode="decimal"
-                    value={weightOf(a)}
-                    disabled={!canEdit}
-                    onChange={(e) => setWeights((w) => ({ ...w, [a.id]: e.target.value }))}
-                    className="h-7 w-20 rounded border border-border bg-card px-2 text-end tabular-nums"
-                  />
+        <div className="flex flex-col">
+          {terms.length > 0 && (
+            <table className="w-full text-sm" aria-label={t("exams.setup.terms")}>
+              <thead className="bg-hover text-xs uppercase tracking-wide text-muted">
+                <tr>
+                  <th className="px-3 py-2 text-start">{t("exams.setup.termName")}</th>
+                  <th className="w-32 px-3 py-2 text-start">{t("exams.setup.termWeight")}</th>
+                  <th className="px-3 py-2 text-end" />
+                </tr>
+              </thead>
+              <tbody>
+                {terms.map((tm) => (
+                  <tr key={tm.id} className="border-t border-border">
+                    <td className="px-3 py-1.5">{tm.name}</td>
+                    <td className="px-3 py-1.5">
+                      <input
+                        aria-label={`${tm.name}: ${t("exams.setup.termWeight")}`}
+                        inputMode="decimal"
+                        value={termWeightOf(tm)}
+                        disabled={!canEdit}
+                        onChange={(e) => setTermWeights((w) => ({ ...w, [tm.id]: e.target.value }))}
+                        className="h-7 w-20 rounded border border-border bg-card px-2 text-end tabular-nums"
+                      />
+                    </td>
+                    <td className="px-3 py-1.5 text-end">
+                      {canEdit && tm.components.length === 0 && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-danger"
+                          onClick={() => void run(() => api.deleteTerm(tm.id))}
+                        >
+                          {t("exams.setup.removeTerm")}
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t border-border text-xs">
+                  <td className="px-3 py-2 text-muted">
+                    {t("exams.setup.termWeightsTotal", { total: num(termsTotal) })}
+                  </td>
+                  <td colSpan={2} className="px-3 py-2 text-end">
+                    {canEdit && (
+                      <Button
+                        size="sm"
+                        loading={busy}
+                        disabled={Math.abs(termsTotal - 100) > 0.001}
+                        onClick={() =>
+                          void run(() =>
+                            api.setTermWeights(
+                              yearId,
+                              terms.map((tm) => ({ id: tm.id, weight: termWeightOf(tm) })),
+                            ),
+                          )
+                        }
+                      >
+                        {t("exams.setup.saveTermWeights")}
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          )}
+          {canEdit && (
+            <form onSubmit={addTerm} className="flex items-end gap-2 border-t border-border p-3">
+              <Input
+                label={t("exams.setup.addTerm")}
+                value={termName}
+                onChange={(e) => setTermName(e.target.value)}
+                className="w-56"
+              />
+              <Button type="submit" variant="secondary" disabled={!termName.trim()} loading={busy}>
+                {t("exams.setup.addTerm")}
+              </Button>
+            </form>
+          )}
+          <table className="w-full text-sm" aria-label={t("exams.setup.components")}>
+            <thead className="bg-hover text-xs uppercase tracking-wide text-muted">
+              <tr>
+                <th className="px-3 py-2 text-start">{t("exams.setup.name")}</th>
+                <th className="px-3 py-2 text-start">{t("exams.setup.kind")}</th>
+                <th className="w-32 px-3 py-2 text-start">{t("exams.setup.weight")}</th>
+                <th className="px-3 py-2 text-end" />
+              </tr>
+            </thead>
+            <tbody>
+              {groups.map((g) => (
+                <Fragment key={g.term?.id ?? "none"}>
+                  {groups.length > 1 && (
+                    <tr className="border-t border-border bg-bg">
+                      <th colSpan={4} className="px-3 py-1.5 text-start text-xs font-semibold">
+                        {g.term
+                          ? t("exams.setup.termTotal", {
+                              term: g.term.name,
+                              total: num(groupTotal(g.components)),
+                            })
+                          : "—"}
+                      </th>
+                    </tr>
+                  )}
+                  {g.components.map((a) => (
+                    <tr key={a.id} className="border-t border-border">
+                      <td className="px-3 py-1.5">
+                        {a.name}
+                        {a.kind === "calculated" && (
+                          <div className="text-2xs text-muted">{formulaText(a)}</div>
+                        )}
+                      </td>
+                      <td className="px-3 py-1.5 text-xs text-muted">
+                        {t(`exams.setup.kind.${a.kind}`)}
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <input
+                          aria-label={`${a.name}: ${t("exams.setup.weight")}`}
+                          inputMode="decimal"
+                          value={weightOf(a)}
+                          disabled={!canEdit}
+                          onChange={(e) => setWeights((w) => ({ ...w, [a.id]: e.target.value }))}
+                          className="h-7 w-20 rounded border border-border bg-card px-2 text-end tabular-nums"
+                        />
+                      </td>
+                      <td className="px-3 py-1.5 text-end">
+                        {canEdit && terms.length > 1 && (
+                          <select
+                            aria-label={`${a.name}: ${t("exams.setup.moveTo")}`}
+                            value={a.term_id ?? ""}
+                            onChange={(e) =>
+                              void run(() =>
+                                api.renameAssessment(a.id, {
+                                  name: a.name,
+                                  position: a.position,
+                                  term_id: e.target.value,
+                                }),
+                              )
+                            }
+                            className="me-2 h-7 rounded border border-border bg-card px-1 text-xs"
+                          >
+                            {terms.map((tm) => (
+                              <option key={tm.id} value={tm.id}>
+                                {tm.name}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                        {canEdit && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-danger"
+                            onClick={() => void run(() => api.deleteAssessment(a.id))}
+                          >
+                            {t("exams.setup.remove")}
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </Fragment>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t border-border text-xs">
+                <td colSpan={2} className="px-3 py-2 text-muted">
+                  {groups.length === 1
+                    ? t("exams.setup.weightsTotal", {
+                        total: num(groupTotal(groups[0]?.components ?? [])),
+                      })
+                    : t("exams.setup.weightsHint")}
                 </td>
-                <td className="px-3 py-1.5 text-end">
+                <td colSpan={2} className="px-3 py-2 text-end">
                   {canEdit && (
                     <Button
                       size="sm"
-                      variant="ghost"
-                      className="text-danger"
-                      onClick={() => void run(() => api.deleteAssessment(a.id))}
+                      loading={busy}
+                      disabled={!allGroupsOk}
+                      onClick={() =>
+                        void run(() =>
+                          api.setWeights(
+                            yearId,
+                            assessments.map((a) => ({ id: a.id, weight: weightOf(a) })),
+                          ),
+                        )
+                      }
                     >
-                      {t("exams.setup.remove")}
+                      {t("exams.setup.saveWeights")}
                     </Button>
                   )}
                 </td>
               </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr className="border-t border-border text-xs">
-              <td className="px-3 py-2 text-muted">
-                {t("exams.setup.weightsTotal", { total: num(total) })}
-              </td>
-              <td colSpan={2} className="px-3 py-2 text-end">
-                {canEdit && (
-                  <Button
-                    size="sm"
-                    loading={busy}
-                    disabled={Math.abs(total - 100) > 0.001}
-                    onClick={() =>
-                      void run(() =>
-                        api.setWeights(
-                          yearId,
-                          assessments.map((a) => ({ id: a.id, weight: weightOf(a) })),
-                        ),
-                      )
-                    }
-                  >
-                    {t("exams.setup.saveWeights")}
-                  </Button>
-                )}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
+            </tfoot>
+          </table>
+        </div>
       )}
-      {canEdit && (
-        <form onSubmit={add} className="flex items-end gap-2 border-t border-border p-3">
-          <Input
-            label={t("exams.setup.add")}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-56"
-          />
-          <Button type="submit" variant="secondary" disabled={!name.trim()} loading={busy}>
-            {t("exams.setup.add")}
-          </Button>
-        </form>
+      {canEdit && (assessments.length > 0 || terms.length > 0) && (
+        <div className="flex flex-col gap-2 border-t border-border p-3">
+          <form
+            onSubmit={(e) => addEntered(e, terms[0]?.id ?? null)}
+            className="flex flex-wrap items-end gap-2"
+          >
+            <Input
+              label={t("exams.setup.add")}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-56"
+            />
+            <Button type="submit" variant="secondary" disabled={!name.trim()} loading={busy}>
+              {t("exams.setup.add")}
+            </Button>
+            {terms.length > 0 && !calc && (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() =>
+                  setCalc({ termId: terms[0]!.id, name: "", op: "average", inputs: {}, n: "1" })
+                }
+              >
+                {t("exams.setup.addCalculated")}
+              </Button>
+            )}
+          </form>
+          {calc && (
+            <div
+              className="flex flex-col gap-2 rounded border border-border p-3"
+              data-testid="formula-editor"
+            >
+              <div className="flex flex-wrap items-end gap-2">
+                <Input
+                  label={t("exams.setup.name")}
+                  value={calc.name}
+                  onChange={(e) => setCalc({ ...calc, name: e.target.value })}
+                  className="w-48"
+                />
+                <Select
+                  label={t("exams.setup.termName")}
+                  value={calc.termId}
+                  onChange={(e) => setCalc({ ...calc, termId: e.target.value, inputs: {} })}
+                  options={terms.map((tm) => ({ value: tm.id, label: tm.name }))}
+                  className="w-40"
+                />
+                <Select
+                  label={t("exams.setup.formula")}
+                  value={calc.op}
+                  onChange={(e) => setCalc({ ...calc, op: e.target.value as FormulaOp })}
+                  options={(["sum", "average", "weighted", "best_of"] as const).map((op) => ({
+                    value: op,
+                    label: t(`exams.setup.op.${op}`),
+                  }))}
+                  className="w-52"
+                />
+                {calc.op === "best_of" && (
+                  <Input
+                    label={t("exams.setup.bestN")}
+                    type="number"
+                    min={1}
+                    value={calc.n}
+                    onChange={(e) => setCalc({ ...calc, n: e.target.value })}
+                    className="w-20"
+                  />
+                )}
+              </div>
+              <fieldset>
+                <legend className="mb-1 text-xs font-medium text-text">
+                  {t("exams.setup.inputs")}
+                </legend>
+                <div className="flex flex-wrap gap-3">
+                  {(terms.find((tm) => tm.id === calc.termId)?.components ?? []).map((a) => (
+                    <label key={a.id} className="flex items-center gap-1 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={a.id in calc.inputs}
+                        onChange={(e) => {
+                          const next = { ...calc.inputs };
+                          if (e.target.checked) next[a.id] = "1";
+                          else delete next[a.id];
+                          setCalc({ ...calc, inputs: next });
+                        }}
+                      />
+                      {a.name}
+                      {calc.op === "weighted" && a.id in calc.inputs && (
+                        <input
+                          aria-label={`${a.name}: ${t("exams.setup.inputWeight")}`}
+                          inputMode="decimal"
+                          value={calc.inputs[a.id]}
+                          onChange={(e) =>
+                            setCalc({ ...calc, inputs: { ...calc.inputs, [a.id]: e.target.value } })
+                          }
+                          className="h-6 w-14 rounded border border-border bg-card px-1 text-end"
+                        />
+                      )}
+                    </label>
+                  ))}
+                </div>
+                {Object.keys(calc.inputs).length === 0 && (
+                  <p className="text-xs text-muted">{t("exams.setup.noInputs")}</p>
+                )}
+              </fieldset>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  loading={busy}
+                  disabled={!calc.name.trim() || Object.keys(calc.inputs).length === 0}
+                  onClick={saveCalc}
+                >
+                  {t("action.save")}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setCalc(null)}>
+                  {t("action.cancel")}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </Card>
   );
