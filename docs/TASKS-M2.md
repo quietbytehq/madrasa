@@ -175,16 +175,16 @@ each (class test, assignment, mid-term, final) and calculated columns.
 
 ## Stage 7 — Allocation screens
 
-- [ ] Teacher allocation grid: sections down, subjects across, a cell is the teacher (or
+- [x] Teacher allocation grid: sections down, subjects across, a cell is the teacher (or
       empty); class teacher per section in the first column; filter by class; changes save
       one cell at a time and are audit-logged; a teacher's load (sections × subjects) shown
       per teacher
-- [ ] Bulk student moves: pick a class, see its sections with sizes and gender split, tick
+- [x] Bulk student moves: pick a class, see its sections with sizes and gender split, tick
       students and move them to another section (roll numbers reassigned or kept, by
       choice); "balance sections" proposes moves so sizes differ by at most one, shown as a
       preview before applying; every move audit-logged; attendance and marks already
       recorded stay with the student
-- [ ] Tests: balancing proposal (sizes, stability, no move of excluded students), moves
+- [x] Tests: balancing proposal (sizes, stability, no move of excluded students), moves
       with roll-number options, audit entries, permission (`academics.manage`,
       `students.manage`), vitest for both screens
 

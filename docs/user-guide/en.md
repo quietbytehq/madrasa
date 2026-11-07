@@ -58,6 +58,11 @@ list is in `docs/permissions.md`.
   section's sheet, fill the Group or Electives column, import, and undo if needed). The
   student's profile has a **Subjects** tab.
 
+- **Section moves**: Students → **Section moves** → pick a class. Tick students and move them
+  to another section (roll numbers reassigned or kept), or click **Balance sections** to see a
+  proposal that evens out the sections, then apply it. Ticked students are never moved by the
+  proposal. Attendance and marks already recorded stay with the student.
+
 ## 3. Fees
 
 - **Fees → Setup**: fee heads (tuition, exam, transport, admission…), the fee structure per
@@ -123,6 +128,11 @@ list is in `docs/permissions.md`.
   again. Changed or damaged files are refused.
 - Changing the backup password applies to new backups only; old files open with the password
   that was in use when they were made, or with the recovery key.
+
+- **Teacher allocation**: Teachers → **Teacher allocation** shows a grid with sections down
+  and subjects across; pick the teacher of each subject and the class teacher of each
+  section. Each change is saved at once, and the teaching load of every teacher is listed
+  below the grid.
 
 ## 7. End of the academic year
 

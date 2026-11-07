@@ -1146,6 +1146,44 @@ export const en = {
   "subjects.alloc.row": "Row",
   "subjects.alloc.changes": "Will change",
   "subjects.alloc.unchanged": "No change",
+
+  // Allocation screens (M2 stage 7)
+  "alloc.teachers.title": "Teacher allocation",
+  "alloc.teachers.hint":
+    "Sections down, subjects across. Pick the teacher of each subject in each section; the class teacher is in the first column. Each change is saved at once.",
+  "alloc.teachers.classTeacher": "Class teacher",
+  "alloc.teachers.section": "Section",
+  "alloc.teachers.none": "—",
+  "alloc.teachers.notTaught": "Not taught",
+  "alloc.teachers.load": "Teaching load",
+  "alloc.teachers.loadHint": "Subject cells and class-teacher duties per teacher across the year.",
+  "alloc.teachers.cells": "{cells} cells",
+  "alloc.teachers.classTeacherOf": "class teacher of {n}",
+  "alloc.teachers.saved": "Saved.",
+  "alloc.teachers.anyClass": "All classes",
+  "alloc.moves.title": "Section moves",
+  "alloc.moves.hint":
+    "Tick students and move them to another section of the class, or let Madrasa propose moves that balance the sections. Attendance and marks already recorded stay with the student.",
+  "alloc.moves.pickClass": "Pick a class",
+  "alloc.moves.size": "{size} students",
+  "alloc.moves.genders": "{male} boys · {female} girls",
+  "alloc.moves.capacity": "Capacity {capacity}",
+  "alloc.moves.moveTo": "Move to",
+  "alloc.moves.move": "Move {n} students",
+  "alloc.moves.moved": "{n} students moved.",
+  "alloc.moves.rollNumbers": "Roll numbers",
+  "alloc.moves.rollReassign": "Give the next free number in the new section",
+  "alloc.moves.rollKeep": "Keep the old number",
+  "alloc.moves.balance": "Balance sections",
+  "alloc.moves.balanceTitle": "Proposed moves",
+  "alloc.moves.balanceNone": "The sections are already balanced.",
+  "alloc.moves.balanceHint":
+    "Sizes will differ by at most one. Ticked students are never moved. Review the list, then apply.",
+  "alloc.moves.apply": "Apply moves",
+  "alloc.moves.sizes": "Sizes after",
+  "alloc.moves.from": "From",
+  "alloc.moves.to": "To",
+  "alloc.moves.oneSection": "This class has only one section.",
 } as const;
 
 export type TranslationKey = keyof typeof en;

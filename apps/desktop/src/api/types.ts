@@ -1737,3 +1737,96 @@ export interface AllocationImportPreview {
   rows: AllocationImportRow[];
   summary: AllocationImportSummary;
 }
+
+// ---- Allocation screens (M2 stage 7) ------------------------------------------------------
+
+export interface GridSubject {
+  id: string;
+  name: string;
+  code: string;
+}
+
+export interface GridCell {
+  subject_id: string;
+  staff_id: string | null;
+  staff_name: string | null;
+  extra: number;
+}
+
+export interface GridSection {
+  section_id: string;
+  class_id: string;
+  class_name: string;
+  section_name: string;
+  class_teacher_id: string | null;
+  class_teacher_name: string | null;
+  subject_ids: string[];
+  cells: GridCell[];
+}
+
+export interface GridStaff {
+  id: string;
+  full_name: string;
+  designation: string;
+  cells: number;
+  class_teacher_of: number;
+}
+
+export interface TeacherGrid {
+  academic_year_id: string;
+  subjects: GridSubject[];
+  sections: GridSection[];
+  staff: GridStaff[];
+}
+
+export interface SectionStudent {
+  student_id: string;
+  enrollment_id: string;
+  section_id: string;
+  student_number: string;
+  full_name: string;
+  gender: Gender;
+  roll_no: number | null;
+}
+
+export interface MoveSection {
+  section_id: string;
+  name: string;
+  capacity: number | null;
+  class_teacher_name: string | null;
+  size: number;
+  male: number;
+  female: number;
+  other: number;
+  students: SectionStudent[];
+}
+
+export interface ClassSections {
+  academic_year_id: string;
+  class_id: string;
+  class_name: string;
+  sections: MoveSection[];
+}
+
+export interface PlannedMove {
+  student_id: string;
+  full_name: string;
+  student_number: string;
+  roll_no: number | null;
+  from_section_id: string;
+  from_name: string;
+  to_section_id: string;
+  to_name: string;
+}
+
+export interface BalancePreview {
+  moves: PlannedMove[];
+  sizes: Array<{ section_id: string; name: string; before: number; after: number }>;
+}
+
+export type RollNumbersMode = "keep" | "reassign";
+
+export interface MovesApplied {
+  moved: number;
+  view: ClassSections;
+}

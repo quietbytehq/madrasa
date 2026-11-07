@@ -781,6 +781,24 @@ depend on each other and were built together)
   totals and analysis, report cards, import with errors, apply, rollback, group removal);
   vitest `allocation.test.tsx`; schema rules test and `backup` migration count → 15.
 
+### 2026-11-07 — Stage 7: Allocation screens (branch `dev/m2-stage-7-allocation`)
+- `madrasa_core::allocation::balance`: the section-balancing proposal (sizes within one,
+  remainder with the largest, moves from the end of the roll, excluded students untouched,
+  deterministic).
+- `madrasa_db::allocation`: teacher cells of a year, `set_cell_teacher` (audited), class
+  rosters with gender, next free roll number.
+- API `routes/allocation.rs`: teacher grid with loads, cell update, class sections view,
+  balance preview, moves (keep or reassign roll numbers) through `students::enrol`.
+- UI: Teachers → **Teacher allocation** (sections × subjects grid with a select per cell,
+  class teacher column, class filter, teaching load list); Students → **Section moves**
+  (section cards with size, gender split and capacity, tick students, move to a section with
+  the roll-number choice, **Balance sections** preview dialog and apply).
+- Tests: core unit tests; integration `crates/api/tests/allocation.rs` (grid, cell set/replace/
+  clear, loads, agreement with the staff assignment list, refusal of an untaught subject,
+  audit entries, sections view, balance preview with an excluded student, apply with
+  reassigned and kept roll numbers, cross-class refusal, teacher 403); vitest
+  `moves.test.tsx`.
+
 ## Summary for the owner — Stages 5, 6 and 7 (night run of 2026-10-30/31)
 
 All three stages are merged into `main` in order (pull requests #6, #7 and #8),

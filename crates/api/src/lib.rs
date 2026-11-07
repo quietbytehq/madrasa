@@ -48,6 +48,7 @@ pub fn router(state: AppState) -> Router {
         .merge(routes::exams::router())
         .merge(routes::exam_terms::router())
         .merge(routes::subjects::router())
+        .merge(routes::allocation::router())
         .merge(routes::backup::router())
         .merge(routes::boards::router())
         .merge(routes::imports::router())

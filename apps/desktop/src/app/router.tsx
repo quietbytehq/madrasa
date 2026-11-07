@@ -19,6 +19,8 @@ import { StudentFormPage } from "@/pages/students/StudentForm";
 import { StudentProfile } from "@/pages/students/StudentProfile";
 import { StudentsPage } from "@/pages/students/StudentsPage";
 import { SubjectAllocationPage } from "@/pages/students/SubjectAllocationPage";
+import { SectionMovesPage } from "@/pages/students/SectionMovesPage";
+import { TeacherAllocationPage } from "@/pages/staff/TeacherAllocationPage";
 import { Spinner } from "@/components/ui/Spinner";
 import { NAV_ITEMS } from "./navigation";
 import { useFeatures } from "./features";
@@ -90,6 +92,14 @@ export function AppRoutes({ login, setup }: AppRoutesProps) {
             <Route path="/students" element={<StudentsPage />} />
             <Route path="/students/new" element={<StudentFormPage />} />
             <Route path="/students/subjects" element={<SubjectAllocationPage />} />
+            <Route
+              path="/students/sections"
+              element={
+                <RequirePermission permission="students.manage">
+                  <SectionMovesPage />
+                </RequirePermission>
+              }
+            />
             <Route path="/students/:id" element={<StudentProfile />} />
             <Route path="/students/:id/edit" element={<StudentFormPage />} />
             <Route
@@ -144,6 +154,16 @@ export function AppRoutes({ login, setup }: AppRoutesProps) {
             element={
               <RequirePermission permission="backup.manage">
                 <BackupPage />
+              </RequirePermission>
+            }
+          />
+        )}
+        {has("teachers") && (
+          <Route
+            path="/teachers/allocation"
+            element={
+              <RequirePermission permission="teachers.read">
+                <TeacherAllocationPage />
               </RequirePermission>
             }
           />

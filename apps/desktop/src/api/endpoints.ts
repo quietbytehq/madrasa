@@ -117,6 +117,11 @@ import type {
   AllocationImportRequest,
   AllocationImportPreview,
   AllocationImportSummary,
+  TeacherGrid,
+  ClassSections,
+  BalancePreview,
+  RollNumbersMode,
+  MovesApplied,
 } from "./types";
 
 function qs(params: object): string {
@@ -536,6 +541,26 @@ export const api = {
       "/subject-allocations/import/apply",
       { method: "POST", body },
     ),
+  // Allocation screens (M2 stage 7)
+  teacherGrid: (params: { academic_year_id?: string; class_id?: string } = {}) =>
+    request<TeacherGrid>(`/allocation/teachers${qs(params)}`),
+  setTeacherCell: (body: { section_id: string; subject_id: string; staff_id: string | null }) =>
+    request<void>("/allocation/teachers/cell", { method: "PUT", body }),
+  classSections: (classId: string, academicYearId?: string) =>
+    request<ClassSections>(
+      `/allocation/sections${qs({ class_id: classId, academic_year_id: academicYearId })}`,
+    ),
+  balanceSections: (body: {
+    class_id: string;
+    academic_year_id?: string;
+    exclude_student_ids?: string[];
+  }) => request<BalancePreview>("/allocation/balance", { method: "POST", body }),
+  moveStudents: (body: {
+    class_id: string;
+    academic_year_id?: string;
+    moves: Array<{ student_id: string; to_section_id: string }>;
+    roll_numbers: RollNumbersMode;
+  }) => request<MovesApplied>("/allocation/moves", { method: "POST", body }),
   importBatches: () => request<ImportBatch[]>("/imports/batches"),
   rollbackImport: (id: string) =>
     request<ImportBatch>(`/imports/batches/${id}/rollback`, { method: "POST", body: {} }),

@@ -111,6 +111,11 @@ export function StudentsPage() {
               {t("subjects.alloc.title")}
             </Button>
             {can("students.manage") && (
+              <Button variant="secondary" onClick={() => navigate("/students/sections")}>
+                {t("alloc.moves.title")}
+              </Button>
+            )}
+            {can("students.manage") && (
               <Button variant="secondary" onClick={() => navigate("/import")}>
                 {t("import.title")}
               </Button>
