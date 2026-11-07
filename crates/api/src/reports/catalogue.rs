@@ -51,6 +51,8 @@ pub enum ParamKind {
     Number,
     /// A student number as printed on vouchers.
     StudentNumber,
+    /// A board exam id of the chosen year.
+    BoardExam,
 }
 
 /// Who may run a report. Office roles hold `reports.read`; teachers may run attendance and
@@ -89,6 +91,7 @@ impl ParamDef {
                 ParamKind::Assessment => "param.assessment",
                 ParamKind::Number => "param.top_n",
                 ParamKind::StudentNumber => "param.student_number",
+                ParamKind::BoardExam => "param.board_exam",
             },
         }
     }
@@ -176,6 +179,11 @@ const TOP: ParamDef = ParamDef {
 const STUDENT: ParamDef = ParamDef {
     name: "student_number",
     kind: ParamKind::StudentNumber,
+    required: true,
+};
+const BOARD_EXAM: ParamDef = ParamDef {
+    name: "board_exam_id",
+    kind: ParamKind::BoardExam,
     required: true,
 };
 
@@ -355,6 +363,35 @@ pub const REPORTS: &[ReportDef] = &[
         code: "exams.report_cards",
         module: Module::Exams,
         params: &[YEAR, CLASS_REQ, SECTION_REQ],
+        landscape: false,
+        access: Access::ExamsRead,
+    },
+    // ---- Board results
+    ReportDef {
+        code: "exams.board_sheet",
+        module: Module::Exams,
+        params: &[YEAR, BOARD_EXAM, CLASS],
+        landscape: true,
+        access: Access::ExamsRead,
+    },
+    ReportDef {
+        code: "exams.board_merit",
+        module: Module::Exams,
+        params: &[YEAR, BOARD_EXAM, CLASS, TOP],
+        landscape: false,
+        access: Access::ExamsRead,
+    },
+    ReportDef {
+        code: "exams.board_pass",
+        module: Module::Exams,
+        params: &[YEAR, BOARD_EXAM, CLASS],
+        landscape: false,
+        access: Access::ExamsRead,
+    },
+    ReportDef {
+        code: "exams.board_card",
+        module: Module::Exams,
+        params: &[YEAR, BOARD_EXAM, STUDENT],
         landscape: false,
         access: Access::ExamsRead,
     },

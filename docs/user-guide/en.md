@@ -118,6 +118,18 @@ teachers, the fee structure and assessment types are copied, and unpaid balances
 the new year's first voucher. Tick the students who repeat their class or leave, then confirm.
 The old year stays readable.
 
+## 7a. Examination boards
+
+**Examinations → Boards** keeps the results of external boards (BISE, Federal Board, AKU-EB
+and others) next to the school's own. Add the board once with its grade bands and pass
+percentage, then an exam for the year (the classes that sit it and its papers with maximum
+marks), register the candidates (a whole class in one click; roll numbers come from the
+student record and can be edited), and when the board publishes its results import the
+file: Madrasa matches the columns, checks every row (unknown roll numbers, marks over the
+maximum) and imports only when the file is clean; an import can be undone. The result sheet
+shows totals, grades, pass/fail and positions; the student's profile shows their board
+result, and Reports has the board sheet, merit list, pass rates and a per-student result.
+
 ## 8. Reports
 
 **Reports** in the sidebar lists the built-in reports by module. Pick one, set its options

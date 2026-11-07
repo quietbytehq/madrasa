@@ -7,6 +7,7 @@ pub mod academics;
 pub mod attendance;
 pub mod audit;
 pub mod backup;
+pub mod boards;
 pub mod custom_fields;
 pub mod exams;
 pub mod fees;

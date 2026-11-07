@@ -14,7 +14,8 @@ use crate::auth::CurrentUser;
 use crate::export::file_response;
 use crate::reports::catalogue::{Access, ReportDef};
 use crate::reports::{
-    attendance, builder, catalogue, exams, fees, pdf, students, Context, Lang, Params, Report,
+    attendance, boards, builder, catalogue, exams, fees, pdf, students, Context, Lang, Params,
+    Report,
 };
 use crate::{ApiError, ApiResult, AppState};
 use madrasa_db::report_definitions::{self as defs, ReportDefinition};
@@ -119,6 +120,10 @@ pub async fn build(
         "exams.grades" => exams::grades(&mut c, user, &ctx, params).await?,
         "exams.failing" => exams::failing(&mut c, user, &ctx, params).await?,
         "exams.report_cards" => exams::report_cards(&mut c, user, &ctx, params).await?,
+        "exams.board_sheet" => boards::sheet(&mut c, user, &ctx, params).await?,
+        "exams.board_merit" => boards::merit(&mut c, user, &ctx, params).await?,
+        "exams.board_pass" => boards::pass_rates(&mut c, user, &ctx, params).await?,
+        "exams.board_card" => boards::card(&mut c, user, &ctx, params).await?,
         _ => return Err(ApiError::not_found("report")),
     };
     audit::record(

@@ -3,6 +3,7 @@ pub mod attendance;
 pub mod audit;
 pub mod auth;
 pub mod backup;
+pub mod boards;
 pub mod exams;
 pub mod export;
 pub mod fees;

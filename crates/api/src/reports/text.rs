@@ -328,6 +328,20 @@ const TEXTS: &[(&str, &str, &str)] = &[
     ("op.is_false", "no", "نہیں"),
     ("note.limit", "Only the first rows are shown; the limit is", "صرف ابتدائی قطاریں دکھائی گئی ہیں؛ حد ہے"),
     ("module.custom", "Custom reports", "اپنی رپورٹس"),
+    // Boards (stage 4)
+    ("param.board", "Board", "بورڈ"),
+    ("param.board_exam", "Board exam", "بورڈ امتحان"),
+    ("col.board_roll_no", "Board roll no.", "بورڈ رول نمبر"),
+    ("value.withheld", "Withheld", "روکا گیا"),
+    ("value.pending", "Awaited", "منتظر"),
+    ("report.exams.board_sheet", "Board result sheet", "بورڈ نتیجہ شیٹ"),
+    ("report.exams.board_sheet.desc", "Every candidate of a board exam: marks per paper, total, percentage, grade, result and position.", "بورڈ امتحان کے تمام امیدوار: ہر پرچے کے نمبر، کل، فیصد، گریڈ، نتیجہ اور پوزیشن۔"),
+    ("report.exams.board_merit", "Board merit list", "بورڈ میرٹ لسٹ"),
+    ("report.exams.board_merit.desc", "Top candidates of a board exam by percentage.", "فیصد کے لحاظ سے بورڈ امتحان کے اوّل امیدوار۔"),
+    ("report.exams.board_pass", "Board pass rates", "بورڈ کامیابی کی شرح"),
+    ("report.exams.board_pass.desc", "Appeared, passed and pass percentage by paper and by section.", "پرچے اور سیکشن کے لحاظ سے شریک، کامیاب اور کامیابی کا فیصد۔"),
+    ("report.exams.board_card", "Student board result", "طالب علم کا بورڈ نتیجہ"),
+    ("report.exams.board_card.desc", "One candidate's board result: every paper, total, grade and position.", "ایک امیدوار کا بورڈ نتیجہ: ہر پرچہ، کل، گریڈ اور پوزیشن۔"),
 ];
 
 /// The text for a key, or the key itself (never panics; the test below keeps keys complete).

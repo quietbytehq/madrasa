@@ -106,29 +106,29 @@ Pakistani schools send classes 9–12 to an examination board (BISE, Federal Boa
 and others); the school keeps the board's results next to its own. The same model covers
 any external examination (Cambridge, a provincial assessment).
 
-- [ ] Boards (`exam_boards`): name, short code, country, grading mode (marks, grades or
+- [x] Boards (`exam_boards`): name, short code, country, grading mode (marks, grades or
       both), default grade bands, pass percentage; created and edited under Examinations →
       Boards (`academics.manage`)
-- [ ] Board exams (`board_exams`): per board and academic year: name (e.g. "SSC Part I
+- [x] Board exams (`board_exams`): per board and academic year: name (e.g. "SSC Part I
       Annual 2026"), the classes that sit it, the subjects with maximum marks (board subject
       names may differ from the school's; each is matched to a school subject or kept as a
       board-only subject), status (announced, results imported, closed)
-- [ ] Candidates (`board_candidates`): students registered for a board exam with roll number,
+- [x] Candidates (`board_candidates`): students registered for a board exam with roll number,
       registration number and group (Science, Commerce, Arts…); bulk registration from a
       class or section; roll and registration numbers pre-filled from the student record
-- [ ] Results (`board_results`): per candidate and subject: obtained, maximum, grade, status
+- [x] Results (`board_results`): per candidate and subject: obtained, maximum, grade, status
       (pass, fail, absent, withheld) and remarks; totals, percentage, overall grade and
       position computed from the board's rules
-- [ ] Import of board results from Excel/CSV through the import wizard engine: both layouts
+- [x] Import of board results from Excel/CSV through the import wizard engine: both layouts
       (one row per candidate with a column per subject; one row per candidate and subject),
       matched by roll number (then registration number), column mapping saved per board,
       preview with row errors (unknown roll, subject not in the exam, marks over maximum),
       commit as a batch with rollback; audit-logged
-- [ ] Reports (library): board result sheet per exam and class, board merit list, pass
+- [x] Reports (library): board result sheet per exam and class, board merit list, pass
       percentage by subject and by section, student board result card; the student profile's
       Results tab shows board results under the school's own
-- [ ] Demo data: one board with two exams and results for classes 9–10
-- [ ] Tests: board rules (totals, grades, pass/fail, positions) in `madrasa_core`; import of
+- [x] Demo data: one board with two exams and results for classes 9–10
+- [x] Tests: board rules (totals, grades, pass/fail, positions) in `madrasa_core`; import of
       both layouts with errors and rollback; permission tests; vitest for the Boards tab and
       the import flow
 

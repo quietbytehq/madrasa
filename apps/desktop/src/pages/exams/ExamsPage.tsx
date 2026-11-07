@@ -9,12 +9,14 @@ import { MarksTab } from "./tabs/MarksTab";
 import { ReportCardsTab } from "./tabs/ReportCardsTab";
 import { ResultsTab } from "./tabs/ResultsTab";
 import { SetupTab } from "./tabs/SetupTab";
+import { BoardsTab } from "./tabs/BoardsTab";
 
 const TABS: Array<{ key: string; labelKey: TranslationKey; permission: string }> = [
   { key: "marks", labelKey: "exams.tabs.marks", permission: "exams.read" },
   { key: "results", labelKey: "exams.tabs.results", permission: "exams.read" },
   { key: "cards", labelKey: "exams.tabs.reportCards", permission: "exams.read" },
   { key: "setup", labelKey: "exams.tabs.setup", permission: "exams.read" },
+  { key: "boards", labelKey: "exams.tabs.boards", permission: "exams.read" },
 ];
 
 export function ExamsPage() {
@@ -62,6 +64,7 @@ export function ExamsPage() {
         {tab === "results" && <ResultsTab />}
         {tab === "cards" && <ReportCardsTab />}
         {tab === "setup" && <SetupTab />}
+        {tab === "boards" && <BoardsTab />}
       </div>
     </>
   );
