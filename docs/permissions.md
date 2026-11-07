@@ -34,6 +34,8 @@ Legend: ✓ granted by default · — not granted.
 | `reports.read` | Reports (built-in and custom; teachers run attendance and exam reports for their own sections with the module's read permission) | ✓ | ✓ | ✓ | — |
 | `reports.manage` | Save shared custom reports (others may run them) | ✓ | ✓ | — | — |
 | `backup.manage` | Backup settings, run, restore, password | ✓ | ✓ | — | — |
+| `timetable.read` | See timetables (by section, teacher, room), the cover sheet, own timetable (Standard) | ✓ | ✓ | ✓ | ✓ |
+| `timetable.manage` | Shifts, rooms, lessons, rules, generate, edit and publish timetables, record absences and covers (Standard) | ✓ | ✓ | — | — |
 | `nexus.admin` | Network hub (Nexus edition only) | — | — | — | — |
 
 Notes

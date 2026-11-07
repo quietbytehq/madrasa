@@ -29,13 +29,6 @@ pub fn headers(kind: &str) -> &'static [&'static str] {
     }
 }
 
-const HELP: [(&str, &str); 5] = [
-    ("Subjects", "Name and Short name are required. Colour is optional, e.g. #1F6F6B."),
-    ("Teachers", "Shifts: names separated by commas, e.g. Morning, Afternoon. Empty means all shifts. The four limits are optional."),
-    ("Classes", "Shift must be one of your shifts. Class teacher and Home classroom must already exist (name or short name)."),
-    ("Rooms", "Building is created automatically if it is new. Capacity is optional."),
-    ("Lessons", "Teachers, Classes and Rooms: separated by commas. To use one group of a class write Class:Group, e.g. 5A:Boys. Periods per session is 1, 2 or 3."),
-];
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
