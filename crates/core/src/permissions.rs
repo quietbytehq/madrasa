@@ -73,6 +73,11 @@ pub enum Permission {
     ReportsManage,
     #[serde(rename = "backup.manage")]
     BackupManage,
+    // Timetable (Standard stage 1)
+    #[serde(rename = "timetable.read")]
+    TimetableRead,
+    #[serde(rename = "timetable.manage")]
+    TimetableManage,
     // Nexus
     #[serde(rename = "nexus.admin")]
     NexusAdmin,
@@ -105,6 +110,8 @@ impl Permission {
         Permission::ReportsRead,
         Permission::ReportsManage,
         Permission::BackupManage,
+        Permission::TimetableRead,
+        Permission::TimetableManage,
         Permission::NexusAdmin,
     ];
 
@@ -135,6 +142,8 @@ impl Permission {
             Permission::ReportsRead => "reports.read",
             Permission::ReportsManage => "reports.manage",
             Permission::BackupManage => "backup.manage",
+            Permission::TimetableRead => "timetable.read",
+            Permission::TimetableManage => "timetable.manage",
             Permission::NexusAdmin => "nexus.admin",
         }
     }
@@ -252,6 +261,8 @@ impl RoleCode {
                 ReportsRead,
                 ReportsManage,
                 BackupManage,
+                TimetableRead,
+                TimetableManage,
             ],
             RoleCode::Accountant => {
                 vec![
@@ -261,6 +272,7 @@ impl RoleCode {
                     FeesRead,
                     FeesManage,
                     ReportsRead,
+                    TimetableRead,
                 ]
             }
             RoleCode::Teacher => vec![
@@ -272,6 +284,7 @@ impl RoleCode {
                 AttendanceManage,
                 ExamsRead,
                 ExamsManage,
+                TimetableRead,
             ],
             RoleCode::Parent => vec![SchoolRead],
         }

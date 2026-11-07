@@ -1331,7 +1331,7 @@ export interface RolloverReport {
 // ---- Reports (M2 stage 1) --------------------------------------------------------------------
 
 export type ReportLang = "en" | "ur";
-export type ReportModule = "students" | "fees" | "attendance" | "exams";
+export type ReportModule = "students" | "fees" | "attendance" | "exams" | "timetable";
 export type ReportParamKind =
   | "academic_year"
   | "class"
@@ -1347,7 +1347,7 @@ export type ReportParamKind =
   | "board_exam"
   | "consent_type";
 
-export type ReportAccess = "reports_read" | "attendance_read" | "exams_read";
+export type ReportAccess = "reports_read" | "attendance_read" | "exams_read" | "timetable_read";
 
 export interface ReportParamDef {
   name: string;
@@ -1970,4 +1970,445 @@ export interface ConsentBulkLine {
   status: ConsentStatus;
   guardian_id?: string | null;
   note?: string;
+}
+
+// ---- Timetable (Standard stage 1) --------------------------------------------------------------
+// Mirrors crates/api/src/routes/timetable.rs and crates/db/src/timetable.rs. Objects produced
+// by the scheduling engine (check findings, slot options, cover days, the generator report)
+// keep its camelCase keys.
+
+export interface ShiftDay {
+  working: boolean;
+  periods: number;
+}
+
+export interface PeriodTime {
+  start: string;
+  end: string;
+}
+
+export interface ShiftBreak {
+  after_period: number;
+  name: string;
+  cannot_cross: boolean;
+}
+
+export interface TimetableShift {
+  id: string;
+  school_id: string;
+  academic_year_id: string;
+  name: string;
+  enabled: boolean;
+  /** Seven entries, Monday first. */
+  days: ShiftDay[];
+  period_times: PeriodTime[];
+  breaks: ShiftBreak[];
+  position: number;
+  hlc: string;
+}
+
+export interface ShiftBody {
+  academic_year_id?: string;
+  name: string;
+  enabled: boolean;
+  days: ShiftDay[];
+  period_times: PeriodTime[];
+  breaks: ShiftBreak[];
+  position?: number;
+}
+
+export interface Room {
+  id: string;
+  school_id: string;
+  name: string;
+  short_name: string;
+  building: string;
+  capacity: number | null;
+  hlc: string;
+}
+
+export interface RoomBody {
+  name: string;
+  short_name?: string;
+  building?: string;
+  capacity?: number | null;
+}
+
+export interface TimetableLesson {
+  id: string;
+  school_id: string;
+  academic_year_id: string;
+  subject_id: string;
+  teacher_ids: string[];
+  section_ids: string[];
+  room_ids: string[];
+  periods_per_card: number;
+  cards_per_week: number;
+  hlc: string;
+}
+
+export interface LessonView extends TimetableLesson {
+  subject: string;
+  subject_short: string;
+  teachers: string[];
+  sections: string[];
+  rooms: string[];
+}
+
+export interface LessonBody {
+  academic_year_id?: string;
+  subject_id: string;
+  teacher_ids: string[];
+  section_ids: string[];
+  room_ids: string[];
+  periods_per_card: number;
+  cards_per_week: number;
+}
+
+export interface TimeOffCell {
+  shift_id: string;
+  /** 0 = Monday. */
+  day: number;
+  /** 1-based. */
+  period: number;
+  /** 1 = avoid, 2 = never. */
+  state: number;
+}
+
+export interface TeacherLimits {
+  max_per_day?: number | null;
+  max_per_week?: number | null;
+  max_consecutive?: number | null;
+  max_days_per_week?: number | null;
+}
+
+export interface SchoolRules {
+  default_max_per_day: number | null;
+  default_max_per_week: number | null;
+  max_same_subject_per_day: number;
+  allow_relaxation: boolean;
+  improve_seconds: number;
+}
+
+export type RuleKind = "school" | "teacher" | "section" | "room";
+
+export interface TimetableRule {
+  id: string;
+  school_id: string;
+  academic_year_id: string;
+  kind: RuleKind;
+  entity_id: string | null;
+  shift_ids: string[];
+  home_room_id: string | null;
+  time_off: TimeOffCell[];
+  limits: TeacherLimits | SchoolRules | Record<string, never>;
+  hlc: string;
+}
+
+export interface RuleBody {
+  academic_year_id?: string;
+  kind: RuleKind;
+  entity_id?: string | null;
+  shift_ids?: string[];
+  home_room_id?: string | null;
+  time_off?: TimeOffCell[];
+  limits?: TeacherLimits | SchoolRules | Record<string, never>;
+}
+
+export interface Named {
+  id: string;
+  name: string;
+  class_id?: string;
+  code?: string;
+}
+
+export interface CheckFinding {
+  level: "error" | "warning";
+  kind: string;
+  title: string;
+  message: string;
+  fix: string;
+}
+
+export interface CheckReport {
+  errors: number;
+  warnings: number;
+  cards: number;
+  periods: number;
+  findings: CheckFinding[];
+}
+
+export interface LoadRow {
+  id: string;
+  name: string;
+  used: number;
+  available: number;
+}
+
+export interface LoadSummary {
+  cards: number;
+  classes: LoadRow[];
+  teachers: LoadRow[];
+}
+
+export type TimetableStatus = "draft" | "published";
+
+export interface Timetable {
+  id: string;
+  school_id: string;
+  academic_year_id: string;
+  name: string;
+  status: TimetableStatus;
+  report: GenerationReportView | null;
+  generated_at: string | null;
+  created_at: string;
+  hlc: string;
+}
+
+export interface TimetableSetup {
+  academic_year: AcademicYear;
+  shifts: TimetableShift[];
+  rooms: Room[];
+  lessons: LessonView[];
+  rules: TimetableRule[];
+  sections: Named[];
+  teachers: Named[];
+  subjects: Named[];
+  timetables: Timetable[];
+  published_id: string | null;
+  check: CheckReport;
+  load: LoadSummary;
+  school_rules: SchoolRules;
+}
+
+export interface UnplacedCard {
+  lessonId: string;
+  number: number;
+  title: string;
+  message: string;
+  fix: string;
+}
+
+export interface QualityItem {
+  key: string;
+  label: string;
+  value: number;
+  weight: number;
+}
+
+export interface GenerationReportView {
+  total: number;
+  placed: number;
+  unplaced: UnplacedCard[];
+  seconds: number;
+  cancelled: boolean;
+  timedOut: boolean;
+  qualityBefore: { items: QualityItem[]; penalty: number };
+  qualityAfter: { items: QualityItem[]; penalty: number };
+  relaxed: { kind: string; message: string }[];
+  locksInTheWay?: unknown[];
+}
+
+export type JobStatus = "running" | "done" | "failed";
+
+export interface TimetableJob {
+  id: string;
+  timetable_id: string;
+  academic_year_id: string;
+  status: JobStatus;
+  phase: string;
+  placed: number;
+  total: number;
+  fraction: number;
+  error: string | null;
+  report: GenerationReportView | null;
+}
+
+export interface GenerateBody {
+  academic_year_id?: string;
+  timetable_id?: string;
+  name?: string;
+  time_limit_seconds: number;
+  improve_seconds?: number;
+  seed?: number;
+}
+
+export interface TimetableCard {
+  id: string;
+  timetable_id: string;
+  lesson_id: string;
+  number: number;
+  shift_id: string;
+  day: number;
+  period: number;
+  length: number;
+  room_id: string | null;
+  locked: boolean;
+}
+
+export interface CoverDuty {
+  date: string;
+  shift_id: string;
+  period: number;
+  length: number;
+  lesson_id: string;
+  subject: string;
+  sections: string[];
+  absent_teacher: string;
+}
+
+export interface TimetableView {
+  timetable: Timetable | null;
+  academic_year: AcademicYear;
+  shifts: TimetableShift[];
+  lessons: LessonView[];
+  cards: TimetableCard[];
+  rooms: Room[];
+  sections: Named[];
+  teachers: Named[];
+  problems: string[];
+  job: TimetableJob | null;
+  covers: CoverDuty[];
+  today: number | null;
+}
+
+export interface RoomOption {
+  id: string;
+  name: string;
+  free: boolean;
+}
+
+export interface SlotOption {
+  shift: string;
+  day: number;
+  period: number;
+  status: "ok" | "soft" | "blocked";
+  reasons: string[];
+  rooms: RoomOption[];
+}
+
+export interface SwapOption {
+  lessonId: string;
+  number: number;
+  ok: boolean;
+  reasons: string[];
+}
+
+export interface PeriodRef {
+  shift_id: string;
+  period: number;
+}
+
+export interface TimetableAbsence {
+  id: string;
+  school_id: string;
+  academic_year_id: string;
+  staff_id: string;
+  from_date: string;
+  to_date: string;
+  periods: PeriodRef[];
+  note: string;
+  hlc: string;
+}
+
+export interface AbsenceView extends TimetableAbsence {
+  staff_name: string;
+}
+
+export interface AbsenceBody {
+  academic_year_id?: string;
+  staff_id: string;
+  from_date: string;
+  to_date?: string;
+  periods?: PeriodRef[];
+  note?: string;
+}
+
+export interface CoverCandidate {
+  teacherId: string;
+  name: string;
+  sameSubject: boolean;
+  covers: number;
+  suitable: boolean;
+  reasons: string[];
+}
+
+export interface CoverNeed {
+  absenceId: string;
+  date: string;
+  lessonId: string;
+  number: number;
+  absentTeacher: string;
+  absentName: string;
+  shift: string;
+  shiftName: string;
+  period: number;
+  length: number;
+  start: string;
+  end: string;
+  classes: string;
+  subject: string;
+  room: string;
+  note: string;
+  coverTeacher: string | null;
+  coverName: string | null;
+  noCover: boolean;
+  warning: string | null;
+  candidates: CoverCandidate[];
+}
+
+export interface CoverDay {
+  date: string;
+  title: string;
+  working: boolean;
+  needs: CoverNeed[];
+  stale: unknown[];
+  hasTimetable: boolean;
+}
+
+export interface CoverCounts {
+  year: string;
+  since: string | null;
+  total: number;
+  totalPeriods: number;
+  teachers: { teacherId: string; name: string; covers: number; periods: number }[];
+}
+
+export interface SubstitutionsView {
+  academic_year: AcademicYear;
+  date: string;
+  day: CoverDay;
+  absences: AbsenceView[];
+  counts: CoverCounts;
+  teachers: Named[];
+  shifts: TimetableShift[];
+}
+
+export interface CoverBody {
+  absence_id: string;
+  date: string;
+  lesson_id: string;
+  number: number;
+  cover_staff_id: string | null;
+  note?: string;
+}
+
+export interface SheetRow {
+  shift: string;
+  period: string;
+  start: string;
+  end: string;
+  classes: string;
+  subject: string;
+  absent: string;
+  cover: string;
+  covered: boolean;
+  room: string;
+  note: string;
+}
+
+export interface SheetDay {
+  date: string;
+  title: string;
+  rows: SheetRow[];
 }

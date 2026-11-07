@@ -5,6 +5,7 @@ use madrasa_core::password::LockoutPolicy;
 use madrasa_db::{schools, settings, PgPool};
 use std::sync::{Arc, RwLock};
 
+use crate::timetable_jobs::TimetableJobs;
 use crate::{clock, ApiError};
 
 /// The parts of the school profile the API needs on every request (validation rules, money
@@ -47,6 +48,8 @@ pub struct AppState {
     profile: Arc<RwLock<SchoolProfile>>,
     pub lockout: LockoutPolicy,
     pub version: &'static str,
+    /// Timetable generation runs in progress (Standard stage 1).
+    pub timetable_jobs: Arc<TimetableJobs>,
 }
 
 impl AppState {
@@ -65,6 +68,7 @@ impl AppState {
             profile: Arc::new(RwLock::new(profile)),
             lockout: LockoutPolicy::default(),
             version: VERSION,
+            timetable_jobs: Arc::new(TimetableJobs::default()),
         })
     }
 

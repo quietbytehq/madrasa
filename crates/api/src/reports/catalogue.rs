@@ -13,6 +13,8 @@ pub enum Module {
     Fees,
     Attendance,
     Exams,
+    /// Standard edition only (hidden on Lite).
+    Timetable,
 }
 
 impl Module {
@@ -22,6 +24,7 @@ impl Module {
             Module::Fees => "module.fees",
             Module::Attendance => "module.attendance",
             Module::Exams => "module.exams",
+            Module::Timetable => "module.timetable",
         }
     }
 }
@@ -65,6 +68,8 @@ pub enum Access {
     ReportsRead,
     AttendanceRead,
     ExamsRead,
+    /// Timetable reports: everyone with `timetable.read`.
+    TimetableRead,
 }
 
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -81,6 +86,7 @@ impl ParamDef {
             "top" => "param.top_n",
             "min_days" => "param.min_days",
             "as_of" => "param.as_of",
+            "day" => "param.day",
             _ => match self.kind {
                 ParamKind::AcademicYear => "param.academic_year",
                 ParamKind::Class => "param.class",
@@ -188,6 +194,11 @@ const CONSENT_TYPE: ParamDef = ParamDef {
     name: "consent_type_id",
     kind: ParamKind::ConsentType,
     required: false,
+};
+const DAY: ParamDef = ParamDef {
+    name: "day",
+    kind: ParamKind::Number,
+    required: true,
 };
 const BOARD_EXAM: ParamDef = ParamDef {
     name: "board_exam_id",
@@ -424,6 +435,35 @@ pub const REPORTS: &[ReportDef] = &[
         landscape: false,
         access: Access::ExamsRead,
     },
+    // Timetable (Standard stage 1)
+    ReportDef {
+        code: "timetable.section",
+        module: Module::Timetable,
+        params: &[YEAR, CLASS_REQ, SECTION_REQ],
+        landscape: true,
+        access: Access::TimetableRead,
+    },
+    ReportDef {
+        code: "timetable.teacher_load",
+        module: Module::Timetable,
+        params: &[YEAR],
+        landscape: false,
+        access: Access::TimetableRead,
+    },
+    ReportDef {
+        code: "timetable.free_rooms",
+        module: Module::Timetable,
+        params: &[YEAR, DAY],
+        landscape: true,
+        access: Access::TimetableRead,
+    },
+    ReportDef {
+        code: "timetable.cover_sheet",
+        module: Module::Timetable,
+        params: &[YEAR, FROM, TO],
+        landscape: true,
+        access: Access::TimetableRead,
+    },
 ];
 
 pub fn find(code: &str) -> Option<&'static ReportDef> {
@@ -511,13 +551,13 @@ mod tests {
         }
         let ur = catalogue(Lang::Ur, |_| true);
         assert_eq!(ur[0].label, "طلبہ");
-        assert_eq!(ur.len(), 4, "students, fees, attendance, exams");
+        assert_eq!(ur.len(), 5, "students, fees, attendance, exams, timetable");
         assert!(ur[0]
             .reports
             .iter()
             .any(|r| r.code == "students.list" && r.title == "طلبہ کی فہرست"));
         let teacher = catalogue(Lang::En, |d| d.access != Access::ReportsRead);
-        assert_eq!(teacher.len(), 2, "attendance and exams only");
+        assert_eq!(teacher.len(), 3, "attendance, exams and timetable only");
         assert!(teacher.iter().all(|m| m.module != Module::Fees));
         for r in REPORTS {
             for p in r.params {

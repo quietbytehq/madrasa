@@ -20,6 +20,8 @@ pub mod permissions;
 pub mod session_token;
 pub mod students;
 pub mod subjects;
+#[rustfmt::skip]
+pub mod timetable;
 
 pub use edition::{Edition, Feature};
 pub use permissions::{Permission, RoleCode};

@@ -1,0 +1,37 @@
+Subject,Teachers,Classes,Periods per session,Sessions per week,Rooms
+English,AKH,6A,1,5,
+Urdu,ESH,6A,1,4,
+Mathematics,BAH,6A,1,5,
+Science,CFE,6A,1,4,
+Social Studies,GRU,6A,1,3,
+Islamic Studies,IQU,6A,1,2,
+Computer Studies,HNO,6A,2,1,CLAB
+Art,HNO,6A,1,1,
+Physical Education,IQU,6A,1,2,PLAY
+English,AKH,6B,1,5,
+Urdu,ESH,6B,1,4,
+Mathematics,BAH,6B,1,5,
+Science,CFE,6B,1,4,
+Social Studies,GRU,6B,1,3,
+Islamic Studies,IQU,6B,1,2,
+Computer Studies,HNO,6B,2,1,CLAB
+Art,HNO,6B,1,1,
+Physical Education,IQU,6B,1,2,PLAY
+English,DAL,7A,1,5,
+Urdu,FIQ,7A,1,4,
+Mathematics,BAH,7A,1,5,
+Science,CFE,7A,1,4,
+Social Studies,GRU,7A,1,3,
+Islamic Studies,IQU,7A,1,2,
+Computer Studies,HNO,7A,2,1,CLAB
+Art,HNO,7A,1,1,
+Physical Education,IQU,7A,1,2,PLAY
+English,DAL,7B,1,5,
+Urdu,FIQ,7B,1,4,
+Mathematics,BAH,7B,1,5,
+Science,CFE,7B,1,4,
+Social Studies,GRU,7B,1,3,
+Islamic Studies,IQU,7B,1,2,
+Computer Studies,HNO,7B,2,1,CLAB
+Art,HNO,7B,1,1,
+Physical Education,IQU,7B,1,2,PLAY

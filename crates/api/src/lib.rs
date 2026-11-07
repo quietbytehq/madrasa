@@ -16,6 +16,7 @@ pub mod reports;
 pub mod routes;
 pub mod server;
 pub mod state;
+pub mod timetable_jobs;
 
 pub use error::{ApiError, ApiResult};
 pub use state::{AppState, SchoolProfile, VERSION};
@@ -51,6 +52,7 @@ pub fn router(state: AppState) -> Router {
         .merge(routes::subjects::router())
         .merge(routes::allocation::router())
         .merge(routes::consents::router())
+        .merge(routes::timetable::router())
         .merge(routes::backup::router())
         .merge(routes::boards::router())
         .merge(routes::imports::router())
