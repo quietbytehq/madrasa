@@ -19,9 +19,22 @@ export type Feature =
   | "transport"
   | "library"
   | "hostel"
-  | "hr_payroll"
+  | "hr"
   | "parents_portal"
-  | "nexus_hub";
+  | "nexus_hub"
+  | "timetable"
+  | "leave"
+  | "admissions"
+  | "inventory"
+  | "directory_login"
+  | "readonly_api";
+
+export interface EditionSettings {
+  edition: Edition;
+  available: Edition[];
+  features: Feature[];
+  standard_only: Feature[];
+}
 
 export interface FeaturesResponse {
   edition: Edition;

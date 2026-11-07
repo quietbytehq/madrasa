@@ -6,6 +6,7 @@ pub mod auth;
 pub mod backup;
 pub mod boards;
 pub mod consents;
+pub mod edition;
 pub mod exam_terms;
 pub mod exams;
 pub mod export;

@@ -108,6 +108,39 @@ describe("App shell", () => {
     expect(within(nav).getByRole("link", { name: "Network" })).toBeInTheDocument();
   });
 
+  it("shows the Standard modules as coming soon once the edition enables them", async () => {
+    renderWithProviders(
+      <FeaturesProvider
+        initial={{
+          edition: "standard",
+          features: ["dashboard", "students", "timetable", "leave", "library", "hr"],
+          version: "0.2.1-test",
+        }}
+      >
+        <SessionProvider initial={{ user, permissions: ["school.read", "students.read"] }}>
+          <AppRoutes login={<div>login page</div>} setup={<div>setup page</div>} />
+        </SessionProvider>
+      </FeaturesProvider>,
+      { route: "/" },
+    );
+    const nav = screen.getByRole("navigation", { name: "Modules" });
+    for (const name of ["Timetable", "Leave", "Library", "HR"]) {
+      expect(within(nav).getByRole("link", { name })).toBeInTheDocument();
+    }
+    expect(within(nav).queryByRole("link", { name: "Transport" })).not.toBeInTheDocument();
+    await userEvent.click(within(nav).getByRole("link", { name: "Timetable" }));
+    expect(screen.getByRole("heading", { level: 1, name: "Timetable" })).toBeInTheDocument();
+    expect(screen.getAllByText("Coming soon").length).toBeGreaterThan(0);
+  });
+
+  it("keeps the Lite sidebar unchanged", () => {
+    renderShell("lite");
+    const nav = screen.getByRole("navigation", { name: "Modules" });
+    for (const name of ["Timetable", "Leave", "Admissions", "Library", "HR"]) {
+      expect(within(nav).queryByRole("link", { name })).not.toBeInTheDocument();
+    }
+  });
+
   it("renders the empty dashboard with placeholder cards", () => {
     renderShell();
     expect(screen.getByRole("heading", { level: 1, name: "Dashboard" })).toBeInTheDocument();

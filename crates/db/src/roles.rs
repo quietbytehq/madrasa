@@ -110,6 +110,51 @@ pub async fn create_defaults(
     Ok(roles)
 }
 
+/// Give every built-in role of the school the default grants it is missing for `edition`
+/// (never removes a grant; creates a built-in role that does not exist yet). Returns the
+/// number of grants added. Used when the edition is switched.
+pub async fn sync_defaults(
+    conn: &mut PgConnection,
+    hlc: &Hlc,
+    actor: Actor,
+    school_id: Uuid,
+    edition: Edition,
+) -> DbResult<usize> {
+    let mut added = 0usize;
+    for code in RoleCode::defaults_for(edition) {
+        let role = match find_by_code(&mut *conn, school_id, code.code()).await {
+            Ok(role) => role,
+            Err(DbError::NotFound(_)) => {
+                create(
+                    &mut *conn,
+                    hlc,
+                    actor,
+                    school_id,
+                    code.code(),
+                    code.display_name(),
+                    true,
+                )
+                .await?
+            }
+            Err(e) => return Err(e),
+        };
+        let have: Vec<String> = sqlx::query_scalar(
+            "SELECT code FROM permissions WHERE role_id = $1 AND deleted_at IS NULL",
+        )
+        .bind(role.id)
+        .fetch_all(&mut *conn)
+        .await?;
+        for permission in code.default_permissions() {
+            if have.iter().any(|c| c == permission.code()) {
+                continue;
+            }
+            grant(&mut *conn, hlc, actor, &role, permission).await?;
+            added += 1;
+        }
+    }
+    Ok(added)
+}
+
 pub async fn list(conn: &mut PgConnection, school_id: Uuid) -> DbResult<Vec<Role>> {
     Ok(sqlx::query_as::<_, Role>(
         "SELECT * FROM roles WHERE school_id = $1 AND deleted_at IS NULL ORDER BY code",

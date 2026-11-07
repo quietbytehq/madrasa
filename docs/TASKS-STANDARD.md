@@ -35,19 +35,19 @@ hostel, inventory), then IT integration (directory login, read-only API).
 
 ## Stage 0 — Standard foundation
 
-- [ ] Feature codes for the Standard modules: `timetable`, `leave`, `admissions`,
+- [x] Feature codes for the Standard modules: `timetable`, `leave`, `admissions`,
       `library`, `transport`, `hostel`, `inventory`, `hr` (replaces `hr_payroll` as the
       code for HR basics; payroll stays for later), `directory_login`, `readonly_api`;
       Standard and Nexus enable them, Lite does not; `GET /system/features` lists them
-- [ ] Edition switch: Settings → Edition (`settings.manage`) shows the edition and lets
+- [x] Edition switch: Settings → Edition (`settings.manage`) shows the edition and lets
       the principal switch Lite ↔ Standard (`PUT /settings/edition`); the API reloads its
       flags; roles gain the new module permissions on the switch; switching back to Lite
       hides the modules but keeps the data; audited
-- [ ] `require_feature(Feature)` guard used by every Standard router: 404 "not in this
+- [x] `require_feature(Feature)` guard used by every Standard router: 404 "not in this
       edition" on Lite, so a Lite install never exposes a Standard endpoint
-- [ ] Sidebar and routes for the new modules (hidden on Lite; "Coming soon" until a stage
+- [x] Sidebar and routes for the new modules (hidden on Lite; "Coming soon" until a stage
       ships them); permissions matrix rows; i18n
-- [ ] Tests: features per edition, the switch, a Standard router refused on Lite, every
+- [x] Tests: features per edition, the switch, a Standard router refused on Lite, every
       existing suite unchanged
 
 ## Stage 1 — Timetable
