@@ -948,7 +948,8 @@ async fn carry_forward_across_months_and_into_next_year_with_defaulters_and_coll
             omar_row.unpaid_vouchers,
             omar_row.balance
         ),
-        (47, 2, dec!(6999.99))
+        // One unpaid voucher: the carried April voucher is part of May's balance (O2).
+        (47, 1, dec!(6999.99))
     );
     assert_eq!(
         fees::ledger_totals(&mut c, omar).await.unwrap().balance,
