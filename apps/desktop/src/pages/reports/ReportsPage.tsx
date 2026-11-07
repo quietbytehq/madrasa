@@ -414,6 +414,22 @@ function ReportRunner({ def, lang }: { def: ReportCatalogueEntry; lang: ReportLa
             options={(consentTypes.data ?? []).map((x) => ({ value: x.id, label: x.name }))}
           />
         );
+      case "leave_status":
+        return (
+          <Select
+            key={p.name}
+            label={p.label}
+            value={value}
+            onChange={(e) => set(p.name, e.target.value)}
+            options={[
+              { value: "", label: t("reports.allStatuses") },
+              ...(["pending", "approved", "rejected", "withdrawn"] as const).map((x) => ({
+                value: x,
+                label: t(`leave.status.${x}`),
+              })),
+            ]}
+          />
+        );
       case "number":
         return (
           <Input

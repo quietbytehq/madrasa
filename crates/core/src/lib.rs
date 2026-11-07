@@ -14,6 +14,7 @@ pub mod fees;
 pub mod hlc;
 pub mod ids;
 pub mod imports;
+pub mod leave;
 pub mod locale;
 pub mod password;
 pub mod permissions;

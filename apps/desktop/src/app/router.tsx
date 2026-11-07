@@ -22,6 +22,7 @@ import { SubjectAllocationPage } from "@/pages/students/SubjectAllocationPage";
 import { SectionMovesPage } from "@/pages/students/SectionMovesPage";
 import { ConsentsPage } from "@/pages/students/ConsentsPage";
 import { TimetablePage } from "@/pages/timetable/TimetablePage";
+import { LeavePage } from "@/pages/leave/LeavePage";
 import { TeacherAllocationPage } from "@/pages/staff/TeacherAllocationPage";
 import { Spinner } from "@/components/ui/Spinner";
 import { NAV_ITEMS } from "./navigation";
@@ -223,6 +224,16 @@ export function AppRoutes({ login, setup }: AppRoutesProps) {
             element={
               <RequirePermission permission="timetable.read">
                 <TimetablePage />
+              </RequirePermission>
+            }
+          />
+        )}
+        {has("leave") && (
+          <Route
+            path="/leave"
+            element={
+              <RequirePermission permission="leave.read">
+                <LeavePage />
               </RequirePermission>
             }
           />

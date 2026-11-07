@@ -15,6 +15,8 @@ pub enum Module {
     Exams,
     /// Standard edition only (hidden on Lite).
     Timetable,
+    /// Standard edition only (hidden on Lite).
+    Leave,
 }
 
 impl Module {
@@ -25,6 +27,7 @@ impl Module {
             Module::Attendance => "module.attendance",
             Module::Exams => "module.exams",
             Module::Timetable => "module.timetable",
+            Module::Leave => "module.leave",
         }
     }
 }
@@ -58,6 +61,8 @@ pub enum ParamKind {
     ConsentType,
     /// A board exam id of the chosen year.
     BoardExam,
+    /// `pending`, `approved`, `rejected` or `withdrawn`; empty = every status.
+    LeaveStatus,
 }
 
 /// Who may run a report. Office roles hold `reports.read`; teachers may run attendance and
@@ -70,6 +75,8 @@ pub enum Access {
     ExamsRead,
     /// Timetable reports: everyone with `timetable.read`.
     TimetableRead,
+    /// Leave reports: everyone with `leave.read` (teachers: own sections / own leave).
+    LeaveRead,
 }
 
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -87,6 +94,7 @@ impl ParamDef {
             "min_days" => "param.min_days",
             "as_of" => "param.as_of",
             "day" => "param.day",
+            "status" if self.kind == ParamKind::LeaveStatus => "param.status",
             _ => match self.kind {
                 ParamKind::AcademicYear => "param.academic_year",
                 ParamKind::Class => "param.class",
@@ -101,6 +109,7 @@ impl ParamDef {
                 ParamKind::StudentNumber => "param.student_number",
                 ParamKind::BoardExam => "param.board_exam",
                 ParamKind::ConsentType => "param.consent_type",
+                ParamKind::LeaveStatus => "param.status",
             },
         }
     }
@@ -193,6 +202,21 @@ const STUDENT: ParamDef = ParamDef {
 const CONSENT_TYPE: ParamDef = ParamDef {
     name: "consent_type_id",
     kind: ParamKind::ConsentType,
+    required: false,
+};
+const LEAVE_STATUS: ParamDef = ParamDef {
+    name: "status",
+    kind: ParamKind::LeaveStatus,
+    required: false,
+};
+const FROM_OPT: ParamDef = ParamDef {
+    name: "from",
+    kind: ParamKind::DateFrom,
+    required: false,
+};
+const TO_OPT: ParamDef = ParamDef {
+    name: "to",
+    kind: ParamKind::DateTo,
     required: false,
 };
 const DAY: ParamDef = ParamDef {
@@ -464,6 +488,28 @@ pub const REPORTS: &[ReportDef] = &[
         landscape: true,
         access: Access::TimetableRead,
     },
+    // Leave (Standard stage 2)
+    ReportDef {
+        code: "leave.balances",
+        module: Module::Leave,
+        params: &[YEAR],
+        landscape: false,
+        access: Access::LeaveRead,
+    },
+    ReportDef {
+        code: "leave.register",
+        module: Module::Leave,
+        params: &[YEAR, FROM_OPT, TO_OPT, LEAVE_STATUS],
+        landscape: true,
+        access: Access::LeaveRead,
+    },
+    ReportDef {
+        code: "leave.students",
+        module: Module::Leave,
+        params: &[YEAR, CLASS, SECTION, FROM_OPT, TO_OPT],
+        landscape: true,
+        access: Access::LeaveRead,
+    },
 ];
 
 pub fn find(code: &str) -> Option<&'static ReportDef> {
@@ -551,13 +597,21 @@ mod tests {
         }
         let ur = catalogue(Lang::Ur, |_| true);
         assert_eq!(ur[0].label, "طلبہ");
-        assert_eq!(ur.len(), 5, "students, fees, attendance, exams, timetable");
+        assert_eq!(
+            ur.len(),
+            6,
+            "students, fees, attendance, exams, timetable, leave"
+        );
         assert!(ur[0]
             .reports
             .iter()
             .any(|r| r.code == "students.list" && r.title == "طلبہ کی فہرست"));
         let teacher = catalogue(Lang::En, |d| d.access != Access::ReportsRead);
-        assert_eq!(teacher.len(), 3, "attendance, exams and timetable only");
+        assert_eq!(
+            teacher.len(),
+            4,
+            "attendance, exams, timetable and leave only"
+        );
         assert!(teacher.iter().all(|m| m.module != Module::Fees));
         for r in REPORTS {
             for p in r.params {

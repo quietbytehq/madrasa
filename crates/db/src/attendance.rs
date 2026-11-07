@@ -313,9 +313,20 @@ pub async fn save_sheet(
         }
         wanted.insert(e.student_id, (e.status, clean_note(&e.note)));
     }
+    // Students on approved leave that day (Standard stage 2) are marked `leave` whatever the
+    // sheet says; the table is empty on Lite.
+    let on_leave =
+        crate::leave::approved_student_leave_on(&mut *conn, input.section_id, input.date).await?;
     let desired: Vec<(Uuid, AttendanceStatus, Option<String>)> = roster
         .iter()
         .map(|r| {
+            if on_leave.contains_key(&r.student_id) {
+                return (
+                    r.student_id,
+                    AttendanceStatus::Leave,
+                    Some(crate::leave::APPROVED_NOTE.into()),
+                );
+            }
             let (st, note) = wanted
                 .get(&r.student_id)
                 .cloned()
@@ -662,7 +673,8 @@ pub async fn staff_day(
     date: NaiveDate,
 ) -> DbResult<Vec<StaffDayRow>> {
     Ok(sqlx::query_as::<_, StaffDayRow>(
-        "SELECT st.id AS staff_id, st.staff_number, st.full_name, st.designation, a.status, a.note
+        "SELECT st.id AS staff_id, st.staff_number, st.full_name, st.designation, a.status, a.note,
+                a.arrived_at, a.leave_request_id
          FROM staff st
          LEFT JOIN staff_attendance a ON a.staff_id = st.id AND a.date = $2 AND a.deleted_at IS NULL
          WHERE st.school_id = $1 AND st.deleted_at IS NULL AND st.status = 'active'
@@ -679,6 +691,8 @@ pub struct StaffEntryInput {
     pub staff_id: Uuid,
     pub status: StaffStatus,
     pub note: Option<String>,
+    /// Arrival time for `late` (Standard).
+    pub arrived_at: Option<chrono::NaiveTime>,
 }
 
 /// Upsert the day's staff records; everyone not listed is present. Returns how many rows
@@ -698,35 +712,49 @@ pub async fn save_staff_day(
         ));
     }
     let staff = staff_day(&mut *conn, school_id, date).await?;
-    let mut wanted: HashMap<Uuid, (StaffStatus, Option<String>)> = HashMap::new();
+    let mut wanted: HashMap<Uuid, (StaffStatus, Option<String>, Option<chrono::NaiveTime>)> =
+        HashMap::new();
     for e in entries {
         if !staff.iter().any(|s| s.staff_id == e.staff_id) {
             return Err(DbError::Conflict(
                 "A staff member in the list is not active in this school".into(),
             ));
         }
-        wanted.insert(e.staff_id, (e.status, clean_note(&e.note)));
+        let arrived = if e.status == StaffStatus::Late {
+            e.arrived_at
+        } else {
+            None
+        };
+        wanted.insert(e.staff_id, (e.status, clean_note(&e.note), arrived));
     }
     let mut changed = 0usize;
     for row in &staff {
-        let (status, note) = wanted
-            .get(&row.staff_id)
-            .cloned()
-            .unwrap_or((StaffStatus::Present, None));
-        if row.status.as_deref() == Some(status.as_str()) && row.note == note {
+        // A day written by an approved leave request stays as it is (Standard stage 2).
+        if row.leave_request_id.is_some() {
+            continue;
+        }
+        let (status, note, arrived_at) =
+            wanted
+                .get(&row.staff_id)
+                .cloned()
+                .unwrap_or((StaffStatus::Present, None, None));
+        if row.status.as_deref() == Some(status.as_str())
+            && row.note == note
+            && row.arrived_at == arrived_at
+        {
             continue;
         }
         let old = row
             .status
             .as_ref()
-            .map(|s| json!({ "date": date, "status": s, "note": row.note }));
+            .map(|s| json!({ "date": date, "status": s, "note": row.note, "arrived_at": row.arrived_at }));
         let saved = sqlx::query_as::<_, StaffAttendance>(
-            "INSERT INTO staff_attendance (id, school_id, staff_id, date, status, note, marked_by, updated_by, hlc)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            "INSERT INTO staff_attendance (id, school_id, staff_id, date, status, note, marked_by, arrived_at, updated_by, hlc)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $10, $8, $9)
              ON CONFLICT (staff_id, date) WHERE deleted_at IS NULL DO UPDATE
                SET status = EXCLUDED.status, note = EXCLUDED.note, marked_by = EXCLUDED.marked_by,
-                   updated_at = now(), updated_by = EXCLUDED.updated_by, hlc = EXCLUDED.hlc
-             RETURNING id, school_id, staff_id, date, status, note, marked_by, updated_at, hlc",
+                   arrived_at = EXCLUDED.arrived_at, updated_at = now(), updated_by = EXCLUDED.updated_by, hlc = EXCLUDED.hlc
+             RETURNING id, school_id, staff_id, date, status, note, marked_by, arrived_at, leave_request_id, updated_at, hlc",
         )
         .bind(new_id())
         .bind(school_id)
@@ -737,6 +765,7 @@ pub async fn save_staff_day(
         .bind(marked_by)
         .bind(actor.user_id)
         .bind(hlc.now().to_string())
+        .bind(arrived_at)
         .fetch_one(&mut *conn)
         .await?;
         audit::record(
@@ -747,7 +776,7 @@ pub async fn save_staff_day(
             "staff_attendance",
             Some(saved.id),
             old,
-            Some(json!({ "staff_id": saved.staff_id, "date": saved.date, "status": saved.status, "note": saved.note })),
+            Some(json!({ "staff_id": saved.staff_id, "date": saved.date, "status": saved.status, "note": saved.note, "arrived_at": saved.arrived_at })),
         )
         .await?;
         changed += 1;
@@ -762,7 +791,7 @@ pub async fn staff_history(
     to: NaiveDate,
 ) -> DbResult<Vec<StaffAttendance>> {
     Ok(sqlx::query_as::<_, StaffAttendance>(
-        "SELECT id, school_id, staff_id, date, status, note, marked_by, updated_at, hlc
+        "SELECT id, school_id, staff_id, date, status, note, marked_by, arrived_at, leave_request_id, updated_at, hlc
          FROM staff_attendance WHERE staff_id = $1 AND date BETWEEN $2 AND $3 AND deleted_at IS NULL
          ORDER BY date DESC",
     )

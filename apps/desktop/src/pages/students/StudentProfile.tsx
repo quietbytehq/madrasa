@@ -16,6 +16,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { useToast } from "@/components/ui/Toast";
 import { useI18n } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
+import type { Feature } from "@/api/types";
 import { cn } from "@/lib/cn";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 import { useSession } from "@/app/session";
@@ -25,6 +26,8 @@ import { StudentAttendanceView } from "../attendance/StudentAttendanceView";
 import { StudentResultsView } from "../exams/StudentResultsView";
 import { StudentSubjectsTab } from "./StudentSubjectsTab";
 import { StudentConsentsTab } from "./StudentConsentsTab";
+import { StudentLeaveTab } from "@/pages/leave/StudentLeaveTab";
+import { useHasFeature } from "@/app/features";
 import {
   classLabel,
   genderLabel,
@@ -34,7 +37,13 @@ import {
   today,
 } from "./common";
 
-const TABS: Array<{ key: string; labelKey: TranslationKey; available: boolean }> = [
+const TABS: Array<{
+  key: string;
+  labelKey: TranslationKey;
+  available: boolean;
+  /** Shown only when the edition enables the feature. */
+  feature?: Feature;
+}> = [
   { key: "details", labelKey: "students.tabs.details", available: true },
   { key: "guardians", labelKey: "students.tabs.guardians", available: true },
   { key: "fees", labelKey: "students.tabs.fees", available: true },
@@ -42,12 +51,14 @@ const TABS: Array<{ key: string; labelKey: TranslationKey; available: boolean }>
   { key: "results", labelKey: "students.tabs.results", available: true },
   { key: "subjects", labelKey: "students.tabs.subjects", available: true },
   { key: "consents", labelKey: "students.tabs.consents", available: true },
+  { key: "leave", labelKey: "students.tabs.leave", available: true, feature: "leave" },
 ];
 
 export function StudentProfile() {
   const { id = "" } = useParams();
   const { t } = useI18n();
   const { can } = useSession();
+  const has = useHasFeature();
   const navigate = useNavigate();
   const toast = useToast();
   const student = useAsync(() => api.student(id), [id]);
@@ -139,7 +150,7 @@ export function StudentProfile() {
         aria-label={s.full_name}
         className="mb-3 flex gap-1 border-b border-border"
       >
-        {TABS.map((tb) => (
+        {TABS.filter((tb) => !tb.feature || (has(tb.feature) && can("leave.read"))).map((tb) => (
           <button
             key={tb.key}
             role="tab"
@@ -187,6 +198,7 @@ export function StudentProfile() {
           ))}
         {tab === "subjects" && <StudentSubjectsTab studentId={s.id} manage={manage} />}
         {tab === "consents" && <StudentConsentsTab studentId={s.id} manage={manage} />}
+        {tab === "leave" && <StudentLeaveTab studentId={s.id} />}
         {tab === "guardians" && (
           <GuardiansTab
             s={s}

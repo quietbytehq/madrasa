@@ -111,3 +111,12 @@ export function useFeatures(): Features {
   if (!ctx) throw new Error("useFeatures must be used inside <FeaturesProvider>");
   return ctx;
 }
+
+/**
+ * `has` that also works outside a `FeaturesProvider` (unit tests of pages, print windows):
+ * without a provider it answers as Lite.
+ */
+export function useHasFeature(): (feature: Feature) => boolean {
+  const ctx = useContext(FeaturesContext);
+  return ctx ? ctx.has : (feature) => LITE_FEATURES.includes(feature);
+}

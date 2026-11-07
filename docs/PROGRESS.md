@@ -881,6 +881,33 @@ depend on each other and were built together)
 - Deferred: attendance per period (behind a setting): it changes the Lite attendance
   tables; left for a later stage (noted in TASKS-STANDARD.md).
 
+### 2026-11-07 — Stage 2: Leave (branch `dev/std-stage-2-leave`)
+- `madrasa_core::leave`: working days, half days, balances and carry-over, request states,
+  overlap checks (unit tests). `StaffStatus::Late` added (accepted by the API on Standard).
+- Migration 0018: `leave_types`, `leave_balances`, `leave_requests`,
+  `student_leave_requests`; `staff_attendance` gains `late`, `arrived_at` and
+  `leave_request_id`; `attendance_entries` gains `leave_request_id`. Permissions
+  `leave.read` (every role), `leave.manage`, `leave.approve` (principal, admin); granted to
+  existing roles only on Standard installs.
+- `crates/db::leave`: types, balances (computed used/pending), carry-over, staff requests
+  (create with checks, decide, withdraw) that write and remove `staff_attendance` rows,
+  student requests that mark and unmark attendance entries and recount sheets, the hook in
+  `attendance::save_sheet`, the approver setting, the staff marks for the register.
+- API `routes/leave.rs`: types, settings, balances, carry-over, requests (own or for others,
+  decide by `leave.approve` or the configured approver, withdraw), student requests (decide
+  by the office or the section's teachers), staff register; `/attendance/staff` takes
+  `late` + `arrived_at` on Standard. Reports `leave.balances`, `leave.register`,
+  `leave.students` (en/ur).
+- UI: Leave module (Staff leave, Student leave, Balances, Staff register; Leave types +
+  approver for `leave.manage`), student profile "Leave" tab, staff attendance "Late" with
+  time, leave status report parameter. Strings en/ur.
+- Tests: core, `tests/leave.rs` (Lite refusal incl. late marks; full Standard flow: types,
+  balances, own request, overlap, scope, decisions, attendance marked/protected/unmarked,
+  no-approval type, balance limit, weekend-only refusal, approver setting, student leave
+  with sheets before and after approval, correction, absentee note, withdrawal, register
+  with late time, carry-over, adjustment, reports, type deletion, back to Lite), vitest
+  for the page and the register, existing suites updated for the new fields.
+
 ## Summary for the owner — M2 (Lite complete)
 
 M2 was built in nine pull requests, each from a clean `main` with CI green on Linux and

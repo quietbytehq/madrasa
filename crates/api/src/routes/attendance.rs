@@ -722,6 +722,9 @@ pub struct StaffEntryRequest {
     pub staff_id: Uuid,
     pub status: String,
     pub note: Option<String>,
+    /// "HH:MM" for `late` (Standard).
+    #[serde(default)]
+    pub arrived_at: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -743,14 +746,29 @@ async fn put_staff_day(
         ));
     }
     let mut entries = Vec::with_capacity(req.entries.len());
+    let late_allowed = state.has_feature(madrasa_core::edition::Feature::Leave);
     for e in &req.entries {
+        let status = e
+            .status
+            .parse::<StaffStatus>()
+            .map_err(|_| ApiError::validation("Status must be present, absent or leave."))?;
+        if status == StaffStatus::Late && !late_allowed {
+            return Err(ApiError::validation(
+                "Status must be present, absent or leave.",
+            ));
+        }
+        let arrived_at = match (&e.arrived_at, status) {
+            (Some(t), StaffStatus::Late) if !t.trim().is_empty() => Some(
+                chrono::NaiveTime::parse_from_str(t.trim(), "%H:%M")
+                    .map_err(|_| ApiError::validation("The arrival time is written as HH:MM."))?,
+            ),
+            _ => None,
+        };
         entries.push(repo::StaffEntryInput {
             staff_id: e.staff_id,
-            status: e
-                .status
-                .parse::<StaffStatus>()
-                .map_err(|_| ApiError::validation("Status must be present, absent or leave."))?,
+            status,
             note: e.note.clone(),
+            arrived_at,
         });
     }
     let mut tx = state.pool.begin().await?;

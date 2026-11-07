@@ -607,6 +607,10 @@ pub struct StaffAttendance {
     pub status: String,
     pub note: Option<String>,
     pub marked_by: Option<Uuid>,
+    /// Arrival time of a `late` mark (Standard).
+    pub arrived_at: Option<chrono::NaiveTime>,
+    /// The approved leave request that wrote this row, if any (Standard).
+    pub leave_request_id: Option<Uuid>,
     pub updated_at: DateTime<Utc>,
     pub hlc: String,
 }
@@ -620,6 +624,8 @@ pub struct StaffDayRow {
     pub designation: String,
     pub status: Option<String>,
     pub note: Option<String>,
+    pub arrived_at: Option<chrono::NaiveTime>,
+    pub leave_request_id: Option<Uuid>,
 }
 
 // ---- M1 stage 4: exams ---------------------------------------------------------------------

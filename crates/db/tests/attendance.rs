@@ -723,6 +723,7 @@ async fn staff_attendance_upserts_and_audits() {
         staff_id: s1.id,
         status: StaffStatus::Leave,
         note: Some("casual leave".into()),
+        arrived_at: None,
     };
     let n = attendance::save_staff_day(
         &mut c,
@@ -761,6 +762,7 @@ async fn staff_attendance_upserts_and_audits() {
                 staff_id: s2.id,
                 status: StaffStatus::Absent,
                 note: None,
+                arrived_at: None,
             },
         ],
     )
@@ -810,7 +812,8 @@ async fn staff_attendance_upserts_and_audits() {
             &[attendance::StaffEntryInput {
                 staff_id: Uuid::nil(),
                 status: StaffStatus::Absent,
-                note: None
+                note: None,
+                arrived_at: None
             }]
         )
         .await,

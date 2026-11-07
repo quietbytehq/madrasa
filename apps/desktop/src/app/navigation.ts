@@ -130,7 +130,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
     labelKey: "nav.leave",
     icon: CalendarRange,
     feature: "leave",
-    available: false,
+    available: true,
+    permission: "leave.read",
   },
   {
     path: "/admissions",
