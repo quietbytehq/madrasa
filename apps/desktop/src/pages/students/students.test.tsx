@@ -378,8 +378,8 @@ describe("Student profile", () => {
     await userEvent.click(screen.getByRole("tab", { name: "Guardians" }));
     expect(screen.getByText("Ahmed Khan", { selector: "span" })).toBeInTheDocument();
     expect(screen.getByText("Primary contact")).toBeInTheDocument();
-    // Fees, Attendance, Results and Subjects are real tabs now; nothing is "Coming soon".
-    expect(screen.getAllByRole("tab")).toHaveLength(6);
+    // Fees, Attendance, Results, Subjects and Consents are real tabs; nothing is "Coming soon".
+    expect(screen.getAllByRole("tab")).toHaveLength(7);
     expect(screen.queryByText("Coming soon")).not.toBeInTheDocument();
   });
 

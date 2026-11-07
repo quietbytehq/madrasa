@@ -110,6 +110,9 @@ export function StudentsPage() {
             <Button variant="secondary" onClick={() => navigate("/students/subjects")}>
               {t("subjects.alloc.title")}
             </Button>
+            <Button variant="secondary" onClick={() => navigate("/students/consents")}>
+              {t("consents.title")}
+            </Button>
             {can("students.manage") && (
               <Button variant="secondary" onClick={() => navigate("/students/sections")}>
                 {t("alloc.moves.title")}

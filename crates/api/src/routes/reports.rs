@@ -13,6 +13,7 @@ use serde_json::json;
 use crate::auth::CurrentUser;
 use crate::export::file_response;
 use crate::reports::catalogue::{Access, ReportDef};
+use crate::reports::consents;
 use crate::reports::{
     attendance, boards, builder, catalogue, exams, fees, pdf, students, Context, Lang, Params,
     Report,
@@ -101,6 +102,9 @@ pub async fn build(
         "students.contacts" => students::contacts(&mut c, &ctx, params).await?,
         "students.birthdays" => students::birthdays(&mut c, &ctx, params).await?,
         "students.missing" => students::missing(&mut c, &ctx, params).await?,
+        "students.consents_missing" => consents::missing(&mut c, &ctx, params).await?,
+        "students.consents_expiring" => consents::expiring(&mut c, &ctx, params).await?,
+        "students.consent_forms" => consents::forms(&mut c, &ctx, params).await?,
         "fees.collection" => fees::collection(&mut c, &ctx, params).await?,
         "fees.monthly" => fees::monthly(&mut c, &ctx, params).await?,
         "fees.defaulters" => fees::defaulters(&mut c, &ctx, params).await?,

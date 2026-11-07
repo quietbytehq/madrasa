@@ -63,6 +63,13 @@ list is in `docs/permissions.md`.
   proposal that evens out the sections, then apply it. Ticked students are never moved by the
   proposal. Attendance and marks already recorded stay with the student.
 
+- **Consents**: under Settings → Academics → **Consent types**, list what the school asks
+  for (photos, trips, data use), who gives it, who needs it (everyone or a class range) and
+  whether it is renewed every year. Students → **Consents** shows a section at a time: set
+  each student's state (given, refused, withdrawn) and the guardian who gave it, then save;
+  the student's profile has a **Consents** tab with the history. Reports list the missing
+  consents, the ones expiring with the year, and a form list to send home.
+
 ## 3. Fees
 
 - **Fees → Setup**: fee heads (tuition, exam, transport, admission…), the fee structure per

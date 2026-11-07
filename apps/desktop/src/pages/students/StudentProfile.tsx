@@ -24,6 +24,7 @@ import { LedgerView } from "../fees/LedgerView";
 import { StudentAttendanceView } from "../attendance/StudentAttendanceView";
 import { StudentResultsView } from "../exams/StudentResultsView";
 import { StudentSubjectsTab } from "./StudentSubjectsTab";
+import { StudentConsentsTab } from "./StudentConsentsTab";
 import {
   classLabel,
   genderLabel,
@@ -40,6 +41,7 @@ const TABS: Array<{ key: string; labelKey: TranslationKey; available: boolean }>
   { key: "attendance", labelKey: "students.tabs.attendance", available: true },
   { key: "results", labelKey: "students.tabs.results", available: true },
   { key: "subjects", labelKey: "students.tabs.subjects", available: true },
+  { key: "consents", labelKey: "students.tabs.consents", available: true },
 ];
 
 export function StudentProfile() {
@@ -184,6 +186,7 @@ export function StudentProfile() {
             </Card>
           ))}
         {tab === "subjects" && <StudentSubjectsTab studentId={s.id} manage={manage} />}
+        {tab === "consents" && <StudentConsentsTab studentId={s.id} manage={manage} />}
         {tab === "guardians" && (
           <GuardiansTab
             s={s}

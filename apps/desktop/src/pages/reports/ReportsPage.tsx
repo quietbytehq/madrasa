@@ -234,6 +234,11 @@ function ReportRunner({ def, lang }: { def: ReportCatalogueEntry; lang: ReportLa
       needsBoardExam && yearId ? api.boardExams({ academic_year_id: yearId }) : Promise.resolve([]),
     [needsBoardExam, yearId],
   );
+  const needsConsentType = def.params.some((p) => p.kind === "consent_type");
+  const consentTypes = useAsync(
+    () => (needsConsentType ? api.consentTypes() : Promise.resolve([])),
+    [needsConsentType],
+  );
   const needsAssessment = def.params.some((p) => p.kind === "assessment");
   const assessments = useAsync(
     () => (needsAssessment && yearId ? api.assessments(yearId) : Promise.resolve([])),
@@ -396,6 +401,17 @@ function ReportRunner({ def, lang }: { def: ReportCatalogueEntry; lang: ReportLa
               value: x.id,
               label: `${x.board_name} · ${x.name}`,
             }))}
+          />
+        );
+      case "consent_type":
+        return (
+          <Select
+            key={p.name}
+            label={p.label}
+            value={value}
+            onChange={(e) => set(p.name, e.target.value)}
+            placeholder={t("reports.pickConsentType")}
+            options={(consentTypes.data ?? []).map((x) => ({ value: x.id, label: x.name }))}
           />
         );
       case "number":

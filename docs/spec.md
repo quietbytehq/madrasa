@@ -612,6 +612,28 @@ the most under-full one, never touching excluded (ticked) students; the proposal
 deterministic and is shown as a preview before it is applied. Capacity is shown but not
 enforced.
 
+### 5.17 Consent manager (M2 stage 8)
+
+| Table | Purpose |
+| --- | --- |
+| `consent_types` | Defined by the school: `name` (unique per school), `description`, `given_by` (guardian, student, either), `required` (none, all, class_range) with `min_level`/`max_level`, `renewal` (none, yearly), `position`. |
+| `consents` | Append-only history per student: `consent_type_id`, `status` (given, refused, withdrawn), `guardian_id` (who gave it, when a guardian did), `academic_year_id` (the year it was recorded in), `recorded_on`, `recorded_by` (the user), `note`. A new status is a new row; the old one stays. Every row is audit-logged. |
+
+Rules (`madrasa_core::consents`): a consent is needed by a student when its type is required
+for everyone, or for a class range that includes the student's class level (a student with
+no enrolment needs only the consents required for everyone). The current state comes from
+the latest row: given, refused or withdrawn as recorded; expired when the type renews yearly
+and the latest row belongs to another academic year; missing when nothing is recorded.
+Missing, expired and withdrawn consents count as "to collect". A consent given by a guardian
+must name the guardian (one linked to the student); a refusal need not.
+
+Reports (library, students module, `reports.read`): missing consents (by section, one row
+per student and consent to collect, optional consent type), consents expiring with the year
+(yearly consents given this year), and the consent form list (per section, the students with
+the consents still to collect, their guardian and phone, and a signature column). Removing a
+type hides it and its consents from the screens and reports; the rows remain in the history
+tables and the audit log.
+
 ## 6. API conventions
 
 - Base path `/api/v1`. JSON request and response bodies. `snake_case` keys.
@@ -937,6 +959,16 @@ each subject as `students`.
 | GET | `/allocation/sections?class_id&academic_year_id?` | `students.manage` | The class's sections with size, gender split, capacity, class teacher and students in roll order |
 | POST | `/allocation/balance` | `students.manage` | `{class_id, academic_year_id?, exclude_student_ids}` → proposed moves and sizes before/after |
 | POST | `/allocation/moves` | `students.manage` | `{class_id, academic_year_id?, moves:[{student_id, to_section_id}], roll_numbers: keep \| reassign}`; 400 for a section of another class; returns the count and the class view |
+
+### 6.20 M2 stage 8 endpoints
+
+| Method | Path | Permission | Notes |
+| --- | --- | --- | --- |
+| GET / POST | `/consent-types` | `students.read` / `academics.manage` | `{name, description?, given_by, required, min_level?, max_level?, renewal, position?}`; 400 for a class-range type without levels |
+| PUT / DELETE | `/consent-types/{id}` | `academics.manage` | Delete hides the type (soft delete) |
+| GET / POST | `/students/{id}/consents?academic_year_id?` | `students.read` / `students.manage` (teacher scope) | Every type with `needed`, `current` and the latest row, the linked guardians, and the full history; POST `{consent_type_id, status, guardian_id?, recorded_on?, note?, academic_year_id?}` |
+| GET / POST | `/sections/{id}/consents` | `students.read` / `students.manage` (teacher scope) | The section's students × types with `required`, `current`, date and guardian, and the count of consents to collect; POST `{rows:[{student_id, consent_type_id, status, guardian_id?, note?}], recorded_on?}` records them all |
+| GET | `/reports/students.consents_missing`, `students.consents_expiring`, `students.consent_forms` | `reports.read` | Parameters: year, class, section; the missing report also takes `consent_type_id` (`consent_type` parameter kind) |
 
 ### 6.11 Second alpha test report fixes
 

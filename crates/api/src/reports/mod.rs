@@ -6,6 +6,7 @@ pub mod attendance;
 pub mod boards;
 pub mod builder;
 pub mod catalogue;
+pub mod consents;
 pub mod exams;
 pub mod fees;
 pub mod pdf;

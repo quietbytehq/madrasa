@@ -7,6 +7,7 @@ pub mod allocation;
 pub mod attendance;
 pub mod backup;
 pub mod boards;
+pub mod consents;
 pub mod edition;
 pub mod exams;
 pub mod fees;
