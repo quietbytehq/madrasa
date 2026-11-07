@@ -205,10 +205,10 @@ each (class test, assignment, mid-term, final) and calculated columns.
 
 ## Stage 9 — M2 close-out
 
-- [ ] Demo data covers every M2 feature (terms, groups, boards, consents, saved reports)
-- [ ] User guide (en/ur), TESTING.md tasks for every stage, spec sections checked against
+- [x] Demo data covers every M2 feature (terms, groups, boards, consents, saved reports)
+- [x] User guide (en/ur), TESTING.md tasks for every stage, spec sections checked against
       the code, permissions matrix updated
-- [ ] docs/PROGRESS.md: what to test by hand and the decisions left for the owner
+- [x] docs/PROGRESS.md: what to test by hand and the decisions left for the owner
 
 ## Done when
 

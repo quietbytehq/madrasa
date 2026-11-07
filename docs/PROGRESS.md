@@ -817,6 +817,68 @@ depend on each other and were built together)
 - Tests: core unit tests; integration `crates/api/tests/consents.rs`; vitest
   `consents.test.tsx`; schema rules test and `backup` migration count → 16.
 
+### 2026-11-07 — Stage 9: M2 close-out (branch `dev/m2-stage-9-closeout`)
+- Demo data: a shared saved custom report ("Girls by section") so the Reports page shows a
+  custom report out of the box; with boards, terms (one "Year" term), subject groups and
+  consents already loaded, every M2 feature has demo data.
+- docs/permissions.md: descriptions refreshed for allocations, consents, boards and terms (no
+  new permissions in stages 5–8; the matrix test still passes).
+- Spec sections 5.11–5.17 and 6.14–6.20 checked against the code; TESTING.md tasks 18–25
+  and the user guides cover every stage.
+- The owner summary below lists what to test by hand and the decisions left open.
+
+## Summary for the owner — M2 (Lite complete)
+
+M2 was built in nine pull requests, each from a clean `main` with CI green on Linux and
+Windows (#18 stage 1, #19 stage 2, #20 stage 3, #21 stage 4, #22 stage 5, #23 stage 6,
+#24 stage 7, #25 stage 8 and #26 the close-out). Nothing that worked in M1 behaves differently unless a stage says so:
+every existing exam setup became one term holding its assessments, every student still takes
+every class subject until the office allocates subjects, and no permission changed meaning.
+
+### What to test by hand
+
+Follow TESTING.md tasks 18–25 on the demo school, in this order:
+
+1. **Reports (tasks 18–19).** Run a student list, a fee collection and an attendance report
+   in English and in Urdu; download each as PDF and Excel. Log in as a teacher and check the
+   Reports page only offers attendance and exam reports for that teacher's sections.
+2. **Custom report (task 20).** Build a report from the catalogue, preview it, save it, share
+   it, and run it as the accountant.
+3. **Boards (task 21).** Register a class for a board exam, import a results file with a
+   deliberate error, fix it, import, undo, and check the student's profile and the board
+   reports agree.
+4. **Terms (task 22).** Add a second term to the demo year, move an assessment into it, add a
+   calculated "best of" component, and look at a report card with two terms.
+5. **Subjects per student (task 23).** Change a grade 9 student's group, open Marks entry for
+   Biology, and confirm only the students who take Biology are listed.
+6. **Allocation screens (task 24).** Change a teacher in the grid, move two students between
+   sections, and apply a balancing proposal.
+7. **Consents (task 25).** Record consents for a section, withdraw one on the profile, and
+   run the three consent reports.
+
+### Decisions left for the owner
+
+- **Teacher access to reports.** Teachers run attendance and exam reports for their own
+  sections only, and never fee or student-list reports. If class teachers should print
+  their section's student list, grant `reports.read` to the teacher role in Settings → Users.
+- **Shared custom reports.** Only the principal and admin can share a saved report with
+  everyone; the accountant can save private ones. Change the `reports.manage` grant if the
+  accountant should share too.
+- **Board grading.** Each board carries its own pass mark and grade bands; the demo uses BISE
+  Karachi's. Set the real boards' bands before importing results.
+- **Default exam structure.** A new academic year proposes two terms (two assessments each)
+  on the Setup page; the API default stays one term so scripts and older clients are
+  unaffected. Pick the structure the school actually follows before the first marks go in.
+- **Electives and groups.** Marking subjects as electives changes nothing until a student is
+  allocated. Decide whether the office allocates per section (Subject allocation page) or
+  imports from the admission forms (Excel import).
+- **Balancing sections.** The proposal moves the last-admitted students and ignores capacity;
+  it is only a preview, so nothing moves until applied. Tick students who must stay first.
+- **Consents.** Which consents are required for everyone versus a class range, and which
+  renew every year, is a school policy: set the types before the office starts recording.
+- **Roll numbers after moves.** Default is a fresh number in the new section; "keep" is there
+  for schools that number across the class.
+
 ## Summary for the owner — Stages 5, 6 and 7 (night run of 2026-10-30/31)
 
 All three stages are merged into `main` in order (pull requests #6, #7 and #8),

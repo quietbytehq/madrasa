@@ -17,9 +17,9 @@ Legend: ✓ granted by default · — not granted.
 | `roles.manage` | Change role grants | ✓ | ✓ | — | — |
 | `audit.read` | Read the audit log | ✓ | ✓ | — | — |
 | `academics.read` | Years, classes, sections, subjects | ✓ | ✓ | ✓ | ✓ |
-| `academics.manage` | Edit academic structure, calendar, exam setup, year rollover | ✓ | ✓ | — | — |
-| `students.read` | Student directory and profiles (teachers: own sections only) | ✓ | ✓ | ✓ | ✓ |
-| `students.manage` | Add, edit, withdraw students; import students and opening balances | ✓ | ✓ | — | — |
+| `academics.manage` | Edit academic structure, calendar, exam setup (terms, components), electives and subject groups, boards, consent types, year rollover | ✓ | ✓ | — | — |
+| `students.read` | Student directory and profiles, subject allocations and consents (teachers: own sections only) | ✓ | ✓ | ✓ | ✓ |
+| `students.manage` | Add, edit, withdraw students; import students and opening balances; allocate subjects (and import allocations); move students between sections; record consents | ✓ | ✓ | — | — |
 | `attendance.read` | Attendance sheets, register, absentees (teachers: own sections) | ✓ | ✓ | — | ✓ |
 | `attendance.manage` | Mark attendance (teachers: own sections) | ✓ | ✓ | — | ✓ |
 | `attendance.correct` | Change a submitted attendance sheet | ✓ | ✓ | — | — |
@@ -29,8 +29,8 @@ Legend: ✓ granted by default · — not granted.
 | `fees.read` | Vouchers, ledgers, defaulters, collections | ✓ | ✓ | ✓ | — |
 | `fees.manage` | Generate vouchers, record payments | ✓ | ✓ | ✓ | — |
 | `fees.approve` | Concessions, late-fee waivers, reversals, fee setup | ✓ | ✓ | — | — |
-| `teachers.read` | Staff list and staff attendance | ✓ | ✓ | — | ✓ |
-| `teachers.manage` | Edit staff, assignments, staff attendance; import staff | ✓ | ✓ | — | — |
+| `teachers.read` | Staff list, staff attendance and the teacher allocation grid | ✓ | ✓ | — | ✓ |
+| `teachers.manage` | Edit staff, assignments (including the allocation grid), staff attendance; import staff | ✓ | ✓ | — | — |
 | `reports.read` | Reports (built-in and custom; teachers run attendance and exam reports for their own sections with the module's read permission) | ✓ | ✓ | ✓ | — |
 | `reports.manage` | Save shared custom reports (others may run them) | ✓ | ✓ | — | — |
 | `backup.manage` | Backup settings, run, restore, password | ✓ | ✓ | — | — |
