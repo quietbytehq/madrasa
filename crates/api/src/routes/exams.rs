@@ -615,17 +615,25 @@ async fn list_sheets(
     let assessment = load_entered_assessment(&mut c, &user, q.assessment_id).await?;
     let section = load_section(&mut c, &user, q.section_id).await?;
     let scope = marks_scope(&mut c, &user).await?;
-    let students = repo::roster(&mut c, section.id).await?.len();
+    let takes = madrasa_db::subjects::effective_for_section(&mut c, section.id).await?;
     let rows = repo::sheet_summaries(&mut c, assessment.id, section.id).await?;
     let sheets = rows
         .into_iter()
-        .map(|row| SheetSummary {
-            can_enter: user.can(Permission::ExamsManage)
-                && row.max_marks.is_some()
-                && allows(&scope, section.id, row.subject_id),
-            row,
-            students,
+        .map(|row| {
+            let students = takes
+                .values()
+                .filter(|ids| ids.contains(&row.subject_id))
+                .count();
+            SheetSummary {
+                can_enter: user.can(Permission::ExamsManage)
+                    && row.max_marks.is_some()
+                    && allows(&scope, section.id, row.subject_id),
+                row,
+                students,
+            }
         })
+        // A subject nobody in the section takes has no sheet (unless one already exists).
+        .filter(|s| s.students > 0 || s.row.sheet_id.is_some())
         .collect();
     Ok(Json(SheetsView {
         assessment,
@@ -701,7 +709,7 @@ async fn sheet_view(
     };
     let submitted_by_name = user_name(c, sheet.as_ref().and_then(|s| s.submitted_by)).await;
     let approved_by_name = user_name(c, sheet.as_ref().and_then(|s| s.approved_by)).await;
-    let students = repo::roster(c, section.id)
+    let students = repo::subject_roster(c, section.id, subject_id)
         .await?
         .into_iter()
         .map(|r| {
@@ -1139,6 +1147,8 @@ pub struct SubjectHeader {
 #[derive(Debug, Serialize, Clone)]
 pub struct SubjectMark {
     pub subject_id: Uuid,
+    /// False when the student does not take this subject (M2 stage 6); the cell is empty.
+    pub takes: bool,
     pub obtained: Option<Decimal>,
     pub is_absent: bool,
     pub percent: Decimal,
@@ -1346,19 +1356,30 @@ async fn build_result_sheet(
         .iter()
         .map(|r| ((r.student_id, r.subject_id), r))
         .collect();
+    let takes = madrasa_db::subjects::effective_for_section(c, section.id).await?;
+    // A subject nobody in the section takes is not a column.
+    let subjects: Vec<SubjectHeader> = subjects
+        .into_iter()
+        .filter(|s| takes.values().any(|ids| ids.contains(&s.subject_id)))
+        .collect();
     let roster = repo::roster(c, section.id).await?;
     let mut rows: Vec<ResultRow> = roster
         .into_iter()
         .map(|r| {
+            let own = takes.get(&r.student_id);
             let marks: Vec<SubjectMark> = subjects
                 .iter()
                 .map(|s| {
-                    let m = by_key.get(&(r.student_id, s.subject_id));
+                    let takes_it = own.is_some_and(|ids| ids.contains(&s.subject_id));
+                    let m = by_key
+                        .get(&(r.student_id, s.subject_id))
+                        .filter(|_| takes_it);
                     let obtained = m.and_then(|m| m.obtained);
                     let is_absent = m.map(|m| m.is_absent).unwrap_or(false);
                     let pct = exams::percent(obtained.unwrap_or(Decimal::ZERO), s.max_marks);
                     SubjectMark {
                         subject_id: s.subject_id,
+                        takes: takes_it,
                         obtained,
                         is_absent,
                         percent: pct,
@@ -1366,10 +1387,12 @@ async fn build_result_sheet(
                     }
                 })
                 .collect();
-            let totals = exams::totals(subjects.iter().zip(&marks).map(|(s, m)| Score {
-                max: s.max_marks,
-                obtained: m.obtained,
-            }));
+            let totals = exams::totals(subjects.iter().zip(&marks).filter(|(_, m)| m.takes).map(
+                |(s, m)| Score {
+                    max: s.max_marks,
+                    obtained: m.obtained,
+                },
+            ));
             ResultRow {
                 student_id: r.student_id,
                 student_number: r.student_number,
@@ -1404,6 +1427,9 @@ async fn build_result_sheet(
                     .iter()
                     .find(|m| m.subject_id == s.subject_id)
                     .unwrap();
+                if !m.takes {
+                    continue;
+                }
                 if m.is_absent {
                     absent += 1;
                 } else if let Some(o) = m.obtained {
@@ -1660,7 +1686,16 @@ async fn build_report_card(
         .collect();
     let mut subject_ids: Vec<Uuid> = rows.iter().map(|r| r.subject_id).collect();
     if let Some(s) = section {
-        subject_ids.extend(academics::class_subject_ids(c, s.class_id).await?);
+        // The student's own subjects (every class subject unless allocated), M2 stage 6.
+        let own = madrasa_db::subjects::effective_for_section(c, s.id)
+            .await?
+            .remove(&student_id)
+            .unwrap_or_else(Vec::new);
+        if !own.is_empty() {
+            subject_ids.retain(|id| own.contains(id));
+            rows.retain(|r| own.contains(&r.subject_id));
+        }
+        subject_ids.extend(own);
     }
     subject_ids.sort();
     subject_ids.dedup();

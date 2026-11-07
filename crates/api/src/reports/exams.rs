@@ -121,7 +121,9 @@ fn result_row(
             .iter()
             .find(|m| m.subject_id == s.subject_id)
             .map(|m| {
-                if m.is_absent {
+                if !m.takes {
+                    "—".to_string()
+                } else if m.is_absent {
                     tr(lang, "value.absent").to_string()
                 } else {
                     m.obtained.map(d).unwrap_or_default()

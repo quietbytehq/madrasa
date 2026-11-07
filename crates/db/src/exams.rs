@@ -935,6 +935,25 @@ pub async fn roster(conn: &mut PgConnection, section_id: Uuid) -> DbResult<Vec<R
     attendance::roster(conn, section_id, never).await
 }
 
+/// Active students of the section who take `subject_id` (M2 stage 6: a student with no
+/// allocation takes every class subject).
+pub async fn subject_roster(
+    conn: &mut PgConnection,
+    section_id: Uuid,
+    subject_id: Uuid,
+) -> DbResult<Vec<RosterRow>> {
+    let takes = crate::subjects::effective_for_section(&mut *conn, section_id).await?;
+    Ok(roster(conn, section_id)
+        .await?
+        .into_iter()
+        .filter(|r| {
+            takes
+                .get(&r.student_id)
+                .is_some_and(|ids| ids.contains(&subject_id))
+        })
+        .collect())
+}
+
 /// Maximum marks of one subject for the section's class, or a conflict when not set.
 pub async fn max_for(
     conn: &mut PgConnection,
@@ -993,7 +1012,7 @@ pub async fn save_marks(
         ));
     }
     let max = max_for(&mut *conn, assessment_type_id, section.class_id, subject_id).await?;
-    let roster = roster(&mut *conn, section_id).await?;
+    let roster = subject_roster(&mut *conn, section_id, subject_id).await?;
     let mut cleaned: Vec<(Uuid, Option<Decimal>, bool)> = Vec::with_capacity(input.len());
     for m in input {
         if !roster.iter().any(|r| r.student_id == m.student_id) {
@@ -1176,7 +1195,7 @@ pub async fn submit_sheet(
     if sheet.status != SheetStatus::Draft.as_str() {
         return Err(DbError::Conflict("This sheet is already submitted".into()));
     }
-    let roster = roster(&mut *conn, sheet.section_id).await?;
+    let roster = subject_roster(&mut *conn, sheet.section_id, sheet.subject_id).await?;
     let marks = marks(&mut *conn, sheet.id).await?;
     let missing = roster
         .iter()

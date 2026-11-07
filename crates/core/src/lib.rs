@@ -17,6 +17,7 @@ pub mod password;
 pub mod permissions;
 pub mod session_token;
 pub mod students;
+pub mod subjects;
 
 pub use edition::{Edition, Feature};
 pub use permissions::{Permission, RoleCode};

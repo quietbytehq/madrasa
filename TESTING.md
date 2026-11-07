@@ -195,6 +195,15 @@ Note anything that was unclear, slow, wrong or ugly.
     appear under Marks entry or Maximum marks, and the Results tab shows its figures for a
     section. A report card should now show two term headings and a *Term result* row. On a
     new academic year, *Add default assessments* offers one or two terms.
+23. **Subjects per student.** Settings → Academics → **Classes** → open *9*: Physics,
+    Chemistry, Biology and Computer are ticked **Elective** in the demo school, and the
+    **Subject groups** card lists *Pre-Medical* and *Computer Science*. Students → **Subject
+    allocation** → pick *9 A*: most students have a group; change one student's group, untick
+    an elective for another, clear a third (back to *All subjects*) and **Save allocations**.
+    Open that student's profile → **Subjects**. Then Examinations → Marks entry for *9 A* →
+    *Biology*: only the students who take Biology are listed, and the Results tab shows "—"
+    for the others. Finally **Download Excel sheet** on the allocation page, change a group
+    name in the file, **Import from Excel**, **Check**, **Import**, and **Undo this import**.
 17. **Several PCs at once** (needs two or more PCs on the same network; see section 6).
     Log in on each PC with a different account at the same time and enter marks or attendance
     for different sections. Each person should see only their own sections and modules, and

@@ -331,6 +331,14 @@ pub async fn rollback(
                 )
                 .await?
             }
+            ("updated", "student_subjects") => {
+                let old: crate::subjects::AllocationValue = r
+                    .old_value
+                    .as_ref()
+                    .and_then(|v| serde_json::from_value(v.clone()).ok())
+                    .unwrap_or_default();
+                crate::subjects::set_allocation(&mut *conn, hlc, actor, id, &old).await?;
+            }
             ("created", "fee_voucher") => {
                 crate::fees::cancel_voucher(&mut *conn, hlc, actor, id, "Import rolled back")
                     .await?;

@@ -124,7 +124,11 @@ export function ResultSheetView({
                         m.is_absent && "text-danger",
                       )}
                     >
-                      {m.is_absent ? t("attendance.short.absent") : num(m.obtained)}
+                      {!m.takes
+                        ? "—"
+                        : m.is_absent
+                          ? t("attendance.short.absent")
+                          : num(m.obtained)}
                     </td>
                   ))}
                   <td className="px-2 py-1 text-end tabular-nums">

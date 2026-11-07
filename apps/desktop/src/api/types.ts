@@ -978,6 +978,8 @@ export interface ResultSubject {
 
 export interface ResultMark {
   subject_id: string;
+  /** False when the student does not take this subject (the cell is empty). */
+  takes: boolean;
   obtained: Money | null;
   is_absent: boolean;
   percent: Money;
@@ -1621,4 +1623,117 @@ export interface StudentBoardResult {
   exam: BoardExamView;
   board_name: string;
   row: BoardSheetRow;
+}
+
+// ---- Subject allocation (M2 stage 6) -------------------------------------------------------
+
+export interface ClassSubjectIds {
+  subject_ids: string[];
+  elective_ids: string[];
+}
+
+export interface SubjectGroup {
+  id: string;
+  school_id: string;
+  class_id: string;
+  name: string;
+  position: number;
+  hlc: string;
+  subject_ids: string[];
+}
+
+export interface SubjectGroupRequest {
+  name: string;
+  position?: number;
+  subject_ids: string[];
+}
+
+export interface AllocationSubject {
+  subject_id: string;
+  name: string;
+  code: string;
+  is_elective: boolean;
+}
+
+export interface AllocationStudent {
+  enrollment_id: string;
+  student_id: string;
+  student_number: string;
+  full_name: string;
+  roll_no: number | null;
+  group_id: string | null;
+  allocated: boolean;
+  allocated_ids: string[];
+  subject_ids: string[];
+}
+
+export interface SectionAllocations {
+  section_id: string;
+  class_id: string;
+  class_name: string;
+  section_name: string;
+  subjects: AllocationSubject[];
+  groups: SubjectGroup[];
+  students: AllocationStudent[];
+}
+
+export interface AllocationLine {
+  enrollment_id: string;
+  group_id?: string | null;
+  subject_ids?: string[];
+}
+
+export interface StudentSubjects {
+  enrollment_id: string;
+  academic_year_id: string;
+  class_id: string;
+  class_name: string;
+  group_id: string | null;
+  allocated: boolean;
+  subjects: Array<AllocationSubject & { taken: boolean }>;
+  groups: SubjectGroup[];
+}
+
+export interface AllocationParsedFile {
+  file_name: string;
+  sheets: string[];
+  sheet: string;
+  headers: string[];
+  rows: string[][];
+  mapping: Record<string, number>;
+}
+
+export interface AllocationImportRequest {
+  file_name?: string;
+  headers: string[];
+  rows: string[][];
+  mapping: Record<string, number>;
+}
+
+export interface AllocationImportRow {
+  row_no: number;
+  student_number: string;
+  student_id: string | null;
+  student_name: string | null;
+  class_name: string | null;
+  enrollment_id: string | null;
+  group_id: string | null;
+  group_name: string | null;
+  subject_ids: string[];
+  subject_names: string[];
+  changed: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+export interface AllocationImportSummary {
+  rows: number;
+  changed: number;
+  unchanged: number;
+  errors: number;
+}
+
+export interface AllocationImportPreview {
+  rows: AllocationImportRow[];
+  summary: AllocationImportSummary;
 }

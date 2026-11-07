@@ -527,6 +527,7 @@ describe("ResultSheetView and ReportCardView", () => {
           marks: [
             {
               subject_id: "eng",
+              takes: true,
               obtained: "45.00",
               is_absent: false,
               percent: "90.00",
@@ -534,6 +535,7 @@ describe("ResultSheetView and ReportCardView", () => {
             },
             {
               subject_id: "mth",
+              takes: true,
               obtained: "40.00",
               is_absent: false,
               percent: "80.00",
@@ -553,9 +555,17 @@ describe("ResultSheetView and ReportCardView", () => {
           full_name: "Sara Khan",
           roll_no: 2,
           marks: [
-            { subject_id: "eng", obtained: null, is_absent: true, percent: "0.00", grade: "F" },
+            {
+              subject_id: "eng",
+              takes: true,
+              obtained: null,
+              is_absent: true,
+              percent: "0.00",
+              grade: "F",
+            },
             {
               subject_id: "mth",
+              takes: true,
               obtained: "25.00",
               is_absent: false,
               percent: "50.00",

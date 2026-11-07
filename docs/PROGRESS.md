@@ -754,6 +754,33 @@ depend on each other and were built together)
   two-term report card; `backup` migration count → 14; the schema rules test lists the new
   tables of stages 3–5.
 
+### 2026-11-06 — Stage 6: Subject allocation per student (branch `dev/m2-stage-6-subjects`)
+- Migration `0015_subject_allocation`: `class_subjects.is_elective`, `subject_groups`,
+  `subject_group_subjects`, `student_subjects`, `enrollments.subject_group_id`; batch kind
+  `student_subjects`.
+- `madrasa_core::subjects`: the effective-subjects rule (no allocation → every class subject;
+  otherwise compulsory + allocated electives) and the subject-list splitter.
+- `madrasa_db::subjects`: electives per class, groups CRUD, allocations per section and
+  enrolment, `set_allocation` (audited with old/new); `exams::subject_roster`; rollback arm
+  for `student_subjects`.
+- API `routes/subjects.rs`: groups, section allocations (bulk), one student's subjects, Excel
+  template, import parse/preview/apply as a batch. `routes/exams.rs`: rosters, sheet lists,
+  save/submit, result sheets (`takes` per cell, totals over own subjects, analysis over
+  takers) and report cards follow the allocation; `routes/academics.rs` class subjects carry
+  `elective_ids`.
+- UI: Settings → Academics: Elective toggle per class subject and a Subject groups card;
+  Students → Subject allocation page (class/section pickers, group per student, elective
+  checkboxes, set group for everyone, clear, save; Excel sheet download; import with column
+  matching, check, import, undo); student profile Subjects tab; result sheet shows "—" for a
+  subject a student does not take.
+- Demo data: grades 9–12 have Physics, Chemistry, Biology and Computer as electives with the
+  groups Pre-Medical and Computer Science; students alternate between them, one per section
+  left unallocated; marks are entered for takers only.
+- Tests: core unit tests; integration `crates/api/tests/subject_allocation.rs` (electives,
+  groups, default-to-all, bulk and single allocation, roster/sheet/submit filtering, result
+  totals and analysis, report cards, import with errors, apply, rollback, group removal);
+  vitest `allocation.test.tsx`; schema rules test and `backup` migration count → 15.
+
 ## Summary for the owner — Stages 5, 6 and 7 (night run of 2026-10-30/31)
 
 All three stages are merged into `main` in order (pull requests #6, #7 and #8),

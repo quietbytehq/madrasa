@@ -188,6 +188,9 @@ async fn update_class(
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SubjectIds {
     pub subject_ids: Vec<Uuid>,
+    /// Electives among them (M2 stage 6). Omitted in a PUT body, the current flags are kept.
+    #[serde(default)]
+    pub elective_ids: Option<Vec<Uuid>>,
 }
 
 async fn class_subjects(
@@ -202,6 +205,7 @@ async fn class_subjects(
     }
     Ok(Json(SubjectIds {
         subject_ids: academics::class_subject_ids(&mut c, id).await?,
+        elective_ids: Some(madrasa_db::subjects::class_elective_ids(&mut c, id).await?),
     }))
 }
 
@@ -224,8 +228,25 @@ async fn set_class_subjects(
     }
     let ids = academics::set_class_subjects(&mut tx, &state.hlc, user.actor(), id, &b.subject_ids)
         .await?;
+    // Electives (M2 stage 6): only those still taught; absent in the body keeps the flags.
+    let elective_ids = match b.elective_ids {
+        Some(wanted) => {
+            let kept: Vec<Uuid> = wanted.into_iter().filter(|e| ids.contains(e)).collect();
+            madrasa_db::subjects::set_class_electives(&mut tx, &state.hlc, user.actor(), id, &kept)
+                .await?
+        }
+        None => {
+            let current = madrasa_db::subjects::class_elective_ids(&mut tx, id).await?;
+            let kept: Vec<Uuid> = current.into_iter().filter(|e| ids.contains(e)).collect();
+            madrasa_db::subjects::set_class_electives(&mut tx, &state.hlc, user.actor(), id, &kept)
+                .await?
+        }
+    };
     tx.commit().await?;
-    Ok(Json(SubjectIds { subject_ids: ids }))
+    Ok(Json(SubjectIds {
+        subject_ids: ids,
+        elective_ids: Some(elective_ids),
+    }))
 }
 
 // ---- subjects -----------------------------------------------------------------------------

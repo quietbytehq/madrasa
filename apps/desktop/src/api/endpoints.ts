@@ -107,6 +107,16 @@ import type {
   BoardResultSheet,
   ExamBoard,
   StudentBoardResult,
+  ClassSubjectIds,
+  SubjectGroup,
+  SubjectGroupRequest,
+  SectionAllocations,
+  AllocationLine,
+  StudentSubjects,
+  AllocationParsedFile,
+  AllocationImportRequest,
+  AllocationImportPreview,
+  AllocationImportSummary,
 } from "./types";
 
 function qs(params: object): string {
@@ -154,11 +164,11 @@ export const api = {
     request<SchoolClass>("/classes", { method: "POST", body }),
   updateClass: (id: string, body: { name?: string; level?: number }) =>
     request<SchoolClass>(`/classes/${id}`, { method: "PATCH", body }),
-  classSubjects: (id: string) => request<{ subject_ids: string[] }>(`/classes/${id}/subjects`),
-  setClassSubjects: (id: string, subject_ids: string[]) =>
-    request<{ subject_ids: string[] }>(`/classes/${id}/subjects`, {
+  classSubjects: (id: string) => request<ClassSubjectIds>(`/classes/${id}/subjects`),
+  setClassSubjects: (id: string, subject_ids: string[], elective_ids?: string[]) =>
+    request<ClassSubjectIds>(`/classes/${id}/subjects`, {
       method: "PUT",
-      body: { subject_ids },
+      body: { subject_ids, elective_ids },
     }),
   subjects: () => request<Subject[]>("/subjects"),
   createSubject: (body: { name: string; code: string }) =>
@@ -490,6 +500,42 @@ export const api = {
     ),
   studentBoardResults: (studentId: string) =>
     request<StudentBoardResult[]>(`/students/${studentId}/board-results`),
+  // Subject allocation (M2 stage 6)
+  subjectGroups: (classId: string) => request<SubjectGroup[]>(`/classes/${classId}/subject-groups`),
+  createSubjectGroup: (classId: string, body: SubjectGroupRequest) =>
+    request<SubjectGroup>(`/classes/${classId}/subject-groups`, { method: "POST", body }),
+  updateSubjectGroup: (id: string, body: SubjectGroupRequest) =>
+    request<SubjectGroup>(`/subject-groups/${id}`, { method: "PUT", body }),
+  deleteSubjectGroup: (id: string) => request<void>(`/subject-groups/${id}`, { method: "DELETE" }),
+  sectionAllocations: (sectionId: string) =>
+    request<SectionAllocations>(`/sections/${sectionId}/subject-allocations`),
+  setSectionAllocations: (sectionId: string, rows: AllocationLine[]) =>
+    request<SectionAllocations>(`/sections/${sectionId}/subject-allocations`, {
+      method: "PUT",
+      body: { rows },
+    }),
+  studentSubjects: (studentId: string, academicYearId?: string) =>
+    request<StudentSubjects>(
+      `/students/${studentId}/subjects${qs({ academic_year_id: academicYearId })}`,
+    ),
+  setStudentSubjects: (
+    studentId: string,
+    body: { academic_year_id?: string; group_id?: string | null; subject_ids?: string[] },
+  ) => request<StudentSubjects>(`/students/${studentId}/subjects`, { method: "PUT", body }),
+  downloadAllocationTemplate: (sectionId: string) =>
+    download(`/subject-allocations/import/template${qs({ section_id: sectionId })}`),
+  parseAllocations: (body: { file_name: string; content_base64: string }) =>
+    request<AllocationParsedFile>("/subject-allocations/import/parse", { method: "POST", body }),
+  previewAllocations: (body: AllocationImportRequest) =>
+    request<AllocationImportPreview>("/subject-allocations/import/preview", {
+      method: "POST",
+      body,
+    }),
+  applyAllocations: (body: AllocationImportRequest) =>
+    request<{ batch_id: string; summary: AllocationImportSummary }>(
+      "/subject-allocations/import/apply",
+      { method: "POST", body },
+    ),
   importBatches: () => request<ImportBatch[]>("/imports/batches"),
   rollbackImport: (id: string) =>
     request<ImportBatch>(`/imports/batches/${id}/rollback`, { method: "POST", body: {} }),
