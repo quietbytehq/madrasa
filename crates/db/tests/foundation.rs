@@ -84,6 +84,8 @@ async fn migrations_apply_and_tables_follow_the_rules() {
             "board_results",
             "class_subjects",
             "classes",
+            "consent_types",
+            "consents",
             "custom_field_definitions",
             "enrollments",
             "exam_boards",

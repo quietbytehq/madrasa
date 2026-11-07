@@ -190,17 +190,17 @@ each (class test, assignment, mid-term, final) and calculated columns.
 
 ## Stage 8 — Consent manager
 
-- [ ] Consent types defined by the school: name, description, who gives it (guardian,
+- [x] Consent types defined by the school: name, description, who gives it (guardian,
       student, either), required for all or for a class range, renewal (none, yearly)
-- [ ] Consents recorded per student: type, status (given, refused, withdrawn), the guardian
+- [x] Consents recorded per student: type, status (given, refused, withdrawn), the guardian
       who gave it, date, who recorded it, note; history kept (a new status is a new row, the
       old one stays); shown on the student profile; bulk recording per section after a form
       is collected
-- [ ] Report (library): missing consents by section and type; consents expiring with the
+- [x] Report (library): missing consents by section and type; consents expiring with the
       year; export of a consent form list for a section
-- [ ] Permissions: `students.read` sees consents, `students.manage` records them; every
+- [x] Permissions: `students.read` sees consents, `students.manage` records them; every
       change audit-logged
-- [ ] Tests: required-for-class rule, renewal, missing-consent report against the demo
+- [x] Tests: required-for-class rule, renewal, missing-consent report against the demo
       school, permissions, vitest
 
 ## Stage 9 — M2 close-out

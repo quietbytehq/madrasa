@@ -799,6 +799,24 @@ depend on each other and were built together)
   reassigned and kept roll numbers, cross-class refusal, teacher 403); vitest
   `moves.test.tsx`.
 
+### 2026-11-07 — Stage 8: Consent manager (branch `dev/m2-stage-8-consents`)
+- Migration `0016_consents`: `consent_types` and the append-only `consents` history.
+- `madrasa_core::consents`: who needs a consent (all or a class range) and the current state
+  from the latest row with yearly renewal (given, refused, withdrawn, expired, missing).
+- `madrasa_db::consents`: types CRUD, `record` (audited), history, latest row per student
+  and type.
+- API `routes/consents.rs`: types, one student's consents with guardians and history,
+  section matrix with the count to collect, bulk recording; guardian required for a given
+  guardian consent. Reports: missing consents, consents expiring with the year, consent
+  form list (new `consent_type` parameter kind).
+- UI: Settings → Academics → Consent types card; Students → **Consents** page (section
+  matrix, state per cell, guardian per student, recorded-on date, save); student profile
+  Consents tab (states, record form, history); Reports pick a consent type.
+- Demo data: Photos (once), Trips (yearly) and Data use (either) with most students given,
+  a few refused and some missing.
+- Tests: core unit tests; integration `crates/api/tests/consents.rs`; vitest
+  `consents.test.tsx`; schema rules test and `backup` migration count → 16.
+
 ## Summary for the owner — Stages 5, 6 and 7 (night run of 2026-10-30/31)
 
 All three stages are merged into `main` in order (pull requests #6, #7 and #8),

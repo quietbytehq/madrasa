@@ -20,6 +20,7 @@ import { errorMessage, useAsync } from "@/lib/useAsync";
 import { useSession } from "@/app/session";
 import { RolloverDialog } from "./RolloverDialog";
 import { SubjectGroupsCard } from "./SubjectGroupsCard";
+import { ConsentTypesCard } from "./ConsentTypesCard";
 
 const DEFAULT_CLASSES = ["KG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
 /** North American naming: kindergarten is "K". */
@@ -108,6 +109,7 @@ export function AcademicsSettings() {
         manage={manage}
         onError={fail}
       />
+      <ConsentTypesCard manage={manage} onError={fail} />
     </div>
   );
 }

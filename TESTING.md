@@ -211,6 +211,13 @@ Note anything that was unclear, slow, wrong or ugly.
     **Balance sections**: the dialog lists the proposed moves and the sizes after; tick a
     student first to keep them where they are, then **Apply moves**. Attendance and marks
     already recorded for a moved student still show on their profile.
+25. **Consents.** Settings → Academics → **Consent types**: the demo school has *Photos*,
+    *Trips* (every year) and *Data use*; add one for a class range (for example *Lab safety*,
+    levels 9–12). Students → **Consents** → pick *9 A*: the badge shows how many consents are
+    still to collect; set a few cells to *Given* or *Refused* (pick the guardian) and **Save
+    consents**. Open a student's profile → **Consents** to see the states and the history,
+    and record a *Withdrawn*. Reports → *Missing consents*, *Consents expiring with the year*
+    and *Consent form list* should match what you see on screen.
 17. **Several PCs at once** (needs two or more PCs on the same network; see section 6).
     Log in on each PC with a different account at the same time and enter marks or attendance
     for different sections. Each person should see only their own sections and modules, and

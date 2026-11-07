@@ -1317,7 +1317,8 @@ export type ReportParamKind =
   | "assessment"
   | "number"
   | "student_number"
-  | "board_exam";
+  | "board_exam"
+  | "consent_type";
 
 export type ReportAccess = "reports_read" | "attendance_read" | "exams_read";
 
@@ -1829,4 +1830,115 @@ export type RollNumbersMode = "keep" | "reassign";
 export interface MovesApplied {
   moved: number;
   view: ClassSections;
+}
+
+// ---- Consent manager (M2 stage 8) ---------------------------------------------------------
+
+export type ConsentGivenBy = "guardian" | "student" | "either";
+export type ConsentRequired = "none" | "all" | "class_range";
+export type ConsentRenewal = "none" | "yearly";
+export type ConsentStatus = "given" | "refused" | "withdrawn";
+export type ConsentCurrent = ConsentStatus | "expired" | "missing";
+
+export interface ConsentType {
+  id: string;
+  school_id: string;
+  name: string;
+  description: string;
+  given_by: ConsentGivenBy;
+  required: ConsentRequired;
+  min_level: number | null;
+  max_level: number | null;
+  renewal: ConsentRenewal;
+  position: number;
+  hlc: string;
+}
+
+export interface ConsentTypeRequest {
+  name: string;
+  description?: string;
+  given_by: ConsentGivenBy;
+  required: ConsentRequired;
+  min_level?: number | null;
+  max_level?: number | null;
+  renewal: ConsentRenewal;
+  position?: number;
+}
+
+export interface ConsentRecord {
+  id: string;
+  school_id: string;
+  student_id: string;
+  consent_type_id: string;
+  status: ConsentStatus;
+  guardian_id: string | null;
+  academic_year_id: string | null;
+  recorded_on: string;
+  recorded_by: string | null;
+  note: string;
+  created_at: string;
+  type_name: string;
+  guardian_name: string | null;
+  recorded_by_name: string | null;
+}
+
+export interface GuardianOption {
+  id: string;
+  full_name: string;
+  relationship: string;
+}
+
+export interface StudentConsents {
+  academic_year_id: string;
+  class_level: number | null;
+  types: Array<
+    ConsentType & { needed: boolean; current: ConsentCurrent; latest: ConsentRecord | null }
+  >;
+  guardians: GuardianOption[];
+  history: ConsentRecord[];
+}
+
+export interface ConsentRecordRequest {
+  consent_type_id: string;
+  status: ConsentStatus;
+  guardian_id?: string | null;
+  recorded_on?: string;
+  note?: string;
+  academic_year_id?: string;
+}
+
+export interface ConsentCell {
+  consent_type_id: string;
+  required: boolean;
+  current: ConsentCurrent;
+  recorded_on: string | null;
+  guardian_name: string | null;
+}
+
+export interface SectionConsentRow {
+  student_id: string;
+  student_number: string;
+  full_name: string;
+  roll_no: number | null;
+  guardians: GuardianOption[];
+  cells: ConsentCell[];
+}
+
+export interface SectionConsents {
+  section_id: string;
+  academic_year_id: string;
+  class_name: string;
+  section_name: string;
+  class_level: number;
+  types: ConsentType[];
+  students: SectionConsentRow[];
+  missing: number;
+}
+
+export interface ConsentBulkLine {
+  student_id: string;
+  consent_type_id: string;
+  status: ConsentStatus;
+  guardian_id?: string | null;
+  note?: string;
 }

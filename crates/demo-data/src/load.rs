@@ -50,6 +50,7 @@ pub struct LoadReport {
     pub mark_sheets: usize,
     pub board_candidates: usize,
     pub allocated_students: usize,
+    pub consents_recorded: usize,
     pub files_written: Vec<PathBuf>,
 }
 
@@ -788,6 +789,89 @@ pub async fn load(
         }
     }
 
+    // Consents (M2 stage 8): three school-defined types; most students have given them, a
+    // few refused, some are still missing.
+    let mut consent_types = Vec::new();
+    for (name, description, given_by, renewal, position) in [
+        (
+            "Photos",
+            "Use of the student's photo in school publications and notice boards",
+            madrasa_core::consents::GivenBy::Guardian,
+            madrasa_core::consents::Renewal::None,
+            0,
+        ),
+        (
+            "Trips",
+            "Participation in school trips and outings this year",
+            madrasa_core::consents::GivenBy::Guardian,
+            madrasa_core::consents::Renewal::Yearly,
+            1,
+        ),
+        (
+            "Data use",
+            "Sharing of contact details with the parents' committee",
+            madrasa_core::consents::GivenBy::Either,
+            madrasa_core::consents::Renewal::None,
+            2,
+        ),
+    ] {
+        let row = madrasa_db::consents::create_type(
+            &mut tx,
+            hlc,
+            actor,
+            school.id,
+            &madrasa_db::consents::ConsentTypeInput {
+                name: name.into(),
+                description: description.into(),
+                given_by,
+                required: madrasa_core::consents::Required::All,
+                min_level: None,
+                max_level: None,
+                renewal,
+                position,
+            },
+        )
+        .await?;
+        consent_types.push(row.id);
+    }
+    let mut consent_rng = StdRng::seed_from_u64(2026);
+    let mut consents_recorded = 0usize;
+    for student_id in student_ids.values() {
+        let guardian = guardians::for_student(&mut tx, *student_id)
+            .await?
+            .into_iter()
+            .next()
+            .map(|g| g.id);
+        for type_id in &consent_types {
+            let roll: f64 = consent_rng.gen();
+            let status = if roll < 0.82 {
+                madrasa_core::consents::Status::Given
+            } else if roll < 0.88 {
+                madrasa_core::consents::Status::Refused
+            } else {
+                continue;
+            };
+            madrasa_db::consents::record(
+                &mut tx,
+                hlc,
+                actor,
+                school.id,
+                &madrasa_db::consents::NewConsent {
+                    student_id: *student_id,
+                    consent_type_id: *type_id,
+                    status,
+                    guardian_id: guardian,
+                    academic_year_id: Some(year.id),
+                    recorded_on: start
+                        + chrono::Duration::days(i64::from(consent_rng.gen_range(3..20))),
+                    note: String::new(),
+                },
+            )
+            .await?;
+            consents_recorded += 1;
+        }
+    }
+
     // Board exams: BISE Karachi, SSC Part I for grade 9 and Part II for grade 10, every
     // student registered with a roll number and a full set of results.
     let mut board_candidates = 0usize;
@@ -958,6 +1042,7 @@ pub async fn load(
         mark_sheets,
         board_candidates,
         allocated_students,
+        consents_recorded,
         files_written,
     })
 }

@@ -51,6 +51,8 @@ pub enum ParamKind {
     Number,
     /// A student number as printed on vouchers.
     StudentNumber,
+    /// A consent type id; empty = every type.
+    ConsentType,
     /// A board exam id of the chosen year.
     BoardExam,
 }
@@ -92,6 +94,7 @@ impl ParamDef {
                 ParamKind::Number => "param.top_n",
                 ParamKind::StudentNumber => "param.student_number",
                 ParamKind::BoardExam => "param.board_exam",
+                ParamKind::ConsentType => "param.consent_type",
             },
         }
     }
@@ -181,6 +184,11 @@ const STUDENT: ParamDef = ParamDef {
     kind: ParamKind::StudentNumber,
     required: true,
 };
+const CONSENT_TYPE: ParamDef = ParamDef {
+    name: "consent_type_id",
+    kind: ParamKind::ConsentType,
+    required: false,
+};
 const BOARD_EXAM: ParamDef = ParamDef {
     name: "board_exam_id",
     kind: ParamKind::BoardExam,
@@ -225,6 +233,27 @@ pub const REPORTS: &[ReportDef] = &[
     },
     ReportDef {
         code: "students.missing",
+        module: Module::Students,
+        params: &[YEAR, CLASS, SECTION],
+        landscape: true,
+        access: Access::ReportsRead,
+    },
+    ReportDef {
+        code: "students.consents_missing",
+        module: Module::Students,
+        params: &[YEAR, CLASS, SECTION, CONSENT_TYPE],
+        landscape: false,
+        access: Access::ReportsRead,
+    },
+    ReportDef {
+        code: "students.consents_expiring",
+        module: Module::Students,
+        params: &[YEAR, CLASS, SECTION],
+        landscape: false,
+        access: Access::ReportsRead,
+    },
+    ReportDef {
+        code: "students.consent_forms",
         module: Module::Students,
         params: &[YEAR, CLASS, SECTION],
         landscape: true,

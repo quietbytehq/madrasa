@@ -122,6 +122,12 @@ import type {
   BalancePreview,
   RollNumbersMode,
   MovesApplied,
+  ConsentType,
+  ConsentTypeRequest,
+  StudentConsents,
+  ConsentRecordRequest,
+  SectionConsents,
+  ConsentBulkLine,
 } from "./types";
 
 function qs(params: object): string {
@@ -561,6 +567,24 @@ export const api = {
     moves: Array<{ student_id: string; to_section_id: string }>;
     roll_numbers: RollNumbersMode;
   }) => request<MovesApplied>("/allocation/moves", { method: "POST", body }),
+  // Consent manager (M2 stage 8)
+  consentTypes: () => request<ConsentType[]>("/consent-types"),
+  createConsentType: (body: ConsentTypeRequest) =>
+    request<ConsentType>("/consent-types", { method: "POST", body }),
+  updateConsentType: (id: string, body: ConsentTypeRequest) =>
+    request<ConsentType>(`/consent-types/${id}`, { method: "PUT", body }),
+  deleteConsentType: (id: string) => request<void>(`/consent-types/${id}`, { method: "DELETE" }),
+  studentConsents: (studentId: string) =>
+    request<StudentConsents>(`/students/${studentId}/consents`),
+  recordConsent: (studentId: string, body: ConsentRecordRequest) =>
+    request<StudentConsents>(`/students/${studentId}/consents`, { method: "POST", body }),
+  sectionConsents: (sectionId: string) =>
+    request<SectionConsents>(`/sections/${sectionId}/consents`),
+  recordSectionConsents: (sectionId: string, rows: ConsentBulkLine[], recorded_on?: string) =>
+    request<SectionConsents>(`/sections/${sectionId}/consents`, {
+      method: "POST",
+      body: { rows, recorded_on },
+    }),
   importBatches: () => request<ImportBatch[]>("/imports/batches"),
   rollbackImport: (id: string) =>
     request<ImportBatch>(`/imports/batches/${id}/rollback`, { method: "POST", body: {} }),
