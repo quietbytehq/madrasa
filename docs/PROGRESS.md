@@ -830,8 +830,8 @@ depend on each other and were built together)
 ## Summary for the owner — M2 (Lite complete)
 
 M2 was built in nine pull requests, each from a clean `main` with CI green on Linux and
-Windows (#18 stage 1, #19 stage 2, #20 stage 3, #21 stage 4, #22 stage 5, then stages 6, 7,
-8 and the close-out). Nothing that worked in M1 behaves differently unless a stage says so:
+Windows (#18 stage 1, #19 stage 2, #20 stage 3, #21 stage 4, #22 stage 5, #23 stage 6,
+#24 stage 7, #25 stage 8 and #26 the close-out). Nothing that worked in M1 behaves differently unless a stage says so:
 every existing exam setup became one term holding its assessments, every student still takes
 every class subject until the office allocates subjects, and no permission changed meaning.
 
