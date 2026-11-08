@@ -277,3 +277,22 @@ timetable and the substitutions.
 5. **Roster**: one route by stop, with student numbers, classes and guardian phones; print
    it for the driver. Reports: route manifests, students without transport, transport fee
    by route for a month.
+
+## 14. Hostel (Standard)
+
+1. **Hostels** (office): name, kind, warden, the default monthly fee and the fee head the
+   charge is posted under. Tick "Leave-outs need the guardian's consent" to make the
+   register ask for it. Add rooms with their floor, bed count and an optional fee of their
+   own.
+2. **Board**: every room with its beds. Click a free bed, find the student, set the date
+   (and an amount when the student pays something else) and save. Move a resident to
+   another bed from their row; End closes their stay today. A student who moves keeps the
+   history: the previous allocation ends the day before.
+3. **Residents**: everyone in the hostel this year, with room, bed and monthly charge.
+   Every voucher generated for a resident carries the hostel line under the hostel's fee
+   head (the resident's own amount if set, else the room's, else the hostel's).
+4. **Register**: record a leave-out (expected back, the guardian's consent and how it was
+   given) or a visitor (name, relationship, phone), and the return or departure. Open
+   entries stay on top; a resident not back by the expected time shows Overdue.
+5. **Reports**: hostel occupancy by room, residents by class, residents with fees
+   outstanding.

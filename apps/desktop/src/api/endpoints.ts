@@ -1,5 +1,17 @@
 import { download, request } from "./client";
 import type {
+  AllocateBody,
+  AllocationPatch,
+  AllocationView,
+  HostelBoard,
+  HostelBody,
+  HostelDetail,
+  HostelView,
+  HostelRegisterBody,
+  RegisterKind,
+  HostelRegisterEntry,
+  HostelRoomBody,
+  HostelRoom,
   AssignBody,
   AssignResult,
   AssignmentPatch,
@@ -1012,4 +1024,52 @@ export const api = {
   transportSettings: () => request<TransportSettings>("/transport/settings"),
   updateTransportSettings: (body: TransportSettings) =>
     request<TransportSettings>("/transport/settings", { method: "PUT", body }),
+
+  // ---- Hostel (Standard stage 6) -------------------------------------------------------------
+  hostels: () => request<HostelView[]>("/hostel/hostels"),
+  hostel: (id: string) => request<HostelDetail>(`/hostel/hostels/${id}`),
+  createHostel: (body: HostelBody) =>
+    request<HostelDetail>("/hostel/hostels", { method: "POST", body }),
+  updateHostel: (id: string, body: HostelBody) =>
+    request<HostelDetail>(`/hostel/hostels/${id}`, { method: "PUT", body }),
+  deleteHostel: (id: string) => request<void>(`/hostel/hostels/${id}`, { method: "DELETE" }),
+  createHostelRoom: (hostelId: string, body: HostelRoomBody) =>
+    request<HostelRoom>(`/hostel/hostels/${hostelId}/rooms`, { method: "POST", body }),
+  updateHostelRoom: (id: string, body: HostelRoomBody) =>
+    request<HostelRoom>(`/hostel/rooms/${id}`, { method: "PUT", body }),
+  deleteHostelRoom: (id: string) => request<void>(`/hostel/rooms/${id}`, { method: "DELETE" }),
+  hostelBoard: (hostel_id: string, academic_year_id?: string) =>
+    request<HostelBoard>(`/hostel/board${qs({ hostel_id, academic_year_id })}`),
+  hostelResidents: (
+    params: { academic_year_id?: string; hostel_id?: string; class_id?: string; q?: string } = {},
+  ) => request<AllocationView[]>(`/hostel/residents${qs(params)}`),
+  hostelAllocations: (
+    params: {
+      academic_year_id?: string;
+      hostel_id?: string;
+      room_id?: string;
+      student_id?: string;
+      open?: boolean;
+    } = {},
+  ) => request<AllocationView[]>(`/hostel/allocations${qs(params)}`),
+  allocateBed: (body: AllocateBody) =>
+    request<AllocationView>("/hostel/allocations", { method: "POST", body }),
+  updateAllocation: (id: string, body: AllocationPatch) =>
+    request<AllocationView>(`/hostel/allocations/${id}`, { method: "PUT", body }),
+  deleteAllocation: (id: string) =>
+    request<void>(`/hostel/allocations/${id}`, { method: "DELETE" }),
+  hostelRegister: (
+    params: {
+      hostel_id?: string;
+      student_id?: string;
+      kind?: RegisterKind;
+      open?: boolean;
+      from?: string;
+      to?: string;
+    } = {},
+  ) => request<HostelRegisterEntry[]>(`/hostel/register${qs(params)}`),
+  openRegister: (body: HostelRegisterBody) =>
+    request<HostelRegisterEntry>("/hostel/register", { method: "POST", body }),
+  closeRegister: (id: string, body: { at?: string; notes?: string } = {}) =>
+    request<HostelRegisterEntry>(`/hostel/register/${id}/close`, { method: "POST", body }),
 };

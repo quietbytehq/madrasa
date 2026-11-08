@@ -14,7 +14,7 @@ use serde_json::json;
 use crate::auth::CurrentUser;
 use crate::export::file_response;
 use crate::reports::catalogue::{Access, ReportDef};
-use crate::reports::{admissions, consents, leave, library, timetable, transport};
+use crate::reports::{admissions, consents, hostel, leave, library, timetable, transport};
 use crate::reports::{
     attendance, boards, builder, catalogue, exams, fees, pdf, students, Context, Lang, Params,
     Report,
@@ -50,6 +50,7 @@ fn may_run(user: &CurrentUser, def: &ReportDef) -> bool {
             Access::AdmissionsRead => user.can(Permission::AdmissionsRead),
             Access::LibraryRead => user.can(Permission::LibraryRead),
             Access::TransportRead => user.can(Permission::TransportRead),
+            Access::HostelRead => user.can(Permission::HostelRead),
         }
 }
 
@@ -61,6 +62,7 @@ fn module_enabled(state: &AppState, def: &ReportDef) -> bool {
         catalogue::Module::Admissions => state.has_feature(Feature::Admissions),
         catalogue::Module::Library => state.has_feature(Feature::Library),
         catalogue::Module::Transport => state.has_feature(Feature::Transport),
+        catalogue::Module::Hostel => state.has_feature(Feature::Hostel),
         _ => true,
     }
 }
@@ -175,6 +177,9 @@ pub async fn build(
         "transport.manifest" => transport::manifest(&mut c, &ctx, params).await?,
         "transport.without_stop" => transport::without_stop(&mut c, &ctx, params).await?,
         "transport.fee_by_route" => transport::fee_by_route(&mut c, &ctx, params).await?,
+        "hostel.occupancy" => hostel::occupancy(&mut c, &ctx, params).await?,
+        "hostel.residents" => hostel::residents(&mut c, &ctx, params).await?,
+        "hostel.outstanding" => hostel::outstanding(&mut c, &ctx, params).await?,
         "leave.balances" => leave::balances(&mut c, &ctx, params).await?,
         "leave.register" => leave::register(&mut c, &ctx, params).await?,
         "leave.students" => leave::students(&mut c, &ctx, params).await?,

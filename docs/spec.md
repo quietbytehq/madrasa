@@ -880,6 +880,45 @@ phones, printable, with the capacity badge), Vehicles, Settings (fee head,
 active route grouped with its stops), students without transport (class or section
 optional), transport fee by route for a month.
 
+### 5.23 Hostel (Standard stage 6)
+
+Standard only (`Feature::Hostel`; 403 `feature_unavailable` on Lite). Rules live in
+`madrasa_core::hostel` (with `madrasa_core::periods` shared with transport): the monthly
+charge (the allocation's own amount, else the room's, else the hostel's), bed numbers
+(1..=beds), occupancy (beds, occupied, free), the leave-out consent rule (a hostel may
+require the guardian's consent before a resident goes out) and the overdue check for a
+resident not back by the expected time.
+
+Data (per school, sync columns, soft delete, audited):
+
+- `hostels`: name (unique per school), kind (boys, girls, mixed), warden with phone,
+  default `monthly_fee`, `fee_head_id` (the fee head of the monthly charge), `requires_consent`,
+  active, notes, `custom`.
+- `hostel_rooms`: hostel, floor, name (unique per hostel), `beds`, optional `monthly_fee`
+  override, active. The bed count cannot drop under a resident's bed number; a room with
+  residents cannot be removed.
+- `hostel_allocations`: student, academic year, hostel, room, `bed_no`, from and to dates,
+  optional `amount` override, notes. One open allocation per student and year and one
+  resident per bed (unique indexes): allocating a student again ends the previous
+  allocation the day before the new one starts (or replaces it when it had not started),
+  so moves keep the history; the own amount does not follow a move.
+- `hostel_register`: leave-outs (a resident goes out, `expected_back`, comes back) and
+  visitors (name, relationship, phone), each with `started_at`, `ended_at`, the guardian's
+  consent and note, who recorded and closed it. A leave-out is refused without consent
+  when the hostel requires it, and while the resident is already out; only current
+  residents get entries.
+
+Fees: `fees::generate_vouchers` asks `hostel::monthly_charge` for every student (next to the
+transport charge); when the student has an allocation covering the billing month in a
+hostel with a fee head, the charge joins the voucher under that head.
+
+Screens: Board (every room of a hostel with its beds; a free bed opens the allocate dialog
+with a student search, room, bed, date and amount; a resident can be moved or their stay
+ended), Residents (list with charge and end), Register (open entries first, overdue
+flagged, new leave-out with consent or visitor, return / left), Hostels (hostel dialog with
+fee head and the rooms table). Reports (`hostel.read`, hidden on Lite): hostel occupancy by
+room, residents by class, residents with fees outstanding.
+
 ## 15. Standard alpha (overview)
 
 The stages, their order and their acceptance are in `docs/TASKS-STANDARD.md`; each stage adds
@@ -1368,6 +1407,23 @@ each subject as `students`.
 | PUT/DELETE | `/transport/assignments/{id}` | `transport.manage` | `{stop_id?, to_date?, amount?, notes?}` (null `to_date` reopens) |
 | GET/PUT | `/transport/settings` | read / manage | `{fee_head_id, fee_head_name}` |
 | GET | `/reports/transport.manifest`, `.without_stop`, `.fee_by_route` | `transport.read` | Library reports; hidden on Lite |
+
+### 6.28 Standard stage 6 endpoints (feature `hostel`)
+
+| Method | Path | Permission | Notes |
+| --- | --- | --- | --- |
+| GET/POST | `/hostel/hostels` | read / manage | `HostelView` with fee head name, rooms, beds and residents |
+| GET/PUT/DELETE | `/hostel/hostels/{id}` | read / manage | `HostelDetail` = hostel + `room_list`; 409 deleting a hostel with residents |
+| POST | `/hostel/hostels/{id}/rooms`; PUT/DELETE `/hostel/rooms/{id}` | `hostel.manage` | `{floor, name, beds, monthly_fee?, active, notes}`; 409 shrinking under a resident or removing an occupied room |
+| GET | `/hostel/board?hostel_id&academic_year_id` | `hostel.read` | `{...hostel, academic_year_id, by_room: [{room, beds: [{bed_no, resident}]}], occupancy}` |
+| GET | `/hostel/residents?academic_year_id&hostel_id&class_id&q` | `hostel.read` | Open allocations with names, room, bed and charge |
+| GET | `/hostel/allocations?academic_year_id&hostel_id&room_id&student_id&open` | `hostel.read` | Allocation history |
+| POST | `/hostel/allocations` | `hostel.manage` | `{student_id, academic_year_id, room_id, bed_no, from_date, amount?, notes?}`; 409 when the bed is taken or does not exist; ends the previous open allocation |
+| PUT/DELETE | `/hostel/allocations/{id}` | `hostel.manage` | `{to_date?, amount?, notes?}` (null `to_date` reopens) |
+| GET | `/hostel/register?hostel_id&student_id&kind&open&from&to` | `hostel.read` | Open entries first, newest first |
+| POST | `/hostel/register` | `hostel.manage` | `{student_id, kind, started_at?, expected_back?, visitor_*, guardian_consent, consent_note, notes}`; 409 without consent, when already out, or for a non-resident |
+| POST | `/hostel/register/{id}/close` | `hostel.manage` | `{at?, notes?}`; 409 when already closed |
+| GET | `/reports/hostel.occupancy`, `.residents`, `.outstanding` | `hostel.read` | Library reports; hidden on Lite |
 
 ### 6.11 Second alpha test report fixes
 

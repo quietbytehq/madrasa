@@ -1344,7 +1344,8 @@ export type ReportModule =
   | "leave"
   | "admissions"
   | "library"
-  | "transport";
+  | "transport"
+  | "hostel";
 export type ReportParamKind =
   | "academic_year"
   | "class"
@@ -1368,7 +1369,8 @@ export type ReportAccess =
   | "timetable_read"
   | "leave_read"
   | "library_read"
-  | "transport_read";
+  | "transport_read"
+  | "hostel_read";
 
 export interface ReportParamDef {
   name: string;
@@ -3089,4 +3091,165 @@ export interface RouteRoster extends RouteView {
 export interface TransportSettings {
   fee_head_id: string | null;
   fee_head_name?: string | null;
+}
+
+// ---- Hostel (Standard stage 6) ---------------------------------------------------------------
+
+export type HostelKind = "boys" | "girls" | "mixed";
+export type RegisterKind = "leave_out" | "visitor";
+
+/** Mirrors `HostelView` (GET /hostel/hostels). */
+export interface HostelView {
+  id: string;
+  school_id: string;
+  name: string;
+  kind: HostelKind;
+  warden_name: string;
+  warden_phone: string;
+  monthly_fee: string | number;
+  fee_head_id: string | null;
+  requires_consent: boolean;
+  active: boolean;
+  notes: string;
+  custom: Record<string, unknown>;
+  hlc: string;
+  fee_head_name: string | null;
+  rooms: number;
+  beds: number;
+  occupied: number;
+}
+
+/** Mirrors `HostelInput`. */
+export interface HostelBody {
+  name: string;
+  kind: HostelKind;
+  warden_name: string;
+  warden_phone: string;
+  monthly_fee: string | number;
+  fee_head_id: string | null;
+  requires_consent: boolean;
+  active: boolean;
+  notes: string;
+  custom: Record<string, unknown>;
+}
+
+/** Mirrors `HostelRoom`. */
+export interface HostelRoom {
+  id: string;
+  school_id: string;
+  hostel_id: string;
+  floor: string;
+  name: string;
+  beds: number;
+  monthly_fee: string | null;
+  active: boolean;
+  notes: string;
+  hlc: string;
+  occupied: number;
+}
+
+/** Mirrors `RoomInput`. */
+export interface HostelRoomBody {
+  floor: string;
+  name: string;
+  beds: string | number;
+  monthly_fee: string | number | null;
+  active: boolean;
+  notes: string;
+}
+
+/** Mirrors `HostelDetail` (GET /hostel/hostels/{id}). */
+export interface HostelDetail extends HostelView {
+  room_list: HostelRoom[];
+}
+
+/** Mirrors `AllocationView`. */
+export interface AllocationView {
+  id: string;
+  school_id: string;
+  student_id: string;
+  academic_year_id: string;
+  hostel_id: string;
+  room_id: string;
+  bed_no: number;
+  from_date: string;
+  to_date: string | null;
+  amount: string | null;
+  notes: string;
+  hlc: string;
+  student_number: string;
+  student_name: string;
+  gender: string;
+  class_name: string;
+  section_name: string;
+  roll_no: number | null;
+  guardian_phone: string;
+  hostel_name: string;
+  room_name: string;
+  floor: string;
+  charge: string;
+}
+
+/** Mirrors `AllocateInput` (POST /hostel/allocations). */
+export interface AllocateBody {
+  student_id: string;
+  academic_year_id: string;
+  room_id: string;
+  bed_no: number;
+  from_date: string;
+  amount?: string | number | null;
+  notes?: string;
+}
+
+/** Mirrors `AllocationPatch` (PUT /hostel/allocations/{id}); omitted fields stay. */
+export interface AllocationPatch {
+  to_date?: string | null;
+  amount?: string | number | null;
+  notes?: string;
+}
+
+/** Mirrors `Board` (GET /hostel/board). */
+export interface HostelBoard extends HostelView {
+  academic_year_id: string;
+  by_room: { room: HostelRoom; beds: { bed_no: number; resident: AllocationView | null }[] }[];
+  occupancy: { beds: number; occupied: number; free: number };
+}
+
+/** Mirrors `HostelRegisterEntry` (GET /hostel/register). Times are RFC 3339. */
+export interface HostelRegisterEntry {
+  id: string;
+  school_id: string;
+  hostel_id: string;
+  student_id: string;
+  kind: RegisterKind;
+  started_at: string;
+  expected_back: string | null;
+  ended_at: string | null;
+  visitor_name: string;
+  visitor_relationship: string;
+  visitor_phone: string;
+  guardian_consent: boolean;
+  consent_note: string;
+  recorded_by: string | null;
+  closed_by: string | null;
+  notes: string;
+  hlc: string;
+  student_number: string;
+  student_name: string;
+  hostel_name: string;
+  room_name: string;
+}
+
+/** Mirrors `RegisterInput` (POST /hostel/register). */
+export interface HostelRegisterBody {
+  student_id: string;
+  kind: RegisterKind;
+  started_at?: string | null;
+  expected_back?: string | null;
+  visitor_name?: string;
+  visitor_relationship?: string;
+  visitor_phone?: string;
+  guardian_consent?: boolean;
+  consent_note?: string;
+  notes?: string;
 }

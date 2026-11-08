@@ -22,6 +22,7 @@ pub enum Module {
     /// Standard edition only (hidden on Lite).
     Library,
     Transport,
+    Hostel,
 }
 
 impl Module {
@@ -36,6 +37,7 @@ impl Module {
             Module::Admissions => "module.admissions",
             Module::Library => "module.library",
             Module::Transport => "module.transport",
+            Module::Hostel => "module.hostel",
         }
     }
 }
@@ -91,6 +93,8 @@ pub enum Access {
     LibraryRead,
     /// Transport reports: `transport.read`.
     TransportRead,
+    /// Hostel reports: `hostel.read`.
+    HostelRead,
 }
 
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -575,6 +579,28 @@ pub const REPORTS: &[ReportDef] = &[
         landscape: false,
         access: Access::TransportRead,
     },
+    // Hostel (Standard stage 6)
+    ReportDef {
+        code: "hostel.occupancy",
+        module: Module::Hostel,
+        params: &[YEAR],
+        landscape: false,
+        access: Access::HostelRead,
+    },
+    ReportDef {
+        code: "hostel.residents",
+        module: Module::Hostel,
+        params: &[YEAR, CLASS],
+        landscape: false,
+        access: Access::HostelRead,
+    },
+    ReportDef {
+        code: "hostel.outstanding",
+        module: Module::Hostel,
+        params: &[YEAR],
+        landscape: true,
+        access: Access::HostelRead,
+    },
     // Leave (Standard stage 2)
     ReportDef {
         code: "leave.balances",
@@ -684,13 +710,13 @@ mod tests {
         }
         let ur = catalogue(Lang::Ur, |_| true);
         assert_eq!(ur[0].label, "طلبہ");
-        assert_eq!(ur.len(), 9, "every module");
+        assert_eq!(ur.len(), 10, "every module");
         assert!(ur[0]
             .reports
             .iter()
             .any(|r| r.code == "students.list" && r.title == "طلبہ کی فہرست"));
         let teacher = catalogue(Lang::En, |d| d.access != Access::ReportsRead);
-        assert_eq!(teacher.len(), 7, "non-report-permission modules only");
+        assert_eq!(teacher.len(), 8, "non-report-permission modules only");
         assert!(teacher.iter().all(|m| m.module != Module::Fees));
         for r in REPORTS {
             for p in r.params {

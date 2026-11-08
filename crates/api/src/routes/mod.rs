@@ -13,6 +13,7 @@ pub mod exams;
 pub mod export;
 pub mod fees;
 pub mod health;
+pub mod hostel;
 pub mod imports;
 pub mod leave;
 pub mod library;
