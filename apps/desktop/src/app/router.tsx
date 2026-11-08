@@ -25,6 +25,7 @@ import { TimetablePage } from "@/pages/timetable/TimetablePage";
 import { LeavePage } from "@/pages/leave/LeavePage";
 import { AdmissionsPage } from "@/pages/admissions/AdmissionsPage";
 import { LibraryPage } from "@/pages/library/LibraryPage";
+import { TransportPage } from "@/pages/transport/TransportPage";
 import { TeacherAllocationPage } from "@/pages/staff/TeacherAllocationPage";
 import { Spinner } from "@/components/ui/Spinner";
 import { NAV_ITEMS } from "./navigation";
@@ -256,6 +257,16 @@ export function AppRoutes({ login, setup }: AppRoutesProps) {
             element={
               <RequirePermission permission="library.read">
                 <LibraryPage />
+              </RequirePermission>
+            }
+          />
+        )}
+        {has("transport") && (
+          <Route
+            path="/transport"
+            element={
+              <RequirePermission permission="transport.read">
+                <TransportPage />
               </RequirePermission>
             }
           />

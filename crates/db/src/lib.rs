@@ -32,6 +32,7 @@ pub mod subjects;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 pub mod timetable;
+pub mod transport;
 pub mod users;
 
 use sqlx::postgres::PgPoolOptions;

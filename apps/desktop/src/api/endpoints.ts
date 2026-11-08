@@ -1,5 +1,18 @@
 import { download, request } from "./client";
 import type {
+  AssignBody,
+  AssignResult,
+  AssignmentPatch,
+  AssignmentView,
+  BulkAssignResult,
+  RouteBody,
+  RouteDetail,
+  RouteRoster,
+  RouteView,
+  TransportSettings,
+  TransportStudent,
+  Vehicle,
+  VehicleBody,
   BookBody,
   BookDetail,
   BookView,
@@ -946,4 +959,57 @@ export const api = {
   updateLibrarySettings: (body: LibrarySettings) =>
     request<LibrarySettings>("/library/settings", { method: "PUT", body }),
   libraryStock: () => request<StockRow[]>("/library/stock"),
+
+  // ---- Transport (Standard stage 5) ----------------------------------------------------------
+  vehicles: () => request<Vehicle[]>("/transport/vehicles"),
+  createVehicle: (body: VehicleBody) =>
+    request<Vehicle>("/transport/vehicles", { method: "POST", body }),
+  updateVehicle: (id: string, body: VehicleBody) =>
+    request<Vehicle>(`/transport/vehicles/${id}`, { method: "PUT", body }),
+  deleteVehicle: (id: string) => request<void>(`/transport/vehicles/${id}`, { method: "DELETE" }),
+  transportRoutes: () => request<RouteView[]>("/transport/routes"),
+  transportRoute: (id: string) => request<RouteDetail>(`/transport/routes/${id}`),
+  createTransportRoute: (body: RouteBody) =>
+    request<RouteDetail>("/transport/routes", { method: "POST", body }),
+  updateTransportRoute: (id: string, body: RouteBody) =>
+    request<RouteDetail>(`/transport/routes/${id}`, { method: "PUT", body }),
+  deleteTransportRoute: (id: string) =>
+    request<void>(`/transport/routes/${id}`, { method: "DELETE" }),
+  transportRoster: (id: string, params: { academic_year_id?: string } = {}) =>
+    request<RouteRoster>(`/transport/routes/${id}/roster${qs(params)}`),
+  transportStudents: (
+    params: {
+      academic_year_id?: string;
+      class_id?: string;
+      section_id?: string;
+      q?: string;
+      without?: boolean;
+    } = {},
+  ) => request<TransportStudent[]>(`/transport/students${qs(params)}`),
+  transportAssignments: (
+    params: {
+      academic_year_id?: string;
+      route_id?: string;
+      stop_id?: string;
+      section_id?: string;
+      student_id?: string;
+      open?: boolean;
+    } = {},
+  ) => request<AssignmentView[]>(`/transport/assignments${qs(params)}`),
+  assignTransport: (body: AssignBody) =>
+    request<AssignResult>("/transport/assignments", { method: "POST", body }),
+  assignTransportBulk: (body: {
+    student_ids: string[];
+    academic_year_id: string;
+    stop_id: string;
+    from_date: string;
+    amount?: string | number | null;
+  }) => request<BulkAssignResult>("/transport/assignments/bulk", { method: "POST", body }),
+  updateTransportAssignment: (id: string, body: AssignmentPatch) =>
+    request<AssignmentView>(`/transport/assignments/${id}`, { method: "PUT", body }),
+  deleteTransportAssignment: (id: string) =>
+    request<void>(`/transport/assignments/${id}`, { method: "DELETE" }),
+  transportSettings: () => request<TransportSettings>("/transport/settings"),
+  updateTransportSettings: (body: TransportSettings) =>
+    request<TransportSettings>("/transport/settings", { method: "PUT", body }),
 };

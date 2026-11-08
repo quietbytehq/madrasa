@@ -154,7 +154,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
     labelKey: "nav.transport",
     icon: Bus,
     feature: "transport",
-    available: false,
+    available: true,
+    permission: "transport.read",
   },
   {
     path: "/hostel",

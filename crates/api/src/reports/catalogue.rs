@@ -21,6 +21,7 @@ pub enum Module {
     Admissions,
     /// Standard edition only (hidden on Lite).
     Library,
+    Transport,
 }
 
 impl Module {
@@ -34,6 +35,7 @@ impl Module {
             Module::Leave => "module.leave",
             Module::Admissions => "module.admissions",
             Module::Library => "module.library",
+            Module::Transport => "module.transport",
         }
     }
 }
@@ -87,6 +89,8 @@ pub enum Access {
     AdmissionsRead,
     /// Library reports: `library.read`.
     LibraryRead,
+    /// Transport reports: `transport.read`.
+    TransportRead,
 }
 
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -549,6 +553,28 @@ pub const REPORTS: &[ReportDef] = &[
         landscape: false,
         access: Access::LibraryRead,
     },
+    // Transport (Standard stage 5)
+    ReportDef {
+        code: "transport.manifest",
+        module: Module::Transport,
+        params: &[YEAR],
+        landscape: false,
+        access: Access::TransportRead,
+    },
+    ReportDef {
+        code: "transport.without_stop",
+        module: Module::Transport,
+        params: &[YEAR, CLASS, SECTION],
+        landscape: false,
+        access: Access::TransportRead,
+    },
+    ReportDef {
+        code: "transport.fee_by_route",
+        module: Module::Transport,
+        params: &[YEAR, MONTH],
+        landscape: false,
+        access: Access::TransportRead,
+    },
     // Leave (Standard stage 2)
     ReportDef {
         code: "leave.balances",
@@ -658,17 +684,13 @@ mod tests {
         }
         let ur = catalogue(Lang::Ur, |_| true);
         assert_eq!(ur[0].label, "طلبہ");
-        assert_eq!(
-            ur.len(),
-            8,
-            "students, fees, attendance, exams, timetable, admissions, library, leave"
-        );
+        assert_eq!(ur.len(), 9, "every module");
         assert!(ur[0]
             .reports
             .iter()
             .any(|r| r.code == "students.list" && r.title == "طلبہ کی فہرست"));
         let teacher = catalogue(Lang::En, |d| d.access != Access::ReportsRead);
-        assert_eq!(teacher.len(), 6, "non-report-permission modules only");
+        assert_eq!(teacher.len(), 7, "non-report-permission modules only");
         assert!(teacher.iter().all(|m| m.module != Module::Fees));
         for r in REPORTS {
             for p in r.params {

@@ -259,3 +259,21 @@ timetable and the substitutions.
 5. **Stock**: counts by category and every copy; after a stock take set missing copies to
    Lost and discarded ones to Withdrawn.
 6. **Reports**: overdue books, fines, most borrowed titles and stock by category.
+
+## 13. Transport (Standard)
+
+1. **Vehicles** (office): registration, seats, driver and helper with phones. The seat
+   count drives the warning when a route carries more students than it can seat.
+2. **Routes**: a route has a vehicle, a default monthly fee and its stops in pickup order,
+   each with a time and an optional fee of its own. Reorder stops with the arrows; a stop
+   with students on it cannot be removed until they are moved.
+3. **Assign**: pick the year and a section, tick the students, choose the route and the
+   stop and the date they start, then press Assign. A student who changes stops keeps the
+   history: the previous assignment ends the day before. End a student's transport from
+   the row when they stop using it.
+4. **Settings**: choose the fee head for the monthly charge. From then on, every voucher
+   generated for a student on a stop carries the transport line (the student's own amount
+   if set, else the stop's, else the route's).
+5. **Roster**: one route by stop, with student numbers, classes and guardian phones; print
+   it for the driver. Reports: route manifests, students without transport, transport fee
+   by route for a month.

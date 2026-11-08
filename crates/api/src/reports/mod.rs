@@ -16,6 +16,7 @@ pub mod pdf;
 pub mod students;
 pub mod text;
 pub mod timetable;
+pub mod transport;
 pub mod vouchers;
 
 use std::collections::HashMap;

@@ -42,6 +42,8 @@ Legend: ✓ granted by default · — not granted.
 | `admissions.manage` | Record and move applications, stages, convert to students, import enquiries (Standard) | ✓ | ✓ | — | — | — |
 | `library.read` | Library catalogue, loans, members, fines and reports (Standard) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `library.manage` | Catalogue and copies, issue, return, renew, fines and waivers, loan rules (Standard) | ✓ | ✓ | — | — | ✓ |
+| `transport.read` | Transport routes, vehicles, assignments, rosters and reports (Standard) | ✓ | ✓ | ✓ | — | — |
+| `transport.manage` | Vehicles, routes and stops, assign students, the transport fee head (Standard) | ✓ | ✓ | — | — | — |
 | `timetable.manage` | Shifts, rooms, lessons, rules, generate, edit and publish timetables, record absences and covers (Standard) | ✓ | ✓ | — | — | — |
 | `nexus.admin` | Network hub (Nexus edition only) | — | — | — | — | — |
 

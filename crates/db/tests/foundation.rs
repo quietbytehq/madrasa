@@ -137,6 +137,10 @@ async fn migrations_apply_and_tables_follow_the_rules() {
             "timetable_rules",
             "timetable_shifts",
             "timetables",
+            "transport_assignments",
+            "transport_routes",
+            "transport_stops",
+            "transport_vehicles",
             "user_roles",
             "users",
         ]

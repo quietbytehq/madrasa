@@ -951,6 +951,28 @@ depend on each other and were built together)
   limits and overdue refusals, lost copy, waiver, settle to voucher, stock, reports, back to
   Lite), vitest for the desk flow and the catalogue.
 
+### 2026-11-08 — Stage 5: Transport (branch `dev/std-stage-5-transport`)
+- `madrasa_core::transport`: month coverage of an assignment, the monthly charge
+  (assignment → stop → route), capacity warnings and seats left (unit tests).
+- Migration 0021: `transport_vehicles`, `transport_routes`, `transport_stops`,
+  `transport_assignments` (one open assignment per student and year); permissions
+  `transport.read` (principal, admin, accountant) and `transport.manage` (principal, admin),
+  granted to existing roles only on Standard installs.
+- `crates/db::transport`: vehicles, routes with their ordered stops (kept, renamed, added or
+  removed unless students are on them), assignments that end the previous one, students of a
+  section with their stop, rosters, the monthly charge for a student and month, fee by route.
+  `fees::generate_vouchers` adds the transport line under the configured fee head.
+- API `routes/transport.rs`: vehicles, routes, roster with the capacity warning, students,
+  single and bulk assignment with the warning, settings. Reports `transport.manifest`,
+  `without_stop`, `fee_by_route`.
+- UI: Transport module (Routes with the route and stops dialog, Assign by section with bulk
+  assignment, printable Roster, Vehicles, Settings for `transport.manage`). Strings en/ur.
+- Tests: core, `tests/transport.rs` (Lite refusals; Standard: vehicles, routes and stops,
+  assignment with route, stop and own amounts, a route change that ends the previous
+  assignment, students without transport, roster with an over-capacity warning, stop
+  reordering and refusals, the voucher line after a fee head is set, reports, back to Lite),
+  vitest for the routes dialog, the bulk assign flow and the roster.
+
 ## Summary for the owner — M2 (Lite complete)
 
 M2 was built in nine pull requests, each from a clean `main` with CI green on Linux and

@@ -796,6 +796,15 @@ pub async fn generate_vouchers(
                 }
             }
         }
+        // Standard modules add their monthly charges (transport; empty on Lite).
+        if let Some((head_id, amount)) =
+            crate::transport::monthly_charge(&mut *conn, school_id, student_id, billing_month)
+                .await?
+        {
+            if let Some(head) = heads.iter().find(|h| h.id == head_id) {
+                lines.push((head.clone(), amount));
+            }
+        }
         if lines.is_empty() {
             report.skipped_no_structure += 1;
             continue;
