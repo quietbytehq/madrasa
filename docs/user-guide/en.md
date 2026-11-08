@@ -296,3 +296,21 @@ timetable and the substitutions.
    entries stay on top; a resident not back by the expected time shows Overdue.
 5. **Reports**: hostel occupancy by room, residents by class, residents with fees
    outstanding.
+
+## 15. Inventory (Standard)
+
+1. **Setup** (store keeper or office): categories to group items, and locations where
+   stock is kept (the main store, labs, rooms, offices).
+2. **Items**: name, code, unit and a reorder level; tick "Durable item" for things that
+   get an asset tag (projectors, computers). The list shows stock on hand and flags items
+   at or below their reorder level.
+3. **Record movement**: a purchase in (with the unit cost and bill number), an issue to a
+   staff member, student or room, a return, a write-off, an adjustment, or a transfer
+   between two locations. Stock at a location can never go below zero; an issue always
+   names who received the goods.
+4. **Stock**: what is on hand per item and location. **Movements**: the register with
+   filters by kind, location, dates and text; a wrong entry can be removed while the stock
+   is still there.
+5. **Assets**: one row per tagged item with its serial number, status, location and who
+   has it.
+6. **Reports**: stock on hand, below reorder level, stock movements in a period.

@@ -11,6 +11,7 @@ pub mod consents;
 pub mod exams;
 pub mod fees;
 pub mod hostel;
+pub mod inventory;
 pub mod leave;
 pub mod library;
 pub mod pdf;

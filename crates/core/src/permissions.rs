@@ -106,6 +106,11 @@ pub enum Permission {
     HostelRead,
     #[serde(rename = "hostel.manage")]
     HostelManage,
+    // Inventory (Standard stage 7)
+    #[serde(rename = "inventory.read")]
+    InventoryRead,
+    #[serde(rename = "inventory.manage")]
+    InventoryManage,
     // Nexus
     #[serde(rename = "nexus.admin")]
     NexusAdmin,
@@ -151,6 +156,8 @@ impl Permission {
         Permission::TransportManage,
         Permission::HostelRead,
         Permission::HostelManage,
+        Permission::InventoryRead,
+        Permission::InventoryManage,
         Permission::NexusAdmin,
     ];
 
@@ -194,6 +201,8 @@ impl Permission {
             Permission::TransportManage => "transport.manage",
             Permission::HostelRead => "hostel.read",
             Permission::HostelManage => "hostel.manage",
+            Permission::InventoryRead => "inventory.read",
+            Permission::InventoryManage => "inventory.manage",
             Permission::NexusAdmin => "nexus.admin",
         }
     }
@@ -230,6 +239,8 @@ pub enum RoleCode {
     Teacher,
     /// Standard: runs the library desk.
     Librarian,
+    /// Standard: runs the store (inventory).
+    StoreKeeper,
     Parent,
 }
 
@@ -240,6 +251,7 @@ impl RoleCode {
         RoleCode::Accountant,
         RoleCode::Teacher,
         RoleCode::Librarian,
+        RoleCode::StoreKeeper,
         RoleCode::Parent,
     ];
 
@@ -250,6 +262,7 @@ impl RoleCode {
             RoleCode::Accountant => "accountant",
             RoleCode::Teacher => "teacher",
             RoleCode::Librarian => "librarian",
+            RoleCode::StoreKeeper => "storekeeper",
             RoleCode::Parent => "parent",
         }
     }
@@ -262,6 +275,7 @@ impl RoleCode {
             RoleCode::Accountant => "Accountant",
             RoleCode::Teacher => "Teacher",
             RoleCode::Librarian => "Librarian",
+            RoleCode::StoreKeeper => "Store keeper",
             RoleCode::Parent => "Parent",
         }
     }
@@ -279,6 +293,7 @@ impl RoleCode {
         match self {
             RoleCode::Parent => edition == Edition::Nexus,
             RoleCode::Librarian => edition != Edition::Lite,
+            RoleCode::StoreKeeper => edition != Edition::Lite,
             _ => true,
         }
     }
@@ -330,6 +345,8 @@ impl RoleCode {
                 TransportManage,
                 HostelRead,
                 HostelManage,
+                InventoryRead,
+                InventoryManage,
             ],
             RoleCode::Accountant => {
                 vec![
@@ -345,6 +362,7 @@ impl RoleCode {
                     LibraryRead,
                     TransportRead,
                     HostelRead,
+                    InventoryRead,
                 ]
             }
             RoleCode::Teacher => vec![
@@ -367,6 +385,14 @@ impl RoleCode {
                 TeachersRead,
                 LibraryRead,
                 LibraryManage,
+            ],
+            RoleCode::StoreKeeper => vec![
+                SchoolRead,
+                AcademicsRead,
+                StudentsRead,
+                TeachersRead,
+                InventoryRead,
+                InventoryManage,
             ],
             RoleCode::Parent => vec![SchoolRead],
         }
@@ -518,6 +544,7 @@ mod tests {
             RoleCode::Accountant,
             RoleCode::Teacher,
             RoleCode::Librarian,
+            RoleCode::StoreKeeper,
         ];
         let mut seen = 0;
         for line in doc.lines().filter(|l| l.starts_with("| `")) {

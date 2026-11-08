@@ -14,7 +14,14 @@ import { useToast } from "@/components/ui/Toast";
 import { useI18n } from "@/i18n";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 
-const ROLES: LoginRole[] = ["principal", "admin", "accountant", "teacher", "librarian"];
+const ROLES: LoginRole[] = [
+  "principal",
+  "admin",
+  "accountant",
+  "teacher",
+  "librarian",
+  "storekeeper",
+];
 
 /** Settings → Users: every login with role, staff link, status and last login. */
 export function UsersCard() {
@@ -27,8 +34,12 @@ export function UsersCard() {
   const [resetFor, setResetFor] = useState<UserAccount | null>(null);
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const hasLibrary = useHasFeature()("library");
-  const roleOptions = ROLES.filter((r) => r !== "librarian" || hasLibrary).map((r) => ({
+  const hasFeature = useHasFeature();
+  const roleOptions = ROLES.filter(
+    (r) =>
+      (r !== "librarian" || hasFeature("library")) &&
+      (r !== "storekeeper" || hasFeature("inventory")),
+  ).map((r) => ({
     value: r,
     label: t(`staff.login.role.${r}`),
   }));

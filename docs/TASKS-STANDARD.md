@@ -150,13 +150,13 @@ ejection-chain placement → relaxation → verify pipeline is ported into
 
 ## Stage 7 — Inventory
 
-- [ ] Item categories and items (unit, reorder level), stock locations (store, lab,
+- [x] Item categories and items (unit, reorder level), stock locations (store, lab,
       room), stock movements (purchase in, issue to staff/room/student, return, write-off)
       with quantities and optional cost; asset tags for durable items
-- [ ] Screens: items with stock on hand, movement entry, issue register; reports: stock on
+- [x] Screens: items with stock on hand, movement entry, issue register; reports: stock on
       hand, below reorder level, movements in a period
-- [ ] Permissions `inventory.read`, `inventory.manage` (store keeper role)
-- [ ] Tests: stock never negative, reorder report, vitest
+- [x] Permissions `inventory.read`, `inventory.manage` (store keeper role)
+- [x] Tests: stock never negative, reorder report, vitest
 
 ## Stage 8 — Directory (Active Directory / LDAP) login
 

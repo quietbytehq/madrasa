@@ -15,6 +15,7 @@ pub mod fees;
 pub mod health;
 pub mod hostel;
 pub mod imports;
+pub mod inventory;
 pub mod leave;
 pub mod library;
 pub mod nexus;
