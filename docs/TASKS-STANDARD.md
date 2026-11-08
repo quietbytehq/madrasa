@@ -174,15 +174,15 @@ ejection-chain placement → relaxation → verify pipeline is ported into
 
 ## Stage 9 — Read-only API
 
-- [ ] API keys (`settings.manage`): name, scopes (students, attendance, fees, exams,
+- [x] API keys (`settings.manage`): name, scopes (students, attendance, fees, exams,
       timetable, library), optional IP allow-list, expiry; shown once; hashed at rest;
       audited; revocable
-- [ ] `GET /api/ro/v1/...` endpoints returning JSON pages (students, sections, attendance
+- [x] `GET /api/ro/v1/...` endpoints returning JSON pages (students, sections, attendance
       summary per day, fee balances, results, timetable) with `If-None-Match` support and
       a documented rate limit; every call logged with the key; no writes
-- [ ] Documentation page under Settings → API with the endpoints and example `curl`
+- [x] Documentation page under Settings → API with the endpoints and example `curl`
       calls; OpenAPI JSON served at `/api/ro/v1/openapi.json`
-- [ ] Tests: scopes, expiry, revocation, rate limit, a Lite install has no `/api/ro`
+- [x] Tests: scopes, expiry, revocation, rate limit, a Lite install has no `/api/ro`
 
 ## Stage 10 — Close-out
 

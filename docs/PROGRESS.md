@@ -1042,6 +1042,27 @@ depend on each other and were built together)
 - Not covered by automated tests: the LDAP wire protocol itself (`LdapDirectory`), which
   needs a real server; see the owner summary for the manual test.
 
+### 2026-11-08 — Stage 9: Read-only API (branch `dev/std-stage-9-readonly-api`)
+- `madrasa_core::api_keys`: scopes, usability, the IP allow-list with CIDR matching and
+  validation, the rate window, key generation and prefix (unit tests).
+- Migration 0025: `api_keys` and the append-only `api_key_calls`.
+- `crates/db::api_keys` (create returning the secret once, list, revoke, log a call, the
+  call log) and `crates/db::ro` (students paged, sections, attendance per day, fee
+  balances, assessments, approved results, the published timetable of a section).
+- API: `ro` module served at `/api/ro/v1` with one guard middleware (feature, key, expiry,
+  allow-list from the connection's peer address, rate limit with `Retry-After`, ETag /
+  `If-None-Match`, call log) and the endpoints above plus `/openapi.json`;
+  `routes/api_keys.rs` for Settings; `AppState.ro_limits`; both servers now serve with
+  connection info so the allow-list sees the caller.
+- UI: Settings → API card (keys, new key dialog showing the secret once, revoke, call log,
+  endpoint reference with `curl` examples). Strings en/ur.
+- Tests: core, `tests/readonly_api.rs` (Lite has no prefix and refuses the settings;
+  Standard: key validation, creation and the hidden secret, no key / wrong key / wrong
+  address / good address with an ETag and 304, `X-Api-Key`, paging, sections, a missing
+  scope, attendance, balances, timetable, index, OpenAPI, the call log, the rate limit,
+  expiry, revocation, a key without an allow-list, results and loans, back to Lite), vitest
+  for the card (create and show once, revoke, the reference).
+
 ## Summary for the owner — M2 (Lite complete)
 
 M2 was built in nine pull requests, each from a clean `main` with CI green on Linux and

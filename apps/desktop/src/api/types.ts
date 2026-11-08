@@ -3494,3 +3494,53 @@ export interface AuthOptions {
   directory_login: boolean;
   directory_hint: string;
 }
+
+// ---- Read-only API keys (Standard stage 9) ---------------------------------------------------
+
+/** Mirrors `ApiKey` (the secret and its hash are never returned). */
+export interface ApiKey {
+  id: string;
+  school_id: string;
+  name: string;
+  key_prefix: string;
+  scopes: string[];
+  ip_allow: string[];
+  expires_at: string | null;
+  last_used_at: string | null;
+  created_by: string | null;
+  revoked_at: string | null;
+  created_at: string;
+  hlc: string;
+}
+
+/** Mirrors `ApiKeysView` (GET /settings/api-keys). */
+export interface ApiKeysView {
+  keys: ApiKey[];
+  scopes: string[];
+  rate_limit_per_minute: number;
+  base_path: string;
+}
+
+/** Mirrors `ApiKeyInput` (POST /settings/api-keys). */
+export interface ApiKeyBody {
+  name: string;
+  scopes: string[];
+  ip_allow?: string[];
+  expires_at?: string | null;
+}
+
+/** Mirrors `CreatedApiKey`: the key appears here once. */
+export interface CreatedApiKey extends ApiKey {
+  key: string;
+}
+
+/** Mirrors `ApiKeyCall`. */
+export interface ApiKeyCall {
+  id: string;
+  key_id: string;
+  called_at: string;
+  method: string;
+  path: string;
+  status: number;
+  ip: string;
+}

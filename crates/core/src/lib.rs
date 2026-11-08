@@ -5,6 +5,7 @@
 
 pub mod admissions;
 pub mod allocation;
+pub mod api_keys;
 pub mod attendance;
 pub mod backup;
 pub mod boards;
