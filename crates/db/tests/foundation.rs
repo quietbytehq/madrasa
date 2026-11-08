@@ -71,6 +71,9 @@ async fn migrations_apply_and_tables_follow_the_rules() {
         tables,
         [
             "academic_years",
+            "admission_applications",
+            "admission_events",
+            "admission_stages",
             "assessment_max_marks",
             "assessment_types",
             "attendance_entries",

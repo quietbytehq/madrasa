@@ -38,6 +38,8 @@ Legend: ✓ granted by default · — not granted.
 | `leave.read` | Leave requests and balances (teachers: their own, and student leave for their sections), staff register (Standard) | ✓ | ✓ | ✓ | ✓ |
 | `leave.manage` | Leave types, balances and carry-over, requests for others, student leave requests and decisions (Standard) | ✓ | ✓ | — | — |
 | `leave.approve` | Approve or reject staff leave requests (Standard) | ✓ | ✓ | — | — |
+| `admissions.read` | Admissions pipeline: applications, board, reports (Standard) | ✓ | ✓ | ✓ | — |
+| `admissions.manage` | Record and move applications, stages, convert to students, import enquiries (Standard) | ✓ | ✓ | — | — |
 | `timetable.manage` | Shifts, rooms, lessons, rules, generate, edit and publish timetables, record absences and covers (Standard) | ✓ | ✓ | — | — |
 | `nexus.admin` | Network hub (Nexus edition only) | — | — | — | — |
 

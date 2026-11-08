@@ -14,6 +14,8 @@ pub enum ImportKind {
     Students,
     Staff,
     OpeningBalances,
+    /// Admission enquiries (Standard stage 3).
+    Enquiries,
 }
 
 impl ImportKind {
@@ -22,6 +24,7 @@ impl ImportKind {
             ImportKind::Students => "students",
             ImportKind::Staff => "staff",
             ImportKind::OpeningBalances => "opening_balances",
+            ImportKind::Enquiries => "enquiries",
         }
     }
 }
@@ -33,6 +36,7 @@ impl std::str::FromStr for ImportKind {
             "students" => Ok(ImportKind::Students),
             "staff" => Ok(ImportKind::Staff),
             "opening_balances" => Ok(ImportKind::OpeningBalances),
+            "enquiries" => Ok(ImportKind::Enquiries),
             other => Err(format!("unknown import kind: {other}")),
         }
     }
@@ -714,8 +718,29 @@ pub fn fields(kind: ImportKind) -> &'static [FieldDef] {
         ImportKind::Students => STUDENT_FIELDS,
         ImportKind::Staff => STAFF_FIELDS,
         ImportKind::OpeningBalances => BALANCE_FIELDS,
+        ImportKind::Enquiries => ENQUIRY_FIELDS,
     }
 }
+
+/// Admission enquiries (Standard stage 3): the applicant, the guardian and the class applied
+/// for. Only the name is required; a missing enquiry date is today.
+pub const ENQUIRY_FIELDS: &[FieldDef] = &[
+    f("full_name", "Applicant name", true, &["applicant", "applicant name", "name", "student name", "child name", "نام"], "Ali Khan"),
+    f("father_name", "Father's name", false, &["father", "fathers name", "father name", "والد کا نام"], "Imran Khan"),
+    f("date_of_birth", "Date of birth", false, &["dob", "birth date", "birthday", "تاریخ پیدائش"], "2015-03-14"),
+    f("gender", "Gender", false, &["sex", "جنس"], "male"),
+    f("class", "Class applied for", false, &["class applied", "applying for", "grade", "class applied for", "جماعت"], "6"),
+    f("enquiry_date", "Enquiry date", false, &["date", "enquiry", "enquired on", "inquiry date", "تاریخ"], "2026-03-01"),
+    f("source", "Source", false, &["referral", "how heard", "channel", "ذریعہ"], "Walk-in"),
+    f("phone", "Phone", false, &["mobile", "contact", "cell", "فون"], "0300 1234567"),
+    f("email", "Email", false, &["e-mail", "ای میل"], "ali@example.com"),
+    f("address", "Address", false, &["home address", "پتہ"], "House 12, Street 4"),
+    f("previous_school", "Previous school", false, &["last school", "current school", "school", "سابقہ اسکول"], "Sunrise School"),
+    f("guardian_name", "Guardian name", false, &["parent name", "guardian", "parent", "سرپرست"], "Imran Khan"),
+    f("guardian_phone", "Guardian phone", false, &["parent phone", "guardian mobile", "parent mobile", "سرپرست فون"], "0300 1234567"),
+    f("guardian_cnic", "Guardian CNIC", false, &["parent cnic", "guardian id", "شناختی کارڈ"], "42101-1234567-1"),
+    f("notes", "Notes", false, &["remarks", "comment", "comments", "نوٹ"], "Sibling in class 3"),
+];
 
 /// Lower-case, Latin digits, single spaces, no punctuation except hyphen and slash.
 pub fn normalize_header(h: &str) -> String {

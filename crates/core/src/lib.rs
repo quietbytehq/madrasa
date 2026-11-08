@@ -3,6 +3,7 @@
 //! Everything here is shared by the API, the desktop shell and the demo generator, and is
 //! exhaustively unit tested. See `docs/spec.md` for the rules these modules implement.
 
+pub mod admissions;
 pub mod allocation;
 pub mod attendance;
 pub mod backup;
