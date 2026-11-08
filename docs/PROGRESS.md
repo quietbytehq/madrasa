@@ -908,6 +908,29 @@ depend on each other and were built together)
   with late time, carry-over, adjustment, reports, type deletion, back to Lite), vitest
   for the page and the register, existing suites updated for the new fields.
 
+### 2026-11-08 — Stage 3: Admissions pipeline (branch `dev/std-stage-3-admissions`)
+- `madrasa_core::admissions`: stage kinds, the default pipeline, move rules, the funnel
+  (unit tests). `ImportKind::Enquiries` with its field list.
+- Migration 0019: `admission_stages`, `admission_applications`, `admission_events`;
+  permissions `admissions.read` (principal, admin, accountant) and `admissions.manage`
+  (principal, admin), granted to existing roles only on Standard installs.
+- `crates/db::admissions`: stages (defaults on first use), applications with filters,
+  stage moves recording dated events, linking the created student, the funnel.
+  `fees::create_one_off_voucher` for the admission fee.
+- API `routes/admissions.rs`: stages, settings (fee head), board, applications CRUD,
+  single and bulk moves, conversion (student + enrolment + guardian + voucher in one
+  transaction, duplicate check with `force`), offer letter PDF (en/ur). Import engine:
+  enquiries preview, apply and rollback. Reports `admissions.funnel`, `by_class`,
+  `pending_tests`.
+- UI: Admissions module (Pipeline board, Applications list with bulk move, Stages + fee
+  head for `admissions.manage`), application dialog with history, move, offer letter and
+  the convert dialog; "Admission enquiries" kind on the Import page. Strings en/ur.
+- Tests: core, `tests/admissions.rs` (Lite refusals; Standard: default and custom
+  stages, applications, validation, moves and history, bulk move, board funnel, offer
+  letters, conversion with voucher and guardian, refusals after conversion, duplicate
+  check and force, enquiry import with a class error and rollback, reports, back to
+  Lite), vitest for the board, the dialog conversion and the reader view.
+
 ## Summary for the owner — M2 (Lite complete)
 
 M2 was built in nine pull requests, each from a clean `main` with CI green on Linux and

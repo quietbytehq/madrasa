@@ -173,6 +173,7 @@ async fn soft_delete(
         "enrollments",
         "staff",
         "board_results",
+        "admission_applications",
     ];
     if !allowed.contains(&table) {
         return Err(DbError::Conflict(format!("cannot roll back {table}")));
@@ -330,6 +331,9 @@ pub async fn rollback(
                 soft_delete(&mut *conn, hlc, actor, "enrollments", id).await?
             }
             ("created", "staff") => soft_delete(&mut *conn, hlc, actor, "staff", id).await?,
+            ("created", "admission_application") => {
+                soft_delete(&mut *conn, hlc, actor, "admission_applications", id).await?
+            }
             ("created", "board_result") => {
                 soft_delete(&mut *conn, hlc, actor, "board_results", id).await?
             }

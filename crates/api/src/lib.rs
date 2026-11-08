@@ -54,6 +54,7 @@ pub fn router(state: AppState) -> Router {
         .merge(routes::consents::router())
         .merge(routes::timetable::router())
         .merge(routes::leave::router())
+        .merge(routes::admissions::router())
         .merge(routes::backup::router())
         .merge(routes::boards::router())
         .merge(routes::imports::router())

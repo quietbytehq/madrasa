@@ -22,6 +22,7 @@ import { Select } from "@/components/ui/Select";
 import { Spinner } from "@/components/ui/Spinner";
 import { useToast } from "@/components/ui/Toast";
 import { useI18n } from "@/i18n";
+import { useHasFeature } from "@/app/features";
 import type { TranslationKey } from "@/i18n";
 import { cn } from "@/lib/cn";
 import { pickSheet } from "@/lib/sheets";
@@ -30,7 +31,7 @@ import { useSession } from "@/app/session";
 import { PageHeader } from "../PageHeader";
 import { importDraft } from "./importDraft";
 
-const KINDS: ImportKind[] = ["students", "staff", "opening_balances"];
+const KINDS: ImportKind[] = ["students", "staff", "opening_balances", "enquiries"];
 const STEPS: TranslationKey[] = [
   "import.step.type",
   "import.step.file",
@@ -95,7 +96,11 @@ export function ImportPage() {
     toast.push({ kind: "error", title: errorMessage(err, t("app.error.generic")) });
   const rows = edited ?? parsed?.rows ?? [];
 
-  const allowed = (k: ImportKind) => can(k === "staff" ? "teachers.manage" : "students.manage");
+  const has = useHasFeature();
+  const allowed = (k: ImportKind) =>
+    k === "enquiries"
+      ? has("admissions") && can("admissions.manage")
+      : can(k === "staff" ? "teachers.manage" : "students.manage");
 
   const onFile = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

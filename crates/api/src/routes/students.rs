@@ -64,7 +64,7 @@ pub(crate) fn phone_error(country: &str) -> ApiError {
     }
 }
 
-fn clean_cnic(country: &str, v: Option<String>) -> ApiResult<Option<String>> {
+pub(crate) fn clean_cnic(country: &str, v: Option<String>) -> ApiResult<Option<String>> {
     match v.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
         Some(s) => locale::normalise_national_id(country, s)
             .map(Some)

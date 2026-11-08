@@ -14,11 +14,11 @@ use serde_json::json;
 use crate::auth::CurrentUser;
 use crate::export::file_response;
 use crate::reports::catalogue::{Access, ReportDef};
+use crate::reports::{admissions, consents, leave, timetable};
 use crate::reports::{
     attendance, boards, builder, catalogue, exams, fees, pdf, students, Context, Lang, Params,
     Report,
 };
-use crate::reports::{consents, leave, timetable};
 use crate::{ApiError, ApiResult, AppState};
 use madrasa_db::report_definitions::{self as defs, ReportDefinition};
 use serde::{Deserialize, Serialize};
@@ -47,6 +47,7 @@ fn may_run(user: &CurrentUser, def: &ReportDef) -> bool {
             Access::ExamsRead => user.can(Permission::ExamsRead),
             Access::TimetableRead => user.can(Permission::TimetableRead),
             Access::LeaveRead => user.can(Permission::LeaveRead),
+            Access::AdmissionsRead => user.can(Permission::AdmissionsRead),
         }
 }
 
@@ -55,6 +56,7 @@ fn module_enabled(state: &AppState, def: &ReportDef) -> bool {
     match def.module {
         catalogue::Module::Timetable => state.has_feature(Feature::Timetable),
         catalogue::Module::Leave => state.has_feature(Feature::Leave),
+        catalogue::Module::Admissions => state.has_feature(Feature::Admissions),
         _ => true,
     }
 }
@@ -69,6 +71,7 @@ async fn list(
         && !user.can(Permission::ExamsRead)
         && !user.can(Permission::TimetableRead)
         && !user.can(Permission::LeaveRead)
+        && !user.can(Permission::AdmissionsRead)
     {
         return Err(ApiError::forbidden());
     }
@@ -157,6 +160,9 @@ pub async fn build(
         "timetable.teacher_load" => timetable::teacher_load(&mut c, &ctx, params).await?,
         "timetable.free_rooms" => timetable::free_rooms(&mut c, &ctx, params).await?,
         "timetable.cover_sheet" => timetable::cover_sheet(&mut c, &ctx, params).await?,
+        "admissions.funnel" => admissions::funnel(&mut c, &ctx, params).await?,
+        "admissions.by_class" => admissions::by_class(&mut c, &ctx, params).await?,
+        "admissions.pending_tests" => admissions::pending_tests(&mut c, &ctx, params).await?,
         "leave.balances" => leave::balances(&mut c, &ctx, params).await?,
         "leave.register" => leave::register(&mut c, &ctx, params).await?,
         "leave.students" => leave::students(&mut c, &ctx, params).await?,

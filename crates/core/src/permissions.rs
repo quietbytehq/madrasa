@@ -86,6 +86,11 @@ pub enum Permission {
     /// Decide staff leave requests (principal, admin or the configured approver).
     #[serde(rename = "leave.approve")]
     LeaveApprove,
+    // Admissions (Standard stage 3)
+    #[serde(rename = "admissions.read")]
+    AdmissionsRead,
+    #[serde(rename = "admissions.manage")]
+    AdmissionsManage,
     // Nexus
     #[serde(rename = "nexus.admin")]
     NexusAdmin,
@@ -123,6 +128,8 @@ impl Permission {
         Permission::LeaveRead,
         Permission::LeaveManage,
         Permission::LeaveApprove,
+        Permission::AdmissionsRead,
+        Permission::AdmissionsManage,
         Permission::NexusAdmin,
     ];
 
@@ -158,6 +165,8 @@ impl Permission {
             Permission::LeaveRead => "leave.read",
             Permission::LeaveManage => "leave.manage",
             Permission::LeaveApprove => "leave.approve",
+            Permission::AdmissionsRead => "admissions.read",
+            Permission::AdmissionsManage => "admissions.manage",
             Permission::NexusAdmin => "nexus.admin",
         }
     }
@@ -280,6 +289,8 @@ impl RoleCode {
                 LeaveRead,
                 LeaveManage,
                 LeaveApprove,
+                AdmissionsRead,
+                AdmissionsManage,
             ],
             RoleCode::Accountant => {
                 vec![
@@ -291,6 +302,7 @@ impl RoleCode {
                     ReportsRead,
                     TimetableRead,
                     LeaveRead,
+                    AdmissionsRead,
                 ]
             }
             RoleCode::Teacher => vec![
