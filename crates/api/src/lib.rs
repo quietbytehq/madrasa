@@ -7,6 +7,7 @@ pub mod auth;
 pub mod backup;
 pub mod bootstrap;
 pub mod clock;
+pub mod directory;
 pub mod error;
 pub mod export;
 pub mod imports;
@@ -59,6 +60,7 @@ pub fn router(state: AppState) -> Router {
         .merge(routes::transport::router())
         .merge(routes::hostel::router())
         .merge(routes::inventory::router())
+        .merge(routes::directory::router())
         .merge(routes::backup::router())
         .merge(routes::boards::router())
         .merge(routes::imports::router())

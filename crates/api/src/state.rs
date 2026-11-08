@@ -5,6 +5,7 @@ use madrasa_core::password::LockoutPolicy;
 use madrasa_db::{schools, settings, PgPool};
 use std::sync::{Arc, RwLock};
 
+use crate::directory::{LdapDirectory, SharedDirectory};
 use crate::timetable_jobs::TimetableJobs;
 use crate::{clock, ApiError};
 
@@ -50,6 +51,8 @@ pub struct AppState {
     pub version: &'static str,
     /// Timetable generation runs in progress (Standard stage 1).
     pub timetable_jobs: Arc<TimetableJobs>,
+    /// The directory login client (Standard stage 8); tests swap in a stub.
+    pub directory: SharedDirectory,
 }
 
 impl AppState {
@@ -68,8 +71,15 @@ impl AppState {
             profile: Arc::new(RwLock::new(profile)),
             lockout: LockoutPolicy::default(),
             version: VERSION,
+            directory: Arc::new(LdapDirectory),
             timetable_jobs: Arc::new(TimetableJobs::default()),
         })
+    }
+
+    /// Use another directory client (tests use `StubDirectory`).
+    pub fn with_directory(mut self, directory: SharedDirectory) -> Self {
+        self.directory = directory;
+        self
     }
 
     /// The school's country, currency and time zone.

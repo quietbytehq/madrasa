@@ -1,5 +1,9 @@
 import { download, request } from "./client";
 import type {
+  AuthOptions,
+  DirectorySettings,
+  DirectorySettingsBody,
+  DirectoryTestResult,
   AssetBody,
   AssetView,
   InventoryCategory,
@@ -1146,4 +1150,12 @@ export const api = {
   updateAsset: (id: string, body: AssetBody) =>
     request<AssetView>(`/inventory/assets/${id}`, { method: "PUT", body }),
   deleteAsset: (id: string) => request<void>(`/inventory/assets/${id}`, { method: "DELETE" }),
+
+  // ---- Directory login (Standard stage 8) ----------------------------------------------------
+  authOptions: () => request<AuthOptions>("/auth/options", { auth: false }),
+  directorySettings: () => request<DirectorySettings>("/settings/directory"),
+  updateDirectorySettings: (body: DirectorySettingsBody) =>
+    request<DirectorySettings>("/settings/directory", { method: "PUT", body }),
+  testDirectory: (body: DirectorySettingsBody & { username?: string | null }) =>
+    request<DirectoryTestResult>("/settings/directory/test", { method: "POST", body }),
 };

@@ -1019,6 +1019,29 @@ depend on each other and were built together)
   reader view, recording an issue with the recipient search and the low-stock warning,
   adding a location.
 
+### 2026-11-08 — Stage 8: Directory login (branch `dev/std-stage-8-directory`)
+- `madrasa_core::directory` (settings validation, filter escaping, group-to-role mapping,
+  the disabled flag) and `madrasa_core::secrets` (AES-256-GCM sealing); unit tests.
+- Migration 0024: `users.auth_source`, `directory_dn`, `directory_synced_at`. Settings
+  `directory.config`, sealed `directory.bind_password` and the global `instance.key`
+  (created on first use), all redacted in the audit log (ADR 0004).
+- `crates/db::directory` (settings, sealed password) and `users::upsert_directory_user`.
+- API: `directory.rs` with the `DirectoryClient` trait, `LdapDirectory` (`ldap3`, TLS,
+  system roots) and `StubDirectory`; `AppState::with_directory`; the login handler tries
+  the directory for non-local usernames with lockout, disabled and unmapped handling;
+  `GET /auth/options`; `routes/directory.rs` settings and test connection; `UserSummary`
+  carries `auth_source`; 503 `directory_unavailable`.
+- UI: Settings → Directory login card (fields, group mapping rows, test connection, hint),
+  the login screen hint, a Directory badge in Users. Strings en/ur.
+- Tests: core, `tests/directory.rs` against the stub (Lite refusals; settings validation
+  incl. TLS, password-before-enable and unknown roles; test connection with a wrong and the
+  right bind password and a user lookup; first login creates the account with the mapped
+  role and permissions; second mapping order; wrong password, disabled, unmapped, unknown;
+  lockout; local admin unaffected; default role; switched off; back to Lite), vitest for the
+  card and the login hint.
+- Not covered by automated tests: the LDAP wire protocol itself (`LdapDirectory`), which
+  needs a real server; see the owner summary for the manual test.
+
 ## Summary for the owner — M2 (Lite complete)
 
 M2 was built in nine pull requests, each from a clean `main` with CI green on Linux and

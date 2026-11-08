@@ -89,6 +89,15 @@ impl ApiError {
         )
     }
 
+    /// The directory could not be reached or refused the bind account (Standard stage 8).
+    pub fn directory_unavailable() -> Self {
+        Self::new(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "directory_unavailable",
+            "The school directory cannot be reached. Try again or contact your administrator.",
+        )
+    }
+
     pub fn account_inactive() -> Self {
         Self::new(
             StatusCode::FORBIDDEN,

@@ -95,7 +95,14 @@ export function UsersCard() {
                   className="border-t border-border"
                   data-testid={`user-${u.username}`}
                 >
-                  <td className="px-2 py-1.5 font-medium">{u.username}</td>
+                  <td className="px-2 py-1.5 font-medium">
+                    {u.username}
+                    {u.auth_source === "directory" && (
+                      <Badge tone="neutral" className="ms-1">
+                        {t("users.directory")}
+                      </Badge>
+                    )}
+                  </td>
                   <td className="px-2 py-1.5">{u.full_name}</td>
                   <td className="px-2 py-1.5">
                     <Select

@@ -954,6 +954,45 @@ item and location), Assets (tags with status, location and assignee), Setup (cat
 and locations, `inventory.manage`). Reports (`inventory.read`, hidden on Lite): stock on
 hand, below reorder level, stock movements in a period.
 
+### 5.25 Directory (Active Directory / LDAP) login (Standard stage 8)
+
+Standard only (`Feature::DirectoryLogin`; the settings answer 403 `feature_unavailable` on
+Lite and the login handler ignores the directory there). Rules live in
+`madrasa_core::directory`: the settings and their validation (an `ldaps://` URL, bind
+account, user base DN, a filter containing `{username}`, attribute names, every mapping
+complete), RFC 4515 filter escaping, the group-to-role mapping (first match wins, then the
+default role, else no login) and Active Directory's disabled flag.
+`madrasa_core::secrets` seals small secrets with AES-256-GCM.
+
+Data: settings `directory.config` (per school, JSON without the password),
+`directory.bind_password` (sealed with the instance key) and the global `instance.key` (32
+random bytes created on first use); all three are redacted in the audit log. Migration 0024
+adds `users.auth_source` (`local` | `directory`), `directory_dn` and `directory_synced_at`.
+
+Login (`POST /auth/login`): when the feature is on and the settings are enabled, a username
+that is not a local account is sent to the directory: the bind account searches for the
+user under the base DN, then a bind as the user's DN checks the password (an empty
+password is refused before any bind). On success the local account is created on first
+login (no usable local password) or updated (name, email, DN), the role from the group
+mapping is applied, the login is recorded and a session issued as for local users. Wrong
+passwords count towards the lockout of an existing directory account; a disabled directory
+account, a user with no mapped group and no default role, or a deactivated local row
+answers 403 `account_inactive`; an unreachable directory or a refused bind account answers
+503 `directory_unavailable`. Local accounts (the setup administrator and anything created
+in Settings → Users) always use their local password. `GET /auth/options` (no token) tells
+the login screen whether directory login is on and the hint to show.
+
+The directory client is a trait (`madrasa_api::directory::DirectoryClient`): `LdapDirectory`
+speaks LDAP over TLS through `ldap3` with the system's trusted roots; `StubDirectory` holds
+fixed users for the integration tests, which cover the whole login path except the wire
+protocol. "Test connection" in Settings binds with the service account and optionally
+looks a username up, reporting the DN, groups and the role they would get.
+
+Screens: Settings → Directory login (`settings.manage`): the switch, server, bind account
+(password write-only, "stored" once set), base DN and filter, attributes, group-to-role
+rows, default role, login hint, test connection with an optional username. Users shows a
+"Directory" badge on such accounts. The login screen shows the hint.
+
 ## 15. Standard alpha (overview)
 
 The stages, their order and their acceptance are in `docs/TASKS-STANDARD.md`; each stage adds
@@ -1476,6 +1515,15 @@ each subject as `students`.
 | GET | `/inventory/recipients?kind&q` | `inventory.read` | Staff, students and rooms for the issue form |
 | GET/POST | `/inventory/assets?item_id&status&location_id&q`; PUT/DELETE `/inventory/assets/{id}` | read / manage | 409 on a duplicate tag |
 | GET | `/reports/inventory.stock`, `.reorder`, `.movements` | `inventory.read` | Library reports; hidden on Lite |
+
+### 6.30 Standard stage 8 endpoints (feature `directory_login`)
+
+| Method | Path | Permission | Notes |
+| --- | --- | --- | --- |
+| GET | `/auth/options` | none | `{directory_login, directory_hint}` for the login screen |
+| POST | `/auth/login` | none | Directory users are authenticated by an LDAP bind when the settings are enabled; 503 `directory_unavailable` when the directory cannot be reached |
+| GET/PUT | `/settings/directory` | `settings.manage` | The settings with `has_bind_password` and the usable `roles`; PUT takes the settings plus `bind_password` (null keeps it); 400 on validation, unknown roles or enabling without a password |
+| POST | `/settings/directory/test` | `settings.manage` | The settings to try (unsaved) with an optional `bind_password` and `username` → `{bind_ok, message, user, role}` |
 
 ### 6.11 Second alpha test report fixes
 

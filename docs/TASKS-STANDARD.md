@@ -160,15 +160,15 @@ ejection-chain placement → relaxation → verify pipeline is ported into
 
 ## Stage 8 — Directory (Active Directory / LDAP) login
 
-- [ ] Settings → Directory login (`settings.manage`): LDAP server URL (ldaps://), bind
+- [x] Settings → Directory login (`settings.manage`): LDAP server URL (ldaps://), bind
       account, user base DN and filter, attribute for username, group→role mapping, and
       "test connection"; stored in settings with the bind password encrypted with the
       instance key (never logged)
-- [ ] Login: when enabled, a username that matches the directory is authenticated by an
+- [x] Login: when enabled, a username that matches the directory is authenticated by an
       LDAP bind (`ldap3` crate, TLS required); the local account is created or updated on
       first login (full name, email, roles from groups); local passwords still work for
       the built-in admin and for accounts marked local; lockout and audit as today
-- [ ] Tests against an in-process LDAP stub (bind success, wrong password, group mapping,
+- [x] Tests against an in-process LDAP stub (bind success, wrong password, group mapping,
       disabled account), settings validation, vitest for the settings card and the login
       hint
 
