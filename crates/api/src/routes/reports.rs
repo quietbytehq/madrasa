@@ -14,7 +14,9 @@ use serde_json::json;
 use crate::auth::CurrentUser;
 use crate::export::file_response;
 use crate::reports::catalogue::{Access, ReportDef};
-use crate::reports::{admissions, consents, hostel, leave, library, timetable, transport};
+use crate::reports::{
+    admissions, consents, hostel, inventory, leave, library, timetable, transport,
+};
 use crate::reports::{
     attendance, boards, builder, catalogue, exams, fees, pdf, students, Context, Lang, Params,
     Report,
@@ -51,6 +53,7 @@ fn may_run(user: &CurrentUser, def: &ReportDef) -> bool {
             Access::LibraryRead => user.can(Permission::LibraryRead),
             Access::TransportRead => user.can(Permission::TransportRead),
             Access::HostelRead => user.can(Permission::HostelRead),
+            Access::InventoryRead => user.can(Permission::InventoryRead),
         }
 }
 
@@ -63,6 +66,7 @@ fn module_enabled(state: &AppState, def: &ReportDef) -> bool {
         catalogue::Module::Library => state.has_feature(Feature::Library),
         catalogue::Module::Transport => state.has_feature(Feature::Transport),
         catalogue::Module::Hostel => state.has_feature(Feature::Hostel),
+        catalogue::Module::Inventory => state.has_feature(Feature::Inventory),
         _ => true,
     }
 }
@@ -180,6 +184,9 @@ pub async fn build(
         "hostel.occupancy" => hostel::occupancy(&mut c, &ctx, params).await?,
         "hostel.residents" => hostel::residents(&mut c, &ctx, params).await?,
         "hostel.outstanding" => hostel::outstanding(&mut c, &ctx, params).await?,
+        "inventory.stock" => inventory::stock(&mut c, &ctx, params).await?,
+        "inventory.reorder" => inventory::reorder(&mut c, &ctx, params).await?,
+        "inventory.movements" => inventory::movements(&mut c, &ctx, params).await?,
         "leave.balances" => leave::balances(&mut c, &ctx, params).await?,
         "leave.register" => leave::register(&mut c, &ctx, params).await?,
         "leave.students" => leave::students(&mut c, &ctx, params).await?,

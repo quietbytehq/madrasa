@@ -16,6 +16,7 @@ pub mod hlc;
 pub mod hostel;
 pub mod ids;
 pub mod imports;
+pub mod inventory;
 pub mod leave;
 pub mod library;
 pub mod locale;

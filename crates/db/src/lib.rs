@@ -17,6 +17,7 @@ pub mod fees;
 pub mod guardians;
 pub mod hostel;
 pub mod imports;
+pub mod inventory;
 pub mod leave;
 pub mod library;
 pub mod models;

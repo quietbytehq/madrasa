@@ -995,6 +995,30 @@ depend on each other and were built together)
   non-resident refusals, close once, the voucher lines, reports, back to Lite), vitest for
   the board allocation, reader view and the register.
 
+### 2026-11-08 — Stage 7: Inventory (branch `dev/std-stage-7-inventory`)
+- `madrasa_core::inventory`: movement kinds and direction, the balance after a movement
+  (never negative), recipients, reorder check, purchase cost (unit tests).
+- Migration 0023: `inventory_categories`, `inventory_locations`, `inventory_items`,
+  `inventory_movements`, `inventory_assets`; permissions `inventory.read` (principal,
+  admin, accountant) and `inventory.manage` (principal, admin), granted to existing roles
+  only on Standard installs. New `storekeeper` login role (Standard/Nexus only).
+- `crates/db::inventory`: categories, locations, items with stock on hand and the reorder
+  flag, stock per location, movements with the balance check under a row lock, transfers,
+  removal of wrong entries, the period summary, assets.
+- API `routes/inventory.rs`: categories, locations, items with detail, stock, movements,
+  transfers, recipients (staff, students, rooms), assets. Reports `inventory.stock`,
+  `reorder`, `movements`.
+- UI: Inventory module (Items with the item dialog, Movements with the movement dialog,
+  Stock, Assets, Setup). Store keeper role offered in the login dialogs on Standard.
+  Strings en/ur.
+- Tests: core, `tests/inventory.rs` (Lite refusals incl. the role; Standard: setup and
+  duplicates, items, an issue before stock refused, purchase with cost, issue needing a
+  recipient, the reorder flag, a transfer refused over the balance then done in two halves,
+  return and write-off, item detail, removing a used purchase refused, deletes refused,
+  assets with a duplicate tag and a status change, reports), vitest for the items list and
+  reader view, recording an issue with the recipient search and the low-stock warning,
+  adding a location.
+
 ## Summary for the owner — M2 (Lite complete)
 
 M2 was built in nine pull requests, each from a clean `main` with CI green on Linux and

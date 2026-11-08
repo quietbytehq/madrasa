@@ -1,5 +1,19 @@
 import { download, request } from "./client";
 import type {
+  AssetBody,
+  AssetView,
+  InventoryCategory,
+  InventoryLocation,
+  InventoryRecipient,
+  InventoryStockRow,
+  ItemBody,
+  ItemDetail,
+  ItemView,
+  LocationBody,
+  MovementBody,
+  MovementResult,
+  MovementView,
+  RecipientKind,
   AllocateBody,
   AllocationPatch,
   AllocationView,
@@ -1072,4 +1086,64 @@ export const api = {
     request<HostelRegisterEntry>("/hostel/register", { method: "POST", body }),
   closeRegister: (id: string, body: { at?: string; notes?: string } = {}) =>
     request<HostelRegisterEntry>(`/hostel/register/${id}/close`, { method: "POST", body }),
+
+  // ---- Inventory (Standard stage 7) ----------------------------------------------------------
+  inventoryCategories: () => request<InventoryCategory[]>("/inventory/categories"),
+  createInventoryCategory: (body: { name: string; position?: number }) =>
+    request<InventoryCategory>("/inventory/categories", { method: "POST", body }),
+  deleteInventoryCategory: (id: string) =>
+    request<void>(`/inventory/categories/${id}`, { method: "DELETE" }),
+  inventoryLocations: () => request<InventoryLocation[]>("/inventory/locations"),
+  createInventoryLocation: (body: LocationBody) =>
+    request<InventoryLocation>("/inventory/locations", { method: "POST", body }),
+  updateInventoryLocation: (id: string, body: LocationBody) =>
+    request<InventoryLocation>(`/inventory/locations/${id}`, { method: "PUT", body }),
+  deleteInventoryLocation: (id: string) =>
+    request<void>(`/inventory/locations/${id}`, { method: "DELETE" }),
+  inventoryItems: (
+    params: { q?: string; category_id?: string; below_reorder?: boolean; active?: boolean } = {},
+  ) => request<ItemView[]>(`/inventory/items${qs(params)}`),
+  inventoryItem: (id: string) => request<ItemDetail>(`/inventory/items/${id}`),
+  createInventoryItem: (body: ItemBody) =>
+    request<ItemDetail>("/inventory/items", { method: "POST", body }),
+  updateInventoryItem: (id: string, body: ItemBody) =>
+    request<ItemDetail>(`/inventory/items/${id}`, { method: "PUT", body }),
+  deleteInventoryItem: (id: string) =>
+    request<void>(`/inventory/items/${id}`, { method: "DELETE" }),
+  inventoryStock: (params: { item_id?: string; location_id?: string } = {}) =>
+    request<InventoryStockRow[]>(`/inventory/stock${qs(params)}`),
+  inventoryMovements: (
+    params: {
+      item_id?: string;
+      location_id?: string;
+      kind?: string;
+      recipient_kind?: string;
+      recipient_id?: string;
+      from?: string;
+      to?: string;
+      q?: string;
+      limit?: number;
+    } = {},
+  ) => request<MovementView[]>(`/inventory/movements${qs(params)}`),
+  recordMovement: (body: MovementBody) =>
+    request<MovementResult>("/inventory/movements", { method: "POST", body }),
+  deleteMovement: (id: string) => request<void>(`/inventory/movements/${id}`, { method: "DELETE" }),
+  inventoryTransfer: (body: {
+    item_id: string;
+    from_location_id: string;
+    to_location_id: string;
+    quantity: string | number;
+    moved_on?: string | null;
+    notes?: string;
+  }) => request<MovementView[]>("/inventory/transfers", { method: "POST", body }),
+  inventoryRecipients: (params: { kind?: RecipientKind; q?: string } = {}) =>
+    request<InventoryRecipient[]>(`/inventory/recipients${qs(params)}`),
+  inventoryAssets: (
+    params: { item_id?: string; status?: string; location_id?: string; q?: string } = {},
+  ) => request<AssetView[]>(`/inventory/assets${qs(params)}`),
+  createAsset: (body: AssetBody) =>
+    request<AssetView>("/inventory/assets", { method: "POST", body }),
+  updateAsset: (id: string, body: AssetBody) =>
+    request<AssetView>(`/inventory/assets/${id}`, { method: "PUT", body }),
+  deleteAsset: (id: string) => request<void>(`/inventory/assets/${id}`, { method: "DELETE" }),
 };

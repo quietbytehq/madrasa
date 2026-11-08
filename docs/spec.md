@@ -919,6 +919,41 @@ flagged, new leave-out with consent or visitor, return / left), Hostels (hostel 
 fee head and the rooms table). Reports (`hostel.read`, hidden on Lite): hostel occupancy by
 room, residents by class, residents with fees outstanding.
 
+### 5.24 Inventory (Standard stage 7)
+
+Standard only (`Feature::Inventory`; 403 `feature_unavailable` on Lite). Rules live in
+`madrasa_core::inventory`: movement kinds (`purchase_in`, `issue`, `return`, `write_off`,
+`adjust_in`, `adjust_out`, `transfer_out`, `transfer_in`) with their direction, the balance
+after a movement (the quantity must be positive and stock at a location never goes
+negative), who an issue or return names (staff, student or room), the reorder check (at or
+below the level) and the total cost of a purchase.
+
+Data (per school, sync columns, soft delete, audited):
+
+- `inventory_categories` (name unique), `inventory_locations` (name unique; kind store,
+  lab, room, office, other; active).
+- `inventory_items`: category, name (unique), code (unique when set), unit,
+  `reorder_level`, `is_asset` (durable items carry tags), active, notes, `custom`.
+- `inventory_movements`: item, location, kind, quantity, unit and total cost, date,
+  recipient (kind, id, name), reference (bill or requisition number), `transfer_id` shared
+  by the two halves of a transfer, notes, who recorded it. Stock on hand is the sum per item
+  and location; a movement that would take it negative is refused (the item row is locked
+  while the balance is checked). Removing a movement is refused when the stock has been
+  used since; the two halves of a transfer go together.
+- `inventory_assets`: item, tag (unique), serial number, location, status (`in_store`,
+  `in_use`, `under_repair`, `disposed`), who it is assigned to, purchase date, cost.
+
+The `storekeeper` login role exists on Standard and Nexus with the inventory grants plus
+read access to students and staff. Permissions: `inventory.read` (principal, admin,
+accountant, store keeper), `inventory.manage` (principal, admin, store keeper).
+
+Screens: Items (stock on hand, reorder flag, item dialog with stock by location, recent
+movements and tagged assets), Movements (register with filters, the movement dialog for
+every kind including transfers, with a recipient search for issues and returns), Stock (per
+item and location), Assets (tags with status, location and assignee), Setup (categories
+and locations, `inventory.manage`). Reports (`inventory.read`, hidden on Lite): stock on
+hand, below reorder level, stock movements in a period.
+
 ## 15. Standard alpha (overview)
 
 The stages, their order and their acceptance are in `docs/TASKS-STANDARD.md`; each stage adds
@@ -1424,6 +1459,23 @@ each subject as `students`.
 | POST | `/hostel/register` | `hostel.manage` | `{student_id, kind, started_at?, expected_back?, visitor_*, guardian_consent, consent_note, notes}`; 409 without consent, when already out, or for a non-resident |
 | POST | `/hostel/register/{id}/close` | `hostel.manage` | `{at?, notes?}`; 409 when already closed |
 | GET | `/reports/hostel.occupancy`, `.residents`, `.outstanding` | `hostel.read` | Library reports; hidden on Lite |
+
+### 6.29 Standard stage 7 endpoints (feature `inventory`)
+
+| Method | Path | Permission | Notes |
+| --- | --- | --- | --- |
+| GET/POST | `/inventory/categories`; PUT/DELETE `/inventory/categories/{id}` | read / manage | 409 removing a category in use |
+| GET/POST | `/inventory/locations`; PUT/DELETE `/inventory/locations/{id}` | read / manage | `{name, kind, active, notes}`; 409 removing a location with stock |
+| GET/POST | `/inventory/items?q&category_id&below_reorder&active` | read / manage | `ItemView` with category name, `on_hand`, `below_reorder`, tagged `assets` |
+| GET/PUT/DELETE | `/inventory/items/{id}` | read / manage | `ItemDetail` = item + `by_location`, `recent` movements, `asset_list`; 409 deleting with stock or assets |
+| GET | `/inventory/stock?item_id&location_id` | `inventory.read` | On hand per item and location |
+| GET | `/inventory/movements?item_id&location_id&kind&recipient_kind&recipient_id&from&to&q&limit` | `inventory.read` | Newest first |
+| POST | `/inventory/movements` | `inventory.manage` | `{item_id, location_id, kind, quantity, unit_cost?, moved_on?, recipient_*, reference, notes}` → `{movement, on_hand, below_reorder}`; 409 when stock would go negative or an issue has no recipient |
+| DELETE | `/inventory/movements/{id}` | `inventory.manage` | Removes a wrong entry (and the other half of a transfer); 409 when stock has been used since |
+| POST | `/inventory/transfers` | `inventory.manage` | `{item_id, from_location_id, to_location_id, quantity, moved_on?, notes}` → the two movements |
+| GET | `/inventory/recipients?kind&q` | `inventory.read` | Staff, students and rooms for the issue form |
+| GET/POST | `/inventory/assets?item_id&status&location_id&q`; PUT/DELETE `/inventory/assets/{id}` | read / manage | 409 on a duplicate tag |
+| GET | `/reports/inventory.stock`, `.reorder`, `.movements` | `inventory.read` | Library reports; hidden on Lite |
 
 ### 6.11 Second alpha test report fixes
 

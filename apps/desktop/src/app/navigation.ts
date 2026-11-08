@@ -170,7 +170,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
     labelKey: "nav.inventory",
     icon: Package,
     feature: "inventory",
-    available: false,
+    available: true,
+    permission: "inventory.read",
   },
   {
     path: "/hr",

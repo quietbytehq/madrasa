@@ -58,6 +58,7 @@ pub fn router(state: AppState) -> Router {
         .merge(routes::library::router())
         .merge(routes::transport::router())
         .merge(routes::hostel::router())
+        .merge(routes::inventory::router())
         .merge(routes::backup::router())
         .merge(routes::boards::router())
         .merge(routes::imports::router())

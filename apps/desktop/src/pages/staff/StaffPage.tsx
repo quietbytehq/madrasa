@@ -386,7 +386,14 @@ function StaffDialog({
   );
 }
 
-const ROLES: LoginRole[] = ["principal", "admin", "accountant", "teacher", "librarian"];
+const ROLES: LoginRole[] = [
+  "principal",
+  "admin",
+  "accountant",
+  "teacher",
+  "librarian",
+  "storekeeper",
+];
 
 /** "Login account" block of the staff dialog: create, change role, enable/disable, reset. */
 export function LoginSection({ staff, onChanged }: { staff: Staff; onChanged: () => void }) {
@@ -420,8 +427,12 @@ export function LoginSection({ staff, onChanged }: { staff: Staff; onChanged: ()
     }
   };
 
-  const hasLibrary = useHasFeature()("library");
-  const roleOptions = ROLES.filter((r) => r !== "librarian" || hasLibrary).map((r) => ({
+  const hasFeature = useHasFeature();
+  const roleOptions = ROLES.filter(
+    (r) =>
+      (r !== "librarian" || hasFeature("library")) &&
+      (r !== "storekeeper" || hasFeature("inventory")),
+  ).map((r) => ({
     value: r,
     label: t(`staff.login.role.${r}`),
   }));

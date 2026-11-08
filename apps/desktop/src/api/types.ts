@@ -1210,7 +1210,8 @@ export interface CreateLoginBody {
   role: LoginRole;
 }
 
-export type LoginRole = "principal" | "admin" | "accountant" | "teacher" | "librarian";
+export type LoginRole =
+  "principal" | "admin" | "accountant" | "teacher" | "librarian" | "storekeeper";
 
 /** Mirrors `UpdateLoginBody` (PATCH /staff/{id}/login); omitted fields stay as they are. */
 export interface UpdateLoginBody {
@@ -1345,7 +1346,8 @@ export type ReportModule =
   | "admissions"
   | "library"
   | "transport"
-  | "hostel";
+  | "hostel"
+  | "inventory";
 export type ReportParamKind =
   | "academic_year"
   | "class"
@@ -1370,7 +1372,8 @@ export type ReportAccess =
   | "leave_read"
   | "library_read"
   | "transport_read"
-  | "hostel_read";
+  | "hostel_read"
+  | "inventory_read";
 
 export interface ReportParamDef {
   name: string;
@@ -3252,4 +3255,186 @@ export interface HostelRegisterBody {
   guardian_consent?: boolean;
   consent_note?: string;
   notes?: string;
+}
+
+// ---- Inventory (Standard stage 7) ------------------------------------------------------------
+
+export type MovementKind =
+  | "purchase_in"
+  | "issue"
+  | "return"
+  | "write_off"
+  | "adjust_in"
+  | "adjust_out"
+  | "transfer_out"
+  | "transfer_in";
+export type RecipientKind = "staff" | "student" | "room";
+export type LocationKind = "store" | "lab" | "room" | "office" | "other";
+export type AssetStatus = "in_store" | "in_use" | "under_repair" | "disposed";
+
+export interface InventoryCategory {
+  id: string;
+  school_id: string;
+  name: string;
+  position: number;
+  hlc: string;
+}
+
+export interface InventoryLocation {
+  id: string;
+  school_id: string;
+  name: string;
+  kind: LocationKind;
+  active: boolean;
+  notes: string;
+  hlc: string;
+}
+
+export interface LocationBody {
+  name: string;
+  kind: LocationKind;
+  active: boolean;
+  notes: string;
+}
+
+/** Mirrors `ItemView` (GET /inventory/items). Quantities are decimal strings. */
+export interface ItemView {
+  id: string;
+  school_id: string;
+  category_id: string | null;
+  name: string;
+  code: string;
+  unit: string;
+  reorder_level: string | null;
+  is_asset: boolean;
+  active: boolean;
+  notes: string;
+  custom: Record<string, unknown>;
+  hlc: string;
+  category_name: string | null;
+  on_hand: string;
+  below_reorder: boolean;
+  assets: number;
+}
+
+/** Mirrors `ItemInput`. */
+export interface ItemBody {
+  category_id: string | null;
+  name: string;
+  code: string;
+  unit: string;
+  reorder_level: string | number | null;
+  is_asset: boolean;
+  active: boolean;
+  notes: string;
+  custom: Record<string, unknown>;
+}
+
+/** Mirrors `StockRow` (GET /inventory/stock). */
+export interface InventoryStockRow {
+  item_id: string;
+  item_name: string;
+  code: string;
+  unit: string;
+  category_name: string | null;
+  location_id: string;
+  location_name: string;
+  on_hand: string;
+}
+
+/** Mirrors `MovementView`. */
+export interface MovementView {
+  id: string;
+  school_id: string;
+  item_id: string;
+  location_id: string;
+  kind: MovementKind;
+  quantity: string;
+  unit_cost: string | null;
+  total_cost: string | null;
+  moved_on: string;
+  recipient_kind: RecipientKind | null;
+  recipient_id: string | null;
+  recipient_name: string;
+  reference: string;
+  transfer_id: string | null;
+  notes: string;
+  recorded_by: string | null;
+  hlc: string;
+  item_name: string;
+  unit: string;
+  location_name: string;
+  recorded_by_name: string | null;
+}
+
+/** Mirrors `MovementInput` (POST /inventory/movements). */
+export interface MovementBody {
+  item_id: string;
+  location_id: string;
+  kind: MovementKind;
+  quantity: string | number;
+  unit_cost?: string | number | null;
+  moved_on?: string | null;
+  recipient_kind?: RecipientKind | null;
+  recipient_id?: string | null;
+  recipient_name?: string;
+  reference?: string;
+  notes?: string;
+}
+
+/** Mirrors `MovementResult`. */
+export interface MovementResult {
+  movement: MovementView;
+  on_hand: string;
+  below_reorder: boolean;
+}
+
+/** Mirrors `AssetView`. */
+export interface AssetView {
+  id: string;
+  school_id: string;
+  item_id: string;
+  tag: string;
+  serial_no: string;
+  location_id: string | null;
+  status: AssetStatus;
+  assigned_kind: RecipientKind | null;
+  assigned_id: string | null;
+  assigned_name: string;
+  purchased_on: string | null;
+  cost: string | null;
+  notes: string;
+  hlc: string;
+  item_name: string;
+  location_name: string | null;
+}
+
+/** Mirrors `AssetInput`. */
+export interface AssetBody {
+  item_id: string;
+  tag: string;
+  serial_no: string;
+  location_id: string | null;
+  status: AssetStatus;
+  assigned_kind: RecipientKind | null;
+  assigned_id: string | null;
+  assigned_name: string;
+  purchased_on: string | null;
+  cost: string | number | null;
+  notes: string;
+}
+
+/** Mirrors `ItemDetail` (GET /inventory/items/{id}). */
+export interface ItemDetail extends ItemView {
+  by_location: InventoryStockRow[];
+  recent: MovementView[];
+  asset_list: AssetView[];
+}
+
+/** Mirrors `Recipient` (GET /inventory/recipients). */
+export interface InventoryRecipient {
+  kind: RecipientKind;
+  id: string;
+  name: string;
+  detail: string;
 }
