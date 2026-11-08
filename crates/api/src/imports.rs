@@ -79,6 +79,13 @@ pub fn pick_sheet(kind: ImportKind, names: &[String]) -> Option<&str> {
         ImportKind::OpeningBalances => {
             &["openingbalances", "balances", "opening", "fees", "arrears"]
         }
+        ImportKind::Enquiries => &[
+            "enquiries",
+            "inquiries",
+            "admissions",
+            "applications",
+            "leads",
+        ],
     };
     let skip = [
         "readme",
@@ -643,6 +650,20 @@ async fn plan_rows(
                     }
                 }
             }
+            ImportKind::Enquiries => {
+                // The class applied for must exist when given; the rest is free text.
+                if let Some(class_key) = row.get("class").map(str::to_owned) {
+                    if c.class(&class_key).is_none() {
+                        row.errors.push(Issue {
+                            field: "class".into(),
+                            message: format!(
+                                "Class \"{}\" is not set up in Settings",
+                                row.values["class"]
+                            ),
+                        });
+                    }
+                }
+            }
             ImportKind::OpeningBalances => {
                 if row.errors.is_empty() {
                     let found = match (row.get("student_number"), row.get("legacy_id")) {
@@ -1140,6 +1161,69 @@ pub async fn apply(
                 .await?;
             }
             (RowAction::Update, ImportKind::OpeningBalances) => {}
+            (RowAction::Create, ImportKind::Enquiries) => {
+                let r = &p.row;
+                let year = ctx
+                    .year_id
+                    .ok_or_else(|| ApiError::validation("No active academic year."))?;
+                let class_id = r.get("class").and_then(|k| ctx.class(k)).map(|cl| cl.id);
+                let app = madrasa_db::admissions::create(
+                    &mut tx,
+                    &state.hlc,
+                    actor,
+                    school_id,
+                    &madrasa_db::admissions::ApplicationInput {
+                        academic_year_id: year,
+                        class_id,
+                        enquiry_date: r
+                            .get("enquiry_date")
+                            .and_then(|d| d.parse().ok())
+                            .unwrap_or_else(crate::clock::today),
+                        source: pick(r, "source").unwrap_or_else(|| "import".into()),
+                        full_name: r.get("full_name").unwrap_or("").into(),
+                        father_name: r.get("father_name").unwrap_or("").into(),
+                        date_of_birth: r.get("date_of_birth").and_then(|d| d.parse().ok()),
+                        gender: r.get("gender").unwrap_or("").into(),
+                        cnic: None,
+                        address: r.get("address").unwrap_or("").into(),
+                        phone: pick(r, "phone"),
+                        email: pick(r, "email"),
+                        previous_school: r.get("previous_school").unwrap_or("").into(),
+                        guardian_name: r.get("guardian_name").unwrap_or("").into(),
+                        guardian_relationship: "guardian".into(),
+                        guardian_phone: pick(r, "guardian_phone"),
+                        guardian_cnic: pick(r, "guardian_cnic"),
+                        guardian_email: None,
+                        guardian_occupation: String::new(),
+                        test_date: None,
+                        test_marks: None,
+                        test_total: None,
+                        interview_date: None,
+                        interview_notes: String::new(),
+                        offer_date: None,
+                        offer_fee: None,
+                        offer_expires: None,
+                        notes: r.get("notes").unwrap_or("").into(),
+                        custom: serde_json::json!({ "imported": true }),
+                    },
+                    None,
+                    actor.user_id,
+                )
+                .await?;
+                repo::add_row(
+                    &mut tx,
+                    &state.hlc,
+                    actor,
+                    &batch,
+                    row_no,
+                    "created",
+                    "admission_application",
+                    Some(app.id),
+                    None,
+                )
+                .await?;
+            }
+            (RowAction::Update, ImportKind::Enquiries) => {}
         }
         outcomes.push(outcome(p.row, p.action, p.matched));
     }

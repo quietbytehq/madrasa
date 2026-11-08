@@ -1,4 +1,5 @@
 pub mod academics;
+pub mod admissions;
 pub mod allocation;
 pub mod attendance;
 pub mod audit;

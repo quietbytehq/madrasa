@@ -17,6 +17,8 @@ pub enum Module {
     Timetable,
     /// Standard edition only (hidden on Lite).
     Leave,
+    /// Standard edition only (hidden on Lite).
+    Admissions,
 }
 
 impl Module {
@@ -28,6 +30,7 @@ impl Module {
             Module::Exams => "module.exams",
             Module::Timetable => "module.timetable",
             Module::Leave => "module.leave",
+            Module::Admissions => "module.admissions",
         }
     }
 }
@@ -77,6 +80,8 @@ pub enum Access {
     TimetableRead,
     /// Leave reports: everyone with `leave.read` (teachers: own sections / own leave).
     LeaveRead,
+    /// Admissions reports: `admissions.read`.
+    AdmissionsRead,
 }
 
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -487,6 +492,28 @@ pub const REPORTS: &[ReportDef] = &[
         params: &[YEAR, FROM, TO],
         landscape: true,
         access: Access::TimetableRead,
+    },
+    // Admissions (Standard stage 3)
+    ReportDef {
+        code: "admissions.funnel",
+        module: Module::Admissions,
+        params: &[YEAR],
+        landscape: false,
+        access: Access::AdmissionsRead,
+    },
+    ReportDef {
+        code: "admissions.by_class",
+        module: Module::Admissions,
+        params: &[YEAR],
+        landscape: false,
+        access: Access::AdmissionsRead,
+    },
+    ReportDef {
+        code: "admissions.pending_tests",
+        module: Module::Admissions,
+        params: &[YEAR, AS_OF],
+        landscape: false,
+        access: Access::AdmissionsRead,
     },
     // Leave (Standard stage 2)
     ReportDef {

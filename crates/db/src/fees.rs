@@ -145,6 +145,93 @@ pub async fn create_opening_balance(
     Ok(voucher)
 }
 
+/// A one-off voucher of one line (admission fee, Standard stage 3): issued and due on
+/// `issue_date`, billed to that month, audited.
+#[allow(clippy::too_many_arguments)]
+pub async fn create_one_off_voucher(
+    conn: &mut PgConnection,
+    hlc: &Hlc,
+    actor: Actor,
+    school_id: Uuid,
+    student_id: Uuid,
+    academic_year_id: Uuid,
+    section_id: Option<Uuid>,
+    issue_date: NaiveDate,
+    fee_head_id: Uuid,
+    description: &str,
+    amount: Decimal,
+) -> DbResult<FeeVoucher> {
+    if amount <= Decimal::ZERO || fees::money(amount) != amount {
+        return Err(DbError::Conflict(
+            "the amount must be positive with at most two decimals".into(),
+        ));
+    }
+    let head = get_head(&mut *conn, fee_head_id).await?;
+    if head.school_id != school_id {
+        return Err(DbError::NotFound("fee head".into()));
+    }
+    let billing_month =
+        NaiveDate::from_ymd_opt(issue_date.year(), issue_date.month(), 1).unwrap_or(issue_date);
+    let seq = students::next_sequence(
+        &mut *conn,
+        hlc,
+        school_id,
+        &format!("voucher_no:{}", billing_month.year()),
+    )
+    .await?;
+    let voucher_no = format!(
+        "V{}{:02}-{:05}",
+        billing_month.year(),
+        billing_month.month(),
+        seq
+    );
+    let id = new_id();
+    let voucher = sqlx::query_as::<_, FeeVoucher>(
+        "INSERT INTO fee_vouchers (id, school_id, student_id, academic_year_id, section_id, voucher_no, billing_month, issue_date, due_date,
+            gross, sibling_discount, concession_discount, net_monthly, arrears, total_due, status, updated_by, hlc)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, $9, 0, 0, $9, 0, $9, 'unpaid', $10, $11) RETURNING *",
+    )
+    .bind(id)
+    .bind(school_id)
+    .bind(student_id)
+    .bind(academic_year_id)
+    .bind(section_id)
+    .bind(&voucher_no)
+    .bind(billing_month)
+    .bind(issue_date)
+    .bind(amount)
+    .bind(actor.user_id)
+    .bind(hlc.now().to_string())
+    .fetch_one(&mut *conn)
+    .await?;
+    sqlx::query(
+        "INSERT INTO fee_voucher_lines (id, school_id, voucher_id, fee_head_id, description, amount, position, updated_by, hlc)
+         VALUES ($1, $2, $3, $4, $5, $6, 0, $7, $8)",
+    )
+    .bind(new_id())
+    .bind(school_id)
+    .bind(id)
+    .bind(head.id)
+    .bind(description.trim())
+    .bind(amount)
+    .bind(actor.user_id)
+    .bind(hlc.now().to_string())
+    .execute(&mut *conn)
+    .await?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Create,
+        "fee_voucher",
+        Some(voucher.id),
+        None,
+        Some(serde_json::json!({ "one_off": description, "amount": amount, "voucher_no": voucher_no, "fee_head_id": head.id })),
+    )
+    .await?;
+    Ok(voucher)
+}
+
 // ---- heads --------------------------------------------------------------------------------
 
 #[allow(clippy::too_many_arguments)]

@@ -226,3 +226,19 @@ timetable and the substitutions.
    lists the requests.
 5. **Staff register**: the month at a glance, one cell per day, with late arrivals and their
    time. Mark "Late" with the arrival time on the daily staff attendance.
+
+## 11. Admissions (Standard)
+
+1. **Stages** (office): the pipeline starts as Enquiry → Applied → Test scheduled →
+   Interviewed → Offered → Admitted, with Rejected and Withdrawn. Rename, reorder, add or
+   remove stages (empty ones only). Pick the fee head for the admission fee voucher.
+2. **Record an enquiry** with the applicant, the class applied for and the guardian's
+   contact, or import a list from Excel (Import → Admission enquiries).
+3. **Move applications** along the pipeline from the board or the list (tick several to
+   move them together). Record the test marks, the interview notes and the offer (fee and
+   validity); print the offer letter in English or Urdu.
+4. **Convert** an admitted application: choose the section and roll number; the student,
+   the guardian and the enrolment are created in one step and the admission fee voucher
+   is raised when an offer fee and a fee head are set. The application keeps a link to
+   the student.
+5. **Reports**: the admissions funnel, applications by class and pending tests.

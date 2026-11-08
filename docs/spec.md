@@ -753,6 +753,53 @@ staff decisions). Teachers decide student leave for the sections they are class 
 or teach. Reports (`leave.read`, hidden on Lite): leave balances, staff leave register
 (date range, optional status) and student leave register (class/section, date range).
 
+### 5.20 Admissions pipeline (Standard stage 3)
+
+Standard only (`Feature::Admissions`; 403 `feature_unavailable` on Lite). Rules live in
+`madrasa_core::admissions`: stage kinds (`open`, `admitted`, `rejected`, `withdrawn`), the
+default pipeline (enquiry → applied → test scheduled → interviewed → offered → admitted |
+rejected | withdrawn), which moves are allowed (an admitted application stays admitted;
+rejected and withdrawn ones can be reopened; a converted application is frozen) and the
+funnel (per stage: applications that reached it and that sit in it now).
+
+Data (per school, sync columns, soft delete, audited):
+
+- `admission_stages`: code (a slug of the name), name, kind, position; created with the
+  defaults on first use, then renamed, reordered, added or removed (only when empty).
+- `admission_applications`: `application_no` (`APP-<year>-<seq>`), the session applied for
+  (`academic_year_id`), `class_id`, `stage_id`, enquiry date and source, the applicant
+  (same shape as a student: name, father, date of birth, gender, CNIC, address, phone,
+  email, previous school), the guardian (name, relationship, phone, CNIC, email,
+  occupation), test (date, marks, total), interview (date, notes), offer (date, fee,
+  valid until), notes, `custom`, and after conversion `student_id` and `admitted_on`.
+- `admission_events`: every stage change dated, with the note and who made it (the
+  creation is the first event). Moves are audited too.
+- Setting `admissions.fee_head_id`: the fee head of the admission fee voucher.
+
+Conversion (`POST /admissions/applications/{id}/convert`, `admissions.manage` +
+`students.manage`): only from an admitted stage; needs the date of birth and the father's
+name; checks duplicates like the student form (409 `duplicate` with the matches unless
+`force`); creates the student (student number allocated or given, `custom` carries the
+application number and previous school), the enrolment in the chosen section of the
+application's year, the guardian (an existing one matched by CNIC/phone/name is reused and
+linked), and, when a fee head is configured and the application has an offer fee, a
+one-off voucher (`fees::create_one_off_voucher`: issued and due on the admission date);
+then links the student to the application. A converted application cannot be moved,
+edited in its identity, deleted or converted again.
+
+Enquiries import: `ImportKind::Enquiries` in the import engine (`/imports/*` with kind
+`enquiries`, `admissions.manage`, feature-gated): applicant, father, date of birth,
+gender, class applied for (must exist), enquiry date, source, phone, email, address,
+previous school, guardian name/phone/CNIC, notes; rows become applications in the first
+open stage with source `import`; the batch rolls back by removing them.
+
+Screens: pipeline board (a column per stage with the applications, counts in stage and
+reached), applications list (search, stage and class filters, ticks and a bulk move), the
+application dialog (applicant, guardian, test and interview, offer, history, move, offer
+letter PDF en/ur, delete, convert with section, roll number, admission date and student
+number), stages and the fee head (`admissions.manage`). Reports (`admissions.read`, hidden
+on Lite): admissions funnel, applications by class, pending tests.
+
 ## 15. Standard alpha (overview)
 
 The stages, their order and their acceptance are in `docs/TASKS-STANDARD.md`; each stage adds
@@ -1186,6 +1233,22 @@ each subject as `students`.
 | GET | `/leave/staff-register?month=YYYY-MM` | `leave.read` | Per staff member: a cell per day (`status`, `arrived_at`, `approved_leave`) and counts |
 | PUT | `/attendance/staff` | `teachers.manage` | Entries accept `status: late` with `arrived_at: "HH:MM"` on Standard (400 on Lite); rows written by approved leave are left alone |
 | GET | `/reports/leave.balances`, `leave.register`, `leave.students` | `leave.read` | Library reports; the module is hidden from the catalogue on Lite |
+
+### 6.25 Standard stage 3 endpoints (feature `admissions`)
+
+| Method | Path | Permission | Notes |
+| --- | --- | --- | --- |
+| GET/POST | `/admissions/stages`; PUT/DELETE `/admissions/stages/{id}` | read / manage | Stages (defaults created on first GET); 409 when removing a stage with applications |
+| GET/PUT | `/admissions/settings` | read / manage | `{fee_head_id, fee_head_name}` |
+| GET | `/admissions/board?academic_year_id&class_id&q` | `admissions.read` | `{academic_year, stages, applications, funnel}` |
+| GET | `/admissions/applications?academic_year_id&class_id&stage_id&q&from&to` | `admissions.read` | List with stage, class and student number |
+| POST | `/admissions/applications`; GET/PUT/DELETE `/admissions/applications/{id}` | manage / read / manage | The application with its `events`; 409 on a converted one |
+| POST | `/admissions/applications/{id}/move` | `admissions.manage` | `{stage_id, note}`; 409 when the rules refuse |
+| POST | `/admissions/applications/move` | `admissions.manage` | `{ids, stage_id, note}` → `{moved, refused: [[id, reason]]}` |
+| POST | `/admissions/applications/{id}/convert` | manage + `students.manage` | `{section_id, roll_no?, admission_date?, student_number?, force?}` → `{application, student_id, student_number, guardian_id, voucher_id}`; 400 unless admitted; 409 `duplicate` |
+| GET | `/admissions/applications/{id}/offer-letter?lang=` | `admissions.read` | PDF |
+| * | `/imports/*` with kind `enquiries` | `admissions.manage` | Enquiry import through the import engine (403 `feature_unavailable` on Lite) |
+| GET | `/reports/admissions.funnel`, `.by_class`, `.pending_tests` | `admissions.read` | Library reports; hidden on Lite |
 
 ### 6.11 Second alpha test report fixes
 

@@ -41,14 +41,25 @@ fn permission_for(kind: ImportKind) -> Permission {
     match kind {
         ImportKind::Students | ImportKind::OpeningBalances => Permission::StudentsManage,
         ImportKind::Staff => Permission::TeachersManage,
+        ImportKind::Enquiries => Permission::AdmissionsManage,
     }
 }
 
+/// Enquiries (Standard stage 3) need the admissions feature; the Lite kinds need nothing.
+fn gate_kind(state: &AppState, kind: ImportKind) -> ApiResult<()> {
+    if kind == ImportKind::Enquiries {
+        state.require_feature(madrasa_core::edition::Feature::Admissions)?;
+    }
+    Ok(())
+}
+
 async fn fields(
+    State(state): State<AppState>,
     user: CurrentUser,
     Path(kind): Path<String>,
 ) -> ApiResult<Json<&'static [FieldDef]>> {
     let kind = kind_of(&kind)?;
+    gate_kind(&state, kind)?;
     user.require(permission_for(kind))?;
     Ok(Json(rules::fields(kind)))
 }
@@ -59,11 +70,13 @@ pub struct FormatQuery {
 }
 
 async fn template(
+    State(state): State<AppState>,
     user: CurrentUser,
     Path(kind): Path<String>,
     Query(q): Query<FormatQuery>,
 ) -> ApiResult<Response> {
     let kind = kind_of(&kind)?;
+    gate_kind(&state, kind)?;
     user.require(permission_for(kind))?;
     let xlsx = q.format.as_deref().unwrap_or("xlsx") != "csv";
     let bytes = imports::template(kind, xlsx)?;
@@ -115,6 +128,7 @@ async fn get_mapping(
     Path(kind): Path<String>,
 ) -> ApiResult<Json<Option<SavedMapping>>> {
     let kind = kind_of(&kind)?;
+    gate_kind(&state, kind)?;
     user.require(permission_for(kind))?;
     let mut c = state.pool.acquire().await?;
     Ok(Json(
@@ -129,6 +143,7 @@ async fn put_mapping(
     body: JsonBody<SavedMapping>,
 ) -> ApiResult<Json<SavedMapping>> {
     let kind = kind_of(&kind)?;
+    gate_kind(&state, kind)?;
     user.require(permission_for(kind))?;
     let Json(m) = body?;
     imports::save_mapping(&state, user.actor(), user.user.school_id, kind, &m).await?;

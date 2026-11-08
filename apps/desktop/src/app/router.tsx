@@ -23,6 +23,7 @@ import { SectionMovesPage } from "@/pages/students/SectionMovesPage";
 import { ConsentsPage } from "@/pages/students/ConsentsPage";
 import { TimetablePage } from "@/pages/timetable/TimetablePage";
 import { LeavePage } from "@/pages/leave/LeavePage";
+import { AdmissionsPage } from "@/pages/admissions/AdmissionsPage";
 import { TeacherAllocationPage } from "@/pages/staff/TeacherAllocationPage";
 import { Spinner } from "@/components/ui/Spinner";
 import { NAV_ITEMS } from "./navigation";
@@ -234,6 +235,16 @@ export function AppRoutes({ login, setup }: AppRoutesProps) {
             element={
               <RequirePermission permission="leave.read">
                 <LeavePage />
+              </RequirePermission>
+            }
+          />
+        )}
+        {has("admissions") && (
+          <Route
+            path="/admissions"
+            element={
+              <RequirePermission permission="admissions.read">
+                <AdmissionsPage />
               </RequirePermission>
             }
           />

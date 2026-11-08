@@ -58,7 +58,12 @@ pub async fn list_stages(conn: &mut PgConnection, school_id: Uuid) -> DbResult<V
 }
 
 /// The stages, creating the default pipeline when the school has none yet.
-pub async fn ensure_stages(conn: &mut PgConnection, hlc: &Hlc, actor: Actor, school_id: Uuid) -> DbResult<Vec<Stage>> {
+pub async fn ensure_stages(
+    conn: &mut PgConnection,
+    hlc: &Hlc,
+    actor: Actor,
+    school_id: Uuid,
+) -> DbResult<Vec<Stage>> {
     let existing = list_stages(&mut *conn, school_id).await?;
     if !existing.is_empty() {
         return Ok(existing);
@@ -134,7 +139,17 @@ pub async fn create_stage(
     .fetch_one(&mut *conn)
     .await
     .map_err(|e| map_unique(e, "a stage with this code"))?;
-    audit::record(conn, hlc, actor, Action::Create, "admission_stage", Some(row.id), None, Some(snapshot(&row))).await?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Create,
+        "admission_stage",
+        Some(row.id),
+        None,
+        Some(snapshot(&row)),
+    )
+    .await?;
     Ok(row)
 }
 
@@ -164,19 +179,38 @@ pub async fn update_stage(
     .fetch_one(&mut *conn)
     .await
     .map_err(|e| map_unique(e, "a stage with this code"))?;
-    audit::record(conn, hlc, actor, Action::Update, "admission_stage", Some(id), Some(snapshot(&old)), Some(snapshot(&row))).await?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Update,
+        "admission_stage",
+        Some(id),
+        Some(snapshot(&old)),
+        Some(snapshot(&row)),
+    )
+    .await?;
     Ok(row)
 }
 
 /// Remove an empty stage (no application sits in it).
-pub async fn delete_stage(conn: &mut PgConnection, hlc: &Hlc, actor: Actor, id: Uuid) -> DbResult<()> {
+pub async fn delete_stage(
+    conn: &mut PgConnection,
+    hlc: &Hlc,
+    actor: Actor,
+    id: Uuid,
+) -> DbResult<()> {
     let old = get_stage(&mut *conn, id).await?;
-    let n: i64 = sqlx::query_scalar("SELECT count(*) FROM admission_applications WHERE stage_id = $1 AND deleted_at IS NULL")
-        .bind(id)
-        .fetch_one(&mut *conn)
-        .await?;
+    let n: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM admission_applications WHERE stage_id = $1 AND deleted_at IS NULL",
+    )
+    .bind(id)
+    .fetch_one(&mut *conn)
+    .await?;
     if n > 0 {
-        return Err(DbError::Conflict("move the applications out of this stage first".into()));
+        return Err(DbError::Conflict(
+            "move the applications out of this stage first".into(),
+        ));
     }
     sqlx::query("UPDATE admission_stages SET deleted_at = now(), updated_at = now(), updated_by = $2, hlc = $3 WHERE id = $1")
         .bind(id)
@@ -184,7 +218,17 @@ pub async fn delete_stage(conn: &mut PgConnection, hlc: &Hlc, actor: Actor, id: 
         .bind(hlc.now().to_string())
         .execute(&mut *conn)
         .await?;
-    audit::record(conn, hlc, actor, Action::Delete, "admission_stage", Some(id), Some(snapshot(&old)), None).await?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Delete,
+        "admission_stage",
+        Some(id),
+        Some(snapshot(&old)),
+        None,
+    )
+    .await?;
     Ok(())
 }
 
@@ -286,11 +330,15 @@ fn check_application(input: &ApplicationInput) -> DbResult<()> {
         return Err(DbError::Conflict("gender is male, female or other".into()));
     }
     if !["father", "mother", "guardian", "other"].contains(&input.guardian_relationship.as_str()) {
-        return Err(DbError::Conflict("the guardian is the father, mother, a guardian or other".into()));
+        return Err(DbError::Conflict(
+            "the guardian is the father, mother, a guardian or other".into(),
+        ));
     }
     if let (Some(m), Some(t)) = (input.test_marks, input.test_total) {
         if m > t {
-            return Err(DbError::Conflict("test marks cannot exceed the total".into()));
+            return Err(DbError::Conflict(
+                "test marks cannot exceed the total".into(),
+            ));
         }
     }
     if input.offer_fee.is_some_and(|f| f < Decimal::ZERO) {
@@ -321,7 +369,11 @@ const VIEW_JOIN: &str = "FROM admission_applications a
          LEFT JOIN classes c ON c.id = a.class_id
          LEFT JOIN students s ON s.id = a.student_id";
 
-pub async fn list(conn: &mut PgConnection, school_id: Uuid, f: &ApplicationFilter) -> DbResult<Vec<ApplicationView>> {
+pub async fn list(
+    conn: &mut PgConnection,
+    school_id: Uuid,
+    f: &ApplicationFilter,
+) -> DbResult<Vec<ApplicationView>> {
     Ok(sqlx::query_as::<_, ApplicationView>(sqlx::AssertSqlSafe(format!(
         "SELECT {APP_COLS}, st.name AS stage_name, st.kind AS stage_kind, c.name AS class_name, s.student_number
          {VIEW_JOIN}
@@ -405,7 +457,11 @@ pub async fn create(
     check_application(input)?;
     let stages = ensure_stages(&mut *conn, hlc, actor, school_id).await?;
     let stage = match stage_id {
-        Some(id) => stages.iter().find(|s| s.id == id).cloned().ok_or_else(|| DbError::NotFound("admission stage".into()))?,
+        Some(id) => stages
+            .iter()
+            .find(|s| s.id == id)
+            .cloned()
+            .ok_or_else(|| DbError::NotFound("admission stage".into()))?,
         None => stages
             .iter()
             .find(|s| s.kind() == StageKind::Open)
@@ -440,7 +496,17 @@ pub async fn create(
     )
     .fetch_one(&mut *conn)
     .await?;
-    audit::record(&mut *conn, hlc, actor, Action::Create, "admission_application", Some(row.id), None, Some(snapshot(&row))).await?;
+    audit::record(
+        &mut *conn,
+        hlc,
+        actor,
+        Action::Create,
+        "admission_application",
+        Some(row.id),
+        None,
+        Some(snapshot(&row)),
+    )
+    .await?;
     add_event(&mut *conn, hlc, actor, &row, None, stage.id, "", changed_by).await?;
     Ok(row)
 }
@@ -454,8 +520,13 @@ pub async fn update(
 ) -> DbResult<Application> {
     check_application(input)?;
     let old = get(&mut *conn, id).await?.application;
-    if old.student_id.is_some() && (old.full_name != input.full_name.trim() || old.class_id != input.class_id) {
-        return Err(DbError::Conflict("a converted application keeps its applicant and class; edit the student instead".into()));
+    if old.student_id.is_some()
+        && (old.full_name != input.full_name.trim() || old.class_id != input.class_id)
+    {
+        return Err(DbError::Conflict(
+            "a converted application keeps its applicant and class; edit the student instead"
+                .into(),
+        ));
     }
     let row = bind_input(
         sqlx::query_as::<_, Application>(sqlx::AssertSqlSafe(format!(
@@ -474,14 +545,26 @@ pub async fn update(
     )
     .fetch_one(&mut *conn)
     .await?;
-    audit::record(conn, hlc, actor, Action::Update, "admission_application", Some(id), Some(snapshot(&old)), Some(snapshot(&row))).await?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Update,
+        "admission_application",
+        Some(id),
+        Some(snapshot(&old)),
+        Some(snapshot(&row)),
+    )
+    .await?;
     Ok(row)
 }
 
 pub async fn delete(conn: &mut PgConnection, hlc: &Hlc, actor: Actor, id: Uuid) -> DbResult<()> {
     let old = get(&mut *conn, id).await?.application;
     if old.student_id.is_some() {
-        return Err(DbError::Conflict("a converted application cannot be removed".into()));
+        return Err(DbError::Conflict(
+            "a converted application cannot be removed".into(),
+        ));
     }
     sqlx::query("UPDATE admission_applications SET deleted_at = now(), updated_at = now(), updated_by = $2, hlc = $3 WHERE id = $1")
         .bind(id)
@@ -489,7 +572,17 @@ pub async fn delete(conn: &mut PgConnection, hlc: &Hlc, actor: Actor, id: Uuid) 
         .bind(hlc.now().to_string())
         .execute(&mut *conn)
         .await?;
-    audit::record(conn, hlc, actor, Action::Delete, "admission_application", Some(id), Some(snapshot(&old)), None).await?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Delete,
+        "admission_application",
+        Some(id),
+        Some(snapshot(&old)),
+        None,
+    )
+    .await?;
     Ok(())
 }
 
@@ -594,7 +687,17 @@ pub async fn move_stage(
         Some(json!({ "stage_id": to.id, "stage": to.name, "note": note })),
     )
     .await?;
-    add_event(&mut *conn, hlc, actor, &row, Some(from.id), to.id, note, changed_by).await?;
+    add_event(
+        &mut *conn,
+        hlc,
+        actor,
+        &row,
+        Some(from.id),
+        to.id,
+        note,
+        changed_by,
+    )
+    .await?;
     Ok(row)
 }
 
@@ -610,7 +713,9 @@ pub async fn link_student(
 ) -> DbResult<Application> {
     let old = get(&mut *conn, id).await?.application;
     if old.student_id.is_some() {
-        return Err(DbError::Conflict("this application was already converted".into()));
+        return Err(DbError::Conflict(
+            "this application was already converted".into(),
+        ));
     }
     let row = sqlx::query_as::<_, Application>(sqlx::AssertSqlSafe(format!(
         "UPDATE admission_applications AS a SET student_id = $2, admitted_on = $3, updated_at = now(), updated_by = $4, hlc = $5
@@ -640,7 +745,11 @@ pub async fn link_student(
 // ---- funnel -----------------------------------------------------------------------------------
 
 /// Per stage (pipeline order): applications that reached it and that sit in it now.
-pub async fn funnel(conn: &mut PgConnection, school_id: Uuid, year_id: Uuid) -> DbResult<Vec<(Stage, usize, usize)>> {
+pub async fn funnel(
+    conn: &mut PgConnection,
+    school_id: Uuid,
+    year_id: Uuid,
+) -> DbResult<Vec<(Stage, usize, usize)>> {
     let stages = list_stages(&mut *conn, school_id).await?;
     let rows: Vec<(Uuid, Uuid)> = sqlx::query_as(
         "SELECT e.application_id, e.to_stage_id FROM admission_events e

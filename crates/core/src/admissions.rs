@@ -62,21 +62,55 @@ pub struct DefaultStage {
 /// The pipeline every school starts with; stages can be renamed, reordered, added or
 /// removed afterwards.
 pub const DEFAULT_STAGES: &[DefaultStage] = &[
-    DefaultStage { code: "enquiry", name: "Enquiry", kind: StageKind::Open },
-    DefaultStage { code: "applied", name: "Applied", kind: StageKind::Open },
-    DefaultStage { code: "test_scheduled", name: "Test scheduled", kind: StageKind::Open },
-    DefaultStage { code: "interviewed", name: "Interviewed", kind: StageKind::Open },
-    DefaultStage { code: "offered", name: "Offered", kind: StageKind::Open },
-    DefaultStage { code: "admitted", name: "Admitted", kind: StageKind::Admitted },
-    DefaultStage { code: "rejected", name: "Rejected", kind: StageKind::Rejected },
-    DefaultStage { code: "withdrawn", name: "Withdrawn", kind: StageKind::Withdrawn },
+    DefaultStage {
+        code: "enquiry",
+        name: "Enquiry",
+        kind: StageKind::Open,
+    },
+    DefaultStage {
+        code: "applied",
+        name: "Applied",
+        kind: StageKind::Open,
+    },
+    DefaultStage {
+        code: "test_scheduled",
+        name: "Test scheduled",
+        kind: StageKind::Open,
+    },
+    DefaultStage {
+        code: "interviewed",
+        name: "Interviewed",
+        kind: StageKind::Open,
+    },
+    DefaultStage {
+        code: "offered",
+        name: "Offered",
+        kind: StageKind::Open,
+    },
+    DefaultStage {
+        code: "admitted",
+        name: "Admitted",
+        kind: StageKind::Admitted,
+    },
+    DefaultStage {
+        code: "rejected",
+        name: "Rejected",
+        kind: StageKind::Rejected,
+    },
+    DefaultStage {
+        code: "withdrawn",
+        name: "Withdrawn",
+        kind: StageKind::Withdrawn,
+    },
 ];
 
 /// Whether an application may move between two stage kinds. `converted` = it already
 /// became a student (then it is frozen).
 pub fn can_move(from: StageKind, to: StageKind, converted: bool) -> Result<(), String> {
     if converted {
-        return Err("This application was converted into a student and cannot change stage.".into());
+        return Err(
+            "This application was converted into a student and cannot change stage.".into(),
+        );
     }
     match (from, to) {
         (StageKind::Admitted, StageKind::Admitted) => Ok(()),
@@ -116,11 +150,20 @@ mod tests {
     #[test]
     fn default_pipeline_is_ordered_and_ends_in_terminal_stages() {
         assert_eq!(DEFAULT_STAGES[0].code, "enquiry");
-        assert_eq!(DEFAULT_STAGES.iter().filter(|s| s.kind == StageKind::Open).count(), 5);
+        assert_eq!(
+            DEFAULT_STAGES
+                .iter()
+                .filter(|s| s.kind == StageKind::Open)
+                .count(),
+            5
+        );
         assert!(DEFAULT_STAGES.iter().any(|s| s.kind == StageKind::Admitted));
         let codes: std::collections::HashSet<_> = DEFAULT_STAGES.iter().map(|s| s.code).collect();
         assert_eq!(codes.len(), DEFAULT_STAGES.len());
-        assert_eq!("admitted".parse::<StageKind>().unwrap(), StageKind::Admitted);
+        assert_eq!(
+            "admitted".parse::<StageKind>().unwrap(),
+            StageKind::Admitted
+        );
         assert!(StageKind::Rejected.is_terminal() && !StageKind::Open.is_terminal());
     }
 
@@ -129,11 +172,20 @@ mod tests {
         use StageKind::*;
         assert!(can_move(Open, Open, false).is_ok());
         assert!(can_move(Open, Admitted, false).is_ok());
-        assert!(can_move(Rejected, Open, false).is_ok(), "a rejection can be reopened");
+        assert!(
+            can_move(Rejected, Open, false).is_ok(),
+            "a rejection can be reopened"
+        );
         assert!(can_move(Withdrawn, Admitted, false).is_ok());
-        assert!(can_move(Admitted, Open, false).is_err(), "admitted is final");
+        assert!(
+            can_move(Admitted, Open, false).is_err(),
+            "admitted is final"
+        );
         assert!(can_move(Admitted, Admitted, false).is_ok());
-        assert!(can_move(Open, Open, true).is_err(), "converted applications are frozen");
+        assert!(
+            can_move(Open, Open, true).is_err(),
+            "converted applications are frozen"
+        );
     }
 
     #[test]

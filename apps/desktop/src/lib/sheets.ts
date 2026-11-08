@@ -4,6 +4,7 @@ const WANTED: Record<ImportKind, string[]> = {
   students: ["students", "student", "pupils", "learners", "studentdata"],
   staff: ["staff", "employees", "teachers", "staffdata"],
   opening_balances: ["openingbalances", "balances", "opening", "fees", "arrears"],
+  enquiries: ["enquiries", "inquiries", "admissions", "applications", "leads"],
 };
 const SKIP = ["readme", "read", "instructions", "notes", "about", "help", "info", "guide"];
 

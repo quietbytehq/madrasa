@@ -1,5 +1,14 @@
 import { download, request } from "./client";
 import type {
+  AdmissionSettings,
+  AdmissionStage,
+  AdmissionsBoard,
+  ApplicationBody,
+  ApplicationDetail,
+  ApplicationView,
+  BulkMoveResult,
+  ConversionResult,
+  StageBody,
   LeaveBalance,
   LeaveBalanceBody,
   LeaveRequest,
@@ -819,4 +828,60 @@ export const api = {
     }),
   staffRegister: (month?: string) =>
     request<StaffRegisterView>(`/leave/staff-register${qs({ month })}`),
+  // Admissions (Standard stage 3)
+  admissionStages: () => request<AdmissionStage[]>("/admissions/stages"),
+  createAdmissionStage: (body: StageBody) =>
+    request<AdmissionStage>("/admissions/stages", { method: "POST", body }),
+  updateAdmissionStage: (id: string, body: StageBody) =>
+    request<AdmissionStage>(`/admissions/stages/${id}`, { method: "PUT", body }),
+  deleteAdmissionStage: (id: string) =>
+    request<void>(`/admissions/stages/${id}`, { method: "DELETE" }),
+  admissionSettings: () => request<AdmissionSettings>("/admissions/settings"),
+  updateAdmissionSettings: (fee_head_id: string | null) =>
+    request<AdmissionSettings>("/admissions/settings", { method: "PUT", body: { fee_head_id } }),
+  admissionsBoard: (params: { academic_year_id?: string; class_id?: string; q?: string } = {}) =>
+    request<AdmissionsBoard>(`/admissions/board${qs(params)}`),
+  applications: (
+    params: {
+      academic_year_id?: string;
+      class_id?: string;
+      stage_id?: string;
+      q?: string;
+      from?: string;
+      to?: string;
+    } = {},
+  ) => request<ApplicationView[]>(`/admissions/applications${qs(params)}`),
+  application: (id: string) => request<ApplicationDetail>(`/admissions/applications/${id}`),
+  createApplication: (body: ApplicationBody) =>
+    request<ApplicationDetail>("/admissions/applications", { method: "POST", body }),
+  updateApplication: (id: string, body: ApplicationBody) =>
+    request<ApplicationDetail>(`/admissions/applications/${id}`, { method: "PUT", body }),
+  deleteApplication: (id: string) =>
+    request<void>(`/admissions/applications/${id}`, { method: "DELETE" }),
+  moveApplication: (id: string, stage_id: string, note = "") =>
+    request<ApplicationDetail>(`/admissions/applications/${id}/move`, {
+      method: "POST",
+      body: { stage_id, note },
+    }),
+  moveApplications: (ids: string[], stage_id: string, note = "") =>
+    request<BulkMoveResult>("/admissions/applications/move", {
+      method: "POST",
+      body: { ids, stage_id, note },
+    }),
+  convertApplication: (
+    id: string,
+    body: {
+      section_id: string;
+      roll_no?: number | null;
+      admission_date?: string | null;
+      student_number?: string | null;
+      force?: boolean;
+    },
+  ) =>
+    request<ConversionResult>(`/admissions/applications/${id}/convert`, {
+      method: "POST",
+      body,
+    }),
+  downloadOfferLetter: (id: string, lang: string) =>
+    download(`/admissions/applications/${id}/offer-letter${qs({ lang })}`),
 };

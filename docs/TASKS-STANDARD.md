@@ -99,20 +99,20 @@ ejection-chain placement → relaxation → verify pipeline is ported into
 
 ## Stage 3 — Admissions pipeline
 
-- [ ] `admission_applications`: enquiry → applied → test scheduled → interviewed →
+- [x] `admission_applications`: enquiry → applied → test scheduled → interviewed →
       offered → admitted | rejected | withdrawn, with the applicant's details (same shape
       as a student plus guardian), the class applied for, the session, test marks and
       interview notes, offer letter date and fee, and every status change dated and
       audited; configurable stages per school
-- [ ] Converting an admitted application creates the student, guardians and enrolment in
+- [x] Converting an admitted application creates the student, guardians and enrolment in
       one step (no retyping) and links back; admission fee voucher generated on admission
       when a fee head is configured
-- [ ] Screens: pipeline board by stage with counts, application form, list with filters,
+- [x] Screens: pipeline board by stage with counts, application form, list with filters,
       bulk status moves; printable offer letter (PDF, en/ur); import of enquiries from
       Excel through the import engine
-- [ ] Permissions `admissions.read`, `admissions.manage` (office); reports: admissions
+- [x] Permissions `admissions.read`, `admissions.manage` (office); reports: admissions
       funnel per session, applications by class, pending tests
-- [ ] Tests: the stage machine, conversion creates everything once, import, vitest
+- [x] Tests: the stage machine, conversion creates everything once, import, vitest
 
 ## Stage 4 — Library
 

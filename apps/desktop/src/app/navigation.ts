@@ -138,7 +138,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
     labelKey: "nav.admissions",
     icon: ClipboardList,
     feature: "admissions",
-    available: false,
+    available: true,
+    permission: "admissions.read",
   },
   {
     path: "/library",

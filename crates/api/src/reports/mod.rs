@@ -2,6 +2,7 @@
 //! as JSON for the screen, Excel through the export module, or PDF typeset on the server
 //! (`pdf.rs`) with embedded fonts so Urdu is shaped and right-to-left.
 
+pub mod admissions;
 pub mod attendance;
 pub mod boards;
 pub mod builder;

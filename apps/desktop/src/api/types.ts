@@ -1192,7 +1192,7 @@ export interface BackupStatus {
 
 // ---- M1 stage 6: imports and export -------------------------------------------------------
 
-export type ImportKind = "students" | "staff" | "opening_balances";
+export type ImportKind = "students" | "staff" | "opening_balances" | "enquiries";
 export type DuplicatePolicy = "skip" | "update" | "merge";
 
 export interface ImportField {
@@ -1335,7 +1335,8 @@ export interface RolloverReport {
 // ---- Reports (M2 stage 1) --------------------------------------------------------------------
 
 export type ReportLang = "en" | "ur";
-export type ReportModule = "students" | "fees" | "attendance" | "exams" | "timetable" | "leave";
+export type ReportModule =
+  "students" | "fees" | "attendance" | "exams" | "timetable" | "leave" | "admissions";
 export type ReportParamKind =
   | "academic_year"
   | "class"
@@ -2588,4 +2589,153 @@ export interface StaffRegisterView {
   days: string[];
   school_days: boolean[];
   rows: StaffRegisterRow[];
+}
+
+// ---- Admissions (Standard stage 3) ------------------------------------------------------------
+// Mirrors crates/api/src/routes/admissions.rs and crates/db/src/admissions.rs.
+
+export type StageKind = "open" | "admitted" | "rejected" | "withdrawn";
+
+export interface AdmissionStage {
+  id: string;
+  school_id: string;
+  code: string;
+  name: string;
+  kind: StageKind;
+  position: number;
+  hlc: string;
+}
+
+export interface StageBody {
+  name: string;
+  code?: string;
+  kind: StageKind;
+  position?: number;
+}
+
+export interface AdmissionSettings {
+  fee_head_id: string | null;
+  fee_head_name: string | null;
+}
+
+export interface Application {
+  id: string;
+  school_id: string;
+  application_no: string;
+  academic_year_id: string;
+  class_id: string | null;
+  stage_id: string;
+  enquiry_date: string;
+  source: string;
+  full_name: string;
+  father_name: string;
+  date_of_birth: string | null;
+  gender: string;
+  cnic: string | null;
+  address: string;
+  phone: string | null;
+  email: string | null;
+  previous_school: string;
+  guardian_name: string;
+  guardian_relationship: string;
+  guardian_phone: string | null;
+  guardian_cnic: string | null;
+  guardian_email: string | null;
+  guardian_occupation: string;
+  test_date: string | null;
+  test_marks: string | null;
+  test_total: string | null;
+  interview_date: string | null;
+  interview_notes: string;
+  offer_date: string | null;
+  offer_fee: string | null;
+  offer_expires: string | null;
+  notes: string;
+  custom: Record<string, unknown>;
+  student_id: string | null;
+  admitted_on: string | null;
+  created_at: string;
+  updated_at: string;
+  hlc: string;
+}
+
+export interface ApplicationView extends Application {
+  stage_name: string;
+  stage_kind: StageKind;
+  class_name: string | null;
+  student_number: string | null;
+}
+
+export interface AdmissionEvent {
+  id: string;
+  application_id: string;
+  from_stage_id: string | null;
+  to_stage_id: string;
+  to_stage_name: string;
+  note: string;
+  changed_by: string | null;
+  changed_by_name: string | null;
+  changed_at: string;
+}
+
+export interface ApplicationDetail extends ApplicationView {
+  events: AdmissionEvent[];
+}
+
+export interface ApplicationBody {
+  academic_year_id?: string;
+  class_id?: string | null;
+  stage_id?: string | null;
+  enquiry_date?: string | null;
+  source?: string;
+  full_name: string;
+  father_name?: string;
+  date_of_birth?: string | null;
+  gender?: string;
+  cnic?: string | null;
+  address?: string;
+  phone?: string | null;
+  email?: string | null;
+  previous_school?: string;
+  guardian_name?: string;
+  guardian_relationship?: string;
+  guardian_phone?: string | null;
+  guardian_cnic?: string | null;
+  guardian_email?: string | null;
+  guardian_occupation?: string;
+  test_date?: string | null;
+  test_marks?: number | null;
+  test_total?: number | null;
+  interview_date?: string | null;
+  interview_notes?: string;
+  offer_date?: string | null;
+  offer_fee?: number | null;
+  offer_expires?: string | null;
+  notes?: string;
+}
+
+export interface FunnelRow {
+  stage_id: string;
+  reached: number;
+  current: number;
+}
+
+export interface AdmissionsBoard {
+  academic_year: AcademicYear;
+  stages: AdmissionStage[];
+  applications: ApplicationView[];
+  funnel: FunnelRow[];
+}
+
+export interface BulkMoveResult {
+  moved: number;
+  refused: [string, string][];
+}
+
+export interface ConversionResult {
+  application: ApplicationDetail;
+  student_id: string;
+  student_number: string;
+  guardian_id: string | null;
+  voucher_id: string | null;
 }
