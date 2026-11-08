@@ -19,6 +19,8 @@ pub enum Module {
     Leave,
     /// Standard edition only (hidden on Lite).
     Admissions,
+    /// Standard edition only (hidden on Lite).
+    Library,
 }
 
 impl Module {
@@ -31,6 +33,7 @@ impl Module {
             Module::Timetable => "module.timetable",
             Module::Leave => "module.leave",
             Module::Admissions => "module.admissions",
+            Module::Library => "module.library",
         }
     }
 }
@@ -82,6 +85,8 @@ pub enum Access {
     LeaveRead,
     /// Admissions reports: `admissions.read`.
     AdmissionsRead,
+    /// Library reports: `library.read`.
+    LibraryRead,
 }
 
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -515,6 +520,35 @@ pub const REPORTS: &[ReportDef] = &[
         landscape: false,
         access: Access::AdmissionsRead,
     },
+    // Library (Standard stage 4)
+    ReportDef {
+        code: "library.overdue",
+        module: Module::Library,
+        params: &[AS_OF],
+        landscape: true,
+        access: Access::LibraryRead,
+    },
+    ReportDef {
+        code: "library.fines",
+        module: Module::Library,
+        params: &[YEAR, FROM_OPT, TO_OPT],
+        landscape: true,
+        access: Access::LibraryRead,
+    },
+    ReportDef {
+        code: "library.most_borrowed",
+        module: Module::Library,
+        params: &[YEAR, FROM_OPT, TO_OPT, TOP],
+        landscape: false,
+        access: Access::LibraryRead,
+    },
+    ReportDef {
+        code: "library.stock",
+        module: Module::Library,
+        params: &[],
+        landscape: false,
+        access: Access::LibraryRead,
+    },
     // Leave (Standard stage 2)
     ReportDef {
         code: "leave.balances",
@@ -626,15 +660,15 @@ mod tests {
         assert_eq!(ur[0].label, "طلبہ");
         assert_eq!(
             ur.len(),
-            7,
-            "students, fees, attendance, exams, timetable, admissions, leave"
+            8,
+            "students, fees, attendance, exams, timetable, admissions, library, leave"
         );
         assert!(ur[0]
             .reports
             .iter()
             .any(|r| r.code == "students.list" && r.title == "طلبہ کی فہرست"));
         let teacher = catalogue(Lang::En, |d| d.access != Access::ReportsRead);
-        assert_eq!(teacher.len(), 5, "non-report-permission modules only");
+        assert_eq!(teacher.len(), 6, "non-report-permission modules only");
         assert!(teacher.iter().all(|m| m.module != Module::Fees));
         for r in REPORTS {
             for p in r.params {

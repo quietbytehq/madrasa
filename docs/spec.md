@@ -800,6 +800,47 @@ letter PDF en/ur, delete, convert with section, roll number, admission date and 
 number), stages and the fee head (`admissions.manage`). Reports (`admissions.read`, hidden
 on Lite): admissions funnel, applications by class, pending tests.
 
+### 5.21 Library (Standard stage 4)
+
+Standard only (`Feature::Library`; 403 `feature_unavailable` on Lite). Rules live in
+`madrasa_core::library`: member kinds (`student`, `staff`), loan rules per kind (max books,
+loan days, fine per day, max renewals; validated so a loan always has a due date), the due
+date, days late, the fine for a return (days late × fine per day, zero when the loan has a
+waiver covering it), whether a member may borrow (under the book limit, nothing overdue),
+renewal (from the current due date, refused past the renewal limit or when overdue) and the
+waiver cap (never more than the fine).
+
+Data (per school, sync columns, soft delete, audited):
+
+- `library_books`: title, author, publisher, ISBN, category, language, subject, year,
+  `custom`.
+- `library_copies`: `book_id`, `accession_no` (unique per school, case-insensitive; the
+  barcode text), shelf, condition (`good`/`fair`/`poor`), status (`available`/`on_loan`/
+  `lost`/`withdrawn`).
+- `library_loans`: copy, member kind and id, issued and due dates, returned date,
+  renewals, who issued and returned, `lost`, `fine`, `fine_waived`, `waiver_reason`,
+  `waived_by`, `fine_voucher_id`, `fine_settled_on`.
+- Settings `library.rules` (the two rule sets; defaults 2 books / 14 days / 5 per day / 1
+  renewal for students and 5 / 30 / 0 / 2 for staff) and `library.fine_fee_head_id`.
+
+Desk flow: look up a copy by accession number (`GET /library/copies/lookup`) and get it
+with its open loan; issue it to a member (refused when the copy is not available, the
+member is at the limit or has an overdue book); renew; return (the fine is computed on
+return; a lost return marks the copy lost and charges the replacement amount given); waive
+part or all of a fine with a reason; settle a fine (for a student with a fee head
+configured, a one-off voucher is raised through `fees::create_one_off_voucher` and linked;
+otherwise the fine is marked settled at the desk). Members are students (active
+enrolment) and staff; the member page lists their loans, counts, fines due and the rules
+that apply. Stock take: counts by category and every copy with its status, which
+`library.manage` can set to available, lost or withdrawn (never on a copy that is out).
+
+Permissions: `library.read` (principal, admin, accountant, teacher, librarian),
+`library.manage` (principal, admin, librarian). The `librarian` login role exists on
+Standard and Nexus only. Screens: Desk, Catalogue (search, book dialog with copies by
+accession number, shelf and condition), Loans (open, overdue, returned, fines due; return,
+waive and settle), Stock, Settings. Reports (`library.read`, hidden on Lite): overdue
+books, fines, most borrowed, stock by category.
+
 ## 15. Standard alpha (overview)
 
 The stages, their order and their acceptance are in `docs/TASKS-STANDARD.md`; each stage adds
@@ -1249,6 +1290,29 @@ each subject as `students`.
 | GET | `/admissions/applications/{id}/offer-letter?lang=` | `admissions.read` | PDF |
 | * | `/imports/*` with kind `enquiries` | `admissions.manage` | Enquiry import through the import engine (403 `feature_unavailable` on Lite) |
 | GET | `/reports/admissions.funnel`, `.by_class`, `.pending_tests` | `admissions.read` | Library reports; hidden on Lite |
+
+### 6.26 Standard stage 4 endpoints (feature `library`)
+
+| Method | Path | Permission | Notes |
+| --- | --- | --- | --- |
+| GET | `/library/books?q&category&subject` | `library.read` | Books with copy counts (`copies`, `available`, `on_loan`) |
+| POST | `/library/books` | `library.manage` | Book plus `accession_nos` and `shelf` for its first copies; 409 on a used accession number |
+| GET/PUT/DELETE | `/library/books/{id}` | read / manage | `BookDetail` = book, `copy_list`, open `loans`; delete refused while a copy is out |
+| POST | `/library/books/{id}/copies` | `library.manage` | `{accession_nos, shelf}` |
+| GET | `/library/copies?status` | `library.read` | Every copy with its title |
+| GET | `/library/copies/lookup?accession_no` | `library.read` | The copy and its open loan; 404 when unknown |
+| PUT | `/library/copies/{id}` | `library.manage` | `{shelf, condition, status}`; status cannot change on a copy on loan |
+| GET | `/library/members?kind&q` | `library.read` | Students and staff who can borrow |
+| GET | `/library/members/{kind}/{id}` | `library.read` | `{member, loans, open, overdue, fines_due, rules}` |
+| GET | `/library/loans?state&member_kind&member_id&from&to` | `library.read` | `state`: open, overdue, returned, fines |
+| POST | `/library/loans` | `library.manage` | `{copy_id or accession_no, member_kind, member_id, issued_on?}` → the member page; 409 when the rules refuse |
+| POST | `/library/loans/{id}/renew` | `library.manage` | 409 past the renewal limit or when overdue |
+| POST | `/library/loans/{id}/return` | `library.manage` | `{returned_on?, lost?, lost_charge?}` → the loan with its fine |
+| POST | `/library/loans/{id}/waive` | `library.manage` | `{amount, reason}`; capped at the fine |
+| POST | `/library/loans/{id}/settle` | `library.manage` | → `{loan, voucher_id}`; a voucher for students when the fee head is set |
+| GET/PUT | `/library/settings` | read / manage | `{rules: {student, staff}, fine_fee_head_id, fine_fee_head_name}` |
+| GET | `/library/stock` | `library.read` | Counts by category |
+| GET | `/reports/library.overdue`, `.fines`, `.most_borrowed`, `.stock` | `library.read` | Library reports; hidden on Lite |
 
 ### 6.11 Second alpha test report fixes
 

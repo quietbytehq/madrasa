@@ -91,6 +91,11 @@ pub enum Permission {
     AdmissionsRead,
     #[serde(rename = "admissions.manage")]
     AdmissionsManage,
+    // Library (Standard stage 4)
+    #[serde(rename = "library.read")]
+    LibraryRead,
+    #[serde(rename = "library.manage")]
+    LibraryManage,
     // Nexus
     #[serde(rename = "nexus.admin")]
     NexusAdmin,
@@ -130,6 +135,8 @@ impl Permission {
         Permission::LeaveApprove,
         Permission::AdmissionsRead,
         Permission::AdmissionsManage,
+        Permission::LibraryRead,
+        Permission::LibraryManage,
         Permission::NexusAdmin,
     ];
 
@@ -167,6 +174,8 @@ impl Permission {
             Permission::LeaveApprove => "leave.approve",
             Permission::AdmissionsRead => "admissions.read",
             Permission::AdmissionsManage => "admissions.manage",
+            Permission::LibraryRead => "library.read",
+            Permission::LibraryManage => "library.manage",
             Permission::NexusAdmin => "nexus.admin",
         }
     }
@@ -201,6 +210,8 @@ pub enum RoleCode {
     Admin,
     Accountant,
     Teacher,
+    /// Standard: runs the library desk.
+    Librarian,
     Parent,
 }
 
@@ -210,6 +221,7 @@ impl RoleCode {
         RoleCode::Admin,
         RoleCode::Accountant,
         RoleCode::Teacher,
+        RoleCode::Librarian,
         RoleCode::Parent,
     ];
 
@@ -219,6 +231,7 @@ impl RoleCode {
             RoleCode::Admin => "admin",
             RoleCode::Accountant => "accountant",
             RoleCode::Teacher => "teacher",
+            RoleCode::Librarian => "librarian",
             RoleCode::Parent => "parent",
         }
     }
@@ -230,6 +243,7 @@ impl RoleCode {
             RoleCode::Admin => "Administrator",
             RoleCode::Accountant => "Accountant",
             RoleCode::Teacher => "Teacher",
+            RoleCode::Librarian => "Librarian",
             RoleCode::Parent => "Parent",
         }
     }
@@ -246,6 +260,7 @@ impl RoleCode {
     pub fn available_in(self, edition: Edition) -> bool {
         match self {
             RoleCode::Parent => edition == Edition::Nexus,
+            RoleCode::Librarian => edition != Edition::Lite,
             _ => true,
         }
     }
@@ -291,6 +306,8 @@ impl RoleCode {
                 LeaveApprove,
                 AdmissionsRead,
                 AdmissionsManage,
+                LibraryRead,
+                LibraryManage,
             ],
             RoleCode::Accountant => {
                 vec![
@@ -303,6 +320,7 @@ impl RoleCode {
                     TimetableRead,
                     LeaveRead,
                     AdmissionsRead,
+                    LibraryRead,
                 ]
             }
             RoleCode::Teacher => vec![
@@ -316,6 +334,15 @@ impl RoleCode {
                 ExamsManage,
                 TimetableRead,
                 LeaveRead,
+                LibraryRead,
+            ],
+            RoleCode::Librarian => vec![
+                SchoolRead,
+                AcademicsRead,
+                StudentsRead,
+                TeachersRead,
+                LibraryRead,
+                LibraryManage,
             ],
             RoleCode::Parent => vec![SchoolRead],
         }
@@ -439,6 +466,8 @@ mod tests {
         );
         assert!(RoleCode::defaults_for(Edition::Nexus).contains(&RoleCode::Parent));
         assert!(!RoleCode::Parent.available_in(Edition::Standard));
+        assert!(RoleCode::defaults_for(Edition::Standard).contains(&RoleCode::Librarian));
+        assert!(!RoleCode::Librarian.available_in(Edition::Lite));
     }
 
     #[test]
@@ -464,6 +493,7 @@ mod tests {
             RoleCode::Admin,
             RoleCode::Accountant,
             RoleCode::Teacher,
+            RoleCode::Librarian,
         ];
         let mut seen = 0;
         for line in doc.lines().filter(|l| l.starts_with("| `")) {

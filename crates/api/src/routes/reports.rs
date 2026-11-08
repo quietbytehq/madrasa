@@ -14,7 +14,7 @@ use serde_json::json;
 use crate::auth::CurrentUser;
 use crate::export::file_response;
 use crate::reports::catalogue::{Access, ReportDef};
-use crate::reports::{admissions, consents, leave, timetable};
+use crate::reports::{admissions, consents, leave, library, timetable};
 use crate::reports::{
     attendance, boards, builder, catalogue, exams, fees, pdf, students, Context, Lang, Params,
     Report,
@@ -48,6 +48,7 @@ fn may_run(user: &CurrentUser, def: &ReportDef) -> bool {
             Access::TimetableRead => user.can(Permission::TimetableRead),
             Access::LeaveRead => user.can(Permission::LeaveRead),
             Access::AdmissionsRead => user.can(Permission::AdmissionsRead),
+            Access::LibraryRead => user.can(Permission::LibraryRead),
         }
 }
 
@@ -57,6 +58,7 @@ fn module_enabled(state: &AppState, def: &ReportDef) -> bool {
         catalogue::Module::Timetable => state.has_feature(Feature::Timetable),
         catalogue::Module::Leave => state.has_feature(Feature::Leave),
         catalogue::Module::Admissions => state.has_feature(Feature::Admissions),
+        catalogue::Module::Library => state.has_feature(Feature::Library),
         _ => true,
     }
 }
@@ -72,6 +74,7 @@ async fn list(
         && !user.can(Permission::TimetableRead)
         && !user.can(Permission::LeaveRead)
         && !user.can(Permission::AdmissionsRead)
+        && !user.can(Permission::LibraryRead)
     {
         return Err(ApiError::forbidden());
     }
@@ -163,6 +166,10 @@ pub async fn build(
         "admissions.funnel" => admissions::funnel(&mut c, &ctx, params).await?,
         "admissions.by_class" => admissions::by_class(&mut c, &ctx, params).await?,
         "admissions.pending_tests" => admissions::pending_tests(&mut c, &ctx, params).await?,
+        "library.overdue" => library::overdue(&mut c, &ctx, params).await?,
+        "library.fines" => library::fines(&mut c, &ctx, params).await?,
+        "library.most_borrowed" => library::most_borrowed(&mut c, &ctx, params).await?,
+        "library.stock" => library::stock(&mut c, &ctx, params).await?,
         "leave.balances" => leave::balances(&mut c, &ctx, params).await?,
         "leave.register" => leave::register(&mut c, &ctx, params).await?,
         "leave.students" => leave::students(&mut c, &ctx, params).await?,

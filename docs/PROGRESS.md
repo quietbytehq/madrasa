@@ -931,6 +931,26 @@ depend on each other and were built together)
   check and force, enquiry import with a class error and rollback, reports, back to
   Lite), vitest for the board, the dialog conversion and the reader view.
 
+### 2026-11-08 — Stage 4: Library (branch `dev/std-stage-4-library`)
+- `madrasa_core::library`: member kinds, loan rules per kind with validation, due date,
+  days late, fine, may-borrow check, renewal rule, waiver cap (unit tests).
+- Migration 0020: `library_books`, `library_copies`, `library_loans`; permissions
+  `library.read` and `library.manage`, granted to existing roles only on Standard installs.
+  New `librarian` login role (Standard/Nexus only) with the library grants plus read access
+  to the school, academics, students and staff.
+- `crates/db::library`: books with copy counts, copies by accession number, loans (issue,
+  renew, return with lost handling, waive, settle to a one-off voucher for students), stock
+  by category, most borrowed.
+- API `routes/library.rs`: books and copies, member search and member page, the desk
+  (lookup, issue, renew, return, waive, settle), settings, stock. Reports
+  `library.overdue`, `fines`, `most_borrowed`, `stock`.
+- UI: Library module (Desk, Catalogue, Loans, Stock, Settings for `library.manage`),
+  librarian role offered in the login dialogs on Standard. Strings en/ur.
+- Tests: core, `tests/library.rs` (Lite refusals incl. the librarian role; Standard:
+  catalogue and copies, duplicate accession, member search, issue/renew/return with fines,
+  limits and overdue refusals, lost copy, waiver, settle to voucher, stock, reports, back to
+  Lite), vitest for the desk flow and the catalogue.
+
 ## Summary for the owner — M2 (Lite complete)
 
 M2 was built in nine pull requests, each from a clean `main` with CI green on Linux and

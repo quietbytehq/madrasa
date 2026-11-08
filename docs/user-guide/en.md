@@ -242,3 +242,20 @@ timetable and the substitutions.
    is raised when an offer fee and a fee head are set. The application keeps a link to
    the student.
 5. **Reports**: the admissions funnel, applications by class and pending tests.
+
+## 12. Library (Standard)
+
+1. **Settings** (librarian or office): loan limits, loan days, fine per day and renewals for
+   students and for staff; the fee head to use when a student's fine is settled (leave it
+   empty to settle fines at the desk only).
+2. **Catalogue**: add a book with its copies, one accession number per line (the number
+   printed on the copy or its barcode), and the shelf. Edit a copy's shelf and condition
+   later; withdraw copies that leave the library.
+3. **Desk**: find the borrower (student or staff), scan or type the accession number and
+   press Issue. The same lookup shows a copy that is out, with Return, Renew and Mark lost.
+   The fine appears on return; waive it with a reason or settle it.
+4. **Loans**: open, overdue, returned and fines due, with return, waive and settle on
+   each row.
+5. **Stock**: counts by category and every copy; after a stock take set missing copies to
+   Lost and discarded ones to Withdrawn.
+6. **Reports**: overdue books, fines, most borrowed titles and stock by category.
