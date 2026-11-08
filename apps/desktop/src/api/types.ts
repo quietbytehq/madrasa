@@ -1336,7 +1336,15 @@ export interface RolloverReport {
 
 export type ReportLang = "en" | "ur";
 export type ReportModule =
-  "students" | "fees" | "attendance" | "exams" | "timetable" | "leave" | "admissions" | "library";
+  | "students"
+  | "fees"
+  | "attendance"
+  | "exams"
+  | "timetable"
+  | "leave"
+  | "admissions"
+  | "library"
+  | "transport";
 export type ReportParamKind =
   | "academic_year"
   | "class"
@@ -1359,7 +1367,8 @@ export type ReportAccess =
   | "exams_read"
   | "timetable_read"
   | "leave_read"
-  | "library_read";
+  | "library_read"
+  | "transport_read";
 
 export interface ReportParamDef {
   name: string;
@@ -2906,4 +2915,178 @@ export interface StockRow {
   on_loan: number;
   lost: number;
   withdrawn: number;
+}
+
+// ---- Transport (Standard stage 5) ------------------------------------------------------------
+
+/** Mirrors `CapacityWarning` in madrasa_core::transport. */
+export type CapacityWarning = { kind: "full" } | { kind: "over"; by: number };
+
+/** Mirrors `Vehicle` (GET /transport/vehicles). */
+export interface Vehicle {
+  id: string;
+  school_id: string;
+  registration_no: string;
+  make_model: string;
+  capacity: number | null;
+  driver_name: string;
+  driver_phone: string;
+  helper_name: string;
+  helper_phone: string;
+  active: boolean;
+  notes: string;
+  custom: Record<string, unknown>;
+  hlc: string;
+}
+
+export type VehicleBody = Omit<Vehicle, "id" | "school_id" | "hlc">;
+
+/** Mirrors `Stop`. Times are `HH:MM:SS`. */
+export interface TransportStop {
+  id: string;
+  school_id: string;
+  route_id: string;
+  name: string;
+  position: number;
+  pickup_time: string | null;
+  drop_time: string | null;
+  monthly_fee: string | null;
+  hlc: string;
+}
+
+/** Mirrors `StopInput`: an existing stop (with `id`) or a new one. */
+export interface StopBody {
+  id?: string;
+  name: string;
+  pickup_time: string | null;
+  drop_time: string | null;
+  monthly_fee: string | number | null;
+}
+
+/** Mirrors `RouteView` (GET /transport/routes). */
+export interface RouteView {
+  id: string;
+  school_id: string;
+  name: string;
+  code: string;
+  vehicle_id: string | null;
+  monthly_fee: string | number;
+  active: boolean;
+  notes: string;
+  hlc: string;
+  vehicle_registration: string | null;
+  vehicle_capacity: number | null;
+  driver_name: string | null;
+  stops: number;
+  students: number;
+}
+
+/** Mirrors `RouteDetail` (GET /transport/routes/{id}). */
+export interface RouteDetail extends RouteView {
+  stop_list: TransportStop[];
+}
+
+/** Mirrors `RouteInput` (POST/PUT /transport/routes). */
+export interface RouteBody {
+  name: string;
+  code: string;
+  vehicle_id: string | null;
+  monthly_fee: string | number;
+  active: boolean;
+  notes: string;
+  stops: StopBody[];
+}
+
+/** Mirrors `AssignmentView`. */
+export interface AssignmentView {
+  id: string;
+  school_id: string;
+  student_id: string;
+  academic_year_id: string;
+  route_id: string;
+  stop_id: string;
+  from_date: string;
+  to_date: string | null;
+  amount: string | null;
+  notes: string;
+  hlc: string;
+  student_number: string;
+  student_name: string;
+  class_name: string;
+  section_name: string;
+  section_id: string;
+  roll_no: number | null;
+  guardian_phone: string;
+  route_name: string;
+  stop_name: string;
+  stop_position: number;
+  pickup_time: string | null;
+  charge: string;
+}
+
+/** Mirrors `StudentRow` (GET /transport/students). */
+export interface TransportStudent {
+  student_id: string;
+  student_number: string;
+  full_name: string;
+  class_name: string;
+  section_name: string;
+  section_id: string;
+  roll_no: number | null;
+  assignment_id: string | null;
+  route_id: string | null;
+  route_name: string | null;
+  stop_id: string | null;
+  stop_name: string | null;
+  charge: string | null;
+}
+
+/** Mirrors `AssignInput` (POST /transport/assignments). */
+export interface AssignBody {
+  student_id: string;
+  academic_year_id: string;
+  stop_id: string;
+  from_date: string;
+  amount?: string | number | null;
+  notes?: string;
+}
+
+/** Mirrors `AssignResult`. */
+export interface AssignResult {
+  assignment: AssignmentView;
+  route_students: number;
+  seats_left: number | null;
+  warning: CapacityWarning | null;
+}
+
+/** Mirrors `BulkAssignResult` (POST /transport/assignments/bulk). */
+export interface BulkAssignResult {
+  assigned: number;
+  refused: [string, string][];
+  route_students: number;
+  seats_left: number | null;
+  warning: CapacityWarning | null;
+}
+
+/** Mirrors `AssignmentPatch` (PUT /transport/assignments/{id}); omitted fields stay. */
+export interface AssignmentPatch {
+  stop_id?: string;
+  to_date?: string | null;
+  amount?: string | number | null;
+  notes?: string;
+}
+
+/** Mirrors `Roster` (GET /transport/routes/{id}/roster). */
+export interface RouteRoster extends RouteView {
+  academic_year_id: string;
+  by_stop: { stop: TransportStop; students: AssignmentView[] }[];
+  total: number;
+  seats_left: number | null;
+  warning: CapacityWarning | null;
+}
+
+/** Mirrors `TransportSettings` (GET/PUT /transport/settings). */
+export interface TransportSettings {
+  fee_head_id: string | null;
+  fee_head_name?: string | null;
 }

@@ -841,6 +841,45 @@ accession number, shelf and condition), Loans (open, overdue, returned, fines du
 waive and settle), Stock, Settings. Reports (`library.read`, hidden on Lite): overdue
 books, fines, most borrowed, stock by category.
 
+### 5.22 Transport (Standard stage 5)
+
+Standard only (`Feature::Transport`; 403 `feature_unavailable` on Lite). Rules live in
+`madrasa_core::transport`: which months an assignment is charged for (any month it touches
+between its from and to dates), the monthly charge (the assignment's own amount, else the
+stop's, else the route's), and the capacity warning of a route (`full` when every seat is
+taken, `over` by the number of students beyond the vehicle's seats; none without a vehicle
+or capacity).
+
+Data (per school, sync columns, soft delete, audited):
+
+- `transport_vehicles`: registration number (unique per school, case-insensitive), make and
+  model, capacity, driver and helper with phones, active, notes, `custom`.
+- `transport_routes`: name (unique per school), code, vehicle, default `monthly_fee`,
+  active, notes.
+- `transport_stops`: route, name, position, pickup and drop times, optional `monthly_fee`
+  override. Saved as an ordered list with the route: existing ids are kept, new ones added,
+  missing ones removed unless a student is still assigned to them (409).
+- `transport_assignments`: student, academic year, route, stop, from and to dates, optional
+  `amount` override, notes. One open assignment per student and year: assigning a student
+  again ends the previous assignment the day before the new one starts (or replaces it when
+  it had not started), so the history stays.
+- Setting `transport.fee_head_id`: the fee head of the monthly charge.
+
+Fees: `fees::generate_vouchers` asks `transport::monthly_charge` for every student; when a
+fee head is set and the student has an assignment covering the billing month, the charge
+joins the voucher as a line under that head (and counts as structure, so a student with
+transport but no class fee still gets a voucher). The charge is the assignment in force
+latest in the month. Lite installs have no assignments, so nothing changes there.
+
+Screens: Routes (list with vehicle, stops, students against capacity, monthly fee; a dialog
+with the route and its stops in order), Assign (students of a year and section with their
+stop and charge, tick several and put them on a stop from a date, end a student's
+transport), Roster (one route by stop with student numbers, names, classes and guardian
+phones, printable, with the capacity badge), Vehicles, Settings (fee head,
+`transport.manage`). Reports (`transport.read`, hidden on Lite): route manifests (every
+active route grouped with its stops), students without transport (class or section
+optional), transport fee by route for a month.
+
 ## 15. Standard alpha (overview)
 
 The stages, their order and their acceptance are in `docs/TASKS-STANDARD.md`; each stage adds
@@ -1313,6 +1352,22 @@ each subject as `students`.
 | GET/PUT | `/library/settings` | read / manage | `{rules: {student, staff}, fine_fee_head_id, fine_fee_head_name}` |
 | GET | `/library/stock` | `library.read` | Counts by category |
 | GET | `/reports/library.overdue`, `.fines`, `.most_borrowed`, `.stock` | `library.read` | Library reports; hidden on Lite |
+
+### 6.27 Standard stage 5 endpoints (feature `transport`)
+
+| Method | Path | Permission | Notes |
+| --- | --- | --- | --- |
+| GET/POST | `/transport/vehicles`; PUT/DELETE `/transport/vehicles/{id}` | read / manage | 409 on a duplicate registration or deleting a vehicle a route uses |
+| GET/POST | `/transport/routes` | read / manage | `RouteView` with vehicle, stop and student counts; POST takes the route with its `stops` |
+| GET/PUT/DELETE | `/transport/routes/{id}` | read / manage | `RouteDetail` = route + `stop_list`; PUT replaces the stops in order; 409 dropping a stop with students or deleting a route with students |
+| GET | `/transport/routes/{id}/roster?academic_year_id` | `transport.read` | `{...route, academic_year_id, by_stop: [{stop, students}], total, seats_left, warning}` |
+| GET | `/transport/students?academic_year_id&class_id&section_id&q&without` | `transport.read` | Active students of the year with their open assignment; `without=true` keeps the ones without |
+| GET | `/transport/assignments?academic_year_id&route_id&stop_id&section_id&student_id&open` | `transport.read` | Assignment history with names and the charge |
+| POST | `/transport/assignments` | `transport.manage` | `{student_id, academic_year_id, stop_id, from_date, amount?, notes?}` → `{assignment, route_students, seats_left, warning}`; ends the previous open assignment |
+| POST | `/transport/assignments/bulk` | `transport.manage` | `{student_ids, academic_year_id, stop_id, from_date, amount?}` → `{assigned, refused: [[id, reason]], route_students, seats_left, warning}` |
+| PUT/DELETE | `/transport/assignments/{id}` | `transport.manage` | `{stop_id?, to_date?, amount?, notes?}` (null `to_date` reopens) |
+| GET/PUT | `/transport/settings` | read / manage | `{fee_head_id, fee_head_name}` |
+| GET | `/reports/transport.manifest`, `.without_stop`, `.fee_by_route` | `transport.read` | Library reports; hidden on Lite |
 
 ### 6.11 Second alpha test report fixes
 

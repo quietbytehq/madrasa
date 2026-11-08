@@ -130,13 +130,13 @@ ejection-chain placement → relaxation → verify pipeline is ported into
 
 ## Stage 5 — Transport
 
-- [ ] Vehicles (registration, capacity, driver, helper), routes with ordered stops and
+- [x] Vehicles (registration, capacity, driver, helper), routes with ordered stops and
       pickup times, `transport_assignments` per student and year (route, stop, from/to
       dates) with a transport fee head charged per month through the fee structure
-- [ ] Screens: routes and stops, vehicle list, assign students by section, route roster
+- [x] Screens: routes and stops, vehicle list, assign students by section, route roster
       (printable); reports: route manifest, students without a stop, fee per route
-- [ ] Permissions `transport.read`, `transport.manage`
-- [ ] Tests: capacity warnings, fee integration, roster, vitest
+- [x] Permissions `transport.read`, `transport.manage`
+- [x] Tests: capacity warnings, fee integration, roster, vitest
 
 ## Stage 6 — Hostel
 
