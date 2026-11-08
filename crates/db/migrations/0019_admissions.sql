@@ -97,3 +97,8 @@ WHERE r.is_system AND r.deleted_at IS NULL
   AND EXISTS (SELECT 1 FROM settings s WHERE s.school_id IS NULL AND s.key = 'edition'
               AND s.deleted_at IS NULL AND s.value::text IN ('"standard"', '"nexus"'))
 ON CONFLICT (role_id, code) DO NOTHING;
+
+-- Enquiry imports go through the import engine.
+ALTER TABLE import_batches DROP CONSTRAINT IF EXISTS import_batches_kind_check;
+ALTER TABLE import_batches ADD CONSTRAINT import_batches_kind_check
+    CHECK (kind IN ('students', 'staff', 'opening_balances', 'board_results', 'enquiries'));

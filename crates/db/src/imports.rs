@@ -173,6 +173,7 @@ async fn soft_delete(
         "enrollments",
         "staff",
         "board_results",
+        "admission_applications",
     ];
     if !allowed.contains(&table) {
         return Err(DbError::Conflict(format!("cannot roll back {table}")));

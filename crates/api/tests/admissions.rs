@@ -293,7 +293,10 @@ async fn standard_runs_the_pipeline_and_converts() {
         )
         .await;
     assert_eq!(s, StatusCode::OK, "{b}");
-    assert_eq!(b["test_marks"], "72");
+    assert_eq!(
+        b["test_marks"].as_str().unwrap().parse::<f64>().unwrap(),
+        72.0
+    );
     edit["test_marks"] = json!(120);
     let (s, b) = app
         .put(

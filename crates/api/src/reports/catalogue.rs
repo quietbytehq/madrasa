@@ -626,19 +626,15 @@ mod tests {
         assert_eq!(ur[0].label, "طلبہ");
         assert_eq!(
             ur.len(),
-            6,
-            "students, fees, attendance, exams, timetable, leave"
+            7,
+            "students, fees, attendance, exams, timetable, admissions, leave"
         );
         assert!(ur[0]
             .reports
             .iter()
             .any(|r| r.code == "students.list" && r.title == "طلبہ کی فہرست"));
         let teacher = catalogue(Lang::En, |d| d.access != Access::ReportsRead);
-        assert_eq!(
-            teacher.len(),
-            4,
-            "attendance, exams, timetable and leave only"
-        );
+        assert_eq!(teacher.len(), 5, "non-report-permission modules only");
         assert!(teacher.iter().all(|m| m.module != Module::Fees));
         for r in REPORTS {
             for p in r.params {
