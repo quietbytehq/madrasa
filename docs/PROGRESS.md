@@ -973,6 +973,28 @@ depend on each other and were built together)
   reordering and refusals, the voucher line after a fee head is set, reports, back to Lite),
   vitest for the routes dialog, the bulk assign flow and the roster.
 
+### 2026-11-08 — Stage 6: Hostel (branch `dev/std-stage-6-hostel`)
+- `madrasa_core::hostel` (and `periods`, shared with transport): monthly charge
+  (allocation → room → hostel), bed numbers, occupancy, the leave-out consent rule, overdue
+  returns (unit tests).
+- Migration 0022: `hostels`, `hostel_rooms`, `hostel_allocations` (one open allocation per
+  student and year, one resident per bed), `hostel_register`; permissions `hostel.read`
+  (principal, admin, accountant) and `hostel.manage` (principal, admin), granted to existing
+  roles only on Standard installs.
+- `crates/db::hostel`: hostels and rooms with occupancy, allocations that end the previous
+  one (moves keep the history), the board, the monthly charge for a student and month,
+  residents with fees outstanding, the register (open with consent checks, close).
+  `fees::generate_vouchers` adds the hostel line under the hostel's fee head.
+- API `routes/hostel.rs`: hostels, rooms, board with occupancy, residents, allocations,
+  register. Reports `hostel.occupancy`, `residents`, `outstanding`.
+- UI: Hostel module (Board with the allocate / move dialog, Residents, Register with
+  leave-outs and visitors, Hostels with rooms and the fee head). Strings en/ur.
+- Tests: core, `tests/hostel.rs` (Lite refusals; Standard: hostel and rooms, double booking
+  and missing bed refused, room shrink and deletes refused, the board, a leave that frees a
+  bed and a move that keeps the history, register with consent, already-out and
+  non-resident refusals, close once, the voucher lines, reports, back to Lite), vitest for
+  the board allocation, reader view and the register.
+
 ## Summary for the owner — M2 (Lite complete)
 
 M2 was built in nine pull requests, each from a clean `main` with CI green on Linux and

@@ -140,13 +140,13 @@ ejection-chain placement → relaxation → verify pipeline is ported into
 
 ## Stage 6 — Hostel
 
-- [ ] Hostels, floors, rooms and beds; `hostel_allocations` per student and year with
+- [x] Hostels, floors, rooms and beds; `hostel_allocations` per student and year with
       from/to dates; hostel fee head per hostel charged monthly; visitor and leave-out
       register (out/in with guardian consent)
-- [ ] Screens: occupancy board, allocate and move, register; reports: occupancy,
+- [x] Screens: occupancy board, allocate and move, register; reports: occupancy,
       residents by class, outstanding hostel fees
-- [ ] Permissions `hostel.read`, `hostel.manage`
-- [ ] Tests: no double allocation of a bed, fee integration, vitest
+- [x] Permissions `hostel.read`, `hostel.manage`
+- [x] Tests: no double allocation of a bed, fee integration, vitest
 
 ## Stage 7 — Inventory
 

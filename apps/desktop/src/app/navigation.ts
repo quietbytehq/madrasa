@@ -162,7 +162,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
     labelKey: "nav.hostel",
     icon: BedDouble,
     feature: "hostel",
-    available: false,
+    available: true,
+    permission: "hostel.read",
   },
   {
     path: "/inventory",

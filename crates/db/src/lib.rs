@@ -15,6 +15,7 @@ pub mod custom_fields;
 pub mod exams;
 pub mod fees;
 pub mod guardians;
+pub mod hostel;
 pub mod imports;
 pub mod leave;
 pub mod library;

@@ -44,6 +44,8 @@ Legend: ✓ granted by default · — not granted.
 | `library.manage` | Catalogue and copies, issue, return, renew, fines and waivers, loan rules (Standard) | ✓ | ✓ | — | — | ✓ |
 | `transport.read` | Transport routes, vehicles, assignments, rosters and reports (Standard) | ✓ | ✓ | ✓ | — | — |
 | `transport.manage` | Vehicles, routes and stops, assign students, the transport fee head (Standard) | ✓ | ✓ | — | — | — |
+| `hostel.read` | Hostels, rooms, occupancy, residents, the register and reports (Standard) | ✓ | ✓ | ✓ | — | — |
+| `hostel.manage` | Hostels and rooms, allocate and move residents, record leave-outs and visitors (Standard) | ✓ | ✓ | — | — | — |
 | `timetable.manage` | Shifts, rooms, lessons, rules, generate, edit and publish timetables, record absences and covers (Standard) | ✓ | ✓ | — | — | — |
 | `nexus.admin` | Network hub (Nexus edition only) | — | — | — | — | — |
 

@@ -101,6 +101,11 @@ pub enum Permission {
     TransportRead,
     #[serde(rename = "transport.manage")]
     TransportManage,
+    // Hostel (Standard stage 6)
+    #[serde(rename = "hostel.read")]
+    HostelRead,
+    #[serde(rename = "hostel.manage")]
+    HostelManage,
     // Nexus
     #[serde(rename = "nexus.admin")]
     NexusAdmin,
@@ -144,6 +149,8 @@ impl Permission {
         Permission::LibraryManage,
         Permission::TransportRead,
         Permission::TransportManage,
+        Permission::HostelRead,
+        Permission::HostelManage,
         Permission::NexusAdmin,
     ];
 
@@ -185,6 +192,8 @@ impl Permission {
             Permission::LibraryManage => "library.manage",
             Permission::TransportRead => "transport.read",
             Permission::TransportManage => "transport.manage",
+            Permission::HostelRead => "hostel.read",
+            Permission::HostelManage => "hostel.manage",
             Permission::NexusAdmin => "nexus.admin",
         }
     }
@@ -319,6 +328,8 @@ impl RoleCode {
                 LibraryManage,
                 TransportRead,
                 TransportManage,
+                HostelRead,
+                HostelManage,
             ],
             RoleCode::Accountant => {
                 vec![
@@ -333,6 +344,7 @@ impl RoleCode {
                     AdmissionsRead,
                     LibraryRead,
                     TransportRead,
+                    HostelRead,
                 ]
             }
             RoleCode::Teacher => vec![
