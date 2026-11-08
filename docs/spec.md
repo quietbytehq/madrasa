@@ -1045,6 +1045,12 @@ its data model and endpoints to this document when it is built. Shared decisions
   never removes a grant). Nexus is an installation choice and is not switched here. Every
   switch is audited (`edition`, old and new).
 
+
+Sections per stage: timetable §5.18, leave §5.19, admissions §5.20, library §5.21, transport
+§5.22, hostel §5.23, inventory §5.24, directory login §5.25, read-only API §5.26; endpoints
+§6.22–§6.31. Demo data for every module loads with the demo school (`crates/demo-data`,
+`standard.rs`). Manual test plan: TESTING.md section 5.
+
 ## 6. API conventions
 
 - Base path `/api/v1`. JSON request and response bodies. `snake_case` keys.

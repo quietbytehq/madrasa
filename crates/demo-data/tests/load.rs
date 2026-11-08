@@ -53,6 +53,17 @@ async fn loads_into_an_empty_database_and_marks_everything_demo() {
         report.mark_sheets > 0,
         "Test 1 and Mid-year marks for every section and subject"
     );
+    // Standard modules ride along, out of sight until the edition is switched.
+    let std = &report.standard;
+    assert_eq!(std.applications, 12);
+    assert_eq!(std.books, 20);
+    assert!(std.loans >= 1, "{}", std.loans);
+    assert_eq!(std.routes, 2);
+    assert!(std.transport_students > 0);
+    assert!(std.hostel_residents > 0);
+    assert_eq!(std.inventory_items, 12);
+    assert!(std.leave_requests >= 1);
+    assert!(std.api_key_prefix.starts_with("mk_demo"));
     assert_eq!(report.files_written.len(), 6);
     assert!(out.join("students.json").exists());
     std::fs::remove_dir_all(&out).ok();

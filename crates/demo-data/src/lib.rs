@@ -5,9 +5,11 @@
 
 pub mod generate;
 pub mod load;
+pub mod standard;
 
 pub use generate::{generate, DemoOptions, DemoSchool};
 pub use load::{load, write_json, LoadError, LoadOptions, LoadReport};
+pub use standard::{StandardReport, DEMO_API_KEY};
 
 /// Prefix on every generated school name and username so demo data is never mistaken for real.
 pub const DEMO_MARK: &str = "DEMO";

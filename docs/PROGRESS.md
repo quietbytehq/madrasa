@@ -1063,6 +1063,88 @@ depend on each other and were built together)
   expiry, revocation, a key without an allow-list, results and loans, back to Lite), vitest
   for the card (create and show once, revoke, the reference).
 
+### 2026-11-08 — Stage 10: Close-out (branch `dev/std-stage-10-closeout`)
+- Demo data for every Standard module (`crates/demo-data/src/standard.rs`, loaded with the
+  demo school and visible once the install is switched to Standard): a morning shift, six
+  rooms, lessons seeded from the teacher allocations and a generated, published timetable
+  (skipped when the small demo has no lessons or the engine cannot place every lesson in ten
+  seconds); three leave types with balances for every teacher, six staff requests (approved,
+  rejected, pending) and three approved student leaves; the default admission stages, the
+  admission fee head and twelve applications spread along the pipeline; library rules,
+  twenty titles with copies and fifteen loans (some overdue); a transport fee head, two
+  vehicles, two routes with three stops each and students of six sections on them; a boys'
+  hostel with a fee head, six rooms, fifteen residents and a leave-out; inventory categories,
+  three locations, twelve items with purchases, issues to teachers and three tagged
+  projectors; a read-only API key named *Demo portal*.
+- `api_keys::create_with_secret` (demo data only). `LoadReport.standard` summarises it; the
+  demo load test asserts the counts.
+- TESTING.md section 5: tasks 27–38 for the Standard modules, directory login and the
+  read-only API.
+- Spec §15 lists every Standard section; the permissions matrix covers every permission and
+  the two new roles (checked by `matrix_matches_docs`); the user guide has a chapter per
+  module (9–17).
+
+## Summary for the owner — Standard alpha
+
+The Standard alpha was built in eleven pull requests, each from a clean `main` with CI green
+on Linux and Windows (#29 the task list, #30 foundation, #31 timetable, #32 leave, #33
+admissions, #34 library, #35 transport, #36 hostel, #37 inventory, #38 directory login, #39
+read-only API, then this close-out). Every module sits behind the edition setting: a Lite
+install keeps the same screens and endpoints, every Lite test stays green, and switching an
+install to Standard in Settings → Edition adds the modules without touching existing data.
+
+### What to test by hand
+
+Follow TESTING.md section 5 (tasks 27–38) on the demo school after switching it to
+Standard. The points that cannot be proven in CI:
+
+1. **Timetable on paper (task 27).** Print a section grid and a teacher grid; check the
+   period times and breaks match the shift, and that a double period prints as one block.
+   Generate again after changing a lesson and read the check findings.
+2. **Leave and attendance in step (tasks 28–29).** Approve a staff request, then open the
+   staff attendance register for those days; try to mark the person present. Record a
+   student leave and mark the section's attendance.
+3. **Admissions without retyping (task 30).** Convert an admitted application and compare
+   the student's profile, guardian and admission voucher with the application. Print the
+   offer letter in Urdu and check the layout.
+4. **Library desk with a barcode scanner (task 31)**, if the school has one: scan an
+   accession number into the desk's field and confirm it looks the copy up at once.
+5. **Transport and hostel fees (tasks 32–33).** Generate a month's vouchers for a section
+   with riders and residents and read the voucher lines and totals; print one.
+6. **Store (task 34)**: record a day's issues as the store keeper would, then run the
+   movements report for the month.
+7. **Directory login (task 36)** against the school's real Active Directory: this is the one
+   feature whose wire protocol has no automated test. Test the bind account first, then a
+   user lookup, then a real login, a wrong password and a disabled account.
+8. **Read-only API (task 37)** from the system that will consume it (a portal, a BI tool):
+   issue a key limited to its address, call `/students` and `/attendance/daily`, confirm
+   the ETag round trip and that the call log fills.
+9. **Roles**: log in as the librarian and the store keeper and check what they can and
+   cannot open; the matrix in `docs/permissions.md` is the reference.
+
+The demo school's read-only key is `mk_demo-readonly-key-0000000000000000000` (demo
+installs only; the loader refuses to run next to a real school).
+
+### Decisions left for the owner
+
+- **Who approves leave.** The default is the principal and the administrator
+  (`leave.approve`); Leave → Settings can name one approver instead.
+- **Fines and charges on vouchers.** Library fines, transport and hostel charges only reach
+  vouchers when a fee head is chosen in each module's settings; until then fines are settled
+  at the desk and charges are informational. Decide the heads before the first monthly run.
+- **Admission fee.** Conversion raises the admission voucher only when the application has
+  an offer fee and the admissions fee head is set.
+- **Hostel consent.** Each hostel decides whether leave-outs need recorded guardian consent.
+- **Directory group mapping.** Which groups grant which roles, and whether people in no mapped
+  group get a default role or are refused. Local accounts (the setup administrator and
+  anything created in Users) always keep their password.
+- **Read-only API scopes and addresses.** Issue one key per consuming system with only the
+  scopes it needs; limit it to that system's address when it has a fixed one.
+- **Instance key.** The directory bind password is sealed with a key kept in the database
+  (ADR 0004); moving it to a key file on the server is a later hardening step.
+- **Transport capacity** is a warning, not a block: a route can carry more students than
+  seats, on purpose, for schools that run two trips.
+
 ## Summary for the owner — M2 (Lite complete)
 
 M2 was built in nine pull requests, each from a clean `main` with CI green on Linux and

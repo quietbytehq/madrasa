@@ -186,11 +186,11 @@ ejection-chain placement → relaxation → verify pipeline is ported into
 
 ## Stage 10 — Close-out
 
-- [ ] Demo data for every Standard module (timetable generated, leave, applications,
+- [x] Demo data for every Standard module (timetable generated, leave, applications,
       library stock and loans, routes, hostel beds, inventory, an API key)
-- [ ] User guide (en/ur) chapters, TESTING.md tasks for every stage, spec sections checked
+- [x] User guide (en/ur) chapters, TESTING.md tasks for every stage, spec sections checked
       against the code, permissions matrix complete
-- [ ] docs/PROGRESS.md: what to test by hand and the decisions left for the owner
+- [x] docs/PROGRESS.md: what to test by hand and the decisions left for the owner
 
 ## Done when
 

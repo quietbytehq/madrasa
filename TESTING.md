@@ -231,6 +231,61 @@ Note anything that was unclear, slow, wrong or ugly.
     for different sections. Each person should see only their own sections and modules, and
     nobody should be logged out or see someone else's work.
 
+## 5. Standard edition: the modules a bigger school needs
+
+The Standard modules are switched on in **Settings → Edition** (principal or administrator).
+The demo school already holds data for every one of them, so the quickest way to look is:
+load the demo school (section 3), log in as the principal, open Settings → Edition and choose
+**Standard**. The sidebar grows at once; nothing you did before changes.
+
+27. **Timetable.** Timetable → the demo year has a morning shift, six rooms and lessons
+    seeded from the teacher allocations; a timetable is generated and published. Open a
+    section's grid and a teacher's grid, print one (Print), then **Setup** → change a
+    lesson (give it a second teacher) and **Generate** again; read the check findings before
+    the run. Record an absence under **Covers** and see the free teachers proposed.
+28. **Leave.** Leave → **Requests**: approve the pending request as the principal, then
+    reject one with a note. Open Teachers → attendance for the approved days: they show as
+    *Leave* and cannot be changed by hand. **Balances** must have gone down.
+29. **Student leave.** Students → a grade 9 student → **Leave** tab: record two days of
+    leave; mark the section's attendance for those days — the student is on leave already.
+30. **Admissions.** Admissions → the board shows twelve applications across the stages.
+    Drag one from *Applied* to *Test scheduled* (or use Move), record the test marks, move
+    to *Offered* with a fee, print the offer letter in Urdu, then move to *Admitted* and
+    **Convert**: pick section 6-A. The new student appears in Students with a 5,000
+    admission voucher. Import → *Admission enquiries* with a small Excel sheet.
+31. **Library.** Library → **Desk**: find a student, scan an accession number (the demo
+    copies are `DEMO-001-1` and so on), issue, then look up a copy that is out and return it;
+    some demo loans are overdue, so a fine appears — waive part of it with a reason, settle
+    the rest. **Settings** → pick a fee head and settle another student's fine: a voucher
+    line appears on the student's account. **Stock** → change a copy to Lost. Reports →
+    Overdue books in Urdu.
+32. **Transport.** Transport → **Routes**: open *North route*, reorder its stops, add one.
+    **Assign** → section 6-A → tick three students, put them on the new stop from today.
+    **Roster** → print it. Fees → generate next month's vouchers for 6-A: each rider's
+    voucher carries the transport line (1,500, or 1,200 on the last stop).
+33. **Hostel.** Hostel → **Board**: put a student in a free bed, move another to a
+    different room, end one stay. **Register**: record a leave-out without consent (refused),
+    then with consent, then the return. Generate vouchers for 9-A: residents carry the hostel
+    line (8,000, or 9,000 on the first floor).
+34. **Inventory.** Inventory → **Items**: *Chalk (box)* is flagged for reorder. Record a
+    purchase, an issue to a staff member (search their name), a transfer from the main store
+    to the science lab, and try to issue more than is in stock (refused). **Assets**: move
+    projector PJ-002 to *Under repair*. Reports → Below reorder level.
+35. **Store keeper and librarian logins.** Settings → Users: give a staff member the
+    *Store keeper* role and another the *Librarian* role (both exist only on Standard), log
+    in as each and check they see only their module plus the directories.
+36. **Directory login** (needs an Active Directory or LDAP server reachable over TLS).
+    Settings → Directory login: enter the server, bind account, base DN and a group-to-role
+    row, **Test connection** with a username, save with the switch on, then log in with that
+    person's directory password. The account appears in Users with a *Directory* badge.
+    Wrong password five times locks it for 15 minutes like a local account.
+37. **Read-only API.** Settings → API: the demo school has a key named *Demo portal*
+    whose secret is documented in docs/PROGRESS.md (demo installs only). From another PC on
+    the network run the `curl` examples on the card against the server address; create a
+    key limited to that PC's address and an expiry date, revoke it, and check the call log.
+38. **Back to Lite.** Settings → Edition → *Lite*: the sidebar shrinks to the Lite modules,
+    `/api/ro` stops answering, directory logins stop, and every Lite screen is unchanged.
+
 ## 6. Several PCs: one school server, many clients
 
 A school with many teachers keeps the records on one PC (the **server**) and lets the other
