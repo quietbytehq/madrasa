@@ -12,6 +12,7 @@ pub mod backup;
 pub mod boards;
 pub mod consents;
 pub mod custom_fields;
+pub mod directory;
 pub mod exams;
 pub mod fees;
 pub mod guardians;

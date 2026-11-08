@@ -314,3 +314,20 @@ timetable and the substitutions.
 5. **Assets**: one row per tagged item with its serial number, status, location and who
    has it.
 6. **Reports**: stock on hand, below reorder level, stock movements in a period.
+
+## 16. Directory login (Standard)
+
+1. **Settings → Directory login** (settings administrator): switch it on, enter the server
+   (`ldaps://…`, TLS is required), the bind account that looks users up and its password
+   (stored sealed and never shown again), the base DN where staff accounts live and, if
+   needed, the filter and attribute names (the defaults suit Active Directory).
+2. **Groups to roles**: add a row per directory group and the role it grants; the first
+   matching group wins. Choose a role for people in no mapped group, or leave it empty to
+   refuse them.
+3. **Test connection**, optionally with a username, before saving: the message says whether
+   the bind account worked, who was found and the role they would get.
+4. **Logging in**: staff type their directory username and password on the normal login
+   screen (the hint you set appears under the form). Their account appears in Settings →
+   Users with a "Directory" badge the first time they log in; the role follows the groups on
+   every login. The setup administrator and any account created in Users keep their local
+   password.

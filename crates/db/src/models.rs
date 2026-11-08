@@ -39,6 +39,10 @@ pub struct User {
     pub failed_login_count: i32,
     pub locked_until: Option<DateTime<Utc>>,
     pub last_login_at: Option<DateTime<Utc>>,
+    /// `local` (password) or `directory` (LDAP bind; Standard stage 8).
+    pub auth_source: String,
+    pub directory_dn: Option<String>,
+    pub directory_synced_at: Option<DateTime<Utc>>,
     pub custom: Value,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,

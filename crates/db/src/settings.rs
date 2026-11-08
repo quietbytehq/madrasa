@@ -18,7 +18,16 @@ pub const KEY_ACADEMIC_YEAR_START_MONTH: &str = "academic_year.start_month";
 pub const KEY_CURRENCY: &str = "currency";
 
 /// Keys whose values must never appear in the audit log in clear.
-const REDACTED_KEYS: &[&str] = &[KEY_BACKUP_KEYS];
+/// Settings whose values never reach the audit log.
+const REDACTED_KEYS: &[&str] = &[
+    KEY_BACKUP_KEYS,
+    KEY_INSTANCE_KEY,
+    KEY_DIRECTORY_BIND_PASSWORD,
+];
+/// 32 random bytes (base64), global, created on first use; seals small secrets such as the
+/// directory bind password.
+pub const KEY_INSTANCE_KEY: &str = "instance.key";
+pub const KEY_DIRECTORY_BIND_PASSWORD: &str = "directory.bind_password";
 
 pub async fn get(
     conn: &mut PgConnection,
@@ -143,4 +152,28 @@ fn rand_node() -> u64 {
 /// Has first-run setup completed? True once a non-demo or demo school exists and the marker is set.
 pub async fn setup_completed(conn: &mut PgConnection) -> DbResult<bool> {
     Ok(get(conn, None, KEY_SETUP_COMPLETED_AT).await?.is_some())
+}
+
+/// The instance key, created on first use. Never logged.
+pub async fn instance_key(conn: &mut PgConnection, hlc: &Hlc) -> DbResult<Vec<u8>> {
+    use base64::Engine;
+    let b64 = base64::engine::general_purpose::STANDARD;
+    if let Some(v) = get(&mut *conn, None, KEY_INSTANCE_KEY).await? {
+        if let Some(bytes) = v.as_str().and_then(|s| b64.decode(s).ok()) {
+            if bytes.len() == 32 {
+                return Ok(bytes);
+            }
+        }
+    }
+    let key = madrasa_core::secrets::generate_key();
+    set(
+        conn,
+        hlc,
+        Actor::SYSTEM,
+        None,
+        KEY_INSTANCE_KEY,
+        Value::String(b64.encode(key)),
+    )
+    .await?;
+    Ok(key.to_vec())
 }

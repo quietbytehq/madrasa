@@ -7,6 +7,7 @@ pub mod auth;
 pub mod backup;
 pub mod boards;
 pub mod consents;
+pub mod directory;
 pub mod edition;
 pub mod exam_terms;
 pub mod exams;
@@ -46,6 +47,8 @@ pub struct UserSummary {
     pub email: Option<String>,
     pub is_active: bool,
     pub roles: Vec<String>,
+    /// `local` or `directory` (Standard stage 8).
+    pub auth_source: String,
 }
 
 impl UserSummary {
@@ -58,6 +61,7 @@ impl UserSummary {
             email: user.email.clone(),
             is_active: user.is_active,
             roles,
+            auth_source: user.auth_source.clone(),
         }
     }
 }

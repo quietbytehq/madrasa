@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { api } from "@/api/endpoints";
 import { ApiError, NetworkError } from "@/api/client";
+import type { AuthOptions } from "@/api/types";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -17,6 +19,10 @@ export function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [options, setOptions] = useState<AuthOptions | null>(null);
+  useEffect(() => {
+    api.authOptions().then(setOptions, () => setOptions(null));
+  }, []);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -84,6 +90,11 @@ export function Login() {
           <Button type="submit" loading={busy} className="mt-1">
             {t("login.submit")}
           </Button>
+          {options?.directory_login && (
+            <p className="text-xs text-muted" data-testid="directory-hint">
+              {options.directory_hint || t("login.directoryHint")}
+            </p>
+          )}
         </form>
       </Card>
     </main>

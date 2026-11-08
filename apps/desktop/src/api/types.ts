@@ -90,6 +90,8 @@ export interface UserSummary {
   email: string | null;
   is_active: boolean;
   roles: string[];
+  /** `local` or `directory` (Standard stage 8). */
+  auth_source?: "local" | "directory";
 }
 
 /** Mirrors `UserAccount` (GET /users). */
@@ -3437,4 +3439,58 @@ export interface InventoryRecipient {
   id: string;
   name: string;
   detail: string;
+}
+
+// ---- Directory login (Standard stage 8) ------------------------------------------------------
+
+export interface DirectoryGroupRole {
+  group: string;
+  role: string;
+}
+
+/** Mirrors `DirectorySettings` (GET/PUT /settings/directory). The bind password is never returned. */
+export interface DirectorySettings {
+  enabled: boolean;
+  url: string;
+  bind_dn: string;
+  user_base_dn: string;
+  user_filter: string;
+  username_attr: string;
+  name_attr: string;
+  email_attr: string;
+  group_attr: string;
+  group_roles: DirectoryGroupRole[];
+  default_role: string;
+  login_hint: string;
+  has_bind_password: boolean;
+  roles: string[];
+}
+
+/** Mirrors `DirectorySettingsBody`: the settings plus the bind password when it changes. */
+export type DirectorySettingsBody = Omit<DirectorySettings, "has_bind_password" | "roles"> & {
+  bind_password?: string | null;
+};
+
+/** Mirrors `DirectoryUser`. */
+export interface DirectoryUser {
+  dn: string;
+  username: string;
+  full_name: string;
+  email: string | null;
+  groups: string[];
+  disabled: boolean;
+}
+
+/** Mirrors `DirectoryTestResult` (POST /settings/directory/test). */
+export interface DirectoryTestResult {
+  bind_ok: boolean;
+  message: string;
+  user: DirectoryUser | null;
+  role: string | null;
+}
+
+/** Mirrors `AuthOptions` (GET /auth/options, no token needed). */
+export interface AuthOptions {
+  directory_login: boolean;
+  directory_hint: string;
 }

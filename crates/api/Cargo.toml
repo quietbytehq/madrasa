@@ -54,6 +54,9 @@ hostname = "0.4"
 typst = "0.15"
 typst-pdf = "0.15"
 typst-layout = "0.15"
+# Directory login (Standard stage 8): LDAP over TLS.
+ldap3 = { version = "0.12", default-features = false, features = ["tls-rustls-ring"] }
+async-trait = "0.1"
 
 [dev-dependencies]
 madrasa-db = { workspace = true, features = ["testing"] }

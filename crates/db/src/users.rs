@@ -272,3 +272,80 @@ pub async fn record_successful_login(conn: &mut PgConnection, hlc: &Hlc, id: Uui
     .await?;
     Ok(())
 }
+
+/// A directory account after a successful LDAP login: created on first login (with no
+/// usable local password), then kept in step with the directory (name, email, DN).
+pub async fn upsert_directory_user(
+    conn: &mut PgConnection,
+    hlc: &Hlc,
+    school_id: Uuid,
+    username: &str,
+    full_name: &str,
+    email: Option<&str>,
+    dn: &str,
+) -> DbResult<User> {
+    let actor = Actor::system_for(school_id);
+    let existing = find_by_username(&mut *conn, school_id, username).await?;
+    let user = match existing {
+        Some(u) => {
+            let after = sqlx::query_as::<_, User>(
+                "UPDATE users SET full_name = $2, email = $3, auth_source = 'directory', directory_dn = $4, directory_synced_at = now(),
+                        updated_at = now(), updated_by = NULL, hlc = $5 WHERE id = $1 RETURNING *",
+            )
+            .bind(u.id)
+            .bind(full_name.trim())
+            .bind(email.map(|e| e.trim().to_lowercase()))
+            .bind(dn)
+            .bind(hlc.now().to_string())
+            .fetch_one(&mut *conn)
+            .await?;
+            if u.full_name != after.full_name
+                || u.email != after.email
+                || u.directory_dn.as_deref() != Some(dn)
+            {
+                audit::record(
+                    &mut *conn,
+                    hlc,
+                    actor,
+                    Action::Update,
+                    "user",
+                    Some(u.id),
+                    Some(snapshot(&u)),
+                    Some(snapshot(&after)),
+                )
+                .await?;
+            }
+            after
+        }
+        None => {
+            let id = new_id();
+            let user = sqlx::query_as::<_, User>(
+                "INSERT INTO users (id, school_id, username, full_name, email, password_hash, auth_source, directory_dn, directory_synced_at, hlc)
+                 VALUES ($1, $2, $3, $4, $5, '!directory', 'directory', $6, now(), $7) RETURNING *",
+            )
+            .bind(id)
+            .bind(school_id)
+            .bind(username.trim().to_lowercase())
+            .bind(full_name.trim())
+            .bind(email.map(|e| e.trim().to_lowercase()))
+            .bind(dn)
+            .bind(hlc.now().to_string())
+            .fetch_one(&mut *conn)
+            .await
+            .map_err(|e| map_unique(e, "a user with this username"))?;
+            audit::record(
+                &mut *conn,
+                hlc,
+                actor,
+                Action::Create,
+                "user",
+                Some(id),
+                None,
+                Some(snapshot(&user)),
+            )
+            .await?;
+            user
+        }
+    };
+    Ok(user)
+}
