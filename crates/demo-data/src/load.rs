@@ -618,12 +618,14 @@ pub async fn load(
                     staff_id: member.id,
                     status: StaffStatus::Absent,
                     note: None,
+                    arrived_at: None,
                 });
             } else if roll < 0.04 {
                 entries.push(attendance::StaffEntryInput {
                     staff_id: member.id,
                     status: StaffStatus::Leave,
                     note: Some("Leave".into()),
+                    arrived_at: None,
                 });
             }
         }

@@ -9,6 +9,7 @@ pub mod catalogue;
 pub mod consents;
 pub mod exams;
 pub mod fees;
+pub mod leave;
 pub mod pdf;
 pub mod students;
 pub mod text;

@@ -1,5 +1,17 @@
 import { download, request } from "./client";
 import type {
+  LeaveBalance,
+  LeaveBalanceBody,
+  LeaveRequest,
+  LeaveRequestBody,
+  LeaveRequestsView,
+  LeaveSettings,
+  LeaveType,
+  LeaveTypeBody,
+  StaffRegisterView,
+  StudentLeaveBody,
+  StudentLeaveList,
+  StudentLeaveRequest,
   AbsenceBody,
   CoverBody,
   GenerateBody,
@@ -376,7 +388,7 @@ export const api = {
   staffAttendance: (date?: string) => request<StaffDayView>(`/attendance/staff${qs({ date })}`),
   saveStaffAttendance: (body: {
     date: string;
-    entries: Array<{ staff_id: string; status: StaffStatus; note?: string }>;
+    entries: Array<{ staff_id: string; status: StaffStatus; note?: string; arrived_at?: string }>;
   }) => request<StaffDayView>("/attendance/staff", { method: "PUT", body }),
   staffAttendanceHistory: (staffId: string, params: { from?: string; to?: string } = {}) =>
     request<StaffHistoryView>(`/attendance/staff/${staffId}${qs(params)}`),
@@ -745,4 +757,66 @@ export const api = {
     request<SheetDay[]>(`/timetable/cover-sheet${qs({ from, to })}`),
   downloadCoverSheet: (from: string, to: string, lang: string) =>
     download(`/timetable/cover-sheet/pdf${qs({ from, to, lang })}`),
+
+  // Leave (Standard stage 2)
+  leaveTypes: () => request<LeaveType[]>("/leave/types"),
+  createLeaveType: (body: LeaveTypeBody) =>
+    request<LeaveType>("/leave/types", { method: "POST", body }),
+  updateLeaveType: (id: string, body: LeaveTypeBody) =>
+    request<LeaveType>(`/leave/types/${id}`, { method: "PUT", body }),
+  deleteLeaveType: (id: string) => request<void>(`/leave/types/${id}`, { method: "DELETE" }),
+  leaveSettings: () => request<LeaveSettings>("/leave/settings"),
+  updateLeaveSettings: (approver_staff_id: string | null) =>
+    request<LeaveSettings>("/leave/settings", { method: "PUT", body: { approver_staff_id } }),
+  leaveBalances: (params: { academic_year_id?: string; staff_id?: string } = {}) =>
+    request<LeaveBalance[]>(`/leave/balances${qs(params)}`),
+  setLeaveBalance: (body: LeaveBalanceBody) =>
+    request<LeaveBalance[]>("/leave/balances", { method: "PUT", body }),
+  leaveCarryOver: (from_academic_year_id: string, to_academic_year_id: string) =>
+    request<{ written: number }>("/leave/balances/carry-over", {
+      method: "POST",
+      body: { from_academic_year_id, to_academic_year_id },
+    }),
+  leaveRequests: (
+    params: {
+      academic_year_id?: string;
+      staff_id?: string;
+      status?: string;
+      from?: string;
+      to?: string;
+    } = {},
+  ) => request<LeaveRequestsView>(`/leave/requests${qs(params)}`),
+  createLeaveRequest: (body: LeaveRequestBody) =>
+    request<LeaveRequest>("/leave/requests", { method: "POST", body }),
+  decideLeaveRequest: (id: string, decision: "approved" | "rejected", note = "") =>
+    request<LeaveRequest>(`/leave/requests/${id}/decide`, {
+      method: "POST",
+      body: { decision, note },
+    }),
+  withdrawLeaveRequest: (id: string, note = "") =>
+    request<LeaveRequest>(`/leave/requests/${id}/withdraw`, { method: "POST", body: { note } }),
+  studentLeave: (
+    params: {
+      academic_year_id?: string;
+      student_id?: string;
+      section_id?: string;
+      status?: string;
+      from?: string;
+      to?: string;
+    } = {},
+  ) => request<StudentLeaveList>(`/leave/students${qs(params)}`),
+  createStudentLeave: (body: StudentLeaveBody) =>
+    request<StudentLeaveRequest>("/leave/students", { method: "POST", body }),
+  decideStudentLeave: (id: string, decision: "approved" | "rejected", note = "") =>
+    request<StudentLeaveRequest>(`/leave/students/${id}/decide`, {
+      method: "POST",
+      body: { decision, note },
+    }),
+  withdrawStudentLeave: (id: string, note = "") =>
+    request<StudentLeaveRequest>(`/leave/students/${id}/withdraw`, {
+      method: "POST",
+      body: { note },
+    }),
+  staffRegister: (month?: string) =>
+    request<StaffRegisterView>(`/leave/staff-register${qs({ month })}`),
 };

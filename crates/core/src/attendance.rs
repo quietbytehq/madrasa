@@ -73,6 +73,8 @@ pub enum StaffStatus {
     #[default]
     Present,
     Absent,
+    /// Standard only (the API refuses it on Lite); carries an arrival time.
+    Late,
     Leave,
 }
 
@@ -80,6 +82,7 @@ impl StaffStatus {
     pub const ALL: &'static [StaffStatus] = &[
         StaffStatus::Present,
         StaffStatus::Absent,
+        StaffStatus::Late,
         StaffStatus::Leave,
     ];
 
@@ -87,6 +90,7 @@ impl StaffStatus {
         match self {
             StaffStatus::Present => "present",
             StaffStatus::Absent => "absent",
+            StaffStatus::Late => "late",
             StaffStatus::Leave => "leave",
         }
     }
@@ -281,7 +285,7 @@ mod tests {
         assert!(AttendanceStatus::Late.counts_as_present());
         assert!(!AttendanceStatus::Leave.counts_as_present());
         assert_eq!("leave".parse::<StaffStatus>().unwrap(), StaffStatus::Leave);
-        assert!("late".parse::<StaffStatus>().is_err());
+        assert_eq!("late".parse::<StaffStatus>().unwrap(), StaffStatus::Late);
     }
 
     #[test]

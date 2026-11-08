@@ -78,6 +78,14 @@ pub enum Permission {
     TimetableRead,
     #[serde(rename = "timetable.manage")]
     TimetableManage,
+    // Leave (Standard stage 2)
+    #[serde(rename = "leave.read")]
+    LeaveRead,
+    #[serde(rename = "leave.manage")]
+    LeaveManage,
+    /// Decide staff leave requests (principal, admin or the configured approver).
+    #[serde(rename = "leave.approve")]
+    LeaveApprove,
     // Nexus
     #[serde(rename = "nexus.admin")]
     NexusAdmin,
@@ -112,6 +120,9 @@ impl Permission {
         Permission::BackupManage,
         Permission::TimetableRead,
         Permission::TimetableManage,
+        Permission::LeaveRead,
+        Permission::LeaveManage,
+        Permission::LeaveApprove,
         Permission::NexusAdmin,
     ];
 
@@ -144,6 +155,9 @@ impl Permission {
             Permission::BackupManage => "backup.manage",
             Permission::TimetableRead => "timetable.read",
             Permission::TimetableManage => "timetable.manage",
+            Permission::LeaveRead => "leave.read",
+            Permission::LeaveManage => "leave.manage",
+            Permission::LeaveApprove => "leave.approve",
             Permission::NexusAdmin => "nexus.admin",
         }
     }
@@ -263,6 +277,9 @@ impl RoleCode {
                 BackupManage,
                 TimetableRead,
                 TimetableManage,
+                LeaveRead,
+                LeaveManage,
+                LeaveApprove,
             ],
             RoleCode::Accountant => {
                 vec![
@@ -273,6 +290,7 @@ impl RoleCode {
                     FeesManage,
                     ReportsRead,
                     TimetableRead,
+                    LeaveRead,
                 ]
             }
             RoleCode::Teacher => vec![
@@ -285,6 +303,7 @@ impl RoleCode {
                 ExamsRead,
                 ExamsManage,
                 TimetableRead,
+                LeaveRead,
             ],
             RoleCode::Parent => vec![SchoolRead],
         }

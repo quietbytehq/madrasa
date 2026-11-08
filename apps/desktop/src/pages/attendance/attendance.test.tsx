@@ -308,6 +308,8 @@ describe("StaffTab", () => {
           designation: "Teacher",
           status: null,
           note: null,
+          arrived_at: null,
+          leave_request_id: null,
         },
       ],
     };

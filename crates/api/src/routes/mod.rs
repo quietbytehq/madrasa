@@ -13,6 +13,7 @@ pub mod export;
 pub mod fees;
 pub mod health;
 pub mod imports;
+pub mod leave;
 pub mod nexus;
 pub mod reports;
 pub mod rollover;

@@ -79,22 +79,22 @@ ejection-chain placement → relaxation → verify pipeline is ported into
 
 ## Stage 2 — Leave: student leave requests and HR basics
 
-- [ ] Staff leave types (annual, sick, casual, …) with yearly entitlement, carry-over and
+- [x] Staff leave types (annual, sick, casual, …) with yearly entitlement, carry-over and
       whether approval is needed; balances per staff member and year; requests with dates
       (half days allowed), reason and attachment note; approval by the principal or a
       configured approver; the approved days mark `staff_attendance` as `leave`
       automatically and unmarked on withdrawal; audited
-- [ ] Student leave requests: a guardian's note recorded by the office (dates, reason),
+- [x] Student leave requests: a guardian's note recorded by the office (dates, reason),
       approved by the class teacher or office; approved days mark the attendance entry as
       `leave` on each sheet of the range (and are restored if the sheet is corrected);
       the register and the absentee report say "leave (approved)"; the student profile
       lists requests
-- [ ] Staff attendance polish: monthly staff register with leave shown, late marking with
+- [x] Staff attendance polish: monthly staff register with leave shown, late marking with
       time, summary per staff member and month
-- [ ] Permissions `leave.read`, `leave.manage` (office), `leave.approve` (principal,
+- [x] Permissions `leave.read`, `leave.manage` (office), `leave.approve` (principal,
       admin); teachers may request their own leave and approve student leave for their
       sections; reports: leave balances, leave register, student leave register
-- [ ] Tests: balances and carry-over, approval marks attendance, overlapping requests
+- [x] Tests: balances and carry-over, approval marks attendance, overlapping requests
       refused, teacher scope, vitest
 
 ## Stage 3 — Admissions pipeline

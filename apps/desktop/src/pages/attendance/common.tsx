@@ -4,7 +4,7 @@ import type { BadgeTone } from "@/components/ui/Badge";
 import type { TFunction } from "@/i18n";
 
 export const STATUSES: AttendanceStatus[] = ["present", "absent", "late", "leave"];
-export const STAFF_STATUSES: StaffStatus[] = ["present", "absent", "leave"];
+export const STAFF_STATUSES: StaffStatus[] = ["present", "absent", "late", "leave"];
 
 /** Keyboard letters for the marking screen (Latin letters work on Urdu keyboards too). */
 export const STATUS_KEYS: Record<string, AttendanceStatus> = {

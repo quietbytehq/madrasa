@@ -206,3 +206,23 @@ timetable and the substitutions.
    they would teach gets suggestions: same subject first, fewest covers so far first.
    Choose the cover or "No cover needed", then print the cover sheet for the day or week.
    Teachers see their own week and cover duties on the Dashboard.
+
+## 10. Leave (Standard)
+
+1. **Leave types** (office): add annual, sick and casual leave with the days per year, how
+   many unused days carry into the next year, and whether a request needs approval. Name an
+   extra approver if someone besides the principal and admin decides leave.
+2. **Staff leave**: a teacher requests their own leave (dates, a half day if needed, the
+   reason and where the paperwork is); the office can record leave for anyone. Weekends and
+   holidays are not counted. The principal, admin or the approver approves or rejects; an
+   approved request marks those days as leave on the staff attendance, and withdrawing it
+   unmarks them. Requests beyond the days left, or overlapping another, are refused.
+3. **Balances**: what each staff member has per type this year: granted, used, pending and
+   available. Adjust a balance with a note; at the end of the year run "Carry over" into
+   the new year.
+4. **Student leave**: the office records a guardian's note; the class teacher or the office
+   approves it. The days become "leave" on every attendance sheet of the range, including
+   sheets marked later, and the absentee list says "Leave (approved)". The student profile
+   lists the requests.
+5. **Staff register**: the month at a glance, one cell per day, with late arrivals and their
+   time. Mark "Late" with the arrival time on the daily staff attendance.

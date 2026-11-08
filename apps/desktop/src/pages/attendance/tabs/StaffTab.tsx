@@ -8,15 +8,18 @@ import { Input } from "@/components/ui/Input";
 import { Spinner } from "@/components/ui/Spinner";
 import { useToast } from "@/components/ui/Toast";
 import { useI18n } from "@/i18n";
+import { useHasFeature } from "@/app/features";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 import { DayKindNotice, STAFF_STATUSES, statusLabel, todayIso } from "../common";
 
-type Mark = { status: StaffStatus; note: string };
+type Mark = { status: StaffStatus; note: string; arrived_at: string };
 
 /** Simple daily present / absent / leave for staff. Admins save; others only view. */
 export function StaffTab() {
   const { t } = useI18n();
+  const has = useHasFeature();
   const toast = useToast();
+  const lateAllowed = has("leave");
   const [date, setDate] = useState(todayIso());
   const day = useAsync(() => api.staffAttendance(date), [date]);
   const [marks, setMarks] = useState<Record<string, Mark>>({});
@@ -27,7 +30,11 @@ export function StaffTab() {
       Object.fromEntries(
         day.data.rows.map((r) => [
           r.staff_id,
-          { status: r.status ?? "present", note: r.note ?? "" },
+          {
+            status: r.status ?? "present",
+            note: r.note ?? "",
+            arrived_at: r.arrived_at?.slice(0, 5) ?? "",
+          },
         ]),
       ),
     );
@@ -37,7 +44,12 @@ export function StaffTab() {
     try {
       const entries = Object.entries(marks)
         .filter(([, m]) => m.status !== "present" || m.note.trim())
-        .map(([staff_id, m]) => ({ staff_id, status: m.status, note: m.note.trim() || undefined }));
+        .map(([staff_id, m]) => ({
+          staff_id,
+          status: m.status,
+          note: m.note.trim() || undefined,
+          arrived_at: m.status === "late" && m.arrived_at ? m.arrived_at : undefined,
+        }));
       day.setData(await api.saveStaffAttendance({ date, entries }));
       toast.push({ kind: "success", title: t("attendance.mark.saved") });
     } catch (err) {
@@ -87,7 +99,12 @@ export function StaffTab() {
             </thead>
             <tbody>
               {v.rows.map((r) => {
-                const m = marks[r.staff_id] ?? { status: "present" as const, note: "" };
+                const m = marks[r.staff_id] ?? {
+                  status: "present" as const,
+                  note: "",
+                  arrived_at: "",
+                };
+                const locked = !!r.leave_request_id;
                 return (
                   <tr key={r.staff_id} className="border-t border-border">
                     <td className="px-3 py-1">
@@ -99,7 +116,7 @@ export function StaffTab() {
                       <select
                         aria-label={`${r.full_name}: ${t("common.status")}`}
                         value={m.status}
-                        disabled={!v.can_edit}
+                        disabled={!v.can_edit || locked}
                         onChange={(e) =>
                           setMarks((all) => ({
                             ...all,
@@ -108,12 +125,34 @@ export function StaffTab() {
                         }
                         className="h-7 rounded border border-border bg-card px-2 text-xs"
                       >
-                        {STAFF_STATUSES.map((s) => (
+                        {STAFF_STATUSES.filter(
+                          (s) => s !== "late" || lateAllowed || m.status === "late",
+                        ).map((s) => (
                           <option key={s} value={s}>
                             {statusLabel(t, s)}
                           </option>
                         ))}
                       </select>
+                      {lateAllowed && m.status === "late" && (
+                        <input
+                          type="time"
+                          aria-label={`${r.full_name}: ${t("attendance.staff.arrivedAt")}`}
+                          value={m.arrived_at}
+                          disabled={!v.can_edit}
+                          onChange={(e) =>
+                            setMarks((all) => ({
+                              ...all,
+                              [r.staff_id]: { ...m, arrived_at: e.target.value },
+                            }))
+                          }
+                          className="ms-1 h-7 rounded border border-border bg-card px-1 text-xs"
+                        />
+                      )}
+                      {locked && (
+                        <span className="ms-1 text-xs text-muted">
+                          {t("attendance.staff.approvedLeave")}
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 py-1">
                       <input

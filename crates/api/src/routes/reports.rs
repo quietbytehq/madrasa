@@ -18,7 +18,7 @@ use crate::reports::{
     attendance, boards, builder, catalogue, exams, fees, pdf, students, Context, Lang, Params,
     Report,
 };
-use crate::reports::{consents, timetable};
+use crate::reports::{consents, leave, timetable};
 use crate::{ApiError, ApiResult, AppState};
 use madrasa_db::report_definitions::{self as defs, ReportDefinition};
 use serde::{Deserialize, Serialize};
@@ -46,6 +46,7 @@ fn may_run(user: &CurrentUser, def: &ReportDef) -> bool {
             Access::AttendanceRead => user.can(Permission::AttendanceRead),
             Access::ExamsRead => user.can(Permission::ExamsRead),
             Access::TimetableRead => user.can(Permission::TimetableRead),
+            Access::LeaveRead => user.can(Permission::LeaveRead),
         }
 }
 
@@ -53,6 +54,7 @@ fn may_run(user: &CurrentUser, def: &ReportDef) -> bool {
 fn module_enabled(state: &AppState, def: &ReportDef) -> bool {
     match def.module {
         catalogue::Module::Timetable => state.has_feature(Feature::Timetable),
+        catalogue::Module::Leave => state.has_feature(Feature::Leave),
         _ => true,
     }
 }
@@ -66,6 +68,7 @@ async fn list(
         && !user.can(Permission::AttendanceRead)
         && !user.can(Permission::ExamsRead)
         && !user.can(Permission::TimetableRead)
+        && !user.can(Permission::LeaveRead)
     {
         return Err(ApiError::forbidden());
     }
@@ -84,7 +87,12 @@ pub async fn build(
 ) -> Result<Report, ApiError> {
     let def = catalogue::find(code).ok_or_else(|| ApiError::not_found("report"))?;
     if !module_enabled(state, def) {
-        return Err(ApiError::feature_unavailable(Feature::Timetable.as_str()));
+        let feature = if def.module == catalogue::Module::Leave {
+            Feature::Leave
+        } else {
+            Feature::Timetable
+        };
+        return Err(ApiError::feature_unavailable(feature.as_str()));
     }
     if !may_run(user, def) {
         return Err(ApiError::forbidden());
@@ -149,6 +157,9 @@ pub async fn build(
         "timetable.teacher_load" => timetable::teacher_load(&mut c, &ctx, params).await?,
         "timetable.free_rooms" => timetable::free_rooms(&mut c, &ctx, params).await?,
         "timetable.cover_sheet" => timetable::cover_sheet(&mut c, &ctx, params).await?,
+        "leave.balances" => leave::balances(&mut c, &ctx, params).await?,
+        "leave.register" => leave::register(&mut c, &ctx, params).await?,
+        "leave.students" => leave::students(&mut c, &ctx, params).await?,
         _ => return Err(ApiError::not_found("report")),
     };
     audit::record(

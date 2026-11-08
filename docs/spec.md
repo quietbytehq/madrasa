@@ -709,6 +709,50 @@ edits, publishing, absences and covers.
 Not in this stage: attendance per period (a period-marked sheet reusing the daily engine)
 would change the Lite attendance tables and is deferred to a later stage.
 
+### 5.19 Leave (Standard stage 2)
+
+Standard only (`Feature::Leave`; every route 403 `feature_unavailable` on Lite). Rules live in
+`madrasa_core::leave`: working days of a range (the school's weekend days and holidays are
+skipped), half days (a single date, 0.5 day), balances (`granted = entitlement + carried over
++ adjustment`, `available = granted − approved`, `remaining = available − pending`), carry-over
+(`min(max(available, 0), carry_over_max)`), request states (pending → approved | rejected |
+withdrawn; approved → withdrawn) and overlap checks.
+
+Data (per school, sync columns, soft delete, audited):
+
+- `leave_types`: name, code, `entitlement_days` and `carry_over_max` (NUMERIC(5,1)),
+  `needs_approval`, position. A type with pending or approved requests cannot be removed.
+- `leave_balances` (per staff member, type and academic year): `entitlement` (NULL = the
+  type's), `carried_over`, `adjustment`, note. Balances are listed for every active staff
+  member × type even without a row; `used` and `pending` are summed from the requests.
+- `leave_requests`: staff, type, year (the one the first date falls in; the range must end
+  in it), `from_date`–`to_date`, `half_day` (am | pm), `days`, reason, attachment note,
+  status, requested_by, decided_by/at, decision note. A request is refused when it
+  overlaps the staff member's pending or approved requests, falls only on weekends or
+  holidays, or takes more than `remaining`. A type without approval is approved at once.
+- Approval writes `staff_attendance` rows (`leave`, note "Leave: <type>", `leave_request_id`)
+  for every working day, audited; hand marking never overwrites such a row; withdrawing an
+  approved request soft-deletes them (the days are unmarked again).
+- `student_leave_requests`: student, year, dates, reason, guardian (must be linked),
+  status, recorded_by, decided_by/at, note; overlaps are refused. Approval marks the
+  student's entry `leave` with the note "Leave (approved)" and `leave_request_id` on every
+  existing sheet of the range and recounts the sheets; sheets saved later for those dates
+  mark the student `leave` whatever they say (`attendance::save_sheet` consults
+  `leave::approved_student_leave_on`; the table is empty on Lite); a correction keeps it;
+  withdrawal turns the marked entries into absences.
+- Staff attendance: `late` with `arrived_at` (TIME) is accepted only when the feature is on;
+  the monthly staff register (`/leave/staff-register`) shows a cell per day with the code,
+  the arrival time and whether an approved request wrote it.
+- Setting `leave.approver_staff_id`: a staff member who may decide staff requests besides
+  `leave.approve` holders. Nobody decides their own request without `leave.approve`.
+
+Permissions: `leave.read` (every role: own requests and balances, student leave for own
+sections for teachers, the register); `leave.manage` (office: types, balances, carry-over,
+requests for others, student requests, withdrawals); `leave.approve` (principal, admin:
+staff decisions). Teachers decide student leave for the sections they are class teacher of
+or teach. Reports (`leave.read`, hidden on Lite): leave balances, staff leave register
+(date range, optional status) and student leave register (class/section, date range).
+
 ## 15. Standard alpha (overview)
 
 The stages, their order and their acceptance are in `docs/TASKS-STANDARD.md`; each stage adds
@@ -1124,6 +1168,24 @@ each subject as `students`.
 | PUT / DELETE | `/timetable/covers` | `timetable.manage` | Decide (`cover_staff_id` or null) or withdraw a cover; 400 for an unsuitable or unlisted teacher |
 | GET | `/timetable/cover-sheet?from&to`, `/timetable/cover-sheet/pdf` | `timetable.read` | The cover sheet (at most two months) |
 | GET | `/reports/timetable.section`, `.teacher_load`, `.free_rooms`, `.cover_sheet` | `timetable.read` | Library reports; the module is hidden from the catalogue on Lite |
+
+### 6.24 Standard stage 2 endpoints (feature `leave`)
+
+| Method | Path | Permission | Notes |
+| --- | --- | --- | --- |
+| GET/POST | `/leave/types`; PUT/DELETE `/leave/types/{id}` | read / manage | Leave types; 409 when a type still has live requests |
+| GET/PUT | `/leave/settings` | read / manage | `{approver_staff_id, approver_name}` |
+| GET | `/leave/balances?academic_year_id&staff_id` | `leave.read` | Balances with `granted`, `available`, `remaining`; teachers see their own |
+| PUT | `/leave/balances` | `leave.manage` | `{staff_id, leave_type_id, entitlement?, carried_over, adjustment, note}` |
+| POST | `/leave/balances/carry-over` | `leave.manage` | `{from_academic_year_id, to_academic_year_id}` → `{written}` |
+| GET | `/leave/requests?academic_year_id&staff_id&status&from&to` | `leave.read` | `{requests, can_decide, own_staff_id}`; teachers see their own |
+| POST | `/leave/requests` | `leave.read` (own) / `leave.manage` (others) | `{staff_id?, leave_type_id, from_date, to_date?, half_day?, reason, attachment_note}`; 409 on overlap, weekend-only range or more than the balance |
+| POST | `/leave/requests/{id}/decide`, `…/withdraw` | approve or approver / owner or manage | `{decision: approved \| rejected, note}`; withdrawal unmarks approved days |
+| GET | `/leave/students?academic_year_id&student_id&section_id&status&from&to` | `leave.read` | `{requests, decide_sections, can_manage}`; teachers: own sections |
+| POST | `/leave/students`; POST `/leave/students/{id}/decide`, `…/withdraw` | manage / section teacher or manage / manage | Student requests; approval marks sheets, withdrawal turns the days into absences |
+| GET | `/leave/staff-register?month=YYYY-MM` | `leave.read` | Per staff member: a cell per day (`status`, `arrived_at`, `approved_leave`) and counts |
+| PUT | `/attendance/staff` | `teachers.manage` | Entries accept `status: late` with `arrived_at: "HH:MM"` on Standard (400 on Lite); rows written by approved leave are left alone |
+| GET | `/reports/leave.balances`, `leave.register`, `leave.students` | `leave.read` | Library reports; the module is hidden from the catalogue on Lite |
 
 ### 6.11 Second alpha test report fixes
 

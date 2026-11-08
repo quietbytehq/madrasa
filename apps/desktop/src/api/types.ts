@@ -624,7 +624,7 @@ export interface GenerationReport {
 // ---- M1 stage 3: attendance ----------------------------------------------------------------
 
 export type AttendanceStatus = "present" | "absent" | "late" | "leave";
-export type StaffStatus = "present" | "absent" | "leave";
+export type StaffStatus = "present" | "absent" | "late" | "leave";
 
 export type DayKind = { kind: "school" } | { kind: "weekend" } | { kind: "holiday"; name: string };
 
@@ -801,6 +801,10 @@ export interface StaffDayRow {
   designation: string;
   status: StaffStatus | null;
   note: string | null;
+  /** "HH:MM:SS" of a late mark (Standard). */
+  arrived_at: string | null;
+  /** Set when an approved leave request wrote the row (Standard). */
+  leave_request_id: string | null;
 }
 
 export interface StaffDayView {
@@ -1331,7 +1335,7 @@ export interface RolloverReport {
 // ---- Reports (M2 stage 1) --------------------------------------------------------------------
 
 export type ReportLang = "en" | "ur";
-export type ReportModule = "students" | "fees" | "attendance" | "exams" | "timetable";
+export type ReportModule = "students" | "fees" | "attendance" | "exams" | "timetable" | "leave";
 export type ReportParamKind =
   | "academic_year"
   | "class"
@@ -1345,9 +1349,11 @@ export type ReportParamKind =
   | "number"
   | "student_number"
   | "board_exam"
-  | "consent_type";
+  | "consent_type"
+  | "leave_status";
 
-export type ReportAccess = "reports_read" | "attendance_read" | "exams_read" | "timetable_read";
+export type ReportAccess =
+  "reports_read" | "attendance_read" | "exams_read" | "timetable_read" | "leave_read";
 
 export interface ReportParamDef {
   name: string;
@@ -2411,4 +2417,175 @@ export interface SheetDay {
   date: string;
   title: string;
   rows: SheetRow[];
+}
+
+// ---- Leave (Standard stage 2) ---------------------------------------------------------------
+// Mirrors crates/api/src/routes/leave.rs and crates/db/src/leave.rs. Day counts are decimal
+// strings ("0.5", "3.0").
+
+export type LeaveRequestStatus = "pending" | "approved" | "rejected" | "withdrawn";
+
+export interface LeaveType {
+  id: string;
+  school_id: string;
+  name: string;
+  code: string;
+  entitlement_days: string;
+  carry_over_max: string;
+  needs_approval: boolean;
+  position: number;
+  hlc: string;
+}
+
+export interface LeaveTypeBody {
+  name: string;
+  code?: string;
+  entitlement_days: number;
+  carry_over_max?: number;
+  needs_approval: boolean;
+  position?: number;
+}
+
+export interface LeaveSettings {
+  approver_staff_id: string | null;
+  approver_name: string | null;
+}
+
+export interface LeaveBalance {
+  id: string | null;
+  staff_id: string;
+  staff_name: string;
+  leave_type_id: string;
+  type_name: string;
+  entitlement: string;
+  carried_over: string;
+  adjustment: string;
+  used: string;
+  pending: string;
+  note: string;
+  granted: string;
+  available: string;
+  remaining: string;
+}
+
+export interface LeaveBalanceBody {
+  academic_year_id?: string;
+  staff_id: string;
+  leave_type_id: string;
+  entitlement?: number | null;
+  carried_over?: number;
+  adjustment?: number;
+  note?: string;
+}
+
+export interface LeaveRequest {
+  id: string;
+  school_id: string;
+  staff_id: string;
+  leave_type_id: string;
+  academic_year_id: string;
+  from_date: string;
+  to_date: string;
+  half_day: "am" | "pm" | null;
+  days: string;
+  reason: string;
+  attachment_note: string;
+  status: LeaveRequestStatus;
+  requested_by: string | null;
+  decided_by: string | null;
+  decided_at: string | null;
+  decision_note: string;
+  created_at: string;
+  hlc: string;
+}
+
+export interface LeaveRequestView extends LeaveRequest {
+  staff_name: string;
+  staff_number: string;
+  type_name: string;
+  decided_by_name: string | null;
+}
+
+export interface LeaveRequestsView {
+  requests: LeaveRequestView[];
+  can_decide: boolean;
+  own_staff_id: string | null;
+}
+
+export interface LeaveRequestBody {
+  staff_id?: string;
+  leave_type_id: string;
+  from_date: string;
+  to_date?: string;
+  half_day?: "am" | "pm" | "";
+  reason?: string;
+  attachment_note?: string;
+}
+
+export interface StudentLeaveRequest {
+  id: string;
+  school_id: string;
+  student_id: string;
+  academic_year_id: string;
+  from_date: string;
+  to_date: string;
+  reason: string;
+  guardian_id: string | null;
+  status: LeaveRequestStatus;
+  recorded_by: string | null;
+  decided_by: string | null;
+  decided_at: string | null;
+  decision_note: string;
+  created_at: string;
+  hlc: string;
+}
+
+export interface StudentLeaveView extends StudentLeaveRequest {
+  student_number: string;
+  full_name: string;
+  class_name: string;
+  section_id: string | null;
+  section_name: string;
+  guardian_name: string | null;
+  decided_by_name: string | null;
+  days: number;
+}
+
+export interface StudentLeaveList {
+  requests: StudentLeaveView[];
+  decide_sections: string[] | null;
+  can_manage: boolean;
+}
+
+export interface StudentLeaveBody {
+  student_id: string;
+  from_date: string;
+  to_date?: string;
+  reason?: string;
+  guardian_id?: string | null;
+}
+
+export interface StaffRegisterCell {
+  status: StaffStatus;
+  arrived_at: string | null;
+  approved_leave: boolean;
+}
+
+export interface StaffRegisterRow {
+  staff_id: string;
+  staff_number: string;
+  full_name: string;
+  designation: string;
+  cells: (StaffRegisterCell | null)[];
+  present: number;
+  absent: number;
+  late: number;
+  leave: number;
+}
+
+export interface StaffRegisterView {
+  month: string;
+  days: string[];
+  school_days: boolean[];
+  rows: StaffRegisterRow[];
 }
