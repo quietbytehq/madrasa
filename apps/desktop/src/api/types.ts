@@ -1210,7 +1210,7 @@ export interface CreateLoginBody {
   role: LoginRole;
 }
 
-export type LoginRole = "principal" | "admin" | "accountant" | "teacher";
+export type LoginRole = "principal" | "admin" | "accountant" | "teacher" | "librarian";
 
 /** Mirrors `UpdateLoginBody` (PATCH /staff/{id}/login); omitted fields stay as they are. */
 export interface UpdateLoginBody {
@@ -1336,7 +1336,7 @@ export interface RolloverReport {
 
 export type ReportLang = "en" | "ur";
 export type ReportModule =
-  "students" | "fees" | "attendance" | "exams" | "timetable" | "leave" | "admissions";
+  "students" | "fees" | "attendance" | "exams" | "timetable" | "leave" | "admissions" | "library";
 export type ReportParamKind =
   | "academic_year"
   | "class"
@@ -1354,7 +1354,12 @@ export type ReportParamKind =
   | "leave_status";
 
 export type ReportAccess =
-  "reports_read" | "attendance_read" | "exams_read" | "timetable_read" | "leave_read";
+  | "reports_read"
+  | "attendance_read"
+  | "exams_read"
+  | "timetable_read"
+  | "leave_read"
+  | "library_read";
 
 export interface ReportParamDef {
   name: string;
@@ -2738,4 +2743,167 @@ export interface ConversionResult {
   student_number: string;
   guardian_id: string | null;
   voucher_id: string | null;
+}
+
+// ---- Library (Standard stage 4) --------------------------------------------------------------
+
+export type LibraryMemberKind = "student" | "staff";
+export type CopyCondition = "good" | "fair" | "poor";
+export type CopyStatus = "available" | "on_loan" | "lost" | "withdrawn";
+
+/** Mirrors `LoanRules` in madrasa_core::library. `fine_per_day` is a decimal string from the API. */
+export interface LoanRules {
+  max_books: number;
+  loan_days: number;
+  fine_per_day: string | number;
+  max_renewals: number;
+}
+
+/** Mirrors `LibrarySettings` (GET/PUT /library/settings). */
+export interface LibrarySettings {
+  rules: { student: LoanRules; staff: LoanRules };
+  fine_fee_head_id: string | null;
+  fine_fee_head_name?: string | null;
+}
+
+/** Mirrors `BookView` (GET /library/books): the book plus copy counts. */
+export interface BookView {
+  id: string;
+  school_id: string;
+  title: string;
+  author: string;
+  publisher: string;
+  isbn: string;
+  category: string;
+  language: string;
+  subject: string;
+  year: number | null;
+  custom: Record<string, unknown>;
+  hlc: string;
+  copies: number;
+  available: number;
+  on_loan: number;
+}
+
+/** Mirrors `Copy`: one physical copy with its accession number. */
+export interface LibraryCopy {
+  id: string;
+  school_id: string;
+  book_id: string;
+  accession_no: string;
+  shelf: string;
+  condition: CopyCondition;
+  status: CopyStatus;
+  hlc: string;
+}
+
+/** Mirrors `CopyView` (GET /library/copies): a copy with its book's title. */
+export interface CopyView extends LibraryCopy {
+  title: string;
+  author: string;
+  category: string;
+}
+
+/** Mirrors `CopyLookup` (GET /library/copies/lookup): the copy and its open loan, if any. */
+export interface CopyLookup extends CopyView {
+  loan: LoanView | null;
+}
+
+/** Mirrors `BookDetail` (GET /library/books/{id}). */
+export interface BookDetail extends BookView {
+  copy_list: LibraryCopy[];
+  loans: LoanView[];
+}
+
+/** Book fields of `BookRequest`; copies are added through `accession_nos`. */
+export interface BookBody {
+  title: string;
+  author: string;
+  publisher: string;
+  isbn: string;
+  category: string;
+  language: string;
+  subject: string;
+  year: number | null;
+}
+
+/** Mirrors `LoanView` (loans with copy and member names). Money fields are decimal strings. */
+export interface LoanView {
+  id: string;
+  school_id: string;
+  copy_id: string;
+  member_kind: LibraryMemberKind;
+  member_id: string;
+  issued_on: string;
+  due_on: string;
+  returned_on: string | null;
+  renewals: number;
+  issued_by: string | null;
+  returned_by: string | null;
+  lost: boolean;
+  fine: string;
+  fine_waived: string;
+  waiver_reason: string;
+  waived_by: string | null;
+  fine_voucher_id: string | null;
+  fine_settled_on: string | null;
+  hlc: string;
+  accession_no: string;
+  title: string;
+  author: string;
+  member_name: string;
+  member_number: string;
+  member_detail: string;
+}
+
+/** Mirrors `Member` (GET /library/members): a student or staff member who can borrow. */
+export interface LibraryMember {
+  kind: LibraryMemberKind;
+  id: string;
+  name: string;
+  number: string;
+  detail: string;
+}
+
+/** Mirrors `MemberPage` (GET /library/members/{kind}/{id}). */
+export interface MemberPage {
+  member: LibraryMember;
+  loans: LoanView[];
+  open: number;
+  overdue: number;
+  fines_due: string;
+  rules: LoanRules;
+}
+
+/** Mirrors `IssueRequest` (POST /library/loans). */
+export interface IssueBody {
+  copy_id?: string;
+  accession_no?: string;
+  member_kind: LibraryMemberKind;
+  member_id: string;
+  issued_on?: string;
+}
+
+/** Mirrors `ReturnRequest` (POST /library/loans/{id}/return). */
+export interface ReturnBody {
+  returned_on?: string;
+  lost?: boolean;
+  lost_charge?: number;
+}
+
+/** Mirrors `SettleResult` (POST /library/loans/{id}/settle). */
+export interface SettleResult {
+  loan: LoanView;
+  voucher_id: string | null;
+}
+
+/** Mirrors `StockRow` (GET /library/stock). */
+export interface StockRow {
+  category: string;
+  titles: number;
+  copies: number;
+  available: number;
+  on_loan: number;
+  lost: number;
+  withdrawn: number;
 }

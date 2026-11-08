@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { api } from "@/api/endpoints";
 import type { LoginRole, Staff, UserAccount } from "@/api/types";
 import { useSession } from "@/app/session";
+import { useHasFeature } from "@/app/features";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -13,7 +14,7 @@ import { useToast } from "@/components/ui/Toast";
 import { useI18n } from "@/i18n";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 
-const ROLES: LoginRole[] = ["principal", "admin", "accountant", "teacher"];
+const ROLES: LoginRole[] = ["principal", "admin", "accountant", "teacher", "librarian"];
 
 /** Settings → Users: every login with role, staff link, status and last login. */
 export function UsersCard() {
@@ -26,7 +27,11 @@ export function UsersCard() {
   const [resetFor, setResetFor] = useState<UserAccount | null>(null);
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const roleOptions = ROLES.map((r) => ({ value: r, label: t(`staff.login.role.${r}`) }));
+  const hasLibrary = useHasFeature()("library");
+  const roleOptions = ROLES.filter((r) => r !== "librarian" || hasLibrary).map((r) => ({
+    value: r,
+    label: t(`staff.login.role.${r}`),
+  }));
   const withoutLogin = useMemo(
     () => (staff.data ?? []).filter((s: Staff) => !s.user_id && s.status === "active"),
     [staff.data],

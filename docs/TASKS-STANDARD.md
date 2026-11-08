@@ -116,17 +116,17 @@ ejection-chain placement → relaxation → verify pipeline is ported into
 
 ## Stage 4 — Library
 
-- [ ] Catalogue: `library_books` (title, author, publisher, ISBN, category, language,
+- [x] Catalogue: `library_books` (title, author, publisher, ISBN, category, language,
       subject) with `library_copies` (accession number, shelf, condition, status);
       members are students and staff; loan rules per member type (max books, loan days,
       fine per day, renewal count)
-- [ ] Issue and return by accession number or barcode text; renewals; overdue list; fines
+- [x] Issue and return by accession number or barcode text; renewals; overdue list; fines
       computed at return (`madrasa_core::library`), waivable with a reason, posted as a
       fee voucher line for students (configurable) or recorded against staff; lost books
-- [ ] Screens: catalogue with search, member page with loans and fines, issue/return desk,
+- [x] Screens: catalogue with search, member page with loans and fines, issue/return desk,
       stock take; reports: overdue books, fines collected, most borrowed, stock by category
-- [ ] Permissions `library.read`, `library.manage` (librarian role added to the defaults)
-- [ ] Tests: loan rules, fines and waivers, renewals limit, stock, vitest
+- [x] Permissions `library.read`, `library.manage` (librarian role added to the defaults)
+- [x] Tests: loan rules, fines and waivers, renewals limit, stock, vitest
 
 ## Stage 5 — Transport
 

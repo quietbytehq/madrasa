@@ -16,6 +16,7 @@ pub mod hlc;
 pub mod ids;
 pub mod imports;
 pub mod leave;
+pub mod library;
 pub mod locale;
 pub mod password;
 pub mod permissions;

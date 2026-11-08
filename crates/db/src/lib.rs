@@ -17,6 +17,7 @@ pub mod fees;
 pub mod guardians;
 pub mod imports;
 pub mod leave;
+pub mod library;
 pub mod models;
 pub mod report_definitions;
 pub mod reports;

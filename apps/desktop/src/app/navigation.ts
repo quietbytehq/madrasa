@@ -146,7 +146,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
     labelKey: "nav.library",
     icon: BookOpen,
     feature: "library",
-    available: false,
+    available: true,
+    permission: "library.read",
   },
   {
     path: "/transport",

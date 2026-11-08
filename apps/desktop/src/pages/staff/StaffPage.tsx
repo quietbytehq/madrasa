@@ -17,6 +17,7 @@ import { useToast } from "@/components/ui/Toast";
 import { useI18n } from "@/i18n";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 import { useSession } from "@/app/session";
+import { useHasFeature } from "@/app/features";
 import { PageHeader } from "../PageHeader";
 import { ExportMenu } from "@/components/ExportMenu";
 import { GENDERS, genderLabel } from "../students/common";
@@ -385,7 +386,7 @@ function StaffDialog({
   );
 }
 
-const ROLES: LoginRole[] = ["principal", "admin", "accountant", "teacher"];
+const ROLES: LoginRole[] = ["principal", "admin", "accountant", "teacher", "librarian"];
 
 /** "Login account" block of the staff dialog: create, change role, enable/disable, reset. */
 export function LoginSection({ staff, onChanged }: { staff: Staff; onChanged: () => void }) {
@@ -419,7 +420,11 @@ export function LoginSection({ staff, onChanged }: { staff: Staff; onChanged: ()
     }
   };
 
-  const roleOptions = ROLES.map((r) => ({ value: r, label: t(`staff.login.role.${r}`) }));
+  const hasLibrary = useHasFeature()("library");
+  const roleOptions = ROLES.filter((r) => r !== "librarian" || hasLibrary).map((r) => ({
+    value: r,
+    label: t(`staff.login.role.${r}`),
+  }));
 
   return (
     <fieldset className="rounded border border-border p-3">

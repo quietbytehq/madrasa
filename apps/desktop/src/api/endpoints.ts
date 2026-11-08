@@ -1,5 +1,22 @@
 import { download, request } from "./client";
 import type {
+  BookBody,
+  BookDetail,
+  BookView,
+  CopyCondition,
+  CopyLookup,
+  CopyStatus,
+  CopyView,
+  IssueBody,
+  LibraryCopy,
+  LibraryMember,
+  LibraryMemberKind,
+  LibrarySettings,
+  LoanView,
+  MemberPage,
+  ReturnBody,
+  SettleResult,
+  StockRow,
   AdmissionSettings,
   AdmissionStage,
   AdmissionsBoard,
@@ -884,4 +901,49 @@ export const api = {
     }),
   downloadOfferLetter: (id: string, lang: string) =>
     download(`/admissions/applications/${id}/offer-letter${qs({ lang })}`),
+
+  // ---- Library (Standard stage 4) ------------------------------------------------------------
+  libraryBooks: (params: { q?: string; category?: string; subject?: string } = {}) =>
+    request<BookView[]>(`/library/books${qs(params)}`),
+  libraryBook: (id: string) => request<BookDetail>(`/library/books/${id}`),
+  createBook: (body: BookBody & { accession_nos: string[]; shelf: string }) =>
+    request<BookDetail>("/library/books", { method: "POST", body }),
+  updateBook: (id: string, body: BookBody) =>
+    request<BookDetail>(`/library/books/${id}`, { method: "PUT", body }),
+  deleteBook: (id: string) => request<void>(`/library/books/${id}`, { method: "DELETE" }),
+  addCopies: (id: string, accession_nos: string[], shelf: string) =>
+    request<BookDetail>(`/library/books/${id}/copies`, {
+      method: "POST",
+      body: { accession_nos, shelf },
+    }),
+  libraryCopies: (status?: string) => request<CopyView[]>(`/library/copies${qs({ status })}`),
+  lookupCopy: (accession_no: string) =>
+    request<CopyLookup>(`/library/copies/lookup${qs({ accession_no })}`),
+  updateCopy: (id: string, body: { shelf: string; condition: CopyCondition; status: CopyStatus }) =>
+    request<LibraryCopy>(`/library/copies/${id}`, { method: "PUT", body }),
+  libraryMembers: (params: { kind?: LibraryMemberKind; q?: string } = {}) =>
+    request<LibraryMember[]>(`/library/members${qs(params)}`),
+  libraryMember: (kind: LibraryMemberKind, id: string) =>
+    request<MemberPage>(`/library/members/${kind}/${id}`),
+  libraryLoans: (
+    params: {
+      state?: string;
+      member_kind?: LibraryMemberKind;
+      member_id?: string;
+      from?: string;
+      to?: string;
+    } = {},
+  ) => request<LoanView[]>(`/library/loans${qs(params)}`),
+  issueBook: (body: IssueBody) => request<MemberPage>("/library/loans", { method: "POST", body }),
+  renewLoan: (id: string) => request<LoanView>(`/library/loans/${id}/renew`, { method: "POST" }),
+  returnLoan: (id: string, body: ReturnBody = {}) =>
+    request<LoanView>(`/library/loans/${id}/return`, { method: "POST", body }),
+  waiveFine: (id: string, amount: number, reason: string) =>
+    request<LoanView>(`/library/loans/${id}/waive`, { method: "POST", body: { amount, reason } }),
+  settleFine: (id: string) =>
+    request<SettleResult>(`/library/loans/${id}/settle`, { method: "POST" }),
+  librarySettings: () => request<LibrarySettings>("/library/settings"),
+  updateLibrarySettings: (body: LibrarySettings) =>
+    request<LibrarySettings>("/library/settings", { method: "PUT", body }),
+  libraryStock: () => request<StockRow[]>("/library/stock"),
 };

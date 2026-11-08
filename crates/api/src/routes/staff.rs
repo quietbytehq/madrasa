@@ -376,6 +376,7 @@ pub(crate) fn role_code(code: &str) -> ApiResult<RoleCode> {
         "admin" => Ok(RoleCode::Admin),
         "accountant" => Ok(RoleCode::Accountant),
         "teacher" => Ok(RoleCode::Teacher),
+        "librarian" => Ok(RoleCode::Librarian),
         _ => Err(ApiError::validation(
             "Role must be principal, admin, accountant or teacher.",
         )),
