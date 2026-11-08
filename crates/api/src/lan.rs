@@ -167,7 +167,7 @@ pub async fn serve_tls(
     let handle = axum_server::Handle::new();
     let server = axum_server::bind_rustls(addr, config)
         .handle(handle.clone())
-        .serve(router(state).into_make_service());
+        .serve(router(state).into_make_service_with_connect_info::<SocketAddr>());
     let server = tokio::spawn(server);
     let local = handle
         .listening()
@@ -351,6 +351,7 @@ pub async fn serve_proxy(
         client,
     };
     let app = Router::new().fallback(forward).with_state(state);
+    let app = app.into_make_service_with_connect_info::<SocketAddr>();
     let listener = tokio::net::TcpListener::bind(bind).await?;
     let local = listener.local_addr()?;
     let fut = axum::serve(listener, app).with_graceful_shutdown(shutdown);

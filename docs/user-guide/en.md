@@ -331,3 +331,18 @@ timetable and the substitutions.
    Users with a "Directory" badge the first time they log in; the role follows the groups on
    every login. The setup administrator and any account created in Users keep their local
    password.
+
+## 17. Read-only API (Standard)
+
+1. **Settings → API** (settings administrator): create a key for each system that needs
+   to read school data: give it a name, tick the scopes it may read, optionally the
+   addresses it may call from and an expiry date. The key is shown once; copy it into the
+   other system. Revoke a key the moment it is no longer needed; every call made with it is
+   listed under Calls.
+2. **Calling**: the other system sends the key as `Authorization: Bearer mk_…` (or
+   `X-Api-Key`) to `https://<server>:<port>/api/ro/v1/…`. The endpoint reference on the
+   card lists every path with its scope and parameters and gives `curl` examples; the
+   OpenAPI document is at `/api/ro/v1/openapi.json`. Answers carry an ETag; sending it
+   back as `If-None-Match` returns 304 when nothing changed. Each key may make 120
+   requests a minute.
+3. Nothing can be written through this API, and it does not exist on Lite installs.

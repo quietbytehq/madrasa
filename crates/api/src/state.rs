@@ -6,6 +6,7 @@ use madrasa_db::{schools, settings, PgPool};
 use std::sync::{Arc, RwLock};
 
 use crate::directory::{LdapDirectory, SharedDirectory};
+use crate::ro::RateLimits;
 use crate::timetable_jobs::TimetableJobs;
 use crate::{clock, ApiError};
 
@@ -53,6 +54,8 @@ pub struct AppState {
     pub timetable_jobs: Arc<TimetableJobs>,
     /// The directory login client (Standard stage 8); tests swap in a stub.
     pub directory: SharedDirectory,
+    /// Per-key rate windows of the read-only API (Standard stage 9).
+    pub ro_limits: Arc<RateLimits>,
 }
 
 impl AppState {
@@ -72,6 +75,7 @@ impl AppState {
             lockout: LockoutPolicy::default(),
             version: VERSION,
             directory: Arc::new(LdapDirectory),
+            ro_limits: Arc::new(RateLimits::default()),
             timetable_jobs: Arc::new(TimetableJobs::default()),
         })
     }

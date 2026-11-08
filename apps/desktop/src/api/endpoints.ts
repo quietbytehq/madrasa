@@ -1,5 +1,10 @@
 import { download, request } from "./client";
 import type {
+  ApiKey,
+  ApiKeyBody,
+  ApiKeyCall,
+  ApiKeysView,
+  CreatedApiKey,
   AuthOptions,
   DirectorySettings,
   DirectorySettingsBody,
@@ -1158,4 +1163,12 @@ export const api = {
     request<DirectorySettings>("/settings/directory", { method: "PUT", body }),
   testDirectory: (body: DirectorySettingsBody & { username?: string | null }) =>
     request<DirectoryTestResult>("/settings/directory/test", { method: "POST", body }),
+
+  // ---- Read-only API keys (Standard stage 9) -------------------------------------------------
+  apiKeys: () => request<ApiKeysView>("/settings/api-keys"),
+  createApiKey: (body: ApiKeyBody) =>
+    request<CreatedApiKey>("/settings/api-keys", { method: "POST", body }),
+  revokeApiKey: (id: string) => request<ApiKey>(`/settings/api-keys/${id}`, { method: "DELETE" }),
+  apiKeyCalls: (id: string, limit = 100) =>
+    request<ApiKeyCall[]>(`/settings/api-keys/${id}/calls${qs({ limit })}`),
 };

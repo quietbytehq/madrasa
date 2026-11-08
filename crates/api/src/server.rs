@@ -18,7 +18,7 @@ pub async fn bind(
 )> {
     let listener = TcpListener::bind(addr).await?;
     let local = listener.local_addr()?;
-    let app = router(state);
+    let app = router(state).into_make_service_with_connect_info::<SocketAddr>();
     let fut = axum::serve(listener, app)
         .with_graceful_shutdown(shutdown)
         .into_future();

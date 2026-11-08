@@ -6,6 +6,7 @@
 pub mod academics;
 pub mod admissions;
 pub mod allocation;
+pub mod api_keys;
 pub mod attendance;
 pub mod audit;
 pub mod backup;
@@ -24,6 +25,7 @@ pub mod library;
 pub mod models;
 pub mod report_definitions;
 pub mod reports;
+pub mod ro;
 pub mod roles;
 pub mod rollover;
 pub mod schools;

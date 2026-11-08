@@ -993,6 +993,40 @@ Screens: Settings → Directory login (`settings.manage`): the switch, server, b
 rows, default role, login hint, test connection with an optional username. Users shows a
 "Directory" badge on such accounts. The login screen shows the hint.
 
+### 5.26 Read-only API (Standard stage 9)
+
+Standard only (`Feature::ReadonlyApi`): the whole `/api/ro/v1` prefix answers 404 on Lite and
+the key settings 403 `feature_unavailable`. Rules live in `madrasa_core::api_keys`: scopes
+(`students`, `attendance`, `fees`, `exams`, `timetable`, `library`), usability (not revoked,
+not past expiry), the IP allow-list (addresses or CIDR ranges, v4 and v6, v4-mapped v6
+accepted; an empty list admits every address, a non-empty one refuses an unknown peer),
+the fixed one-minute rate window (120 requests per key) and key generation (`mk_` + 32
+url-safe random characters, stored as SHA-256).
+
+Data (migration 0025): `api_keys` (name, prefix for the list, hash, scopes, allow-list,
+expiry, last use, revocation, who created it) and the append-only `api_key_calls` (key,
+time, method, path, status, address). Creating a key returns the secret once; the list
+never shows it. Revoking is audited and immediate.
+
+Serving: `ro::router` guards every request in one middleware: the feature, the key (from
+`Authorization: Bearer` or `X-Api-Key`), usability, the allow-list against the connection's
+peer address (the servers now serve with connection info), then the rate limit (429 with
+`Retry-After`); the handler runs; a successful JSON answer gets a weak `ETag` (SHA-256 of
+the body) and answers 304 when `If-None-Match` carries it; the call is logged with its
+status. Each endpoint checks its scope (403 `scope_missing`). No endpoint writes.
+
+Endpoints: `/` (what the key can do), `/students` (paged, with class and section, filters
+by section, status and `updated_since`), `/sections`, `/attendance/daily` (per section:
+marked, present, absent, late, leave for a day), `/fees/balances` (students with unpaid
+vouchers and the balance), `/exams/assessments`, `/exams/results` (approved marks per
+student and subject for an assessment and section), `/timetable` (the published timetable
+of a section), `/library/loans`, and `/openapi.json` (OpenAPI 3 built from the same table
+as the settings reference).
+
+Screens: Settings → API (`settings.manage`): keys with scopes, addresses, expiry, last use
+and status; new key dialog (the key shown once); revoke; the call log; the endpoint
+reference with `curl` examples.
+
 ## 15. Standard alpha (overview)
 
 The stages, their order and their acceptance are in `docs/TASKS-STANDARD.md`; each stage adds
@@ -1524,6 +1558,15 @@ each subject as `students`.
 | POST | `/auth/login` | none | Directory users are authenticated by an LDAP bind when the settings are enabled; 503 `directory_unavailable` when the directory cannot be reached |
 | GET/PUT | `/settings/directory` | `settings.manage` | The settings with `has_bind_password` and the usable `roles`; PUT takes the settings plus `bind_password` (null keeps it); 400 on validation, unknown roles or enabling without a password |
 | POST | `/settings/directory/test` | `settings.manage` | The settings to try (unsaved) with an optional `bind_password` and `username` → `{bind_ok, message, user, role}` |
+
+### 6.31 Standard stage 9 endpoints (feature `readonly_api`)
+
+| Method | Path | Permission | Notes |
+| --- | --- | --- | --- |
+| GET/POST | `/settings/api-keys` | `settings.manage` | `{keys, scopes, rate_limit_per_minute, base_path}`; POST `{name, scopes, ip_allow?, expires_at?}` → the row plus `key` (once); 409 on an empty scope list, unknown scope or bad address |
+| DELETE | `/settings/api-keys/{id}` | `settings.manage` | Revoke (idempotent) |
+| GET | `/settings/api-keys/{id}/calls?limit` | `settings.manage` | The call log, newest first |
+| GET | `/api/ro/v1/…` | API key | See §5.26; 401 unknown, expired or revoked key; 403 `ip_not_allowed` / `scope_missing`; 429 `rate_limited`; 304 on a matching `If-None-Match`; 404 for the whole prefix on Lite |
 
 ### 6.11 Second alpha test report fixes
 

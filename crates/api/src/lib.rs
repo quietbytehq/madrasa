@@ -14,6 +14,7 @@ pub mod imports;
 pub mod lan;
 pub mod late_fees;
 pub mod reports;
+pub mod ro;
 pub mod routes;
 pub mod server;
 pub mod state;
@@ -61,12 +62,13 @@ pub fn router(state: AppState) -> Router {
         .merge(routes::hostel::router())
         .merge(routes::inventory::router())
         .merge(routes::directory::router())
+        .merge(routes::api_keys::router())
         .merge(routes::backup::router())
         .merge(routes::boards::router())
         .merge(routes::imports::router())
         .merge(routes::export::router())
         .merge(routes::reports::router())
-        .with_state(state);
+        .with_state(state.clone());
 
     // The UI is served from a different origin in `vite dev` (http://localhost:1420) and from
     // `tauri://localhost` in the packaged app; the API only ever binds to loopback.
@@ -77,6 +79,7 @@ pub fn router(state: AppState) -> Router {
 
     Router::new()
         .nest(API_PREFIX, api)
+        .nest(ro::RO_PREFIX, ro::router(state))
         .layer(cors)
         .layer(TraceLayer::new_for_http())
 }
