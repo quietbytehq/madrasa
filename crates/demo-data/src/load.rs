@@ -51,6 +51,8 @@ pub struct LoadReport {
     pub board_candidates: usize,
     pub allocated_students: usize,
     pub consents_recorded: usize,
+    /// The Standard modules (visible once the install is switched to Standard).
+    pub standard: crate::standard::StandardReport,
     pub files_written: Vec<PathBuf>,
 }
 
@@ -1021,6 +1023,26 @@ pub async fn load(
         }
     }
 
+    // Standard modules: present in the data, shown once the edition is switched.
+    let standard = crate::standard::load(
+        &mut tx,
+        hlc,
+        actor,
+        &crate::standard::Context {
+            school_id: school.id,
+            year: &year,
+            demo,
+            class_ids: &class_ids,
+            section_ids: &section_ids,
+            student_ids: &student_ids,
+            staff_by_username: &staff_by_username,
+            principal_user,
+            admission_head: admission.id,
+            april,
+        },
+    )
+    .await?;
+
     settings::set_edition(&mut tx, hlc, Actor::SYSTEM, Edition::Lite).await?;
     settings::set(
         &mut tx,
@@ -1072,6 +1094,7 @@ pub async fn load(
         board_candidates,
         allocated_students,
         consents_recorded,
+        standard,
         files_written,
     })
 }

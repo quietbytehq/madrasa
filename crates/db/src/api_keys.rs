@@ -135,6 +135,47 @@ pub async fn create(
     Ok((key, row))
 }
 
+/// A key with a known secret (demo data only: the demo school is never a real one).
+pub async fn create_with_secret(
+    conn: &mut PgConnection,
+    hlc: &Hlc,
+    actor: Actor,
+    school_id: Uuid,
+    input: &ApiKeyInput,
+    secret: &str,
+) -> DbResult<ApiKey> {
+    let scopes = check(input)?;
+    let hash = madrasa_core::session_token::hash(secret);
+    let row = sqlx::query_as::<_, ApiKey>(sqlx::AssertSqlSafe(format!(
+        "INSERT INTO api_keys (id, school_id, name, key_prefix, key_hash, scopes, ip_allow, expires_at, created_by, updated_by, hlc)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9, $10) RETURNING {COLS}"
+    )))
+    .bind(new_id())
+    .bind(school_id)
+    .bind(input.name.trim())
+    .bind(rules::prefix(secret))
+    .bind(&hash)
+    .bind(&scopes)
+    .bind(&input.ip_allow)
+    .bind(input.expires_at)
+    .bind(actor.user_id)
+    .bind(hlc.now().to_string())
+    .fetch_one(&mut *conn)
+    .await?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Create,
+        "api_key",
+        Some(row.id),
+        None,
+        Some(snapshot(&row)),
+    )
+    .await?;
+    Ok(row)
+}
+
 pub async fn revoke(
     conn: &mut PgConnection,
     hlc: &Hlc,
