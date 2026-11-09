@@ -325,6 +325,9 @@ async fn standard_runs_the_pipeline_and_converts() {
     assert_eq!(d["stage_name"], "Interviewed");
     assert_eq!(d["events"].as_array().unwrap().len(), 4);
     assert_eq!(d["events"][3]["note"], "interviewed");
+    // Moving stamps the stage's date when it is still empty, and keeps one already entered.
+    assert_eq!(d["test_date"], "2026-03-01", "{d}");
+    assert!(d["interview_date"].is_string(), "{d}");
     // Bulk move both to "offered" with an offer fee set on Ali.
     let mut offered = edit.clone();
     offered["test_marks"] = json!(72);
@@ -348,6 +351,15 @@ async fn standard_runs_the_pipeline_and_converts() {
         .await;
     assert_eq!(s, StatusCode::OK, "{b}");
     assert_eq!(b["moved"], 2);
+    let (_, d1) = app
+        .get(&format!("/admissions/applications/{a1_id}"), &accountant)
+        .await;
+    assert_eq!(d1["offer_date"], "2026-03-20", "entered date kept: {d1}");
+    let (_, d2) = app
+        .get(&format!("/admissions/applications/{a2_id}"), &accountant)
+        .await;
+    assert!(d2["offer_date"].is_string(), "stamped on move: {d2}");
+    assert!(d2["test_date"].is_null(), "{d2}");
     let (s, board) = app.get("/admissions/board", &accountant).await;
     assert_eq!(s, StatusCode::OK, "{board}");
     assert_eq!(board["applications"].as_array().unwrap().len(), 2);

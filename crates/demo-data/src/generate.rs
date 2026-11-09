@@ -247,6 +247,7 @@ pub fn generate(options: &DemoOptions) -> DemoSchool {
     // Staff: 1 principal, 2 admins, 2 accountants, the rest teachers.
     let mut staff = Vec::with_capacity(options.staff);
     let mut used_usernames = std::collections::HashSet::new();
+    let mut used_names = std::collections::HashSet::new();
     for i in 0..options.staff {
         let role = match i {
             0 => "principal",
@@ -255,8 +256,15 @@ pub fn generate(options: &DemoOptions) -> DemoSchool {
             _ => "teacher",
         };
         let female = rng.gen_bool(0.55);
-        let first = pick(&mut rng, if female { FEMALE_FIRST } else { MALE_FIRST });
-        let last = pick(&mut rng, LAST);
+        // Full names stay unique (the timetable refuses two teachers with one name), so
+        // re-draw on a clash and only fall back to a numbered username if names run out.
+        let (first, last) = loop {
+            let first = pick(&mut rng, if female { FEMALE_FIRST } else { MALE_FIRST });
+            let last = pick(&mut rng, LAST);
+            if used_names.insert(format!("{first} {last}")) {
+                break (first, last);
+            }
+        };
         let mut username = format!("demo.{}.{}", first.to_lowercase(), last.to_lowercase());
         let mut n = 1;
         while !used_usernames.insert(username.clone()) {
@@ -418,6 +426,8 @@ mod tests {
         assert!(d.school.code.starts_with(DEMO_MARK));
         let usernames: HashSet<_> = d.staff.iter().map(|s| s.username.as_str()).collect();
         assert_eq!(usernames.len(), d.staff.len());
+        let names: HashSet<_> = d.staff.iter().map(|s| s.full_name.as_str()).collect();
+        assert_eq!(names.len(), d.staff.len(), "staff full names are unique");
         assert!(usernames.iter().all(|u| u.starts_with("demo.")));
         let admissions: HashSet<_> = d.students.iter().map(|s| s.admission_no.as_str()).collect();
         assert_eq!(admissions.len(), d.students.len());

@@ -578,6 +578,9 @@ async fn students_create_duplicates_directory_and_withdraw() {
     assert_eq!(p2["items"][0]["full_name"], "Someone Else");
     let (_, q) = app.get("/students?q=sara", &admin).await;
     assert_eq!(q["total"], 1);
+    // `search` is accepted as another name for `q`.
+    let (_, q) = app.get("/students?search=sara", &admin).await;
+    assert_eq!(q["total"], 1, "{q}");
     let (_, q) = app.get("/students?q=00002", &admin).await;
     assert_eq!(q["items"][0]["full_name"], "Someone Else");
     let (_, c) = app

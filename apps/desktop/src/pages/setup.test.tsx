@@ -192,6 +192,23 @@ describe("Setup wizard", () => {
     expect(api.setup).not.toHaveBeenCalled();
   });
 
+  it("lists what the demo loader could not do, so nothing is skipped silently", async () => {
+    vi.mocked(api.demoSetup).mockResolvedValue({
+      school_id: "demo",
+      admin_user_id: "u1",
+      recovery_key: "DEMO-KEY-1111-2222-3333-4444-5555-6666",
+      notes: ["The demo timetable was not generated: the timetable check found 2 problem(s)."],
+    });
+    renderWizard();
+    await userEvent.click(screen.getByRole("button", { name: "Load the demo school instead" }));
+    await userEvent.type(screen.getByLabelText("Password"), "eval-password-1");
+    await userEvent.type(screen.getByLabelText("Backup password"), "backup-password-1");
+    await userEvent.click(screen.getByRole("button", { name: "Load demo school" }));
+    expect(await screen.findByLabelText("Recovery key")).toHaveTextContent("DEMO-KEY-1111");
+    expect(screen.getByText("Some demo data could not be loaded")).toBeInTheDocument();
+    expect(screen.getByText(/The demo timetable was not generated/)).toBeInTheDocument();
+  });
+
   it("shows a short demo password error under the field it belongs to", async () => {
     vi.mocked(api.demoSetup).mockClear();
     renderWizard();

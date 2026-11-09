@@ -1084,6 +1084,41 @@ depend on each other and were built together)
   the two new roles (checked by `matrix_matches_docs`); the user guide has a chapter per
   module (9–17).
 
+### 2026-11-09 — v0.3.1: fixes from the v0.3.0-alpha Standard test report (branch `dev/v0.3.1-standard-fixes`)
+- Done, B-1 timetable: demo staff full names are unique (the generator re-draws on a clash);
+  the engine's teacher check suggests a free short name when initials collide ("AH" → "AHa")
+  and only warns, instead of refusing, when two teachers share a full name but their short
+  names differ; the year setup gives every teacher a unique short name (initials, then more
+  letters of the surname, then a number) so the generated timetable is never blocked by
+  initials; the demo seeder records a plain-language note (and a warning in the log) when
+  the timetable cannot be generated or published, the setup API returns the notes, and the
+  wizard's last step lists them under "Some demo data could not be loaded". The full and the
+  small demo school load with a published timetable.
+- Done, B-2 library fines: settling a fine through a fee head adds a line to the student's
+  voucher for that month (`fees::add_to_month_voucher`, get-or-create), the way transport and
+  hostel charges do, instead of opening a second voucher.
+- Done, B-3: TESTING.md title and file names say v0.3.1-alpha. B-4: chalk and printer toner
+  are seeded below their reorder level, so the reorder flag and the reorder report have data.
+  B-5: the role validation message for staff logins and the users API lists all six codes
+  (principal, admin, accountant, teacher, librarian, storekeeper).
+- Done, B-6: conflict messages no longer end in ".." (the API added a full stop to rule
+  messages that already had one); hostel list routes check the edition before parsing the
+  query, so a bad query on Lite is "feature unavailable", not a validation error; moving an
+  application to Test scheduled / Interviewed / Offered stamps the test, interview or offer
+  date when it is empty (a date already entered is kept); a hostel's kind is enforced on
+  allocation (boys' hostels take boys, girls' hostels girls, mixed anyone) and the demo
+  residents are boys in the boys' hostel; student search accepts `search` as well as `q`.
+  The demo wizard says "fees and attendance up to this month".
+- Tested: core unit tests (teacher name check with suggestion and warning, suggested short
+  names, hostel gender rule), db unit test for unique teacher short names, demo generator
+  test for unique names, demo load test asserts a published timetable with no notes (and a
+  second load with three teachers for 39 sections asserts the visible note), API
+  tests: library (fine joins an existing voucher; store keeper login through /users; one full
+  stop), hostel (girl refused in a boys' hostel and vice versa; bad queries on Lite are 403),
+  admissions (stamped and kept dates), staff logins (role message), students (`search`),
+  demo setup (`notes` is empty); wizard test for the notes panel.
+- Left: nothing from the report. Version 0.3.1.
+
 ## Summary for the owner — Standard alpha
 
 The Standard alpha was built in eleven pull requests, each from a clean `main` with CI green

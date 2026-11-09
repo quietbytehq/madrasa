@@ -49,6 +49,10 @@ pub struct Context<'a> {
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct StandardReport {
     pub timetable_cards: usize,
+    /// True when the generated timetable placed every lesson and was published.
+    pub timetable_published: bool,
+    /// Things the loader could not do, in plain words, for the setup wizard to show.
+    pub notes: Vec<String>,
     pub leave_requests: usize,
     pub applications: usize,
     pub books: usize,
@@ -58,6 +62,13 @@ pub struct StandardReport {
     pub hostel_residents: usize,
     pub inventory_items: usize,
     pub api_key_prefix: String,
+}
+
+/// Record something the loader skipped so it is seen (the wizard shows the notes) and not
+/// silently missing from the demo school.
+fn note(report: &mut StandardReport, message: String) {
+    tracing::warn!(note = %message, "demo load note");
+    report.notes.push(message);
 }
 
 fn teachers(ctx: &Context<'_>) -> Vec<Uuid> {
@@ -71,12 +82,19 @@ fn teachers(ctx: &Context<'_>) -> Vec<Uuid> {
 
 /// Students of a section in roll order.
 fn students_of(ctx: &Context<'_>, class: &str) -> Vec<Uuid> {
-    let mut rows: Vec<_> = ctx
-        .demo
-        .students
-        .iter()
-        .filter(|s| s.class == class)
-        .collect();
+    students_matching(ctx, |s| s.class == class)
+}
+
+/// Boys of a section in roll order (the demo hostel is a boys' hostel).
+fn boys_of(ctx: &Context<'_>, class: &str) -> Vec<Uuid> {
+    students_matching(ctx, |s| s.class == class && s.gender == 'M')
+}
+
+fn students_matching(
+    ctx: &Context<'_>,
+    keep: impl Fn(&crate::generate::Student) -> bool,
+) -> Vec<Uuid> {
+    let mut rows: Vec<_> = ctx.demo.students.iter().filter(|s| keep(s)).collect();
     rows.sort_by_key(|s| s.roll_no);
     rows.iter()
         .filter_map(|s| ctx.student_ids.get(&s.admission_no).copied())
@@ -137,9 +155,23 @@ pub async fn load(
             timetable::create_timetable(tx, hlc, actor, school, year.id, "Demo timetable").await?;
         let ys = timetable::setup_for_year(tx, school, year, Some(tt.id)).await?;
         let check = engine::check::run(&ys.setup);
-        if check.errors == 0 {
+        if check.errors > 0 {
+            let first = check
+                .findings
+                .iter()
+                .find(|f| f.level == "error")
+                .map(|f| f.message.as_str())
+                .unwrap_or_default();
+            note(
+                &mut report,
+                format!(
+                    "The demo timetable was not generated: the timetable check found {} problem(s). First: {first}",
+                    check.errors
+                ),
+            );
+        } else {
             let opts = engine::Options {
-                time_limit: Duration::from_secs(10),
+                time_limit: Duration::from_secs(20),
                 improve_time: Duration::ZERO,
                 seed: 1,
                 ..Default::default()
@@ -156,8 +188,23 @@ pub async fn load(
             timetable::replace_cards(tx, hlc, actor, school, tt.id, &placed, None).await?;
             if solved.unplaced.is_empty() {
                 timetable::publish_timetable(tx, hlc, actor, tt.id).await?;
+                report.timetable_published = true;
+            } else {
+                note(
+                    &mut report,
+                    format!(
+                        "The demo timetable was generated, but {} of {} lessons could not be placed, so it was saved as a draft and not published. Open Timetable to finish it.",
+                        solved.unplaced.len(),
+                        solved.total
+                    ),
+                );
             }
         }
+    } else {
+        note(
+            &mut report,
+            "The demo timetable was not generated: no lessons could be made from the teacher allocations.".into(),
+        );
     }
 
     // ---- Leave: three types, balances for every teacher, a few requests.
@@ -630,25 +677,28 @@ pub async fn load(
     let mut residents: Vec<Uuid> = ["9-A", "10-A", "8-A"]
         .iter()
         .flat_map(|c| {
-            students_of(ctx, c)
+            boys_of(ctx, c)
                 .into_iter()
                 .filter(|id| !riders.contains(id))
                 .take(5)
         })
         .collect();
     if residents.len() < 4 {
-        // A small demo: fill the beds from whoever is left (then from anyone).
-        let mut rest: Vec<Uuid> = ctx
-            .demo
-            .students
-            .iter()
-            .filter_map(|s| ctx.student_ids.get(&s.admission_no).copied())
+        // A small demo: fill the beds from the boys who are left (then from boys who ride).
+        let mut rest: Vec<Uuid> = students_matching(ctx, |s| s.gender == 'M')
+            .into_iter()
             .filter(|id| !residents.contains(id) && !riders.contains(id))
             .collect();
         if rest.is_empty() {
-            rest = riders.clone();
+            rest = students_matching(ctx, |s| s.gender == 'M');
         }
-        residents.extend(rest.into_iter().take(15 - residents.len()));
+        let room_left = 15usize.saturating_sub(residents.len());
+        let extra: Vec<Uuid> = rest
+            .into_iter()
+            .filter(|id| !residents.contains(id))
+            .take(room_left)
+            .collect();
+        residents.extend(extra);
     }
     for (i, student_id) in residents.iter().enumerate() {
         let room = rooms[i / 4 % rooms.len()];
@@ -737,7 +787,7 @@ pub async fn load(
         locations.push(l.id);
     }
     let items = [
-        ("Chalk (box)", "Stationery", "box", 10, 60, 120),
+        ("Chalk (box)", "Stationery", "box", 10, 8, 120),
         ("Whiteboard marker", "Stationery", "pcs", 20, 150, 60),
         ("A4 paper (ream)", "Stationery", "ream", 10, 40, 950),
         (
@@ -753,7 +803,7 @@ pub async fn load(
         ("Student desk", "Furniture", "pcs", 0, 30, 4500),
         ("Plastic chair", "Furniture", "pcs", 10, 80, 900),
         ("Projector", "Electronics", "pcs", 0, 3, 85000),
-        ("Printer toner", "Electronics", "pcs", 2, 6, 7500),
+        ("Printer toner", "Electronics", "pcs", 2, 1, 7500),
         ("Extension lead", "Electronics", "pcs", 2, 10, 1200),
         ("Floor cleaner (5L)", "Stationery", "can", 3, 8, 1300),
     ];
@@ -817,7 +867,7 @@ pub async fn load(
             actor,
             school,
             &inventory::MovementInput {
-                item_id: item_ids[i % 2],
+                item_id: item_ids[1 + i % 3],
                 location_id: locations[0],
                 kind: MovementKind::Issue,
                 quantity: Decimal::from(2 + i as i64),

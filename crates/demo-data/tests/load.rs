@@ -7,9 +7,10 @@ use madrasa_demo_data::{generate, load, DemoOptions, LoadError, LoadOptions, DEM
 #[tokio::test]
 async fn loads_into_an_empty_database_and_marks_everything_demo() {
     let db: TestDb = test_db!();
+    // Enough teachers for the 39 sections: a timetable needs roughly one per section.
     let demo = generate(&DemoOptions {
         students: 50,
-        staff: 8,
+        staff: 40,
         ..DemoOptions::default()
     });
     let hlc = Hlc::new(1);
@@ -33,7 +34,7 @@ async fn loads_into_an_empty_database_and_marks_everything_demo() {
     )
     .await
     .unwrap();
-    assert_eq!(report.staff_accounts, 8);
+    assert_eq!(report.staff_accounts, 40);
     assert_eq!(report.students, 50);
     assert_eq!(report.sections, 39);
     assert_eq!(report.vouchers, 100, "April and May for 50 students");
@@ -55,6 +56,17 @@ async fn loads_into_an_empty_database_and_marks_everything_demo() {
     );
     // Standard modules ride along, out of sight until the edition is switched.
     let std = &report.standard;
+    assert!(
+        std.timetable_cards > 0,
+        "the demo timetable has cards; notes: {:?}",
+        std.notes
+    );
+    assert!(
+        std.timetable_published,
+        "the demo timetable is published; notes: {:?}",
+        std.notes
+    );
+    assert!(std.notes.is_empty(), "{:?}", std.notes);
     assert_eq!(std.applications, 12);
     assert_eq!(std.books, 20);
     assert!(std.loans >= 1, "{}", std.loans);
@@ -72,7 +84,7 @@ async fn loads_into_an_empty_database_and_marks_everything_demo() {
     let school = schools::get(&mut conn, report.school_id).await.unwrap();
     assert!(school.is_demo);
     assert!(school.name.starts_with("DEMO"));
-    assert_eq!(users::count(&mut conn, school.id).await.unwrap(), 8);
+    assert_eq!(users::count(&mut conn, school.id).await.unwrap(), 40);
     assert!(settings::setup_completed(&mut conn).await.unwrap());
 
     let principal = users::find_by_username(&mut conn, school.id, &demo.staff[0].username)
@@ -153,5 +165,40 @@ async fn refuses_when_a_real_school_exists() {
         "nothing was inserted"
     );
     drop(conn);
+    db.cleanup().await;
+}
+
+/// When the generated data cannot make a timetable (three teachers for 39 sections), the
+/// loader says so in a note the wizard shows, instead of skipping it silently.
+#[tokio::test]
+async fn an_impossible_timetable_leaves_a_visible_note() {
+    let db: TestDb = test_db!();
+    let demo = generate(&DemoOptions {
+        students: 20,
+        staff: 8,
+        ..DemoOptions::default()
+    });
+    let hlc = Hlc::new(1);
+    let report = load(
+        &db.pool,
+        &hlc,
+        &demo,
+        &LoadOptions {
+            confirmed: true,
+            out_dir: None,
+            full_year: false,
+        },
+    )
+    .await
+    .unwrap();
+    let std = &report.standard;
+    assert_eq!(std.timetable_cards, 0);
+    assert!(!std.timetable_published);
+    assert_eq!(std.notes.len(), 1, "{:?}", std.notes);
+    assert!(
+        std.notes[0].starts_with("The demo timetable was not generated: the timetable check found"),
+        "{:?}",
+        std.notes
+    );
     db.cleanup().await;
 }

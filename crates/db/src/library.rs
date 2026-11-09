@@ -862,7 +862,8 @@ pub async fn settle(
             let section =
                 crate::students::section_in_year(&mut *conn, old.member_id, academic_year_id)
                     .await?;
-            let v = fees::create_one_off_voucher(
+            // The fine joins this month's voucher when the student has one, else a one-off.
+            let (v, _created) = fees::add_to_month_voucher(
                 &mut *conn,
                 hlc,
                 actor,

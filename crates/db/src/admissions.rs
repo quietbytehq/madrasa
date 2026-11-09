@@ -665,7 +665,11 @@ pub async fn move_stage(
         return Ok(old);
     }
     let row = sqlx::query_as::<_, Application>(sqlx::AssertSqlSafe(format!(
-        "UPDATE admission_applications AS a SET stage_id = $2, admitted_on = CASE WHEN $4 THEN COALESCE(admitted_on, CURRENT_DATE) ELSE admitted_on END,
+        "UPDATE admission_applications AS a SET stage_id = $2,
+                admitted_on = CASE WHEN $4 THEN COALESCE(admitted_on, CURRENT_DATE) ELSE admitted_on END,
+                test_date = CASE WHEN $6 = 'test_scheduled' THEN COALESCE(test_date, CURRENT_DATE) ELSE test_date END,
+                interview_date = CASE WHEN $6 = 'interviewed' THEN COALESCE(interview_date, CURRENT_DATE) ELSE interview_date END,
+                offer_date = CASE WHEN $6 = 'offered' THEN COALESCE(offer_date, CURRENT_DATE) ELSE offer_date END,
                 updated_at = now(), updated_by = $3, hlc = $5
          WHERE a.id = $1 RETURNING {APP_COLS}"
     )))
@@ -674,6 +678,7 @@ pub async fn move_stage(
     .bind(actor.user_id)
     .bind(to.kind() == StageKind::Admitted)
     .bind(hlc.now().to_string())
+    .bind(&to.code)
     .fetch_one(&mut *conn)
     .await?;
     audit::record(

@@ -141,6 +141,68 @@ fn check_names<'a>(
     }
 }
 
+/// Teachers get a friendlier check than the other lists: a clashing short name comes with
+/// a suggested unique one, and two teachers who share a full name are only a warning when
+/// their short names already tell them apart (initials collide often in a large staff room).
+fn check_teacher_names<'a>(out: &mut Vec<Issue>, items: impl Iterator<Item = (&'a str, &'a str)> + Clone) {
+    let mut shorts: HashSet<String> = HashSet::new();
+    let mut seen_names: Vec<(String, String)> = Vec::new();
+    let all_shorts: HashSet<String> = items.clone().map(|(_, s)| s.trim().to_lowercase()).collect();
+    for (name, short) in items {
+        let n = name.trim();
+        if n.is_empty() {
+            out.push(err("A teacher has no name. Please enter one or delete it.".into()));
+            continue;
+        }
+        let s = short.trim();
+        if s.is_empty() {
+            out.push(err(format!("The teacher \"{n}\" needs a short name.")));
+        } else if !shorts.insert(s.to_lowercase()) {
+            let suggestion = suggest_short_name(n, &all_shorts);
+            out.push(err(format!(
+                "The short name \"{s}\" is used by more than one teacher. Try \"{suggestion}\" for {n}."
+            )));
+        }
+        if let Some((_, other)) = seen_names.iter().find(|(k, _)| k == &n.to_lowercase()) {
+            if s.is_empty() || other.eq_ignore_ascii_case(s) {
+                out.push(err(format!("There are two teachers called \"{n}\". Names must be different.")));
+            } else {
+                out.push(Issue {
+                    level: "warning".into(),
+                    message: format!(
+                        "There are two teachers called \"{n}\" ({other} and {s}). Their short names tell them apart; check that both are really different people."
+                    ),
+                });
+            }
+        }
+        seen_names.push((n.to_lowercase(), s.to_string()));
+    }
+}
+
+/// A short name for `name` that no one in `taken` (lower-cased) uses yet: the initials, then
+/// the initials with more letters of the last word ("AH" → "AHu" → "AHus"), then a number.
+pub fn suggest_short_name(name: &str, taken: &HashSet<String>) -> String {
+    let words: Vec<&str> = name.split_whitespace().collect();
+    let initials: String = words.iter().filter_map(|w| w.chars().next()).take(3).collect::<String>().to_uppercase();
+    let base = if initials.is_empty() { name.chars().take(3).collect::<String>().to_uppercase() } else { initials };
+    let free = |c: &str| !taken.contains(&c.to_lowercase());
+    if free(&base) {
+        return base;
+    }
+    if let Some(last) = words.last() {
+        let prefix: String = words[..words.len() - 1].iter().filter_map(|w| w.chars().next()).take(2).collect::<String>().to_uppercase();
+        let rest: Vec<char> = last.chars().collect();
+        for n in 2..=rest.len().min(4) {
+            let mut c = prefix.clone();
+            c.extend(rest[..n].iter());
+            if free(&c) {
+                return c;
+            }
+        }
+    }
+    (2..1000).map(|n| format!("{base}{n}")).find(|c| free(c)).unwrap_or(base)
+}
+
 fn err(message: String) -> Issue {
     Issue { level: "error".into(), message }
 }
@@ -151,7 +213,7 @@ impl MasterData {
         let enabled: HashSet<&str> = shifts.iter().filter(|s| s.enabled).map(|s| s.id.as_str()).collect();
 
         check_names(&mut out, "subject", self.subjects.iter().map(|x| (x.name.as_str(), x.short_name.as_str())));
-        check_names(&mut out, "teacher", self.teachers.iter().map(|x| (x.name.as_str(), x.short_name.as_str())));
+        check_teacher_names(&mut out, self.teachers.iter().map(|x| (x.name.as_str(), x.short_name.as_str())));
         check_names(&mut out, "class", self.classes.iter().map(|x| (x.name.as_str(), x.short_name.as_str())));
         check_names(&mut out, "room", self.rooms.iter().map(|x| (x.name.as_str(), x.short_name.as_str())));
 
@@ -233,6 +295,36 @@ mod tests {
         let m = msgs(&s);
         assert!(m.iter().any(|x| x.contains("two subjects called")));
         assert!(m.iter().any(|x| x.contains("has no name")));
+    }
+
+    #[test]
+    fn clashing_teacher_initials_get_a_suggestion_and_same_names_warn_when_codes_differ() {
+        let mut s = SchoolSetup::default_new("T");
+        for (id, n, c) in [("a", "Ayesha Hussain", "AH"), ("b", "Ali Hassan", "AH"), ("c", "Danish Khan", "DK"), ("d", "Danish Khan", "DKh")] {
+            s.master.teachers.push(Teacher { id: id.into(), name: n.into(), short_name: c.into(), shifts: vec!["morning".into()], ..Default::default() });
+        }
+        let issues = s.validate();
+        let errors: Vec<&str> = issues.iter().filter(|i| i.level == "error").map(|i| i.message.as_str()).collect();
+        let warnings: Vec<&str> = issues.iter().filter(|i| i.level == "warning").map(|i| i.message.as_str()).collect();
+        assert_eq!(errors, ["The short name \"AH\" is used by more than one teacher. Try \"AHa\" for Ali Hassan."]);
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert!(warnings[0].contains("two teachers called \"Danish Khan\" (DK and DKh)"), "{}", warnings[0]);
+
+        // Same name and same code is still an error.
+        s.master.teachers[3].short_name = "DK".into();
+        let m = msgs(&s);
+        assert!(m.iter().any(|x| x == "There are two teachers called \"Danish Khan\". Names must be different."), "{m:?}");
+    }
+
+    #[test]
+    fn suggested_short_names_are_unique() {
+        let taken: HashSet<String> = ["ah", "ahu", "ahus", "ahuss", "dk"].iter().map(|s| s.to_string()).collect();
+        assert_eq!(suggest_short_name("Ayesha Hussain", &taken), "AH2");
+        assert_eq!(suggest_short_name("Ali Hassan", &taken), "AHa");
+        assert_eq!(suggest_short_name("Danish Khan", &taken), "DKh");
+        assert_eq!(suggest_short_name("Sana", &taken), "S");
+        assert_eq!(suggest_short_name("Muhammad Ali Raza Shah", &taken), "MAR");
+        assert_eq!(suggest_short_name("Ayesha Hussain", &HashSet::new()), "AH");
     }
 
     #[test]

@@ -80,6 +80,8 @@ export interface SetupResponse {
   admin_user_id: string;
   /** Shown exactly once. */
   recovery_key: string;
+  /** Plain-language notes about anything setup could not do (demo load only; usually empty). */
+  notes?: string[];
 }
 
 export interface UserSummary {

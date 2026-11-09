@@ -370,18 +370,21 @@ pub struct ResetPasswordBody {
     pub password: String,
 }
 
+/// Every login role a school can give (the parent role is Nexus-only). The message lists
+/// them so a client that sends an unknown code sees the accepted ones.
 pub(crate) fn role_code(code: &str) -> ApiResult<RoleCode> {
-    match code.trim().to_lowercase().as_str() {
-        "principal" => Ok(RoleCode::Principal),
-        "admin" => Ok(RoleCode::Admin),
-        "accountant" => Ok(RoleCode::Accountant),
-        "teacher" => Ok(RoleCode::Teacher),
-        "librarian" => Ok(RoleCode::Librarian),
-        "storekeeper" => Ok(RoleCode::StoreKeeper),
-        _ => Err(ApiError::validation(
-            "Role must be principal, admin, accountant or teacher.",
-        )),
-    }
+    let wanted = code.trim().to_lowercase();
+    login_roles().find(|r| r.code() == wanted).ok_or_else(|| {
+        let codes: Vec<&str> = login_roles().map(RoleCode::code).collect();
+        ApiError::validation(format!("Role must be one of: {}.", codes.join(", ")))
+    })
+}
+
+fn login_roles() -> impl Iterator<Item = RoleCode> {
+    RoleCode::ALL
+        .iter()
+        .copied()
+        .filter(|r| *r != RoleCode::Parent)
 }
 
 fn check_username(username: &str) -> ApiResult<()> {

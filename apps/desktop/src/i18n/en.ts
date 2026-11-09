@@ -199,9 +199,10 @@ export const en = {
     "This key can unlock your backups if the backup password is lost. It is shown only once. Print it or write it down and keep it somewhere safe.",
   "setup.done.ack": "I have saved the recovery key in a safe place.",
   "setup.done.go": "Go to login",
+  "setup.done.notes": "Some demo data could not be loaded",
   "setup.demo.title": "Just evaluating? Load the demo school",
   "setup.demo.body":
-    "Fills Madrasa with a made-up school (DEMO School: about 1,200 students, 120 staff, a year of fees, attendance and marks). Every screen shows a DEMO banner. Not for a real school.",
+    "Fills Madrasa with a made-up school (DEMO School: about 1,200 students, 120 staff, fees and attendance up to this month, and marks). Every screen shows a DEMO banner. Not for a real school.",
   "setup.demo.choose": "Load the demo school instead",
   "setup.demo.formHint":
     "Choose the administrator login and backup password for this evaluation install. Loading takes a minute or two.",

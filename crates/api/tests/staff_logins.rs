@@ -271,6 +271,7 @@ async fn admin_creates_disables_and_resets_staff_logins_with_roles_enforced() {
         json!({ "username": "s!", "password": "teacher-password-1", "role": "teacher" }),
         json!({ "username": "sana", "password": "short", "role": "teacher" }),
     ] {
+        let bad_role = bad["role"] == "owner";
         let (s, e) = app
             .post(&format!("/staff/{staff_id}/login"), &admin, bad)
             .await;
@@ -279,6 +280,13 @@ async fn admin_creates_disables_and_resets_staff_logins_with_roles_enforced() {
             (StatusCode::BAD_REQUEST, Some("validation")),
             "{e}"
         );
+        if bad_role {
+            assert_eq!(
+                e["error"]["message"],
+                "Role must be one of: principal, admin, accountant, teacher, librarian, storekeeper.",
+                "{e}"
+            );
+        }
     }
     let (s, v) = app
         .post(

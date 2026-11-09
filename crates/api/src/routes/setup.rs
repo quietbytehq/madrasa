@@ -109,6 +109,8 @@ pub struct SetupResponse {
     pub admin_user_id: Uuid,
     /// Shown exactly once; never stored.
     pub recovery_key: String,
+    /// Plain-language notes about anything setup could not do (demo load only; usually empty).
+    pub notes: Vec<String>,
 }
 
 pub fn router() -> Router<AppState> {
@@ -343,6 +345,7 @@ async fn run_demo_setup(
         school_id: school.id,
         admin_user_id: admin.id,
         recovery_key: backup.recovery_key,
+        notes: report.standard.notes.clone(),
     }))
 }
 
@@ -510,6 +513,7 @@ async fn run_setup(
         school_id: school.id,
         admin_user_id: admin.id,
         recovery_key: backup.recovery_key,
+        notes: Vec::new(),
     }))
 }
 

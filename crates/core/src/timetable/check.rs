@@ -103,9 +103,8 @@ pub fn run(s: &SchoolSetup) -> CheckReport {
 
     // 0. Basic setup problems come first: the other checks assume they are fixed.
     for i in s.validate() {
-        if i.level == "error" {
-            out.push(finding("error", "setup", "Setup problem".into(), i.message, "Fix this in the step it belongs to."));
-        }
+        let title = if i.level == "error" { "Setup problem" } else { "Setup note" };
+        out.push(finding(&i.level, "setup", title.into(), i.message, "Fix this in the step it belongs to."));
     }
 
     // 1 + 2. Class and teacher volume.

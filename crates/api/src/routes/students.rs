@@ -122,6 +122,8 @@ async fn load_scoped(
 #[derive(Debug, Deserialize)]
 pub struct ListQuery {
     pub q: Option<String>,
+    /// Alias of `q` for clients that send `search`.
+    pub search: Option<String>,
     pub class_id: Option<Uuid>,
     pub section_id: Option<Uuid>,
     pub status: Option<String>,
@@ -155,7 +157,7 @@ async fn list(
         }
     };
     let filter = StudentFilter {
-        q: q.q,
+        q: q.q.clone().or(q.search.clone()),
         class_id: q.class_id,
         section_id: q.section_id,
         status: q.status,

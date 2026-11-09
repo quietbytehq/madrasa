@@ -158,10 +158,19 @@ async fn student(app: &App, admin: &str, name: &str, section: &str, roll: i32) -
 async fn lite_refuses_the_hostel() {
     let app = app!();
     let admin = setup_school(&app).await;
-    for path in ["/hostel/hostels", "/hostel/residents", "/hostel/register"] {
+    for path in [
+        "/hostel/hostels",
+        "/hostel/residents",
+        "/hostel/register",
+        // A bad query string must not turn the edition refusal into a validation error.
+        "/hostel/residents?academic_year_id=not-a-uuid",
+        "/hostel/board?academic_year_id=nope",
+        "/hostel/allocations?student_id=x",
+        "/hostel/register?from=yesterday",
+    ] {
         let (s, b) = app.get(path, &admin).await;
         assert_eq!(s, StatusCode::FORBIDDEN, "{path}: {b}");
-        assert_eq!(b["error"]["code"], "feature_unavailable");
+        assert_eq!(b["error"]["code"], "feature_unavailable", "{path}: {b}");
     }
     let (s, b) = app.get("/reports", &admin).await;
     assert_eq!(s, StatusCode::OK, "{b}");
@@ -485,6 +494,85 @@ async fn standard_runs_rooms_allocations_register_fees_and_reports() {
         .await;
     assert_eq!(s, StatusCode::OK, "{out}");
     assert_eq!(out["groups"][0]["rows"].as_array().unwrap().len(), 2);
+
+    // A boys' hostel takes boys only; a girls' hostel takes girls only; mixed takes anyone.
+    let (s, hina) = app
+        .post(
+            "/students",
+            &admin,
+            json!({ "full_name": "Hina Baig", "father_name": "Father", "date_of_birth": "2015-01-01", "gender": "female",
+                    "admission_date": "2026-04-01", "section_id": section_id, "roll_no": 9 }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::CREATED, "{hina}");
+    let hina = id(&hina["id"]);
+    let (s, r3) = app
+        .post(
+            &format!("/hostel/hostels/{hostel_id}/rooms"),
+            &admin,
+            json!({ "floor": "Ground", "name": "G-2", "beds": 2 }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::CREATED, "{r3}");
+    let r3 = id(&r3["id"]);
+    let (s, b) = app
+        .post(
+            "/hostel/allocations",
+            &admin,
+            json!({ "student_id": hina, "academic_year_id": year_id, "room_id": r3, "bed_no": 1, "from_date": "2026-04-01" }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::CONFLICT, "girl in a boys' hostel: {b}");
+    assert!(
+        b["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("boys' hostel"),
+        "{b}"
+    );
+    // The empty room goes again, so the board below counts the three original beds.
+    let (s, _) = app.delete(&format!("/hostel/rooms/{r3}"), &admin).await;
+    assert_eq!(s, StatusCode::NO_CONTENT);
+    let (s, girls) = app
+        .post(
+            "/hostel/hostels",
+            &admin,
+            json!({ "name": "Fatima House", "kind": "girls", "warden_name": "Ms Rubina", "monthly_fee": "8000" }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::CREATED, "{girls}");
+    let (s, gr) = app
+        .post(
+            &format!("/hostel/hostels/{}/rooms", id(&girls["id"])),
+            &admin,
+            json!({ "floor": "Ground", "name": "G-1", "beds": 2 }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::CREATED, "{gr}");
+    let gr = id(&gr["id"]);
+    let (s, b) = app
+        .post(
+            "/hostel/allocations",
+            &admin,
+            json!({ "student_id": hina, "academic_year_id": year_id, "room_id": gr, "bed_no": 1, "from_date": "2026-04-01" }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::CREATED, "{b}");
+    let (s, b) = app
+        .post(
+            "/hostel/allocations",
+            &admin,
+            json!({ "student_id": omar, "academic_year_id": year_id, "room_id": gr, "bed_no": 2, "from_date": "2026-04-01" }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::CONFLICT, "boy in a girls' hostel: {b}");
+    assert!(
+        b["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("girls' hostel"),
+        "{b}"
+    );
 
     // Back on Lite the module is refused.
     let (s, _) = app

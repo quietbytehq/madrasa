@@ -2,6 +2,7 @@
 //! allocated per year, and the leave-out / visitor register. Every route needs the `hostel`
 //! feature and `hostel.read`; changes need `hostel.manage`.
 
+use axum::extract::rejection::QueryRejection;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::routing::{get, post, put};
@@ -249,9 +250,11 @@ pub struct Board {
 async fn board(
     State(state): State<AppState>,
     user: CurrentUser,
-    Query(q): Query<BoardQuery>,
+    // The edition check runs before the query is parsed (see `gate`).
+    q: Result<Query<BoardQuery>, QueryRejection>,
 ) -> ApiResult<Json<Board>> {
     gate(&state, &user, false)?;
+    let Query(q) = q?;
     let mut c = state.pool.acquire().await?;
     let school = user.user.school_id;
     let hostel = owned_hostel(&mut c, &user, q.hostel_id).await?;
@@ -286,9 +289,11 @@ pub struct ResidentsQuery {
 async fn residents(
     State(state): State<AppState>,
     user: CurrentUser,
-    Query(q): Query<ResidentsQuery>,
+    // The edition check runs before the query is parsed (see `gate`).
+    q: Result<Query<ResidentsQuery>, QueryRejection>,
 ) -> ApiResult<Json<Vec<AllocationView>>> {
     gate(&state, &user, false)?;
+    let Query(q) = q?;
     let mut c = state.pool.acquire().await?;
     let school = user.user.school_id;
     let year = year_or_active(&mut c, school, q.academic_year_id).await?;
@@ -322,9 +327,11 @@ pub struct AllocationQuery {
 async fn list_allocations(
     State(state): State<AppState>,
     user: CurrentUser,
-    Query(q): Query<AllocationQuery>,
+    // The edition check runs before the query is parsed (see `gate`).
+    q: Result<Query<AllocationQuery>, QueryRejection>,
 ) -> ApiResult<Json<Vec<AllocationView>>> {
     gate(&state, &user, false)?;
+    let Query(q) = q?;
     let mut c = state.pool.acquire().await?;
     Ok(Json(
         repo::list_allocations(
@@ -417,9 +424,11 @@ pub struct RegisterQuery {
 async fn list_register(
     State(state): State<AppState>,
     user: CurrentUser,
-    Query(q): Query<RegisterQuery>,
+    // The edition check runs before the query is parsed (see `gate`).
+    q: Result<Query<RegisterQuery>, QueryRejection>,
 ) -> ApiResult<Json<Vec<RegisterView>>> {
     gate(&state, &user, false)?;
+    let Query(q) = q?;
     let mut c = state.pool.acquire().await?;
     Ok(Json(
         repo::list_register(

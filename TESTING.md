@@ -1,4 +1,4 @@
-# Testing Madrasa Lite v0.1.0-alpha
+# Testing Madrasa v0.3.1-alpha (Lite and Standard)
 
 Thank you for trying Madrasa. This is an early build for a small group of testers. It is
 not ready for a school's real records yet: use made-up data, expect rough edges, and tell us
@@ -15,9 +15,9 @@ Download the file for your computer from the release page (the "Assets" list):
 
 | Computer | File |
 | --- | --- |
-| Windows 10/11 (64-bit) | `Madrasa_0.1.0_x64-setup.exe` |
-| Debian 12/13, Ubuntu 22.04+, Linux Mint 21+ | `Madrasa_0.1.0_amd64.deb` |
-| Any other 64-bit Linux from 2022 or later | `Madrasa_0.1.0_amd64.AppImage` |
+| Windows 10/11 (64-bit) | `Madrasa_0.3.1_x64-setup.exe` |
+| Debian 12/13, Ubuntu 22.04+, Linux Mint 21+ | `Madrasa_0.3.1_amd64.deb` |
+| Any other 64-bit Linux from 2022 or later | `Madrasa_0.3.1_amd64.AppImage` |
 
 ### Windows
 
@@ -35,7 +35,7 @@ Download the file for your computer from the release page (the "Assets" list):
 Open a terminal in the folder with the downloaded file and run:
 
 ```bash
-sudo apt install ./Madrasa_0.1.0_amd64.deb
+sudo apt install ./Madrasa_0.3.1_amd64.deb
 ```
 
 Then start **Madrasa** from your applications menu, or run `madrasa` in a terminal.
@@ -43,10 +43,10 @@ Then start **Madrasa** from your applications menu, or run `madrasa` in a termin
 ### Linux (AppImage: any distribution)
 
 1. Right-click the `.AppImage` file → Properties → Permissions → tick **Allow executing
-   file as program** (or run `chmod +x Madrasa_0.1.0_amd64.AppImage`).
+   file as program** (or run `chmod +x Madrasa_0.3.1_amd64.AppImage`).
 2. Double-click the file. If nothing happens, open a terminal in that folder and run
-   `./Madrasa_0.1.0_amd64.AppImage`; if it complains about FUSE, run
-   `./Madrasa_0.1.0_amd64.AppImage --appimage-extract-and-run` instead.
+   `./Madrasa_0.3.1_amd64.AppImage`; if it complains about FUSE, run
+   `./Madrasa_0.3.1_amd64.AppImage --appimage-extract-and-run` instead.
 
 ### Where Madrasa keeps its files
 
