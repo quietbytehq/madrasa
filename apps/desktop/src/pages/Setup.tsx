@@ -156,6 +156,7 @@ export function Setup() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [recoveryKey, setRecoveryKey] = useState<string | null>(null);
+  const [setupNotes, setSetupNotes] = useState<string[]>([]);
   const [acknowledged, setAcknowledged] = useState(false);
   const [demo, setDemo] = useState<{ username: string; password: string; backup: string } | null>(
     null,
@@ -181,6 +182,7 @@ export function Setup() {
         backup_password: demo.backup,
       });
       setRecoveryKey(res.recovery_key);
+      setSetupNotes(res.notes ?? []);
       markCompleted();
       setStep(4);
     } catch (err) {
@@ -565,6 +567,19 @@ export function Setup() {
                 </output>
               </div>
             </div>
+            {setupNotes.length > 0 && (
+              <div
+                role="status"
+                className="mt-4 rounded-md border border-warning/40 bg-warning-bg p-3 text-sm text-text print:hidden"
+              >
+                <div className="font-semibold">{t("setup.done.notes")}</div>
+                <ul className="mt-1 list-disc ps-5">
+                  {setupNotes.map((n) => (
+                    <li key={n}>{n}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <div className="mt-4 flex flex-col gap-3 print:hidden">
               <Button
                 type="button"

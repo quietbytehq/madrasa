@@ -125,11 +125,22 @@ impl IntoResponse for ApiError {
     }
 }
 
+/// A conflict message as one sentence: rule messages from the core crate already end with a
+/// full stop, database ones do not, so add one only where it is missing (no "..").
+fn sentence(msg: &str) -> String {
+    let msg = msg.trim_end();
+    if msg.ends_with(['.', '!', '?']) {
+        msg.to_string()
+    } else {
+        format!("{msg}.")
+    }
+}
+
 impl From<madrasa_db::DbError> for ApiError {
     fn from(err: madrasa_db::DbError) -> Self {
         use madrasa_db::DbError;
         match err {
-            DbError::Conflict(msg) => ApiError::conflict(format!("{msg}.")),
+            DbError::Conflict(msg) => ApiError::conflict(sentence(&msg)),
             DbError::NotFound(what) => ApiError::not_found(&what),
             DbError::Sqlx(e) => {
                 tracing::error!(error = %e, "database error");
@@ -159,9 +170,33 @@ impl From<madrasa_core::password::PasswordError> for ApiError {
     }
 }
 
+/// Rejection for malformed query strings, mapped to the standard error shape.
+impl From<axum::extract::rejection::QueryRejection> for ApiError {
+    fn from(err: axum::extract::rejection::QueryRejection) -> Self {
+        ApiError::validation(format!("Invalid query: {}", err.body_text()))
+    }
+}
+
 /// Rejection for malformed JSON bodies, mapped to the standard error shape.
 impl From<axum::extract::rejection::JsonRejection> for ApiError {
     fn from(err: axum::extract::rejection::JsonRejection) -> Self {
         ApiError::validation(format!("Invalid request body: {}", err.body_text()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn conflict_messages_end_with_exactly_one_full_stop() {
+        assert_eq!(sentence("bed 2 is taken"), "bed 2 is taken.");
+        assert_eq!(
+            sentence("An overdue book cannot be renewed; return it and pay the fine."),
+            "An overdue book cannot be renewed; return it and pay the fine."
+        );
+        assert_eq!(sentence("Really? "), "Really?");
+        let e: ApiError = madrasa_db::DbError::Conflict("The dates overlap.".into()).into();
+        assert_eq!(e.message, "The dates overlap.");
     }
 }

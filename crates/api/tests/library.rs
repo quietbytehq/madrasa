@@ -63,6 +63,9 @@ impl App {
     async fn put(&self, p: &str, t: &str, b: Value) -> (StatusCode, Value) {
         self.call(Method::PUT, p, Some(t), Some(b)).await
     }
+    async fn patch(&self, p: &str, t: &str, b: Value) -> (StatusCode, Value) {
+        self.call(Method::PATCH, p, Some(t), Some(b)).await
+    }
     async fn get_bytes(&self, p: &str, t: &str) -> (StatusCode, String, Vec<u8>) {
         let req = Request::builder()
             .method(Method::GET)
@@ -221,6 +224,28 @@ async fn standard_runs_the_desk_fines_and_reports() {
         .await;
     assert!(s.is_success(), "{b}");
     let lib = app.login("zara", "lib-password-1").await;
+    // The users API takes every role code too: a store keeper login via /users.
+    let (_, sk) = app
+        .post("/staff", &admin, json!({ "full_name": "Bilal Store" }))
+        .await;
+    let (s, b) = app
+        .post(
+            "/users",
+            &admin,
+            json!({ "staff_id": sk["id"], "username": "bilal", "password": "store-password-1", "role": "storekeeper" }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    assert_eq!(b["roles"], json!(["storekeeper"]), "{b}");
+    let (s, b) = app
+        .patch(
+            &format!("/users/{}", id(&b["id"])),
+            &admin,
+            json!({ "role": "librarian" }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    assert_eq!(b["roles"], json!(["librarian"]), "{b}");
     let (_, me) = app.get("/auth/me", &lib).await;
     assert!(
         me["permissions"]
@@ -407,6 +432,10 @@ async fn standard_runs_the_desk_fines_and_reports() {
         .post(&format!("/library/loans/{loan2}/renew"), &lib, json!({}))
         .await;
     assert_eq!(s, StatusCode::CONFLICT, "{b}");
+    assert_eq!(
+        b["error"]["message"], "An overdue book cannot be renewed; return it and pay the fine.",
+        "one full stop, not two: {b}"
+    );
     // A fresh loan to Sana (staff: 30 days, 2 renewals) renews.
     let (s, p) = app
         .post(
@@ -576,5 +605,161 @@ async fn standard_runs_the_desk_fines_and_reports() {
     assert_eq!(s, StatusCode::OK);
     let (s, _) = app.get("/library/loans", &lib).await;
     assert_eq!(s, StatusCode::FORBIDDEN);
+    app.finish().await;
+}
+
+/// B-2 (v0.3.0 test report): a fine settled through a fee head joins the student's voucher
+/// for the month when there already is one, instead of opening a second voucher.
+#[tokio::test]
+async fn a_fine_settled_via_a_fee_head_joins_the_existing_voucher_for_the_month() {
+    use chrono::{Datelike, Duration, Local};
+    let app = app!();
+    let admin = setup_school(&app).await;
+    let (s, b) = app
+        .put(
+            "/settings/edition",
+            &admin,
+            json!({ "edition": "standard" }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    // An academic year around today, so this month's voucher can be generated.
+    let today = Local::now().date_naive();
+    let start_year = if today.month() >= 4 {
+        today.year()
+    } else {
+        today.year() - 1
+    };
+    let (s, year) = app
+        .post(
+            "/academic-years",
+            &admin,
+            json!({ "start_year": start_year, "start_month": 4, "activate": true }),
+        )
+        .await;
+    assert!(s.is_success(), "{year}");
+    let year_id = id(&year["id"]);
+    let (_, class) = app
+        .post("/classes", &admin, json!({ "name": "9", "level": 9 }))
+        .await;
+    let (_, section) = app
+        .post(
+            "/sections",
+            &admin,
+            json!({ "class_id": class["id"], "academic_year_id": year_id, "name": "A" }),
+        )
+        .await;
+    let (s, ali) = app
+        .post(
+            "/students",
+            &admin,
+            json!({ "full_name": "Ali Khan", "father_name": "Father", "date_of_birth": "2015-01-01", "gender": "male",
+                    "admission_date": format!("{start_year}-04-01"), "section_id": section["id"], "roll_no": 1 }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::CREATED, "{ali}");
+    let ali = id(&ali["id"]);
+    // Tuition 2500 a month; this month's voucher exists before any fine.
+    let (s, tuition) = app
+        .post(
+            "/fees/heads",
+            &admin,
+            json!({ "name": "Tuition", "code": "TUI", "is_recurring": true }),
+        )
+        .await;
+    assert!(s.is_success(), "{tuition}");
+    let (s, b) = app
+        .put(
+            "/fees/structure",
+            &admin,
+            json!({ "academic_year_id": year_id, "class_id": class["id"], "lines": [{ "fee_head_id": tuition["id"], "amount": "2500" }] }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    let (s, b) = app
+        .post(
+            "/fees/vouchers/generate",
+            &admin,
+            json!({ "month": today.format("%Y-%m-01").to_string() }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    let (s, v) = app
+        .get(&format!("/fees/vouchers?student_id={ali}"), &admin)
+        .await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    assert_eq!(v.as_array().unwrap().len(), 1, "{v}");
+    let voucher_id = id(&v[0]["id"]);
+    assert_eq!(num(&v[0]["total_due"]), 2500.0);
+    // Library: fines go to the "Library fine" head; a book 20 days out at 5 a day is 30 late.
+    let (s, head) = app
+        .post(
+            "/fees/heads",
+            &admin,
+            json!({ "name": "Library fine", "code": "LIB", "is_recurring": false }),
+        )
+        .await;
+    assert!(s.is_success(), "{head}");
+    let (_, settings) = app.get("/library/settings", &admin).await;
+    let (s, b) = app
+        .put(
+            "/library/settings",
+            &admin,
+            json!({ "rules": { "student": { "max_books": 2, "loan_days": 14, "fine_per_day": 5, "max_renewals": 1 },
+                                "staff": settings["rules"]["staff"] },
+                    "fine_fee_head_id": head["id"] }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    let (s, b) = app
+        .post(
+            "/library/books",
+            &admin,
+            json!({ "title": "Physics", "accession_nos": ["A-001"] }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::CREATED, "{b}");
+    let issued = today - Duration::days(20);
+    let (s, p) = app
+        .post(
+            "/library/loans",
+            &admin,
+            json!({ "accession_no": "A-001", "member_kind": "student", "member_id": ali, "issued_on": issued.to_string() }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::CREATED, "{p}");
+    let loan = id(&p["loans"][0]["id"]);
+    let (s, r) = app
+        .post(
+            &format!("/library/loans/{loan}/return"),
+            &admin,
+            json!({ "returned_on": today.to_string() }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{r}");
+    assert_eq!(num(&r["fine"]), 30.0);
+    let (s, st) = app
+        .post(&format!("/library/loans/{loan}/settle"), &admin, json!({}))
+        .await;
+    assert_eq!(s, StatusCode::OK, "{st}");
+    assert_eq!(
+        id(&st["voucher_id"]),
+        voucher_id,
+        "joined, not a new voucher: {st}"
+    );
+    let (s, v) = app
+        .get(&format!("/fees/vouchers?student_id={ali}"), &admin)
+        .await;
+    assert_eq!(s, StatusCode::OK, "{v}");
+    assert_eq!(v.as_array().unwrap().len(), 1, "still one voucher: {v}");
+    assert_eq!(num(&v[0]["total_due"]), 2530.0);
+    let (s, d) = app
+        .get(&format!("/fees/vouchers/{voucher_id}"), &admin)
+        .await;
+    assert_eq!(s, StatusCode::OK, "{d}");
+    let lines = d["lines"].as_array().unwrap();
+    assert_eq!(lines.len(), 2, "{d}");
+    assert_eq!(num(&lines[1]["amount"]), 30.0, "{d}");
+    assert_eq!(lines[1]["fee_head_id"], head["id"], "{d}");
     app.finish().await;
 }

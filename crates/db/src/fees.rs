@@ -232,6 +232,110 @@ pub async fn create_one_off_voucher(
     Ok(voucher)
 }
 
+/// Add a one-off line to the student's voucher for the month of `issue_date` (any voucher
+/// that is not cancelled), as transport and hostel charges do; when the student has none,
+/// a one-off voucher is created. Returns the voucher and whether it was created.
+#[allow(clippy::too_many_arguments)]
+pub async fn add_to_month_voucher(
+    conn: &mut PgConnection,
+    hlc: &Hlc,
+    actor: Actor,
+    school_id: Uuid,
+    student_id: Uuid,
+    academic_year_id: Uuid,
+    section_id: Option<Uuid>,
+    issue_date: NaiveDate,
+    fee_head_id: Uuid,
+    description: &str,
+    amount: Decimal,
+) -> DbResult<(FeeVoucher, bool)> {
+    if amount <= Decimal::ZERO || fees::money(amount) != amount {
+        return Err(DbError::Conflict(
+            "the amount must be positive with at most two decimals".into(),
+        ));
+    }
+    let billing_month =
+        NaiveDate::from_ymd_opt(issue_date.year(), issue_date.month(), 1).unwrap_or(issue_date);
+    let existing = sqlx::query_as::<_, FeeVoucher>(
+        "SELECT * FROM fee_vouchers WHERE student_id = $1 AND billing_month = $2 AND status <> 'cancelled' AND deleted_at IS NULL
+         ORDER BY created_at LIMIT 1",
+    )
+    .bind(student_id)
+    .bind(billing_month)
+    .fetch_optional(&mut *conn)
+    .await?;
+    let Some(before) = existing else {
+        let v = create_one_off_voucher(
+            conn,
+            hlc,
+            actor,
+            school_id,
+            student_id,
+            academic_year_id,
+            section_id,
+            issue_date,
+            fee_head_id,
+            description,
+            amount,
+        )
+        .await?;
+        return Ok((v, true));
+    };
+    let head = get_head(&mut *conn, fee_head_id).await?;
+    if head.school_id != school_id {
+        return Err(DbError::NotFound("fee head".into()));
+    }
+    let position: i32 = sqlx::query_scalar(
+        "SELECT coalesce(max(position), -1) + 1 FROM fee_voucher_lines WHERE voucher_id = $1 AND deleted_at IS NULL",
+    )
+    .bind(before.id)
+    .fetch_one(&mut *conn)
+    .await?;
+    sqlx::query(
+        "INSERT INTO fee_voucher_lines (id, school_id, voucher_id, fee_head_id, description, amount, position, updated_by, hlc)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+    )
+    .bind(new_id())
+    .bind(school_id)
+    .bind(before.id)
+    .bind(head.id)
+    .bind(description.trim())
+    .bind(amount)
+    .bind(position)
+    .bind(actor.user_id)
+    .bind(hlc.now().to_string())
+    .execute(&mut *conn)
+    .await?;
+    let total_due = before.total_due + amount;
+    let status = VoucherStatus::derive(
+        total_due + before.late_fee - before.net_paid,
+        before.net_paid,
+    );
+    let after = sqlx::query_as::<_, FeeVoucher>(
+        "UPDATE fee_vouchers SET gross = gross + $2, net_monthly = net_monthly + $2, total_due = total_due + $2, status = $3,
+                updated_at = now(), updated_by = $4, hlc = $5 WHERE id = $1 RETURNING *",
+    )
+    .bind(before.id)
+    .bind(amount)
+    .bind(status.as_str())
+    .bind(actor.user_id)
+    .bind(hlc.now().to_string())
+    .fetch_one(&mut *conn)
+    .await?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Update,
+        "fee_voucher",
+        Some(before.id),
+        Some(serde_json::json!({ "total_due": before.total_due, "status": before.status })),
+        Some(serde_json::json!({ "total_due": after.total_due, "status": after.status, "line": description, "amount": amount, "fee_head_id": head.id })),
+    )
+    .await?;
+    Ok((after, false))
+}
+
 // ---- heads --------------------------------------------------------------------------------
 
 #[allow(clippy::too_many_arguments)]

@@ -16,6 +16,16 @@ pub fn monthly_charge(
     allocation.or(room).unwrap_or(hostel).max(Decimal::ZERO)
 }
 
+/// A boys' hostel takes boys, a girls' hostel girls, a mixed one anyone.
+pub fn gender_allowed(hostel_kind: &str, gender: &str) -> Result<(), &'static str> {
+    match (hostel_kind, gender) {
+        ("boys", "male") | ("girls", "female") | ("mixed", _) => Ok(()),
+        ("boys", _) => Err("this is a boys' hostel; the student is not recorded as male"),
+        ("girls", _) => Err("this is a girls' hostel; the student is not recorded as female"),
+        _ => Ok(()),
+    }
+}
+
 /// Beds are numbered 1..=beds within a room.
 pub fn bed_is_valid(bed_no: i32, beds: i32) -> bool {
     bed_no >= 1 && bed_no <= beds

@@ -360,6 +360,7 @@ async fn demo_school_setup_loads_sample_data_and_finishes_setup() {
         .await;
     assert_eq!(s, StatusCode::OK, "{b}");
     assert!(b["recovery_key"].as_str().unwrap().len() > 20);
+    assert_eq!(b["notes"], json!([]), "nothing was skipped: {b}");
     let (_, status) = app.call(Method::GET, "/setup/status", None, None).await;
     assert_eq!(status["needs_setup"], false);
     let admin = app.login("eval", "eval-password-1").await;

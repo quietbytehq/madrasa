@@ -1583,6 +1583,18 @@ fn initials(name: &str) -> String {
     }
 }
 
+/// Staff have no short code of their own, so teachers get their initials. Initials collide
+/// in any sizeable staff room ("AH" for Ayesha Hussain and Ali Hassan), and the engine
+/// refuses duplicates, so later clashes get more letters of the surname or a number.
+fn unique_short_names(teachers: &mut [engine::Teacher]) {
+    let mut taken: HashSet<String> = HashSet::new();
+    for t in teachers.iter_mut() {
+        let code = engine::master::suggest_short_name(&t.name, &taken);
+        taken.insert(code.to_lowercase());
+        t.short_name = code;
+    }
+}
+
 fn time_off_cells(cells: &[TimeOff]) -> Vec<engine::TimeOffCell> {
     cells
         .iter()
@@ -1728,6 +1740,7 @@ pub async fn setup_for_year(
             }
         })
         .collect();
+    unique_short_names(&mut setup.master.teachers);
     setup.master.classes = sections
         .iter()
         .map(|s| {
@@ -1950,5 +1963,26 @@ mod tests {
         assert_eq!(initials("Muhammad Ali Raza Shah"), "MAR");
         assert_eq!(short_or("Room 12", ""), "Room 12");
         assert_eq!(short_or("Room 12", " R12 "), "R12");
+    }
+
+    #[test]
+    fn colliding_teacher_initials_become_unique_codes() {
+        let mut teachers: Vec<engine::Teacher> = [
+            "Ayesha Hussain",
+            "Ali Hassan",
+            "Ayesha Hussain",
+            "Danish Khan",
+        ]
+        .iter()
+        .map(|n| engine::Teacher {
+            id: n.to_string(),
+            name: n.to_string(),
+            short_name: String::new(),
+            ..Default::default()
+        })
+        .collect();
+        unique_short_names(&mut teachers);
+        let codes: Vec<&str> = teachers.iter().map(|t| t.short_name.as_str()).collect();
+        assert_eq!(codes, ["AH", "AHa", "AHu", "DK"]);
     }
 }

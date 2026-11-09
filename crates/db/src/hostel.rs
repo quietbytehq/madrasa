@@ -590,20 +590,22 @@ pub async fn allocate(
     if input.amount.is_some_and(|a| a < Decimal::ZERO) {
         return Err(DbError::Conflict("the amount cannot be negative".into()));
     }
-    let enrolled: bool = sqlx::query_scalar(
-        "SELECT EXISTS (SELECT 1 FROM enrollments e JOIN students s ON s.id = e.student_id
-         WHERE e.student_id = $1 AND e.academic_year_id = $2 AND e.deleted_at IS NULL AND s.deleted_at IS NULL AND s.school_id = $3)",
+    let gender: Option<String> = sqlx::query_scalar(
+        "SELECT s.gender FROM enrollments e JOIN students s ON s.id = e.student_id
+         WHERE e.student_id = $1 AND e.academic_year_id = $2 AND e.deleted_at IS NULL AND s.deleted_at IS NULL AND s.school_id = $3",
     )
     .bind(input.student_id)
     .bind(input.academic_year_id)
     .bind(school_id)
-    .fetch_one(&mut *conn)
+    .fetch_optional(&mut *conn)
     .await?;
-    if !enrolled {
+    let Some(gender) = gender else {
         return Err(DbError::Conflict(
             "the student is not enrolled in that academic year".into(),
         ));
-    }
+    };
+    let hostel = get_hostel(&mut *conn, room.room.hostel_id).await?;
+    rules::gender_allowed(&hostel.hostel.kind, &gender).map_err(|m| DbError::Conflict(m.into()))?;
     let open = sqlx::query_as::<_, Allocation>(sqlx::AssertSqlSafe(format!(
         "SELECT {ALLOC_COLS} FROM hostel_allocations a
          WHERE a.student_id = $1 AND a.academic_year_id = $2 AND a.to_date IS NULL AND a.deleted_at IS NULL"
