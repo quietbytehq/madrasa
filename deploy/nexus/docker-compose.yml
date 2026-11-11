@@ -1,0 +1,69 @@
+# Madrasa Nexus hub with its own PostgreSQL.
+#
+#   cp .env.example .env        # then edit .env: set NEXUS_DB_PASSWORD at least
+#   docker compose up -d        # hub on http://127.0.0.1:4780 (this machine only)
+#   docker compose logs nexus   # the first-run setup token is printed here once
+#
+# For a real network the hub must be reached over HTTPS. Either put your own reverse proxy
+# in front of port 4780, or start the bundled Caddy, which obtains a certificate by itself:
+#
+#   docker compose --profile https up -d      # needs NEXUS_DOMAIN and ports 80 and 443
+#
+# See docs/nexus/deploy.md.
+
+name: madrasa-nexus
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nexus
+      POSTGRES_PASSWORD: ${NEXUS_DB_PASSWORD:?Set NEXUS_DB_PASSWORD in .env (letters and digits only)}
+      POSTGRES_DB: nexus
+    volumes:
+      - nexus-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexus -d nexus"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  nexus:
+    image: ${NEXUS_IMAGE:-ghcr.io/quietbytehq/madrasa-nexus:latest}
+    build:
+      context: ../..
+      dockerfile: deploy/nexus/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NEXUS_DATABASE_URL: postgres://nexus:${NEXUS_DB_PASSWORD}@db:5432/nexus
+      NEXUS_PUBLIC_URL: ${NEXUS_PUBLIC_URL:-}
+      NEXUS_SETUP_TOKEN: ${NEXUS_SETUP_TOKEN:-}
+      RUST_LOG: ${RUST_LOG:-info}
+    ports:
+      # Loopback only by default: plain HTTP must not face the internet.
+      - "${NEXUS_LISTEN:-127.0.0.1}:${NEXUS_PORT:-4780}:4780"
+
+  caddy:
+    image: caddy:2
+    profiles: ["https"]
+    restart: unless-stopped
+    depends_on:
+      - nexus
+    environment:
+      NEXUS_DOMAIN: ${NEXUS_DOMAIN:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  nexus-db:
+  caddy-data:
+  caddy-config:

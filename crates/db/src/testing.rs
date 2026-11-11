@@ -19,8 +19,18 @@ pub struct TestDb {
 }
 
 impl TestDb {
+    /// Create a fresh database without the school schema (the Nexus hub migrates its own),
+    /// or `None` when no test server is configured.
+    pub async fn empty() -> Option<TestDb> {
+        Self::create(false).await
+    }
+
     /// Create and migrate a fresh database, or `None` when no test server is configured.
     pub async fn new() -> Option<TestDb> {
+        Self::create(true).await
+    }
+
+    async fn create(migrate: bool) -> Option<TestDb> {
         let admin_url = match std::env::var(ENV_VAR) {
             Ok(v) if !v.trim().is_empty() => v,
             _ => {
@@ -43,7 +53,9 @@ impl TestDb {
             .connect(&url)
             .await
             .expect("connect test database");
-        crate::migrate(&pool).await.expect("migrate test database");
+        if migrate {
+            crate::migrate(&pool).await.expect("migrate test database");
+        }
         Some(TestDb {
             pool,
             url,

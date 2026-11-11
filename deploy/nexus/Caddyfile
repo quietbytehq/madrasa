@@ -1,0 +1,6 @@
+# Automatic HTTPS for the hub. NEXUS_DOMAIN must point at this machine and ports 80 and 443
+# must be reachable from the internet for the certificate to be issued.
+{$NEXUS_DOMAIN} {
+	encode gzip
+	reverse_proxy nexus:4780
+}

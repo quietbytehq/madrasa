@@ -1785,3 +1785,58 @@ data model and endpoints to this document when it is built. Shared decisions:
   entities (`section_teachers`, `enrollments`, new `consent_types` and `consents`), with
   every change audit-logged.
 
+## 16. Nexus hub (alpha)
+
+The design is `docs/adr/0005-nexus-hub-and-sync.md`; the stages and their acceptance are in
+`docs/TASKS-NEXUS.md`. Each stage adds its tables and endpoints here when it is built.
+
+- **A separate server.** `crates/nexus` builds `madrasa-nexus`. It has its own API under
+  `/api/nexus/v1`, its own users and its own tables; it is not an edition switch of a school
+  install. A school that has not joined a hub is unchanged.
+- **Two kinds of schema in the hub database.** The hub's own tables live in the `nexus`
+  schema (the pool sets `search_path` on every connection). Each joined school gets a schema
+  of its own holding the school tables (stage 4).
+- **Configuration** is by environment variable only: `NEXUS_DATABASE_URL` (required),
+  `NEXUS_BIND` (default `0.0.0.0:4780`) or `PORT`, `NEXUS_PUBLIC_URL`, `NEXUS_SETUP_TOKEN`,
+  `RUST_LOG`. The database URL and the setup token are never logged.
+- **Packaging.** `deploy/nexus/Dockerfile` (non-root, self health check) and
+  `deploy/nexus/docker-compose.yml` (hub, PostgreSQL 16, optional Caddy for HTTPS). See
+  `docs/nexus/deploy.md`.
+
+### 16.1 Hub tables (stage 1)
+
+All in the `nexus` schema, with UUID v7 keys and the sync columns.
+
+| Table | Purpose |
+| --- | --- |
+| `hub_users` | Head office accounts: `username` (unique, case-insensitive), `full_name`, `email`, `password_hash` (Argon2id), `permissions` (array of hub permission codes), `is_active`, lockout counters. |
+| `hub_sessions` | Session tokens (SHA-256 hash only), expiry (12 hours, sliding), `revoked_at`. |
+| `hub_settings` | Key/value: `node_id` (HLC node), `hub.name`. |
+| `hub_audit_log` | Append-only (triggers forbid UPDATE/DELETE): actor, action, entity, old and new value. Password hashes are never written to it. |
+
+Hub permissions (held per user, checked in every handler): `nexus.admin` (schools,
+invitations, hub users, the audit log), `nexus.reports` (network-wide reports),
+`nexus.escrow` (release an escrowed backup key). The hub always keeps at least one active
+user with `nexus.admin`.
+
+### 16.2 Hub endpoints (stage 1)
+
+Base path `/api/nexus/v1`; errors use the shape of §6.
+
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| GET | `/health` | none | `{ status, service: "madrasa-nexus", version, database }` |
+| GET | `/setup/status` | none | `{ needs_setup, hub_name }` |
+| POST | `/setup` | one-time setup token, only while the hub has no users | `{ setup_token, hub_name, admin_username, admin_full_name, admin_password }` creates the first administrator with every hub permission; 403 `bad_setup_token`, 409 `setup_already_done` |
+| POST | `/auth/login` | none | `{ username, password }` → `{ token, expires_at, user }`; 423 after five failures (15 minutes) |
+| POST | `/auth/logout` | session | Revokes the token |
+| GET | `/auth/me` | session | `{ user, hub_name }` |
+| GET / POST | `/users` | `nexus.admin` | List; create `{ username, full_name, email?, password, permissions[] }` |
+| PATCH | `/users/{id}` | `nexus.admin` | `{ full_name?, email?, permissions?, is_active? }`; disabling ends the user's sessions; the last active administrator cannot be disabled or lose `nexus.admin` (409) |
+| POST | `/users/{id}/password` | own account, or `nexus.admin` | Sets a new password, clears a lock, ends the user's sessions |
+| GET | `/audit` | `nexus.admin` | Hub audit log, newest first (`page`, `page_size`) |
+
+First-run setup is guarded by a one-time token: `NEXUS_SETUP_TOKEN` when set, otherwise one
+generated at start and printed once in the server log. The hub keeps only its hash and the
+token stops working when setup completes. `madrasa-nexus healthcheck` exits 0 when the local
+hub answers `/health`; the container image uses it as its health check.

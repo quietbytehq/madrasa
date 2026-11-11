@@ -1,0 +1,13 @@
+# Keep the build context small: the hub image needs the Rust workspace only.
+.git
+.github
+target
+**/target
+**/node_modules
+**/dist
+apps/desktop/src-tauri/gen
+docs
+deploy
+*.md
+!crates/**/*.md
+**/.env

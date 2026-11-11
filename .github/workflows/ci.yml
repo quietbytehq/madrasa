@@ -91,6 +91,43 @@ jobs:
       - name: Build server with bundled PostgreSQL
         run: cargo build -p madrasa-api --features embedded-postgres --bin madrasa-server
 
+  nexus-image:
+    # The hub's container: the real Dockerfile is built, the Compose stack is started and a
+    # hub is set up and logged into over HTTP.
+    name: Nexus hub image (build, Compose smoke test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - name: Build the hub image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/nexus/Dockerfile
+          tags: madrasa-nexus:ci
+          load: true
+          cache-from: type=gha,scope=nexus-image
+          cache-to: type=gha,scope=nexus-image,mode=max
+      - name: The image runs as a non-root user
+        run: test "$(docker inspect -f '{{.Config.User}}' madrasa-nexus:ci)" = "10001"
+      - name: Start the Compose stack
+        working-directory: deploy/nexus
+        env:
+          NEXUS_IMAGE: madrasa-nexus:ci
+          # Throwaway values for this job only.
+          NEXUS_DB_PASSWORD: ciOnlyDatabasePassword
+          NEXUS_SETUP_TOKEN: ci-only-setup-token
+        run: docker compose up -d --no-build --wait --wait-timeout 180
+      - name: Smoke test (health, setup, login)
+        run: scripts/nexus-smoke.sh http://127.0.0.1:4780 ci-only-setup-token
+      - name: Compose logs
+        if: always()
+        working-directory: deploy/nexus
+        env:
+          NEXUS_IMAGE: madrasa-nexus:ci
+          NEXUS_DB_PASSWORD: ciOnlyDatabasePassword
+        run: docker compose logs --no-color | tail -n 80
+
   desktop:
     name: Desktop build (${{ matrix.os }})
     needs: [frontend]

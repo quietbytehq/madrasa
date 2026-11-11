@@ -62,3 +62,14 @@ Notes
   grants plus read access to students and staff.
 - The table is checked by a unit test (`permissions::tests::matrix_matches_docs`), so it cannot
   drift from the code without failing CI.
+
+## Nexus hub
+
+The hub server (`madrasa-nexus`) has its own accounts and three permissions of its own,
+granted per hub user (docs/spec.md §16.1). They are separate from the school roles above.
+
+- `nexus.admin`: schools and invitations, hub users, the hub audit log.
+- `nexus.reports`: network-wide reports.
+- `nexus.escrow`: release an escrowed backup key.
+
+The first administrator, created at first-run setup, holds all three.
