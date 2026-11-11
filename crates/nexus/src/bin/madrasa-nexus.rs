@@ -45,6 +45,9 @@ async fn main() -> anyhow::Result<()> {
         )
     })?;
     store::migrate(&pool).await?;
+    // After an upgrade, bring every school's schema to this version.
+    let schools = madrasa_nexus::tenants::migrate_all(&pool).await?;
+    tracing::info!(schools, "school schemas are up to date");
     let (state, generated_token) = HubState::new(pool, &config).await?;
     if let Some(token) = generated_token {
         // Printed once, on purpose: the first administrator needs it to finish setup. It

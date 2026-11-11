@@ -65,6 +65,38 @@ impl TestDb {
         })
     }
 
+    /// A second database with exactly the same contents (same ids, same everything), for
+    /// tests that need two installs that cannot be told apart by their data. This database's
+    /// pool is closed first: PostgreSQL copies only a database nobody is connected to.
+    pub async fn clone_database(&self) -> TestDb {
+        self.pool.close().await;
+        let name = format!("madrasa_test_{}", uuid::Uuid::new_v4().simple());
+        let mut admin = sqlx::PgConnection::connect(&self.admin_url)
+            .await
+            .expect("connect admin");
+        sqlx::query(sqlx::AssertSqlSafe(format!(
+            "CREATE DATABASE \"{name}\" TEMPLATE \"{}\"",
+            self.name
+        )))
+        .execute(&mut admin)
+        .await
+        .expect("clone test database");
+        admin.close().await.ok();
+        let url = replace_database(&self.admin_url, &name);
+        let pool = PgPoolOptions::new()
+            .max_connections(4)
+            .connect(&url)
+            .await
+            .expect("connect cloned database");
+        TestDb {
+            pool,
+            url,
+            admin_url: self.admin_url.clone(),
+            name,
+            cleaned: false,
+        }
+    }
+
     /// Drop the database. Best effort; also attempted on drop.
     pub async fn cleanup(mut self) {
         self.cleaned = true;

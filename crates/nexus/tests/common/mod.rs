@@ -130,3 +130,281 @@ macro_rules! hub {
         }
     };
 }
+
+// ---- a school, as the hub sees one ----------------------------------------------------------
+
+use chrono::NaiveDate;
+use madrasa_core::hlc::Hlc;
+use madrasa_core::password::hash_password;
+use madrasa_core::sync::{
+    AckRequest, AckResponse, JoinRequest, Origin, PullRequest, PullResponse, PushRequest,
+    PushResponse,
+};
+use madrasa_db::models::School;
+use madrasa_db::sync::round::{self, RoundError, RoundReport, Transport, TransportError};
+use madrasa_db::{academics, schools, students, sync, users, Actor};
+use uuid::Uuid;
+
+/// A school install reduced to what matters to the hub: its database and its sync token.
+pub struct SchoolSim {
+    pub db: TestDb,
+    pub hlc: Hlc,
+    pub school: School,
+    pub token: Option<String>,
+    /// The hub's id for this membership, once joined.
+    pub school_ref: Option<Uuid>,
+}
+
+/// Fill a database with a small school: a year, a class, a user and two students.
+pub async fn seed_school(db: &TestDb, hlc: &Hlc, name: &str, code: &str) -> School {
+    let mut c = db.pool.acquire().await.unwrap();
+    let school = schools::create(
+        &mut c,
+        hlc,
+        Actor::SYSTEM,
+        schools::NewSchool {
+            name: name.into(),
+            code: code.into(),
+            city: "Karachi".into(),
+            is_demo: false,
+            academic_year_start_month: 4,
+            currency: "PKR".into(),
+            country: "PK".into(),
+            time_zone: "Asia/Karachi".into(),
+        },
+    )
+    .await
+    .unwrap();
+    let actor = Actor::system_for(school.id);
+    let (year, start, end) = academics::default_year_bounds(2026, 4).unwrap();
+    academics::create_year(
+        &mut c,
+        hlc,
+        actor,
+        academics::NewAcademicYear {
+            school_id: school.id,
+            name: year,
+            start_date: start,
+            end_date: end,
+            start_month: 4,
+        },
+    )
+    .await
+    .unwrap();
+    academics::create_class(&mut c, hlc, actor, school.id, "5", 5)
+        .await
+        .unwrap();
+    users::create(
+        &mut c,
+        hlc,
+        actor,
+        users::NewUser {
+            school_id: school.id,
+            username: "ayesha".into(),
+            full_name: "Ayesha Khan".into(),
+            email: None,
+            password_hash: hash_password("school-password-1").unwrap(),
+        },
+    )
+    .await
+    .unwrap();
+    for pupil in ["Ali Khan", "Sara Noor"] {
+        students::create(
+            &mut c,
+            hlc,
+            actor,
+            students::NewStudent {
+                school_id: school.id,
+                student_number: None,
+                legacy_id: None,
+                full_name: pupil.into(),
+                father_name: "Father".into(),
+                date_of_birth: NaiveDate::from_ymd_opt(2015, 5, 1).unwrap(),
+                gender: "male".into(),
+                cnic: None,
+                address: "".into(),
+                admission_date: NaiveDate::from_ymd_opt(2026, 4, 10).unwrap(),
+                board_roll_no: None,
+                board_registration_no: None,
+                custom: json!({}),
+            },
+        )
+        .await
+        .unwrap();
+    }
+    school
+}
+
+impl SchoolSim {
+    pub async fn new(name: &str, code: &str) -> Option<SchoolSim> {
+        let db = TestDb::new().await?;
+        let hlc = Hlc::new(0x5c);
+        let school = seed_school(&db, &hlc, name, code).await;
+        Some(SchoolSim {
+            db,
+            hlc,
+            school,
+            token: None,
+            school_ref: None,
+        })
+    }
+
+    /// The join request this school would send with a join code.
+    pub async fn join_request(&self, code: &str) -> JoinRequest {
+        let mut c = self.db.pool.acquire().await.unwrap();
+        JoinRequest {
+            join_code: code.to_string(),
+            school: sync::school_record(&mut c, self.school.id).await.unwrap(),
+            app_version: env!("CARGO_PKG_VERSION").to_string(),
+            schema_version: sync::schema_version(&mut c).await.unwrap(),
+            edition: "lite".into(),
+        }
+    }
+
+    /// Join the hub with a code. On success the school switches capture on, queues
+    /// everything it has and keeps its token.
+    pub async fn join(&mut self, hub: &Hub, code: &str) -> (StatusCode, Value) {
+        let request = self.join_request(code).await;
+        let (status, body) = hub
+            .call(Method::POST, "/join", None, Some(json!(request)))
+            .await;
+        if status == StatusCode::OK {
+            self.token = Some(body["token"].as_str().unwrap().to_string());
+            self.school_ref = Some(body["school_ref"].as_str().unwrap().parse().unwrap());
+            let mut c = self.db.pool.begin().await.unwrap();
+            sync::enable(&mut c, self.school.id, Origin::School)
+                .await
+                .unwrap();
+            sync::queue_snapshot(&mut c).await.unwrap();
+            c.commit().await.unwrap();
+        }
+        (status, body)
+    }
+
+    /// One sync round against the hub, exactly as a school's API runs it.
+    pub async fn sync(&self, hub: &Hub) -> Result<RoundReport, RoundError> {
+        let transport = RouterTransport {
+            hub,
+            token: self.token.clone().unwrap_or_default(),
+        };
+        round::run(
+            &self.db.pool,
+            &self.hlc,
+            env!("CARGO_PKG_VERSION"),
+            &transport,
+        )
+        .await
+    }
+
+    pub async fn student_names(&self) -> Vec<String> {
+        sqlx::query_scalar("SELECT full_name FROM students ORDER BY full_name")
+            .fetch_all(&self.db.pool)
+            .await
+            .unwrap()
+    }
+
+    pub async fn rename_student(&self, from: &str, to: &str) {
+        sqlx::query(
+            "UPDATE students SET full_name = $2, updated_at = now(), hlc = $3 WHERE full_name = $1",
+        )
+        .bind(from)
+        .bind(to)
+        .bind(self.hlc.now().to_string())
+        .execute(&self.db.pool)
+        .await
+        .unwrap();
+    }
+}
+
+/// Calls the hub's router as a school would over HTTP.
+pub struct RouterTransport<'a> {
+    pub hub: &'a Hub,
+    pub token: String,
+}
+
+impl RouterTransport<'_> {
+    async fn post<T: serde::de::DeserializeOwned>(
+        &self,
+        path: &str,
+        body: Value,
+    ) -> Result<T, TransportError> {
+        let (status, value) = self
+            .hub
+            .call(Method::POST, path, Some(&self.token), Some(body))
+            .await;
+        if status == StatusCode::OK {
+            return serde_json::from_value(value)
+                .map_err(|e| TransportError::Offline(e.to_string()));
+        }
+        let code = value["error"]["code"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        let message = value["error"]["message"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        if status == StatusCode::GONE {
+            Err(TransportError::Removed(message))
+        } else {
+            Err(TransportError::Refused { code, message })
+        }
+    }
+}
+
+impl Transport for RouterTransport<'_> {
+    async fn push(&self, req: PushRequest) -> Result<PushResponse, TransportError> {
+        self.post("/sync/push", json!(req)).await
+    }
+    async fn pull(&self, req: PullRequest) -> Result<PullResponse, TransportError> {
+        self.post("/sync/pull", json!(req)).await
+    }
+    async fn ack(&self, req: AckRequest) -> Result<AckResponse, TransportError> {
+        self.post("/sync/ack", json!(req)).await
+    }
+}
+
+impl Hub {
+    /// Create an invitation and return its join code.
+    pub async fn invite(&self, admin: &str, school_name: &str) -> String {
+        let (s, b) = self
+            .post("/invitations", admin, json!({ "school_name": school_name }))
+            .await;
+        assert_eq!(s, StatusCode::CREATED, "{b}");
+        b["join_code"].as_str().unwrap().to_string()
+    }
+
+    /// The register row of a school by its hub id.
+    pub async fn school_row(&self, admin: &str, id: Uuid) -> Value {
+        let (s, list) = self.get("/schools", admin).await;
+        assert_eq!(s, StatusCode::OK, "{list}");
+        list.as_array()
+            .unwrap()
+            .iter()
+            .find(|r| r["id"] == json!(id))
+            .cloned()
+            .unwrap_or(Value::Null)
+    }
+
+    /// Run a query inside one school's schema, as the hub does.
+    pub async fn in_school<T>(&self, id: Uuid, sql: &'static str) -> Vec<T>
+    where
+        T: for<'r> sqlx::Decode<'r, sqlx::Postgres> + sqlx::Type<sqlx::Postgres> + Send + Unpin,
+    {
+        let mut conn = self.state.pool.acquire().await.unwrap();
+        let school = madrasa_nexus::tenants::get(&mut conn, id)
+            .await
+            .unwrap()
+            .unwrap();
+        drop(conn);
+        let mut tx = madrasa_nexus::tenants::begin(&self.state.pool, &school)
+            .await
+            .unwrap();
+        let rows = sqlx::query_scalar::<_, T>(sql)
+            .fetch_all(&mut *tx)
+            .await
+            .unwrap();
+        tx.commit().await.unwrap();
+        rows
+    }
+}

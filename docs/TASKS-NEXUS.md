@@ -92,18 +92,18 @@ office entering receipts or attendance, hub-to-hub links, pre-computed report wa
 
 ## Stage 4 — Joining and leaving
 
-- [ ] Hub: school register, invitations with one-time expiring join codes, a schema per
+- [x] Hub: school register, invitations with one-time expiring join codes, a schema per
       school created and migrated on join, sync tokens (hash stored), `POST /join`,
       `/sync/push`, `/sync/pull`, `/sync/ack`, `/sync/leave`; remove a school; purge an
       archive (confirm with the school code)
-- [ ] Every school query runs with `search_path` set to that school's schema only
-- [ ] School side (`crates/api`): feature `nexus_link`; `GET /nexus/link`, join, sync
+- [x] Every school query runs with `search_path` set to that school's schema only
+- [x] School side (`crates/api`): feature `nexus_link`; `GET /nexus/link`, join, sync
       now, leave; the token sealed in settings; a background task that syncs every five
       minutes and survives being offline; HTTPS required except for `localhost`
-- [ ] Desktop: Settings → Nexus page (join form, status, last sync, pending and parked
+- [x] Desktop: Settings → Nexus page (join form, status, last sync, pending and parked
       counts, the overwrite log, leave), English and Urdu
-- [ ] Version check: the hub refuses a school on a newer schema with a clear message
-- [ ] Tests: end to end over real HTTP (a school API and a hub in one test): join, first
+- [x] Version check: the hub refuses a school on a newer schema with a clear message
+- [x] Tests: end to end over real HTTP (a school API and a hub in one test): join, first
       upload, edits both ways, leave; a removed school is told and unlinks; two schools
       with identical ids and codes never see each other; one school's token cannot reach
       another's data; purge leaves the other school intact; after leaving, the school has

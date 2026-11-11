@@ -25,6 +25,7 @@ async fn main() -> anyhow::Result<()> {
     let state = AppState::new(db.pool.clone()).await?;
     madrasa_api::backup::spawn_scheduler(state.clone());
     madrasa_api::late_fees::spawn_scheduler(state.clone());
+    madrasa_api::nexus_link::spawn_scheduler(state.clone());
     let (addr, fut) = server::bind(bind, state, shutdown_signal()).await?;
     tracing::info!(%addr, edition = "see /system/features", "madrasa-server listening");
     fut.await?;

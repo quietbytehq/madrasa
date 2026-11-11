@@ -194,6 +194,7 @@ async fn run(
     let state = AppState::new(db.pool.clone()).await?;
     madrasa_api::backup::spawn_scheduler(state.clone());
     madrasa_api::late_fees::spawn_scheduler(state.clone());
+    madrasa_api::nexus_link::spawn_scheduler(state.clone());
     // One shutdown signal fans out to the loopback server and the LAN server.
     let (stop_tx, _) = tokio::sync::broadcast::channel::<()>(2);
     let mut stop_local = stop_tx.subscribe();

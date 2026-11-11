@@ -13,6 +13,7 @@ pub mod routes;
 pub mod server;
 pub mod state;
 pub mod store;
+pub mod tenants;
 
 pub use config::Config;
 pub use error::{HubError, HubResult};
@@ -32,6 +33,8 @@ pub fn router(state: HubState) -> Router {
         .merge(routes::auth::router())
         .merge(routes::users::router())
         .merge(routes::audit::router())
+        .merge(routes::schools::router())
+        .merge(routes::sync::router())
         .with_state(state);
     Router::new()
         .nest(API_PREFIX, api)

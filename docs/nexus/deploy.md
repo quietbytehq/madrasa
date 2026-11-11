@@ -87,3 +87,23 @@ token, once, which is useless after setup.
   its migrations when it starts.
 - **Health**: `GET /api/nexus/v1/health`; the container reports healthy or unhealthy by
   itself (`docker compose ps`).
+
+## Adding a school
+
+1. Head office creates an invitation at the hub. Until the console arrives (stage 7) this is
+   one call, with an administrator's session token:
+
+```bash
+curl -X POST https://nexus.example.org/api/nexus/v1/invitations -H "authorization: Bearer SESSION-TOKEN" -H "content-type: application/json" -d '{"school_name":"Gulshan High"}'
+```
+
+   The answer contains `join_code`. It is shown once, works once and expires after seven
+   days.
+2. At the school, a user who manages settings opens Settings → School network (Nexus),
+   enters the hub address and the join code, and joins. The first upload starts at once.
+3. The school syncs every five minutes and when someone presses Sync now. It keeps working
+   when the hub or the internet is away and catches up afterwards.
+
+The hub address must start with `https://`. A school refuses to send its records over plain
+`http://`, except to a hub on the same computer (`http://localhost:4780`), which is only for
+trying things out.

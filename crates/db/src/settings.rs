@@ -23,7 +23,12 @@ const REDACTED_KEYS: &[&str] = &[
     KEY_BACKUP_KEYS,
     KEY_INSTANCE_KEY,
     KEY_DIRECTORY_BIND_PASSWORD,
+    KEY_NEXUS_TOKEN,
 ];
+/// The link to a Madrasa Nexus hub (address, name, last sync); no secret.
+pub const KEY_NEXUS_LINK: &str = "nexus.link";
+/// The school's sync token for its hub, sealed with the instance key.
+pub const KEY_NEXUS_TOKEN: &str = "nexus.token";
 /// 32 random bytes (base64), global, created on first use; seals small secrets such as the
 /// directory bind password.
 pub const KEY_INSTANCE_KEY: &str = "instance.key";

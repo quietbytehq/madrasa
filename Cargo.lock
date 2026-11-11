@@ -3644,6 +3644,7 @@ dependencies = [
  "madrasa-core",
  "madrasa-db",
  "madrasa-demo-data",
+ "madrasa-nexus",
  "postgresql_embedded",
  "rcgen",
  "reqwest",
