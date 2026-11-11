@@ -1356,6 +1356,10 @@ depend on each other and were built together)
   no password hashes, reports over all three with totals per currency, a correction, the
   refusal to load twice, removal and purge) and the command run by hand against a scratch
   database (with and without `--yes`, and a second time).
+- Fixed on the way: a Standard timetable test failed once in CI on a branch that changed no
+  Rust code. The generator works against the clock, and the test assumed the first session
+  of whatever arrangement came out had a free slot to move to. It now takes the first
+  session that has one. No product code changed.
 - Left: nothing in docs/TASKS-NEXUS.md. See the summary below for what is not proven.
 
 ## Summary for the owner — Nexus alpha
