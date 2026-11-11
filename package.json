@@ -8,6 +8,7 @@
     "dev": "pnpm --filter madrasa-desktop dev",
     "tauri": "pnpm --filter madrasa-desktop tauri",
     "build": "pnpm --filter madrasa-desktop build",
+    "build:console": "pnpm --filter madrasa-desktop build:console",
     "lint": "pnpm -r lint",
     "format": "pnpm -r format",
     "format:check": "pnpm -r format:check",

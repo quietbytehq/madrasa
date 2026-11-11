@@ -2,6 +2,7 @@
 
 pub mod audit;
 pub mod auth;
+pub mod corrections;
 pub mod escrow;
 pub mod health;
 pub mod reports;

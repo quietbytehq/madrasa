@@ -68,7 +68,8 @@ Notes
 The hub server (`madrasa-nexus`) has its own accounts and three permissions of its own,
 granted per hub user (docs/spec.md §16.1). They are separate from the school roles above.
 
-- `nexus.admin`: schools and invitations, hub users, the hub audit log.
+- `nexus.admin`: schools and invitations, corrections to a school's names and contact
+  details (docs/spec.md §16.8), hub users, the hub audit log.
 - `nexus.reports`: network-wide reports.
 - `nexus.escrow`: release a school's backup key (with the escrow passphrase and a reason),
   change the escrow passphrase, see which schools have left a key and every release.

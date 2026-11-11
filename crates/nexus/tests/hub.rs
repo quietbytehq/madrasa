@@ -467,3 +467,119 @@ async fn hub_tables_live_in_their_own_schema() {
     store::migrate(&hub.state.pool).await.unwrap();
     hub.finish().await;
 }
+
+/// The hub serves the built web console next to its API (stage 7).
+#[tokio::test]
+async fn the_console_is_served_beside_the_api_with_safe_headers() {
+    use axum::body::Body;
+    use axum::http::{header, Request};
+    use http_body_util::BodyExt;
+    use tower::ServiceExt;
+
+    let hub = hub!();
+    let dir = std::env::temp_dir().join(format!("madrasa-console-test-{}", uuid::Uuid::now_v7()));
+    std::fs::create_dir_all(dir.join("assets")).unwrap();
+    std::fs::write(
+        dir.join("index.html"),
+        "<!doctype html><title>Madrasa Nexus</title>",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("assets/console-abc123.js"),
+        "console.log('console')",
+    )
+    .unwrap();
+
+    let get = |router: axum::Router, path: &'static str| async move {
+        let res = router
+            .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        let status = res.status();
+        let headers = res.headers().clone();
+        let body = res.into_body().collect().await.unwrap().to_bytes();
+        (status, headers, String::from_utf8_lossy(&body).into_owned())
+    };
+    let head = |h: &axum::http::HeaderMap, name: header::HeaderName| {
+        h.get(name)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or_default()
+            .to_string()
+    };
+
+    let mut state = hub.state.clone();
+    state.console_dir = Some(dir.clone());
+    let with_console = madrasa_nexus::router(state);
+
+    // The page, at the root and at any console address (the browser routes those).
+    for path in ["/", "/schools", "/reports/anything"] {
+        let (status, headers, body) = get(with_console.clone(), path).await;
+        assert_eq!(status, StatusCode::OK, "{path}");
+        assert!(
+            body.contains("<title>Madrasa Nexus</title>"),
+            "{path}: {body}"
+        );
+        assert!(
+            head(&headers, header::CONTENT_TYPE).starts_with("text/html"),
+            "{path}"
+        );
+        assert_eq!(
+            head(&headers, header::CACHE_CONTROL),
+            "no-cache",
+            "{path}: a new version shows at once"
+        );
+        let csp = head(&headers, header::CONTENT_SECURITY_POLICY);
+        assert!(
+            csp.contains("default-src 'self'") && csp.contains("frame-ancestors 'none'"),
+            "{csp}"
+        );
+        assert_eq!(head(&headers, header::X_CONTENT_TYPE_OPTIONS), "nosniff");
+        assert_eq!(head(&headers, header::X_FRAME_OPTIONS), "DENY");
+        assert_eq!(head(&headers, header::REFERRER_POLICY), "no-referrer");
+    }
+    // Built files are cached for good (their names carry a hash); a missing one is a 404,
+    // not the page.
+    let (status, headers, body) = get(with_console.clone(), "/assets/console-abc123.js").await;
+    assert_eq!(
+        (status, body.as_str()),
+        (StatusCode::OK, "console.log('console')")
+    );
+    assert!(head(&headers, header::CACHE_CONTROL).contains("immutable"));
+    let (status, _, _) = get(with_console.clone(), "/assets/nothing.js").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    // Files outside the console folder are never served.
+    let (status, _, body) = get(with_console.clone(), "/assets/../../etc/passwd").await;
+    assert!(
+        status == StatusCode::NOT_FOUND || body.contains("<title>Madrasa Nexus</title>"),
+        "{status} {body}"
+    );
+    assert!(!body.contains("root:"));
+
+    // The API is still the API: JSON answers, and an unknown address is a JSON 404.
+    let (status, headers, body) = get(with_console.clone(), "/api/nexus/v1/health").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(head(&headers, header::CONTENT_TYPE).starts_with("application/json"));
+    assert!(body.contains("\"status\":\"ok\""));
+    let (status, _, body) = get(with_console.clone(), "/api/nexus/v1/no-such-thing").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert!(body.contains("\"code\":\"not_found\""), "{body}");
+    let (status, _, _) = get(with_console, "/api/nexus/v1/users").await;
+    assert_eq!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "the console adds no way round sign-in"
+    );
+
+    // Without the console's files the hub serves the API only and says so.
+    let (status, _, body) = get(hub.router.clone(), "/").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert!(
+        body.contains("The web console is not installed here"),
+        "{body}"
+    );
+    let (status, _, _) = get(hub.router.clone(), "/api/nexus/v1/health").await;
+    assert_eq!(status, StatusCode::OK);
+
+    let _ = std::fs::remove_dir_all(&dir);
+    hub.finish().await;
+}

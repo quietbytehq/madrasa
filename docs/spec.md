@@ -1798,7 +1798,7 @@ The design is `docs/adr/0005-nexus-hub-and-sync.md`; the stages and their accept
   of its own holding the school tables (stage 4).
 - **Configuration** is by environment variable only: `NEXUS_DATABASE_URL` (required),
   `NEXUS_BIND` (default `0.0.0.0:4780`) or `PORT`, `NEXUS_PUBLIC_URL`, `NEXUS_SETUP_TOKEN`,
-  `RUST_LOG`. The database URL and the setup token are never logged.
+  `NEXUS_CONSOLE_DIR` (the web console's files, §16.8), `RUST_LOG`. The database URL and the setup token are never logged.
 - **Packaging.** `deploy/nexus/Dockerfile` (non-root, self health check) and
   `deploy/nexus/docker-compose.yml` (hub, PostgreSQL 16, optional Caddy for HTTPS). See
   `docs/nexus/deploy.md`.
@@ -2132,3 +2132,57 @@ backup's header); otherwise 401 `backup_secret_invalid` with a message saying wh
 character is wrong or the key belongs elsewhere. With it a school can restore a backup and
 set a new backup password. A released key opens every backup made with that data key, so it
 is to be kept like the recovery key; the app cannot yet replace the data key itself.
+
+### 16.8 Head office corrections and the console (stage 7)
+
+**Corrections** (`nexus.admin`). Head office may correct names and contact details in a
+joined school's records, and nothing else. The change is made in the school's schema at the
+hub, so the next sync carries it down. If the school changed the same field before that
+sync, head office's value stands and the school's goes to the overwrite log on both sides
+(§16.3); a school edit of a different field of the same record is kept.
+
+| Kind | Table | Fields |
+| --- | --- | --- |
+| `school` | `schools` | `name`, `city` |
+| `students` | `students` | `full_name`, `father_name`, `address` |
+| `guardians` | `guardians` | `full_name`, `phone`, `email`, `address` |
+| `staff` | `staff` | `full_name`, `father_name`, `phone`, `email` |
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/corrections/kinds` | The kinds and their fields (`name`, `required`) |
+| GET | `/schools/{id}/records/{kind}` | Search a school's copy by name or by number, phone or code (`q`, `page`; 25 a page) → `{ items: [{ id, title, hint, fields }], total, page, page_size }` |
+| PATCH | `/schools/{id}/records/{kind}/{record}` | `{ fields: { name: value } }` → `{ record, changed[] }` |
+
+- Values are trimmed; a name cannot be emptied; an emptied phone or email is stored as no
+  value; at most 200 characters; an email must look like one. A field outside the list is
+  400; a kind outside the list is 404; a school that is not joined is 409.
+- Only fields whose value really changes are written, so an untouched field can never
+  collide with a school edit.
+- Each correction writes two audit rows: one in the hub audit log (`correct`, with the old
+  and new values) and one in the school's own `audit_log` inside its schema (action
+  `update`, `corrected_by: "Head office: <name>"`), which syncs down with the change.
+- Correcting the school's name also updates the register.
+
+**Console.** The hub serves a web console at its root address. It is a second build of
+`apps/desktop` (`pnpm build:console`, entry `console.html`, sources in `src/console/`): the
+same components, design tokens and translation layer (English and Urdu, RTL), without the
+Tauri shell. The container image builds it and sets `NEXUS_CONSOLE_DIR=/app/console`; a hub
+without that folder serves the API only.
+
+- Pages, each shown only to users whose permissions open it: **Schools** (register, sync
+  state, invitations, the overwrite log and held records of a school, send everything
+  again, remove, delete an archive), **Reports** (run, read, download Excel or CSV),
+  **Corrections**, **Backup keys** (set up, release, releases, change the passphrase),
+  **Users**, **Activity log**; plus first-run setup and sign-in.
+- The console talks only to `/api/nexus/v1` on its own origin. The hub checks every
+  permission; the console only hides what a user may not do.
+- The session token is kept in `sessionStorage` (closing the tab signs out). A join code,
+  the escrow passphrase and a released key are held only while their dialog is open.
+- Served with `Content-Security-Policy` (only the hub's own scripts, styles, fonts and
+  connections; no framing), `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and
+  `Referrer-Policy: no-referrer`. Files under `/assets/` are cached for good (their names
+  carry a hash); the page itself is always revalidated. Any other address returns the page,
+  so a console link survives a reload; an unknown API address is a JSON 404.
+- Money in reports is shown digit for digit as the hub sent it, with thousands separators
+  added as text; it is never parsed into a floating-point number.

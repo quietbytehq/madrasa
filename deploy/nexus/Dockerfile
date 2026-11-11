@@ -4,8 +4,9 @@
 # Build from the repository root:
 #   docker build -f deploy/nexus/Dockerfile -t madrasa-nexus .
 #
-# The image holds one binary, runs as a non-root user and checks its own health. All
-# configuration comes from environment variables (see deploy/nexus/.env.example).
+# The image holds the hub binary and the web console it serves, runs as a non-root user and
+# checks its own health. All configuration comes from environment variables (see
+# deploy/nexus/.env.example).
 #
 # cargo-chef builds the dependencies in their own layer, so a change to the hub's source
 # recompiles the hub only.
@@ -29,12 +30,27 @@ ARG MADRASA_RELEASE=""
 RUN if [ -z "$MADRASA_RELEASE" ]; then unset MADRASA_RELEASE; fi; \
     cargo build --release --locked -p madrasa-nexus
 
+# The web console: a second build of the desktop app's components, without the Tauri shell.
+# pnpm's version comes from "packageManager" in package.json.
+FROM node:22-bookworm-slim AS console
+# No questions asked during the build: fetch the pinned pnpm without a prompt.
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 CI=true
+RUN corepack enable
+WORKDIR /src
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/desktop/package.json apps/desktop/package.json
+RUN pnpm install --frozen-lockfile
+COPY apps/desktop apps/desktop
+RUN pnpm build:console
+
 FROM debian:bookworm-slim
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin nexus
 COPY --from=build /src/target/release/madrasa-nexus /usr/local/bin/madrasa-nexus
+COPY --from=console /src/apps/desktop/dist-console /app/console
+ENV NEXUS_CONSOLE_DIR=/app/console
 USER 10001
 # Default port. Cloud Run and Azure Container Apps set PORT, which the hub follows.
 EXPOSE 4780

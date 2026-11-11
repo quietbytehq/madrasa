@@ -1293,6 +1293,37 @@ depend on each other and were built together)
   key keeps opening that school's backups; it must be kept like the recovery key.
 - Left: stages 7 to 9.
 
+### 2026-11-11 — Stage 7: Hub console and head office corrections (branch `dev/nexus-7-console`)
+- Done: the hub serves its own web console (English and Urdu, right to left): first-run
+  setup, sign-in, the school register with invitations, sync state, the overwrite log and
+  held records, removing a school and deleting an archive, network-wide reports with Excel
+  and CSV downloads, corrections, backup key escrow (set up, release, list of releases,
+  change the passphrase), head office users and the activity log. It is a second build of
+  the desktop app's components (`pnpm build:console`); the container image now ships it.
+  Spec §16.8.
+- Done: head office corrections. An administrator can correct names and contact details of
+  a joined school's students, guardians and staff, and the school's name and city. The
+  school receives the change at its next sync; a school edit of the same field loses and
+  is logged on both sides; other fields are untouched. Both audit logs say head office made
+  the change. Money, marks, attendance and accounts cannot be corrected from head office.
+- Tested: 2 hub database tests (a correction reaches the school; head office wins a
+  collision with the log row on both sides; different fields both stand; a phone emptied;
+  the school's name; refusals for other fields, other kinds, other schools' records,
+  schools that left, and users without the permission) and 2 unit tests; 1 hub test that
+  the console's files are served with the security headers, that console addresses return
+  the page and that the API is not shadowed; 14 screen tests of the console (setup,
+  sign-in and sign-out, pages by permission, invitations, remove and delete with their
+  confirmations, reports and downloads, corrections sending only what changed, escrow
+  setup and release shown once, users, money shown exactly). The image's smoke test now
+  loads the console.
+- Tried by hand in a real browser against a local hub and a local demo school of 1,200
+  students: setup, sign-in, invitation, the school joining and uploading, reports and an
+  Excel download, a correction arriving at the school after its sync, escrow setup, Urdu
+  layout, sign-out. No browser errors. Not tried by hand: releasing a key from the console
+  (the demo school has no backup password; the release itself is covered by the stage 6
+  tests).
+- Left: stages 8 and 9.
+
 ## Summary for the owner — Standard alpha
 
 The Standard alpha was built in eleven pull requests, each from a clean `main` with CI green

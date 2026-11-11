@@ -12,6 +12,7 @@ import { useToast } from "@/components/ui/Toast";
 import { useI18n } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
 import { errorMessage, useAsync } from "@/lib/useAsync";
+import { showValue } from "@/lib/showValue";
 import { NexusEscrow } from "./NexusEscrow";
 
 const REASONS: Record<string, TranslationKey> = {
@@ -20,15 +21,6 @@ const REASONS: Record<string, TranslationKey> = {
   renumbered: "nexus.reason.renumbered",
   duplicate_reversal: "nexus.reason.duplicate_reversal",
 };
-
-/** A logged value as short text: plain values as they are, whole records as JSON. */
-export function showValue(value: unknown): string {
-  if (value === null || value === undefined || value === "") return "—";
-  if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  const text = JSON.stringify(value);
-  return text.length > 80 ? `${text.slice(0, 77)}…` : text;
-}
 
 /**
  * Settings → Nexus: join a school network (a Madrasa Nexus hub), see how syncing is going,

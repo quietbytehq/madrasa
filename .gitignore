@@ -6,6 +6,7 @@ Cargo.lock.bak
 # Node
 node_modules
 dist
+dist-console
 dist-ssr
 *.local
 .pnpm-store
