@@ -2,7 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
 import { api } from "@/api/endpoints";
-import type { NexusLinkStatus, NexusOverwrite } from "@/api/types";
+import type { NexusEscrowView, NexusLinkStatus, NexusOverwrite } from "@/api/types";
 import { NexusCard, showValue } from "./NexusCard";
 
 vi.mock("@/api/endpoints", () => ({
@@ -12,6 +12,9 @@ vi.mock("@/api/endpoints", () => ({
     nexusSync: vi.fn(),
     nexusLeave: vi.fn(),
     nexusOverwrites: vi.fn(),
+    nexusEscrow: vi.fn(),
+    nexusEscrowDeposit: vi.fn(),
+    nexusEscrowWithdraw: vi.fn(),
   },
 }));
 
@@ -51,8 +54,17 @@ const overwrite: NexusOverwrite = {
   reason: "head_office_wins",
 };
 
+const noEscrow: NexusEscrowView = {
+  available: false,
+  deposited: false,
+  current: false,
+  deposited_at: null,
+  releases: [],
+};
+
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(api.nexusEscrow).mockResolvedValue(noEscrow);
 });
 
 describe("NexusCard", () => {
@@ -173,6 +185,99 @@ describe("NexusCard", () => {
       "Head office removed this school from the network: The school closed.",
     );
     expect(note).toHaveTextContent("All records are still here.");
+  });
+
+  it("leaves the backup key with head office and takes it back", async () => {
+    vi.mocked(api.nexusLink).mockResolvedValue(linked);
+    vi.mocked(api.nexusEscrow).mockResolvedValue({ ...noEscrow, available: true });
+    const held = {
+      ...noEscrow,
+      available: true,
+      deposited: true,
+      current: true,
+      deposited_at: "2026-11-11T10:00:00Z",
+    };
+    vi.mocked(api.nexusEscrowDeposit).mockResolvedValue(held);
+    vi.mocked(api.nexusEscrowWithdraw).mockResolvedValue({ ...noEscrow, available: true });
+    renderWithProviders(<NexusCard canManageBackups />);
+    // What leaving the key means is said before the button.
+    expect(await screen.findByText(/This is your choice; syncing works without it/)).toBeVisible();
+    const leave = await screen.findByRole("button", { name: "Leave the key with head office" });
+    expect(leave).toBeDisabled();
+    await userEvent.type(screen.getByLabelText("Backup password"), "backup-password-1");
+    await userEvent.click(leave);
+    await waitFor(() => expect(api.nexusEscrowDeposit).toHaveBeenCalledWith("backup-password-1"));
+    expect(await screen.findByTestId("nexus-escrow-state")).toHaveTextContent(
+      "has been with head office since",
+    );
+    expect(screen.queryByLabelText("Backup password")).not.toBeInTheDocument();
+    // Taking it back asks first and says what is at stake.
+    await userEvent.click(screen.getByRole("button", { name: "Take the key back" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent("nobody can open the backups");
+    expect(api.nexusEscrowWithdraw).not.toHaveBeenCalled();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Take the key back" }));
+    await waitFor(() => expect(api.nexusEscrowWithdraw).toHaveBeenCalled());
+    expect(
+      await screen.findByRole("button", { name: "Leave the key with head office" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows every release of the key, and a key that is out of date", async () => {
+    vi.mocked(api.nexusLink).mockResolvedValue(linked);
+    vi.mocked(api.nexusEscrow).mockResolvedValue({
+      available: true,
+      deposited: true,
+      current: false,
+      deposited_at: "2026-11-01T10:00:00Z",
+      releases: [
+        {
+          id: "r1",
+          released_at: "2026-11-10T09:30:00Z",
+          released_by: "Head Office",
+          reason: "Principal lost the backup password",
+          key_id: "k",
+          seen: true,
+        },
+      ],
+    });
+    renderWithProviders(<NexusCard canManageBackups />);
+    const alerts = await screen.findAllByRole("alert");
+    expect(alerts[0]).toHaveTextContent("Head office has opened this school's backup key");
+    expect(alerts[0]).toHaveTextContent("by Head Office: Principal lost the backup password");
+    expect(alerts[0]).toHaveTextContent("If you did not ask for it, speak to head office.");
+    expect(alerts[1]).toHaveTextContent("not this school's current backup key");
+    // The key can be left again.
+    expect(screen.getByRole("button", { name: "Leave the key with head office" })).toBeDisabled();
+  });
+
+  it("says so when head office has no escrow, cannot be reached, or the user may not hand the key over", async () => {
+    vi.mocked(api.nexusLink).mockResolvedValue(linked);
+    const { unmount } = renderWithProviders(<NexusCard canManageBackups />);
+    expect(await screen.findByTestId("nexus-escrow-state")).toHaveTextContent(
+      "Head office has not set up key escrow yet.",
+    );
+    expect(screen.queryByLabelText("Backup password")).not.toBeInTheDocument();
+    unmount();
+
+    vi.mocked(api.nexusEscrow).mockResolvedValue({ ...noEscrow, available: true });
+    const second = renderWithProviders(<NexusCard />);
+    expect(await screen.findByTestId("nexus-escrow-state")).toHaveTextContent(
+      "Someone who manages backups can leave the backup key with head office.",
+    );
+    expect(screen.queryByLabelText("Backup password")).not.toBeInTheDocument();
+    second.unmount();
+
+    vi.mocked(api.nexusEscrow).mockRejectedValueOnce(new Error("network"));
+    vi.mocked(api.nexusEscrow).mockResolvedValue({ ...noEscrow, available: true });
+    renderWithProviders(<NexusCard canManageBackups />);
+    expect(
+      await screen.findByText(/Head office could not be reached to check the backup key/),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(
+      await screen.findByRole("button", { name: "Leave the key with head office" }),
+    ).toBeInTheDocument();
   });
 
   it("shows logged values readably", () => {

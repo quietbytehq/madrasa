@@ -119,6 +119,9 @@ pub struct RestoreRequest {
     pub path: String,
     pub password: Option<String>,
     pub recovery_key: Option<String>,
+    /// A key released by head office (Madrasa Nexus key escrow).
+    #[serde(default)]
+    pub released_key: Option<String>,
 }
 
 async fn restore(
@@ -131,6 +134,7 @@ async fn restore(
     let secret = Secret {
         password: req.password,
         recovery_key: req.recovery_key,
+        released_key: req.released_key,
     };
     Ok(Json(
         backup::restore(&state, user.actor(), &req.path, &secret).await?,
@@ -141,6 +145,9 @@ async fn restore(
 pub struct PasswordChangeRequest {
     pub current_password: Option<String>,
     pub recovery_key: Option<String>,
+    /// A key released by head office: lets a school that lost both set a new password.
+    #[serde(default)]
+    pub released_key: Option<String>,
     pub new_password: String,
 }
 
@@ -154,6 +161,7 @@ async fn change_password(
     let secret = Secret {
         password: req.current_password,
         recovery_key: req.recovery_key,
+        released_key: req.released_key,
     };
     backup::change_password(
         &state,
@@ -182,6 +190,7 @@ async fn unlock(
     let secret = Secret {
         password: req.password,
         recovery_key: req.recovery_key,
+        released_key: None,
     };
     backup::unlock(&state, user.actor(), user.user.school_id, &secret).await?;
     Ok(axum::http::StatusCode::NO_CONTENT)

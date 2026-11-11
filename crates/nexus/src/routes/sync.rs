@@ -6,6 +6,7 @@ use axum::http::request::Parts;
 use axum::http::StatusCode;
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use madrasa_core::escrow::{DepositRequest, EscrowStatus, SeenRequest};
 use madrasa_core::session_token;
 use madrasa_core::sync::{
     check_versions, AckRequest, AckResponse, JoinRequest, JoinResponse, LeaveRequest, PullRequest,
@@ -18,7 +19,7 @@ use super::schools::{internal, join_code_hash};
 use super::JsonBody;
 use crate::auth::bearer_token;
 use crate::tenants::{self, Ending, HubSchool, NewTenant};
-use crate::{store, HubError, HubResult, HubState};
+use crate::{escrow, store, HubError, HubResult, HubState};
 
 /// A first upload sends whole records by the hundred; the default 2 MB body limit is too
 /// small for a batch of long audit rows.
@@ -32,6 +33,13 @@ pub fn router() -> Router<HubState> {
         .route("/sync/pull", post(pull))
         .route("/sync/ack", post(ack))
         .route("/sync/leave", post(leave))
+        .route(
+            "/sync/escrow",
+            get(escrow_status)
+                .put(escrow_deposit)
+                .delete(escrow_withdraw),
+        )
+        .route("/sync/escrow/seen", post(escrow_seen))
         .layer(DefaultBodyLimit::max(MAX_SYNC_BODY))
 }
 
@@ -265,4 +273,95 @@ async fn leave(
         .map_err(internal)?;
     tracing::info!(school = %school.code, "a school left the network");
     Ok(Json(()))
+}
+
+// ---- backup key escrow (the school's side) -----------------------------------------------------
+
+/// What the school is told: the hub's escrow public key, its own deposit, and every release
+/// of its key.
+async fn escrow_status(
+    State(state): State<HubState>,
+    SyncSchool(school): SyncSchool,
+) -> HubResult<Json<EscrowStatus>> {
+    let mut conn = state.pool.acquire().await?;
+    Ok(Json(escrow::status_for(&mut conn, school.id).await?))
+}
+
+/// The school leaves its backup key, sealed to the hub's escrow public key. The hub cannot
+/// open it without the escrow passphrase, so it checks only the shape.
+async fn escrow_deposit(
+    State(state): State<HubState>,
+    SyncSchool(school): SyncSchool,
+    body: JsonBody<DepositRequest>,
+) -> HubResult<Json<EscrowStatus>> {
+    let Json(req) = body?;
+    let d = &req.deposit;
+    let sized = |text: &str, max: usize| !text.is_empty() && text.len() <= max;
+    if d.version != 1
+        || !sized(&d.ephemeral_public, 64)
+        || !sized(&d.nonce, 32)
+        || !sized(&d.ciphertext, 128)
+        || !sized(&d.key_id, 64)
+    {
+        return Err(HubError::validation("This is not a sealed backup key."));
+    }
+    let mut tx = state.pool.begin().await?;
+    if escrow::keys(&mut tx).await?.is_none() {
+        return Err(HubError::new(
+            StatusCode::CONFLICT,
+            "escrow_not_set_up",
+            "Head office has not set up key escrow yet.",
+        ));
+    }
+    escrow::store_deposit(&mut tx, &state.hlc, school.id, d).await?;
+    store::audit(
+        &mut tx,
+        &state.hlc,
+        None,
+        "escrow_deposit",
+        "hub_school",
+        Some(school.id),
+        None,
+        Some(serde_json::json!({ "key_id": d.key_id })),
+    )
+    .await?;
+    let status = escrow::status_for(&mut tx, school.id).await?;
+    tx.commit().await?;
+    Ok(Json(status))
+}
+
+/// The school takes its key back: the sealed key is erased.
+async fn escrow_withdraw(
+    State(state): State<HubState>,
+    SyncSchool(school): SyncSchool,
+) -> HubResult<Json<EscrowStatus>> {
+    let mut tx = state.pool.begin().await?;
+    if escrow::end_deposit(&mut tx, &state.hlc, None, school.id, "withdrawn").await? {
+        store::audit(
+            &mut tx,
+            &state.hlc,
+            None,
+            "escrow_withdraw",
+            "hub_school",
+            Some(school.id),
+            None,
+            None,
+        )
+        .await?;
+    }
+    let status = escrow::status_for(&mut tx, school.id).await?;
+    tx.commit().await?;
+    Ok(Json(status))
+}
+
+/// The school has written these releases into its own audit log.
+async fn escrow_seen(
+    State(state): State<HubState>,
+    SyncSchool(school): SyncSchool,
+    body: JsonBody<SeenRequest>,
+) -> HubResult<Json<EscrowStatus>> {
+    let Json(req) = body?;
+    let mut conn = state.pool.acquire().await?;
+    escrow::mark_seen(&mut conn, &state.hlc, school.id, &req.ids).await?;
+    Ok(Json(escrow::status_for(&mut conn, school.id).await?))
 }

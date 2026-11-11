@@ -120,16 +120,20 @@ office entering receipts or attendance, hub-to-hub links, pre-computed report wa
 
 ## Stage 6 — Backup key escrow
 
-- [ ] `madrasa_core::escrow`: escrow key pair, private key wrapped by the escrow
+- [x] `madrasa_core::escrow`: escrow key pair, private key wrapped by the escrow
       passphrase, seal a school's backup data key to the public key, open it; unit tests
       including wrong passphrase and tampering
-- [ ] Hub: escrow key created at setup; deposits stored per school; release with
-      permission `nexus.escrow`, the passphrase and a reason; shown once; hub audit row
-- [ ] School side: deposit from Settings → Nexus by entering the backup password;
-      releases are reported to the school at its next sync and shown there
-- [ ] Restore accepts a key released by head office as a third way to open a backup
-- [ ] Tests: deposit, release, restore a real backup with the released key; a release
-      without the passphrase fails; the school sees the release; purge deletes the deposit
+- [x] Hub: escrow key created at setup (or later by an administrator); deposits stored per
+      school; release with permission `nexus.escrow`, the passphrase and a reason; shown
+      once; hub audit row; five wrong passphrases stop a user's releases for 15 minutes
+- [x] School side: deposit from Settings → Nexus by entering the backup password;
+      releases are reported to the school at its next sync, written to its audit log and
+      shown there; the school can take its key back
+- [x] Restore accepts a key released by head office as a third way to open a backup; so
+      does setting a new backup password
+- [x] Tests: deposit, release, restore a real backup with the released key; a release
+      without the passphrase fails; the school sees the release; leaving, removal and
+      purge erase the sealed key
 
 ## Stage 7 — Hub console and head office corrections
 

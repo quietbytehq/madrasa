@@ -316,6 +316,9 @@ pub async fn end(
     .bind(hlc.now().to_string())
     .execute(&mut *tx)
     .await?;
+    // A school that is no longer joined could not be told about a release: its sealed
+    // backup key is erased now, not kept with the archive.
+    crate::escrow::end_deposit(&mut tx, hlc, actor, school.id, status).await?;
     let after = get(&mut tx, school.id)
         .await?
         .ok_or_else(|| anyhow::anyhow!("school vanished"))?;
@@ -359,6 +362,7 @@ pub async fn purge(
     .bind(hlc.now().to_string())
     .execute(&mut *tx)
     .await?;
+    crate::escrow::end_deposit(&mut tx, hlc, actor, school.id, "purged").await?;
     let after = get(&mut tx, school.id)
         .await?
         .ok_or_else(|| anyhow::anyhow!("school vanished"))?;

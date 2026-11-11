@@ -3,6 +3,7 @@
 
 use chrono::{DateTime, Local, NaiveTime, Utc};
 use madrasa_core::backup::{self as keys, archive, BackupKeySet};
+use madrasa_core::escrow;
 use madrasa_db::models::BackupRun;
 use madrasa_db::{audit, backup as repo, schools, settings, Actor};
 use serde::{Deserialize, Serialize};
@@ -129,32 +130,93 @@ async fn save_key_set(
     Ok(())
 }
 
-/// Password or recovery key offered for a restore or a password change.
-#[derive(Debug, Clone, Deserialize)]
+/// What can open a backup: the backup password, the recovery key, or a key released by head
+/// office (Madrasa Nexus key escrow). The first one given is used, in that order.
+#[derive(Clone, Default, Deserialize)]
 pub struct Secret {
+    #[serde(default)]
     pub password: Option<String>,
+    #[serde(default)]
     pub recovery_key: Option<String>,
+    /// The printable code head office shows when it releases a school's key.
+    #[serde(default)]
+    pub released_key: Option<String>,
+}
+
+fn secret_invalid(message: &str) -> ApiError {
+    ApiError::new(
+        axum::http::StatusCode::UNAUTHORIZED,
+        "backup_secret_invalid",
+        message,
+    )
 }
 
 impl Secret {
     fn unlock(&self, set: &BackupKeySet) -> Result<[u8; 32], ApiError> {
+        let given = |v: &Option<String>| v.as_deref().is_some_and(|t| !t.trim().is_empty());
         let result = match (&self.password, &self.recovery_key) {
             (Some(p), _) if !p.is_empty() => keys::unlock_with_password(set, p),
             (_, Some(k)) if !k.trim().is_empty() => keys::unlock_with_recovery_key(set, k),
-            _ => {
-                return Err(ApiError::validation(
-                    "Enter the backup password or the recovery key.",
-                ))
-            }
+            _ if given(&self.released_key) => return self.unlock_released(set),
+            _ => return Err(ApiError::validation(
+                "Enter the backup password, the recovery key or the key released by head office.",
+            )),
         };
-        result.map_err(|_| {
-            ApiError::new(
-                axum::http::StatusCode::UNAUTHORIZED,
-                "backup_secret_invalid",
-                "The backup password or recovery key is incorrect.",
-            )
-        })
+        result.map_err(|_| secret_invalid("The backup password or recovery key is incorrect."))
     }
+
+    /// A released key is the data key itself, printed with a check. It is accepted only when
+    /// it is provably this key set's key.
+    fn unlock_released(&self, set: &BackupKeySet) -> Result<[u8; 32], ApiError> {
+        let code = self.released_key.as_deref().unwrap_or_default();
+        let dek = escrow::parse_released_key(code).ok_or_else(|| {
+            secret_invalid(
+                "The key released by head office is incomplete or has a wrong character. Check it against the code you were given.",
+            )
+        })?;
+        match &set.public_key {
+            Some(expected) if *expected == escrow::key_id(&dek) => Ok(dek),
+            Some(_) => Err(secret_invalid(
+                "This key does not open this backup. It was released for another school or for an older key.",
+            )),
+            None => Err(ApiError::conflict(
+                "This backup was made by an old version and cannot be opened with a key released by head office. Use the backup password or the recovery key.",
+            )),
+        }
+    }
+}
+
+/// Unlock the school's backup data key (to leave it with head office). A wrong secret is
+/// audited like any other.
+pub(crate) async fn data_key(
+    state: &AppState,
+    actor: Actor,
+    school_id: Uuid,
+    secret: &Secret,
+    operation: &str,
+) -> Result<[u8; 32], ApiError> {
+    let set = {
+        let mut c = state.pool.acquire().await?;
+        key_set(&mut c, school_id).await?
+    };
+    match secret.unlock(&set) {
+        Ok(dek) => Ok(dek),
+        Err(e) => {
+            audit_failed_secret(state, actor, operation).await;
+            Err(e)
+        }
+    }
+}
+
+/// The id of the school's current backup key (its public key), when the key set has one.
+pub(crate) async fn current_key_id(
+    conn: &mut sqlx::PgConnection,
+    school_id: Uuid,
+) -> Result<Option<String>, ApiError> {
+    let value = settings::get(conn, Some(school_id), settings::KEY_BACKUP_KEYS).await?;
+    Ok(value
+        .and_then(|v| serde_json::from_value::<BackupKeySet>(v).ok())
+        .and_then(|set| set.public_key))
 }
 
 async fn audit_failed_secret(state: &AppState, actor: Actor, operation: &str) {

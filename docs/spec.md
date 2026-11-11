@@ -2062,3 +2062,73 @@ last sync. Schools that left or were removed are not included (except in the syn
   `date_time`). CSV carries a BOM so Excel opens Urdu text; Excel files have numbers as
   numbers and bold totals. Titles, headings and notes come from one English and Urdu table.
 - Every run is written to the hub audit log with who ran it and with what parameters.
+
+### 16.7 Backup key escrow (stage 6)
+
+A school that loses both its backup password and its recovery key cannot open its backups.
+A joined school may leave a sealed copy of its backup data key with head office. It is the
+school's choice; joining and syncing do not depend on it.
+
+**Cryptography** (`madrasa_core::escrow`; audited crates only):
+
+- The hub has an X25519 **escrow key pair**, kept in the hub setting `escrow.keys`: the
+  public key in clear, the private key wrapped (Argon2id + AES-256-GCM) by the **escrow
+  passphrase**. The passphrase is at least 12 characters, is given with each release, and
+  is never stored or logged. A copy of the hub database reveals no school's key. If the
+  passphrase is lost, no deposited key can be released; schools still have their own
+  password and recovery key.
+- The school unlocks its data key with the backup password (or recovery key) and **seals**
+  it to the hub's public key: ephemeral X25519, HKDF-SHA256, AES-256-GCM, with the school's
+  id bound into the key derivation and the authenticated data. Only the sealed form leaves
+  the school. A deposit copied to another school's name does not open.
+- A **released key** is the data key printed as 11 groups of 5 characters (Crockford
+  base32, with a two-byte check). Capitals, spaces and dashes do not matter; `O` reads as
+  `0`, `I` and `L` as `1`; a mistyped character is caught before anything is tried.
+
+**Hub tables** (hub migration 3): `hub_escrow_deposits` (`hub_school_id`, `key_id`,
+`sealed`, `deposited_at`, `ended_reason`; one live deposit for each school; when a deposit
+ends the sealed key is erased and the row stays as history) and `hub_escrow_releases`
+(`hub_school_id`, `deposit_id`, `key_id`, `released_by`, `released_by_name`, `reason`,
+`released_at`, `seen_at`). The released key itself is never stored.
+
+**Hub endpoints**
+
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| POST | `/setup` | setup token | Optional `escrow_passphrase` sets escrow up with the first administrator |
+| GET | `/escrow` | `nexus.admin` or `nexus.escrow` | `{ set_up, deposits[], releases[] }`: which schools have left a key, and every release (who, why, when, when the school recorded it). Never a sealed key |
+| POST | `/escrow/setup` | `nexus.admin` | `{ passphrase }` creates the key pair, once (409 afterwards) |
+| POST | `/escrow/passphrase` | `nexus.escrow` | `{ current, new }`; the key pair stays, so deposits keep working |
+| POST | `/schools/{id}/escrow/release` | `nexus.escrow` | `{ passphrase, reason }` → `{ release_id, school_name, school_code, released_at, released_key }`, shown once. 401 `escrow_passphrase_invalid`, 409 `no_deposit` / `escrow_not_set_up`, 422 `deposit_damaged`, 429 `escrow_locked` after five wrong passphrases by one user in fifteen minutes |
+| GET | `/sync/escrow` | school's sync token | `{ public_key, deposit, releases[] }` for that school only |
+| PUT | `/sync/escrow` | school's sync token | `{ deposit }` leaves or replaces the school's sealed key |
+| DELETE | `/sync/escrow` | school's sync token | The school takes its key back; the sealed key is erased |
+| POST | `/sync/escrow/seen` | school's sync token | `{ ids }`: the school has recorded these releases |
+
+**Rules**
+
+- Only the key of a school that is **joined** can be released, because only a joined school
+  can be told. When a school leaves, is removed or is purged, its sealed key is erased at
+  once (stricter than ADR 0005, which kept it until the purge).
+- Every release, every wrong passphrase, setting up, a passphrase change, each deposit and
+  each withdrawal is written to the hub audit log, without the passphrase or the key.
+- **A release cannot be hidden from the school.** After each successful sync the school asks
+  for releases it has not recorded, writes each into its own audit log (entity
+  `nexus_escrow`: who, when, why), then confirms to the hub. Settings → Nexus lists every
+  release, with a warning.
+
+**School side** (`/api/v1`, feature `nexus_link`)
+
+| Method | Path | Permissions | Purpose |
+| --- | --- | --- | --- |
+| GET | `/nexus/link/escrow` | `settings.manage` | `{ available, deposited, current, deposited_at, releases[] }`, asked of the hub live; `current` is false when the key at head office is not the school's present backup key |
+| POST | `/nexus/link/escrow` | `settings.manage` + `backup.manage` | `{ password }` or `{ recovery_key }`: unlock, seal, upload. A wrong secret is 401 and audited |
+| DELETE | `/nexus/link/escrow` | `settings.manage` + `backup.manage` | Take the key back |
+
+**Using a released key.** `POST /backup/restore` and `POST /backup/password` accept
+`released_key` as a third way in, after `password` and `recovery_key`. The key is accepted
+only when it is provably the key of that backup (it must match the public key in the
+backup's header); otherwise 401 `backup_secret_invalid` with a message saying whether a
+character is wrong or the key belongs elsewhere. With it a school can restore a backup and
+set a new backup password. A released key opens every backup made with that data key, so it
+is to be kept like the recovery key; the app cannot yet replace the data key itself.

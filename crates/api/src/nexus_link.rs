@@ -8,13 +8,14 @@
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
+use madrasa_core::escrow::{self, DepositRequest, EscrowStatus, ReleaseInfo, SeenRequest};
 use madrasa_core::sync::{
     hub_url, AckRequest, AckResponse, JoinRequest, JoinResponse, LeaveRequest, Origin, Parked,
     PullRequest, PullResponse, PushRequest, PushResponse,
 };
 use madrasa_db::nexus_link::{self, Ended, Link};
 use madrasa_db::sync::round::{self, RoundError, Transport, TransportError};
-use madrasa_db::{schools, sync, Actor};
+use madrasa_db::{audit, schools, sync, Actor};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use uuid::Uuid;
@@ -63,8 +64,7 @@ fn http() -> Result<reqwest::Client, TransportError> {
         .map_err(|_| TransportError::Offline(OFFLINE.into()))
 }
 
-/// POST JSON to the hub and read its answer. Error texts are fixed: nothing from the request
-/// (the token least of all) is ever put into a message or a log line.
+/// POST JSON to the hub and read its answer.
 async fn post<B: Serialize + Sync, R: DeserializeOwned>(
     http: &reqwest::Client,
     base: &str,
@@ -72,7 +72,19 @@ async fn post<B: Serialize + Sync, R: DeserializeOwned>(
     token: Option<&str>,
     body: &B,
 ) -> Result<R, TransportError> {
-    let mut request = http.post(format!("{base}{HUB_API}{path}")).json(body);
+    send(
+        http.post(format!("{base}{HUB_API}{path}")).json(body),
+        token,
+    )
+    .await
+}
+
+/// Send a request to the hub and read its answer. Error texts are fixed: nothing from the
+/// request (the token least of all) is ever put into a message or a log line.
+async fn send<R: DeserializeOwned>(
+    mut request: reqwest::RequestBuilder,
+    token: Option<&str>,
+) -> Result<R, TransportError> {
     if let Some(token) = token {
         request = request.bearer_auth(token);
     }
@@ -369,7 +381,14 @@ pub async fn sync_now(state: &AppState, actor: Actor) -> ApiResult<LinkStatus> {
     // the audit row would itself be a record to send at the next sync.
     let mut conn = state.pool.acquire().await?;
     match outcome {
-        Ok(report) => sync::note_round(&mut conn, Ok(&report)).await?,
+        Ok(report) => {
+            sync::note_round(&mut conn, Ok(&report)).await?;
+            // The round worked, so the hub is there: ask whether head office released this
+            // school's backup key. Not being able to ask is not a failed sync.
+            if let Err(e) = note_releases(state, school, &link, &token).await {
+                tracing::info!(problem = %e, "nexus: could not check for key releases");
+            }
+        }
         Err(RoundError::Transport(TransportError::Removed(message))) => {
             drop(conn);
             tracing::warn!("this school was removed from its Nexus hub");
@@ -383,6 +402,193 @@ pub async fn sync_now(state: &AppState, actor: Actor) -> ApiResult<LinkStatus> {
     }
     drop(conn);
     status(state).await
+}
+
+// ---- backup key escrow ------------------------------------------------------------------------
+
+/// What Settings → Nexus shows about the school's backup key and head office.
+#[derive(Debug, Clone, Serialize)]
+pub struct EscrowView {
+    /// Head office has set key escrow up, so a key can be left with it.
+    pub available: bool,
+    /// This school has left a key with head office.
+    pub deposited: bool,
+    /// The key left there is the school's current backup key.
+    pub current: bool,
+    pub deposited_at: Option<DateTime<Utc>>,
+    /// Every time head office released this school's key: who, when and why.
+    pub releases: Vec<ReleaseInfo>,
+}
+
+async fn escrow_link(state: &AppState, school: Uuid) -> ApiResult<(Link, String)> {
+    let mut conn = state.pool.acquire().await?;
+    let link = nexus_link::get(&mut conn, school)
+        .await?
+        .filter(Link::is_active)
+        .ok_or_else(|| ApiError::conflict("This school has not joined a network."))?;
+    let token = nexus_link::token(&mut conn, &state.hlc, school)
+        .await?
+        .ok_or_else(|| {
+            ApiError::conflict("The key for the hub is missing. Leave the network and join again.")
+        })?;
+    Ok((link, token))
+}
+
+async fn escrow_view(state: &AppState, school: Uuid, hub: EscrowStatus) -> ApiResult<EscrowView> {
+    let mut conn = state.pool.acquire().await?;
+    let local = crate::backup::current_key_id(&mut conn, school).await?;
+    Ok(EscrowView {
+        available: hub.public_key.is_some(),
+        deposited: hub.deposit.is_some(),
+        current: matches!((&hub.deposit, &local), (Some(d), Some(l)) if d.key_id == *l),
+        deposited_at: hub.deposit.as_ref().map(|d| d.deposited_at),
+        releases: hub.releases,
+    })
+}
+
+async fn hub_escrow(link: &Link, token: &str) -> Result<EscrowStatus, TransportError> {
+    let http = http()?;
+    send(
+        http.get(format!("{}{HUB_API}/sync/escrow", link.hub_url)),
+        Some(token),
+    )
+    .await
+}
+
+/// Ask the hub what it holds for this school. Needs the hub to be reachable.
+pub async fn escrow_status(state: &AppState) -> ApiResult<EscrowView> {
+    let school = school_id(state).await?;
+    let (link, token) = escrow_link(state, school).await?;
+    let hub = hub_escrow(&link, &token).await.map_err(refused)?;
+    escrow_view(state, school, hub).await
+}
+
+/// Leave the school's backup key with head office. The key is unlocked with the backup
+/// password (or recovery key), sealed to the hub's escrow public key here, and only the
+/// sealed form is sent: the hub cannot open it without its escrow passphrase.
+pub async fn escrow_deposit(
+    state: &AppState,
+    actor: Actor,
+    secret: &crate::backup::Secret,
+) -> ApiResult<EscrowView> {
+    let school = school_id(state).await?;
+    let (link, token) = escrow_link(state, school).await?;
+    let hub = hub_escrow(&link, &token).await.map_err(refused)?;
+    let public_key = hub.public_key.ok_or_else(|| {
+        ApiError::conflict(
+            "Head office has not set up key escrow yet. Ask head office, then try again.",
+        )
+    })?;
+    let mut dek = crate::backup::data_key(state, actor, school, secret, "escrow_deposit").await?;
+    let sealed = escrow::seal(&public_key, &dek, &escrow::context_for(school));
+    dek.fill(0);
+    let deposit = sealed.map_err(|_| {
+        ApiError::new(
+            axum::http::StatusCode::BAD_GATEWAY,
+            "hub_refused",
+            "The hub's escrow key could not be used. Ask head office to check the hub.",
+        )
+    })?;
+    let key_id = deposit.key_id.clone();
+    let http = http().map_err(refused)?;
+    let after: EscrowStatus = send(
+        http.put(format!("{}{HUB_API}/sync/escrow", link.hub_url))
+            .json(&DepositRequest { deposit }),
+        Some(&token),
+    )
+    .await
+    .map_err(refused)?;
+    let mut conn = state.pool.acquire().await?;
+    audit::record(
+        &mut conn,
+        &state.hlc,
+        actor,
+        audit::Action::Create,
+        "nexus_escrow",
+        None,
+        None,
+        Some(serde_json::json!({ "hub": link.hub_name, "key_id": key_id })),
+    )
+    .await?;
+    drop(conn);
+    escrow_view(state, school, after).await
+}
+
+/// Take the school's key back from head office: the hub erases the sealed key.
+pub async fn escrow_withdraw(state: &AppState, actor: Actor) -> ApiResult<EscrowView> {
+    let school = school_id(state).await?;
+    let (link, token) = escrow_link(state, school).await?;
+    let http = http().map_err(refused)?;
+    let after: EscrowStatus = send(
+        http.delete(format!("{}{HUB_API}/sync/escrow", link.hub_url)),
+        Some(&token),
+    )
+    .await
+    .map_err(refused)?;
+    let mut conn = state.pool.acquire().await?;
+    audit::record(
+        &mut conn,
+        &state.hlc,
+        actor,
+        audit::Action::Delete,
+        "nexus_escrow",
+        None,
+        Some(serde_json::json!({ "hub": link.hub_name })),
+        None,
+    )
+    .await?;
+    drop(conn);
+    escrow_view(state, school, after).await
+}
+
+/// Write every release the school has not recorded yet into its own audit log, then tell the
+/// hub. If telling fails the release is recorded again next time: twice is better than never.
+async fn note_releases(
+    state: &AppState,
+    school: Uuid,
+    link: &Link,
+    token: &str,
+) -> Result<usize, String> {
+    let hub = hub_escrow(link, token).await.map_err(|e| e.to_string())?;
+    let new: Vec<&ReleaseInfo> = hub.releases.iter().filter(|r| !r.seen).collect();
+    if new.is_empty() {
+        return Ok(0);
+    }
+    let mut conn = state.pool.acquire().await.map_err(|e| e.to_string())?;
+    for release in &new {
+        audit::record(
+            &mut conn,
+            &state.hlc,
+            Actor::system_for(school),
+            audit::Action::Update,
+            "nexus_escrow",
+            Some(release.id),
+            None,
+            Some(serde_json::json!({
+                "event": "released_by_head_office", "hub": link.hub_name,
+                "released_by": release.released_by, "released_at": release.released_at,
+                "reason": release.reason, "key_id": release.key_id,
+            })),
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+    }
+    drop(conn);
+    tracing::warn!(
+        count = new.len(),
+        "head office released this school's backup key"
+    );
+    let http = http().map_err(|e| e.to_string())?;
+    let _: EscrowStatus = send(
+        http.post(format!("{}{HUB_API}/sync/escrow/seen", link.hub_url))
+            .json(&SeenRequest {
+                ids: new.iter().map(|r| r.id).collect(),
+            }),
+        Some(token),
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(new.len())
 }
 
 /// At start: make sure change capture matches the link. A joined school gets the trigger on

@@ -21,13 +21,16 @@ pub struct SetupStatus {
     pub hub_name: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct SetupRequest {
     pub setup_token: String,
     pub hub_name: String,
     pub admin_username: String,
     pub admin_full_name: String,
     pub admin_password: String,
+    /// Sets key escrow up at once. Optional: an administrator can do it later.
+    #[serde(default)]
+    pub escrow_passphrase: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -85,6 +88,10 @@ async fn run_setup(
     validate_password(&req.admin_password)
         .map_err(|e| HubError::validation(format!("Administrator password: {e}.")))?;
     let password_hash = hash_password(&req.admin_password).map_err(|_| HubError::internal())?;
+    let escrow_keys = match req.escrow_passphrase.filter(|p| !p.is_empty()) {
+        Some(passphrase) => Some(super::escrow::new_keys(passphrase).await?),
+        None => None,
+    };
 
     let mut tx = state.pool.begin().await?;
     // Two setups at once: the second waits here, then sees the first one's user.
@@ -130,6 +137,20 @@ async fn run_setup(
         Some(serde_json::json!({ "hub_name": hub_name })),
     )
     .await?;
+    if let Some(keys) = &escrow_keys {
+        crate::escrow::save_keys(&mut tx, &state.hlc, Some(admin.id), keys).await?;
+        store::audit(
+            &mut tx,
+            &state.hlc,
+            Some(admin.id),
+            "escrow_setup",
+            "hub_escrow",
+            None,
+            None,
+            None,
+        )
+        .await?;
+    }
     tx.commit().await?;
     state.close_setup();
     tracing::info!("hub first-run setup completed");

@@ -767,3 +767,315 @@ async fn the_link_survives_a_restart_and_follows_the_edition() {
     app.finish().await;
     hub.finish().await;
 }
+
+/// Stage 6, end to end: the school leaves its backup key with head office, head office
+/// releases it, the school is told, and the released key opens a real backup.
+#[tokio::test]
+async fn a_backup_key_left_with_head_office_is_released_and_opens_a_real_backup() {
+    let (app, hub) = start!();
+    let admin = app.setup("KHI-ES").await;
+    let hub_admin = hub.setup().await;
+    let delete = |path: &'static str| app.call(Method::DELETE, path, Some(&admin), None);
+
+    // A school that has not joined has nobody to leave a key with.
+    let (s, e) = app.get("/nexus/link/escrow", &admin).await;
+    assert_eq!(s, StatusCode::CONFLICT, "{e}");
+    let code = hub.invite(&hub_admin).await;
+    let (s, b) = app
+        .post(
+            "/nexus/link/join",
+            &admin,
+            json!({ "hub_url": hub.url, "join_code": code }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    let (s, b) = app.post("/nexus/link/sync", &admin, json!({})).await;
+    assert_eq!((s, &b["last_error"]), (StatusCode::OK, &Value::Null), "{b}");
+
+    // Head office has not set escrow up yet: the school is told so, plainly.
+    let (s, view) = app.get("/nexus/link/escrow", &admin).await;
+    assert_eq!(s, StatusCode::OK, "{view}");
+    assert_eq!(
+        (view["available"].as_bool(), view["deposited"].as_bool()),
+        (Some(false), Some(false))
+    );
+    let (s, e) = app
+        .post(
+            "/nexus/link/escrow",
+            &admin,
+            json!({ "password": "backup-password-1" }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::CONFLICT, "{e}");
+    assert_eq!(
+        e["error"]["message"],
+        "Head office has not set up key escrow yet. Ask head office, then try again."
+    );
+    let passphrase = "head office escrow passphrase";
+    let (s, _) = hub
+        .call(
+            reqwest::Method::POST,
+            "/escrow/setup",
+            Some(&hub_admin),
+            Some(json!({ "passphrase": passphrase })),
+        )
+        .await;
+    assert_eq!(s, 204);
+
+    // Leaving the key needs the backup password (or the recovery key); a wrong one is
+    // refused and audited; a "released key" proves nothing here.
+    let (s, e) = app
+        .post(
+            "/nexus/link/escrow",
+            &admin,
+            json!({ "password": "wrong-password-1" }),
+        )
+        .await;
+    assert_eq!(
+        (s, e["error"]["code"].as_str()),
+        (StatusCode::UNAUTHORIZED, Some("backup_secret_invalid"))
+    );
+    let (s, _) = app
+        .post(
+            "/nexus/link/escrow",
+            &admin,
+            json!({ "released_key": "00000-00000-00000-00000-00000-00000-00000-00000-00000-00000-00000" }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
+    let (s, view) = app
+        .post(
+            "/nexus/link/escrow",
+            &admin,
+            json!({ "password": "backup-password-1" }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{view}");
+    assert_eq!(
+        (
+            view["available"].as_bool(),
+            view["deposited"].as_bool(),
+            view["current"].as_bool(),
+            view["releases"].as_array().map(Vec::len)
+        ),
+        (Some(true), Some(true), Some(true), Some(0))
+    );
+    // What the hub holds is sealed: the school's key set is not in it.
+    let held: String = sqlx::query_scalar("SELECT sealed::text FROM hub_escrow_deposits")
+        .fetch_one(&hub.state.pool)
+        .await
+        .unwrap();
+    let key_set: String =
+        sqlx::query_scalar("SELECT value::text FROM settings WHERE key = 'backup.keys'")
+            .fetch_one(&app.db.pool)
+            .await
+            .unwrap();
+    let key_set: Value = serde_json::from_str(&key_set).unwrap();
+    assert!(held.contains(key_set["public_key"].as_str().unwrap()));
+    assert!(!held.contains(key_set["by_password"]["ciphertext"].as_str().unwrap()));
+
+    // Only people who manage settings and backups may do any of this.
+    let (_, staff) = app
+        .post("/staff", &admin, json!({ "full_name": "Sana Malik" }))
+        .await;
+    let (s, b) = app
+        .post(
+            &format!("/staff/{}/login", staff["id"].as_str().unwrap()),
+            &admin,
+            json!({ "username": "sana", "password": "teacher-password-1", "role": "teacher" }),
+        )
+        .await;
+    assert!(s.is_success(), "{b}");
+    let teacher = app.login("sana", "teacher-password-1").await;
+    for method in [Method::GET, Method::POST, Method::DELETE] {
+        let (s, _) = app
+            .call(
+                method.clone(),
+                "/nexus/link/escrow",
+                Some(&teacher),
+                Some(json!({ "password": "backup-password-1" })),
+            )
+            .await;
+        assert_eq!(s, StatusCode::FORBIDDEN, "{method}");
+    }
+
+    // A real backup, made while the key is with head office.
+    let dir = std::env::temp_dir().join(format!("madrasa-escrow-test-{}", Uuid::new_v4()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let (s, b) = app
+        .call(
+            Method::PUT,
+            "/backup/settings",
+            Some(&admin),
+            Some(json!({ "enabled": false, "time": "02:00", "directory": dir.display().to_string(), "keep": 5 })),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    let (s, run) = app.post("/backup/run", &admin, json!({})).await;
+    assert_eq!(s, StatusCode::OK, "{run}");
+    let path = run["file_path"].as_str().unwrap().to_string();
+
+    // The school "loses" its password and recovery key. Head office releases the key.
+    let school_ref = hub.school(&hub_admin).await["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let reason = "Principal lost the backup password and the recovery key";
+    let (s, released) = hub
+        .call(
+            reqwest::Method::POST,
+            &format!("/schools/{school_ref}/escrow/release"),
+            Some(&hub_admin),
+            Some(json!({ "passphrase": passphrase, "reason": reason })),
+        )
+        .await;
+    assert_eq!(s, 200, "{released}");
+    let released_key = released["released_key"].as_str().unwrap().to_string();
+
+    // At its next sync the school records the release in its own audit log and confirms.
+    let (s, b) = app.post("/nexus/link/sync", &admin, json!({})).await;
+    assert_eq!((s, &b["last_error"]), (StatusCode::OK, &Value::Null), "{b}");
+    let (_, audit) = app.get("/audit?limit=200", &admin).await;
+    let entries = audit["items"]
+        .as_array()
+        .or_else(|| audit.as_array())
+        .unwrap();
+    let noted: Vec<&Value> = entries
+        .iter()
+        .filter(|e| e["entity"] == "nexus_escrow" && e["action"] == "update")
+        .collect();
+    assert_eq!(noted.len(), 1, "{audit}");
+    assert_eq!(
+        (
+            noted[0]["new_value"]["reason"].as_str(),
+            noted[0]["new_value"]["released_by"].as_str()
+        ),
+        (Some(reason), Some("Head Office"))
+    );
+    assert!(!audit.to_string().contains(&released_key));
+    let (_, view) = app.get("/nexus/link/escrow", &admin).await;
+    assert_eq!(
+        (
+            view["releases"][0]["reason"].as_str(),
+            view["releases"][0]["seen"].as_bool()
+        ),
+        (Some(reason), Some(true)),
+        "{view}"
+    );
+    // A second sync does not record it again.
+    app.post("/nexus/link/sync", &admin, json!({})).await;
+    let (_, audit) = app.get("/audit?limit=200", &admin).await;
+    let again = audit["items"]
+        .as_array()
+        .or_else(|| audit.as_array())
+        .unwrap()
+        .iter()
+        .filter(|e| e["entity"] == "nexus_escrow" && e["action"] == "update")
+        .count();
+    assert_eq!(again, 1);
+
+    // Restore with the released key. A mistyped character and another school's key are
+    // refused before anything is touched.
+    app.rename(&admin, "Ali Khan", "Ali Changed").await;
+    let mut typo: Vec<char> = released_key.chars().collect();
+    typo[3] = if typo[3] == '7' { '8' } else { '7' };
+    let typo: String = typo.into_iter().collect();
+    let other = madrasa_core::escrow::format_released_key(&[0x42; 32]);
+    for (key, message) in [
+        (typo.as_str(), "The key released by head office is incomplete or has a wrong character. Check it against the code you were given."),
+        (other.as_str(), "This key does not open this backup. It was released for another school or for an older key."),
+    ] {
+        let (s, e) = app
+            .post(
+                "/backup/restore",
+                &admin,
+                json!({ "path": path, "released_key": key }),
+            )
+            .await;
+        assert_eq!(
+            (s, e["error"]["code"].as_str(), e["error"]["message"].as_str()),
+            (StatusCode::UNAUTHORIZED, Some("backup_secret_invalid"), Some(message))
+        );
+    }
+    assert_eq!(app.names().await, ["Ali Changed", "Sara Noor"]);
+    let (s, r) = app
+        .post(
+            "/backup/restore",
+            &admin,
+            json!({ "path": path, "released_key": released_key.to_lowercase().replace('-', " ") }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{r}");
+    assert_eq!(
+        app.names().await,
+        ["Ali Khan", "Sara Noor"],
+        "the backup is back"
+    );
+
+    // The released key also lets the school set a new backup password, which then works.
+    let (s, e) = app
+        .post(
+            "/backup/password",
+            &admin,
+            json!({ "released_key": other, "new_password": "new-backup-password-1" }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::UNAUTHORIZED, "{e}");
+    let (s, e) = app
+        .post(
+            "/backup/password",
+            &admin,
+            json!({ "released_key": released_key, "new_password": "new-backup-password-1" }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::NO_CONTENT, "{e}");
+    let (s, r) = app
+        .post(
+            "/backup/restore",
+            &admin,
+            json!({ "path": path, "password": "backup-password-1" }),
+        )
+        .await;
+    assert_eq!(
+        s,
+        StatusCode::OK,
+        "the old file still opens with its old password: {r}"
+    );
+    let (s, _) = app
+        .post(
+            "/backup/password",
+            &admin,
+            json!({ "current_password": "backup-password-1", "new_password": "new-backup-password-2" }),
+        )
+        .await;
+    assert_eq!(
+        s,
+        StatusCode::NO_CONTENT,
+        "restore brought the old key set back"
+    );
+
+    // The school takes its key back: nothing sealed is left at the hub.
+    let (s, view) = delete("/nexus/link/escrow").await;
+    assert_eq!(s, StatusCode::OK, "{view}");
+    assert_eq!(view["deposited"], false);
+    assert_eq!(view["releases"].as_array().unwrap().len(), 1);
+    let sealed: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM hub_escrow_deposits WHERE sealed IS NOT NULL")
+            .fetch_one(&hub.state.pool)
+            .await
+            .unwrap();
+    assert_eq!(sealed, 0);
+    let (s, e) = hub
+        .call(
+            reqwest::Method::POST,
+            &format!("/schools/{school_ref}/escrow/release"),
+            Some(&hub_admin),
+            Some(json!({ "passphrase": passphrase, "reason": "After it was taken back" })),
+        )
+        .await;
+    assert_eq!((s, e["error"]["code"].as_str()), (409, Some("no_deposit")));
+
+    let _ = std::fs::remove_dir_all(&dir);
+    app.finish().await;
+    hub.finish().await;
+}

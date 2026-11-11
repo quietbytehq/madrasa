@@ -104,7 +104,9 @@ fn derive_key(secret: &[u8], salt: &[u8]) -> Result<[u8; 32], BackupKeyError> {
     Ok(key)
 }
 
-fn wrap(dek: &[u8; 32], secret: &[u8]) -> Result<WrappedKey, BackupKeyError> {
+/// Wrap 32 bytes with a key derived (Argon2id) from a secret. Also used for the escrow
+/// private key (`crate::escrow`).
+pub(crate) fn wrap(dek: &[u8; 32], secret: &[u8]) -> Result<WrappedKey, BackupKeyError> {
     let mut salt = [0u8; 16];
     let mut nonce = [0u8; 12];
     rand::thread_rng().fill_bytes(&mut salt);
@@ -121,7 +123,7 @@ fn wrap(dek: &[u8; 32], secret: &[u8]) -> Result<WrappedKey, BackupKeyError> {
     })
 }
 
-fn unwrap(wrapped: &WrappedKey, secret: &[u8]) -> Result<[u8; 32], BackupKeyError> {
+pub(crate) fn unwrap(wrapped: &WrappedKey, secret: &[u8]) -> Result<[u8; 32], BackupKeyError> {
     let salt = STANDARD
         .decode(&wrapped.salt)
         .map_err(|_| BackupKeyError::Malformed)?;

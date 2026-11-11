@@ -79,6 +79,7 @@ beforeEach(() => {
   ]);
   vi.mocked(api.previewRestore).mockResolvedValue(preview);
   vi.mocked(api.restoreBackup).mockClear();
+  vi.mocked(api.changeBackupPassword).mockClear();
   vi.mocked(api.runBackup).mockClear();
 });
 
@@ -162,6 +163,58 @@ describe("BackupPage", () => {
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getAllByRole("alert")[1]).toHaveTextContent("different version");
     expect(within(dialog).queryByRole("button", { name: "Restore now" })).not.toBeInTheDocument();
+  });
+
+  it("restores with the recovery key or a key released by head office", async () => {
+    vi.mocked(api.restoreBackup).mockResolvedValue({
+      tables: 36,
+      rows: 5000,
+      meta: preview.meta,
+      relogin: true,
+    });
+    render();
+    await userEvent.click(await screen.findByRole("button", { name: "Restore" }));
+    const dialog = await screen.findByRole("dialog");
+    // Three ways in; the two not showing are offered as links.
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Use the recovery key instead" }),
+    );
+    expect(within(dialog).getByLabelText("Recovery key")).toBeInTheDocument();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Use a key released by head office instead" }),
+    );
+    const code = "0123A-BCDEF-GHJKM-NPQRS-TVWXY-Z0123-45678-9ABCD-EFGHJ-KMNPQ-RSTVW";
+    const field = within(dialog).getByLabelText("Key released by head office");
+    expect(field).toHaveAttribute("type", "text");
+    expect(within(dialog).getByText(/eleven groups of five characters/)).toBeInTheDocument();
+    await userEvent.type(field, code);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Restore now" }));
+    await waitFor(() =>
+      expect(api.restoreBackup).toHaveBeenCalledWith({
+        path: preview.path,
+        password: undefined,
+        recovery_key: undefined,
+        released_key: code,
+      }),
+    );
+  });
+
+  it("sets a new backup password with a key released by head office", async () => {
+    vi.mocked(api.changeBackupPassword).mockResolvedValue(undefined);
+    render();
+    await userEvent.click(
+      await screen.findByRole("button", { name: "I have a key released by head office instead" }),
+    );
+    await userEvent.type(screen.getByLabelText("Key released by head office"), "0123A-BCDEF");
+    await userEvent.type(screen.getByLabelText("New backup password"), "new-backup-pw-1");
+    await userEvent.type(screen.getByLabelText("Confirm new password"), "new-backup-pw-1");
+    await userEvent.click(screen.getByRole("button", { name: "Change password" }));
+    await waitFor(() =>
+      expect(api.changeBackupPassword).toHaveBeenCalledWith({
+        released_key: "0123A-BCDEF",
+        new_password: "new-backup-pw-1",
+      }),
+    );
   });
 
   it("changes the backup password with a warning about old backups", async () => {

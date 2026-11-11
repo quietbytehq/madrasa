@@ -12,6 +12,7 @@ import { useToast } from "@/components/ui/Toast";
 import { useI18n } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
 import { errorMessage, useAsync } from "@/lib/useAsync";
+import { NexusEscrow } from "./NexusEscrow";
 
 const REASONS: Record<string, TranslationKey> = {
   head_office_wins: "nexus.reason.head_office_wins",
@@ -33,7 +34,7 @@ export function showValue(value: unknown): string {
  * Settings → Nexus: join a school network (a Madrasa Nexus hub), see how syncing is going,
  * see what head office overwrote, and leave. A school that has not joined is unchanged.
  */
-export function NexusCard() {
+export function NexusCard({ canManageBackups = false }: { canManageBackups?: boolean }) {
   const { t, formatDate } = useI18n();
   const toast = useToast();
   const link = useAsync(() => api.nexusLink(), []);
@@ -264,6 +265,8 @@ export function NexusCard() {
             </div>
           )}
         </div>
+
+        <NexusEscrow canManageBackups={canManageBackups} />
       </div>
 
       <Dialog

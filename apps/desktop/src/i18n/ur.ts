@@ -885,6 +885,10 @@ export const ur: Translation = {
   "backup.restore.recoveryKey": "ریکوری کی",
   "backup.restore.useRecovery": "اس کے بجائے ریکوری کی استعمال کریں",
   "backup.restore.usePassword": "اس کے بجائے بیک اپ پاس ورڈ استعمال کریں",
+  "backup.restore.releasedKey": "ہیڈ آفس کی جاری کردہ کی",
+  "backup.restore.useReleased": "اس کے بجائے ہیڈ آفس کی جاری کردہ کی استعمال کریں",
+  "backup.restore.releasedHint":
+    "وہ کوڈ جو ہیڈ آفس نے دیا: پانچ پانچ حروف کے گیارہ گروپ۔ بڑے چھوٹے حروف، خالی جگہ اور ڈیش سے فرق نہیں پڑتا۔",
   "backup.restore.confirm": "ابھی بحال کریں",
   "backup.restore.done":
     "{date} کے بیک اپ سے {rows} ریکارڈ بحال ہوئے۔ براہ کرم دوبارہ لاگ ان کریں۔",
@@ -893,6 +897,7 @@ export const ur: Translation = {
   "backup.password.hint":
     "پاس ورڈ کی تبدیلی صرف نئے بیک اپ پر لاگو ہوتی ہے۔ پہلے بنے بیک اپ اسی وقت کے پاس ورڈ یا ریکوری کی سے کھلتے ہیں۔",
   "backup.password.current": "موجودہ بیک اپ پاس ورڈ",
+  "backup.password.useReleased": "میرے پاس ہیڈ آفس کی جاری کردہ کی ہے",
   "backup.password.new": "نیا بیک اپ پاس ورڈ",
   "backup.password.confirm": "نئے پاس ورڈ کی تصدیق",
   "backup.password.change": "پاس ورڈ بدلیں",
@@ -1297,6 +1302,28 @@ export const ur: Translation = {
   "nexus.reason.later_mark": "حاضری کا بعد والا اندراج",
   "nexus.reason.renumbered": "دو رسیدوں کا یہی نمبر تھا",
   "nexus.reason.duplicate_reversal": "دونوں طرف منسوخ کی گئی",
+  "nexus.escrow.title": "بیک اپ کی اور ہیڈ آفس",
+  "nexus.escrow.hint":
+    "اگر بیک اپ پاس ورڈ اور ریکوری کی دونوں کھو جائیں تو بیک اپ نہیں کھل سکتے۔ آپ بیک اپ کی کی ایک مہر بند نقل ہیڈ آفس کے پاس رکھ سکتے ہیں۔ اسے کھولنے کے لیے ہیڈ آفس کو اپنا الگ پاس فریز درکار ہے، اور جب بھی وہ اسے کھولے، یہ صفحہ بتاتا ہے کہ کس نے اور کیوں کھولا۔ یہ آپ کی مرضی ہے؛ سنک اس کے بغیر بھی چلتا ہے۔",
+  "nexus.escrow.unreachable": "بیک اپ کی دیکھنے کے لیے ہیڈ آفس سے رابطہ نہیں ہو سکا۔",
+  "nexus.escrow.retry": "دوبارہ کوشش کریں",
+  "nexus.escrow.notAvailable": "ہیڈ آفس نے ابھی کی محفوظ رکھنے کا انتظام نہیں کیا۔",
+  "nexus.escrow.needsBackupRole": "بیک اپ سنبھالنے والا فرد بیک اپ کی ہیڈ آفس کے پاس رکھ سکتا ہے۔",
+  "nexus.escrow.passwordHint": "اس سے ثابت ہوتا ہے کہ آپ کی دے سکتے ہیں۔ یہ بھیجا نہیں جاتا۔",
+  "nexus.escrow.deposit": "کی ہیڈ آفس کے پاس رکھیں",
+  "nexus.escrow.deposited": "بیک اپ کی کی مہر بند نقل اب ہیڈ آفس کے پاس ہے۔",
+  "nexus.escrow.held": "بیک اپ کی کی مہر بند نقل {date} سے ہیڈ آفس کے پاس ہے۔",
+  "nexus.escrow.stale":
+    "ہیڈ آفس کے پاس موجود کی اس اسکول کی موجودہ بیک اپ کی نہیں ہے۔ کی دوبارہ رکھیں تاکہ ہیڈ آفس نئے بیک اپ میں مدد کر سکے۔",
+  "nexus.escrow.withdraw": "کی واپس لیں",
+  "nexus.escrow.withdraw.title": "بیک اپ کی واپس لیں؟",
+  "nexus.escrow.withdraw.body":
+    "ہیڈ آفس اپنی مہر بند نقل مٹا دے گا۔ اس کے بعد اگر بیک اپ پاس ورڈ اور ریکوری کی دونوں کھو جائیں تو کوئی بھی بیک اپ نہیں کھول سکے گا۔",
+  "nexus.escrow.withdrawn": "بیک اپ کی اب ہیڈ آفس کے پاس نہیں ہے۔",
+  "nexus.escrow.released.title": "ہیڈ آفس نے اس اسکول کی بیک اپ کی کھولی ہے",
+  "nexus.escrow.released.item": "{date}، {by} نے: {reason}",
+  "nexus.escrow.released.hint":
+    "جس کے پاس جاری کردہ کی ہو وہ اس اسکول کے بیک اپ کھول سکتا ہے۔ اگر آپ نے اس کی درخواست نہیں کی تھی تو ہیڈ آفس سے بات کریں۔",
   "feature.timetable": "ٹائم ٹیبل",
   "feature.leave": "چھٹی",
   "feature.admissions": "داخلے",

@@ -1263,6 +1263,36 @@ depend on each other and were built together)
   CSV and Excel downloads, refused periods and formats, permissions, audit entries.
 - Left: stages 6 to 9. The reports have no screen yet (stage 7).
 
+### 2026-11-11 — Stage 6: Backup key escrow (branch `dev/nexus-6-escrow`)
+- Done: a joined school can leave a sealed copy of its backup key with head office
+  (Settings → Nexus, with the backup password), see whether head office holds it and
+  whether it is still the current key, and take it back. Head office sets escrow up with
+  an escrow passphrase (at first-run setup or later), sees which schools have left a key,
+  and releases one with the `nexus.escrow` permission, the passphrase and a reason. The
+  released key is a printable code shown once. Restore, and setting a new backup password,
+  accept it as a third way in. Spec §16.7.
+- A release cannot be hidden: after its next sync the school writes it into its own audit
+  log and Settings → Nexus shows who released the key, when and why.
+- Safety: the hub stores only sealed keys and its own private key wrapped by the
+  passphrase, so a copy of the hub database opens nothing. A deposit is bound to its
+  school. Five wrong passphrases stop that user's releases for fifteen minutes. Neither the
+  passphrase nor a key is ever logged or audited.
+- Decision made here, stricter than ADR 0005: when a school leaves, is removed or is
+  purged, its sealed key is erased at once, and only a joined school's key can be released
+  (a school that is no longer joined could not be told about a release).
+- Tested: 6 unit tests of the cryptography (wrong passphrase, tampering, another school's
+  deposit, another hub's key, passphrase change, the printable code and typing mistakes);
+  3 hub database tests (setup, permissions, deposit, release, audit without secrets, the
+  school shown and confirming, another school kept out, a copied deposit refused, lockout,
+  the sealed key erased on withdrawal, leaving, removal and purge); one end-to-end test
+  over real HTTP (a school's API leaves its key, makes a real backup, head office
+  releases, the school records the release at sync, restores the backup with the released
+  key, sets a new password with it, takes the key back); 5 new screen tests.
+- Not done, said plainly: the hub has no screen yet, so setting escrow up and releasing a
+  key are API calls until stage 7. The app cannot replace a backup data key, so a released
+  key keeps opening that school's backups; it must be kept like the recovery key.
+- Left: stages 7 to 9.
+
 ## Summary for the owner — Standard alpha
 
 The Standard alpha was built in eleven pull requests, each from a clean `main` with CI green

@@ -38,7 +38,9 @@ export function SettingsPage() {
         {can("settings.manage") && <EditionCard />}
         {can("settings.manage") && hasFeature("directory_login") && <DirectoryCard />}
         {can("settings.manage") && hasFeature("readonly_api") && <ApiKeysCard />}
-        {can("settings.manage") && hasFeature("nexus_link") && <NexusCard />}
+        {can("settings.manage") && hasFeature("nexus_link") && (
+          <NexusCard canManageBackups={can("backup.manage")} />
+        )}
         <section>
           <h2 className="mb-2 text-sm font-semibold text-navy">{t("academics.title")}</h2>
           <AcademicsSettings />
