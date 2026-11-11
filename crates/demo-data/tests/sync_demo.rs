@@ -88,7 +88,7 @@ async fn a_demo_school_uploads_completely_and_exactly() {
             "a password hash was about to leave the school"
         );
         let mut h = hub.pool.begin().await.unwrap();
-        let applied = sync::apply(&mut h, &batch).await.unwrap();
+        let applied = sync::apply(&mut h, &Hlc::new(2), &batch).await.unwrap();
         h.commit().await.unwrap();
         assert!(
             applied.parked.is_empty(),

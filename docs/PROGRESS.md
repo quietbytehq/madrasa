@@ -1186,6 +1186,34 @@ depend on each other and were built together)
 - Left: receipts and attendance merging (stage 3). Nothing calls the engine over the
   network yet (stage 4).
 
+### 2026-11-11 — Stage 3: Receipts and attendance always merge (branch `dev/nexus-3-merge`)
+- Done: `madrasa_db::sync::special` and migration `0027_sync_receipts.sql`. Receipts: union
+  of both sides; a voucher's paid amount is the sum of its receipts on each side and its
+  payment status follows; two receipts with one number are both kept (the later one gets a
+  suffix); a receipt reversed on both sides is reversed once. Attendance: sheets, entries
+  and staff records made separately for the same section, student or staff member and day
+  fold into one; the later mark stands whichever side made it; the earlier mark is logged;
+  sheet totals are counted again. Spec §16.4.
+- Receipts stay immutable for users. The database trigger allows exactly two things, only
+  while a received batch is being merged: changing a receipt's number and nothing else,
+  and removing a duplicate reversal. A test shows every other change is still refused,
+  even during a merge.
+- Found while testing: number sequences are not synced, so a hub copy that issued receipts
+  would reuse the school's numbers. The merge handles it (both kept, one renumbered), and
+  the alpha console issues no receipts. If head office is ever to take payments it needs
+  its own number series. Written down in the spec.
+- Tested: 3 more unit tests in core and 9 database tests using the real fee and attendance
+  repository functions on both copies, each scenario run with either side syncing first:
+  receipts taken on both sides add up on the voucher and both are on both sides; receipts
+  that together overpay are both kept; a receipt reversed on both sides is reversed once
+  with the removed reversal in the log; receipts stay immutable outside a merge; two sheets
+  for one day fold into one with one live mark per student and correct totals; different
+  days simply combine; a school correction made after a head office correction stands;
+  staff attendance folds the same way; a merged day keeps syncing normally. The earlier 10
+  engine tests and the whole-demo-school upload still pass. Repeated four times to check
+  for timing dependence.
+- Left: nothing calls the engine over the network yet (stage 4).
+
 ## Summary for the owner — Standard alpha
 
 The Standard alpha was built in eleven pull requests, each from a clean `main` with CI green

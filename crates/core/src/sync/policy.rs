@@ -40,6 +40,12 @@ pub struct TablePolicy {
     /// Columns computed from other records (a voucher's paid amount, a sheet's totals).
     /// They are never sent as changes; each side recomputes them after a merge.
     pub derived: &'static [&'static str],
+    /// When set, only conflicts on these fields are written to the overwrite log; the
+    /// others still merge, silently. Attendance logs marks, not bookkeeping.
+    pub log_only: &'static [&'static str],
+    /// A conflict on (field, local value, incoming value) that needs no log entry because
+    /// both values are recomputed anyway (a voucher's payment status).
+    pub quiet: Option<fn(&str, &serde_json::Value, &serde_json::Value) -> bool>,
 }
 
 impl TablePolicy {
@@ -55,11 +61,26 @@ impl TablePolicy {
         self.derived.contains(&column)
     }
 
-    /// Columns whose local changes do not make a record "changed": excluded and derived
-    /// ones, and the bookkeeping columns that change with every edit.
+    /// Should a conflict on this field be written to the overwrite log?
+    pub fn logs(
+        &self,
+        field: &str,
+        local: &serde_json::Value,
+        incoming: &serde_json::Value,
+    ) -> bool {
+        if !self.log_only.is_empty() && !self.log_only.contains(&field) {
+            return false;
+        }
+        !self
+            .quiet
+            .is_some_and(|quiet| quiet(field, local, incoming))
+    }
+
+    /// Columns whose local changes never make a record "changed": excluded ones and the
+    /// bookkeeping columns that change with every edit. (A change to a derived column alone
+    /// sends the bookkeeping columns and nothing else.)
     pub fn untracked_columns(&self) -> Vec<&'static str> {
         let mut out: Vec<&'static str> = self.exclude.iter().map(|(c, _)| *c).collect();
-        out.extend(self.derived.iter().copied());
         out.extend(META_FIELDS);
         out
     }
@@ -74,6 +95,8 @@ const fn fields(table: &'static str) -> TablePolicy {
         mode: Mode::Fields,
         exclude: &[],
         derived: &[],
+        log_only: &[],
+        quiet: None,
     }
 }
 
@@ -83,6 +106,35 @@ const fn skip(table: &'static str) -> TablePolicy {
         mode: Mode::Skip,
         exclude: &[],
         derived: &[],
+        log_only: &[],
+        quiet: None,
+    }
+}
+
+/// Voucher statuses that follow from the receipts. `carried` and `cancelled` are decisions
+/// a person made and are not recomputed.
+pub const PAYMENT_STATUSES: [&str; 3] = ["unpaid", "partial", "paid"];
+
+/// A voucher's payment status is recomputed from its receipts after every merge, so two
+/// sides that each took a payment do not have a conflict worth logging.
+fn voucher_status_is_recomputed(
+    field: &str,
+    local: &serde_json::Value,
+    incoming: &serde_json::Value,
+) -> bool {
+    let payment = |v: &serde_json::Value| v.as_str().is_some_and(|s| PAYMENT_STATUSES.contains(&s));
+    field == "status" && payment(local) && payment(incoming)
+}
+
+/// Attendance tables: marks merge by the later mark; only a replaced mark is logged.
+const fn attendance(table: &'static str, derived: &'static [&'static str]) -> TablePolicy {
+    TablePolicy {
+        table,
+        mode: Mode::Attendance,
+        exclude: &[],
+        derived,
+        log_only: &["status"],
+        quiet: None,
     }
 }
 
@@ -92,6 +144,8 @@ const fn with_mode(table: &'static str, mode: Mode) -> TablePolicy {
         mode,
         exclude: &[],
         derived: &[],
+        log_only: &[],
+        quiet: None,
     }
 }
 
@@ -106,8 +160,9 @@ pub const TABLES: &[TablePolicy] = &[
     skip("api_keys"),
     fields("assessment_max_marks"),
     fields("assessment_types"),
-    with_mode("attendance_entries", Mode::Attendance),
-    with_mode("attendance_sheets", Mode::Attendance),
+    attendance("attendance_entries", &[]),
+    // The totals are counted from the entries on each side after every merge.
+    attendance("attendance_sheets", &["present", "absent", "late", "leave"]),
     // Append-only by database trigger.
     with_mode("audit_log", Mode::Append),
     // Where and when this install made its backups.
@@ -130,7 +185,16 @@ pub const TABLES: &[TablePolicy] = &[
     with_mode("fee_receipts", Mode::Append),
     fields("fee_structures"),
     fields("fee_voucher_lines"),
-    fields("fee_vouchers"),
+    TablePolicy {
+        table: "fee_vouchers",
+        mode: Mode::Fields,
+        exclude: &[],
+        // The paid amount is the sum of the voucher's receipts on each side, so receipts
+        // taken on both sides add up instead of one total replacing the other.
+        derived: &["net_paid"],
+        log_only: &[],
+        quiet: Some(voucher_status_is_recomputed),
+    },
     fields("guardians"),
     fields("holidays"),
     fields("hostel_allocations"),
@@ -168,7 +232,7 @@ pub const TABLES: &[TablePolicy] = &[
     // Holds sealed secrets, key material and install-only switches (node id, edition).
     skip("settings"),
     fields("staff"),
-    with_mode("staff_attendance", Mode::Attendance),
+    attendance("staff_attendance", &[]),
     fields("student_guardians"),
     fields("student_leave_requests"),
     fields("student_subjects"),
@@ -202,6 +266,8 @@ pub const TABLES: &[TablePolicy] = &[
             ("directory_synced_at", None),
         ],
         derived: &[],
+        log_only: &[],
+        quiet: None,
     },
 ];
 
@@ -236,6 +302,36 @@ mod tests {
         }
         assert_eq!(policy("students").unwrap().mode, Mode::Fields);
         assert!(policy("no_such_table").is_none());
+    }
+
+    #[test]
+    fn derived_values_are_recomputed_not_argued_over() {
+        use serde_json::json;
+        let v = policy("fee_vouchers").unwrap();
+        assert!(v.is_derived("net_paid"));
+        assert!(
+            !v.untracked_columns().contains(&"net_paid"),
+            "derived, not excluded"
+        );
+        // Two payment statuses: recomputed, nothing to log. A cancellation is a decision.
+        assert!(!v.logs("status", &json!("partial"), &json!("paid")));
+        assert!(v.logs("status", &json!("cancelled"), &json!("paid")));
+        assert!(v.logs("status", &json!("partial"), &json!("carried")));
+        assert!(v.logs("due_date", &json!("2026-05-10"), &json!("2026-05-15")));
+        let sheet = policy("attendance_sheets").unwrap();
+        assert!(sheet.is_derived("present") && sheet.is_derived("leave"));
+        // Attendance logs a replaced mark, not bookkeeping fields.
+        let e = policy("attendance_entries").unwrap();
+        assert!(e.logs("status", &json!("absent"), &json!("present")));
+        assert!(!e.logs(
+            "deleted_at",
+            &json!(null),
+            &json!("2026-05-01T00:00:00+00:00")
+        ));
+        assert!(!e.logs("sheet_id", &json!("a"), &json!("b")));
+        assert!(policy("students")
+            .unwrap()
+            .logs("full_name", &json!("a"), &json!("b")));
     }
 
     #[test]

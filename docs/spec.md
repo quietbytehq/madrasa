@@ -1908,3 +1908,51 @@ refused outright.
 
 **After a restore.** A backup contains the bookkeeping tables as they were; restore reloads
 them and moves the change counter past the restored queue.
+
+### 16.4 Receipts and attendance always merge (stage 3)
+
+The generic rule for a new record is "insert it". Receipts and attendance add a rule for a
+new record that meets a *twin*: a different record on this side that stands for the same
+thing. Nothing is dropped. Every rule depends only on the two records, never on which side
+runs it, so the school and the hub reach the same result whichever syncs first (the tests
+run both orders). The code is `madrasa_db::sync::special`.
+
+**Receipts** (`fee_receipts`, append-only):
+
+- The result is the union of both sides' receipts.
+- `fee_vouchers.net_paid` is derived: it is never sent, and after every merge each side sets
+  it to the sum of the voucher's receipts. The payment status (`unpaid`, `partial`, `paid`)
+  follows from it; two sides that each took a payment have no conflict to log. `cancelled`
+  and `carried` are decisions and merge as ordinary fields. Receipts that together exceed
+  the amount due are both kept and the voucher shows as overpaid.
+- Two different receipts with the same number: both are kept. The one created later (ids
+  are time-ordered) takes a suffix (`R2026-000001-2`) on both sides; the log gets a
+  `renumbered` entry with the old and new number.
+- A receipt reversed on both sides is reversed once: the earlier reversal stands, the later
+  one is removed, and the log gets a `duplicate_reversal` entry holding the removed reversal
+  in full.
+- Receipts stay immutable for every user and screen. Migration `0027_sync_receipts.sql`
+  allows exactly two things, and only while a received batch is being merged: changing a
+  receipt's number and nothing else, and removing a reversal.
+- Number sequences are not synced. If head office ever issues receipts in a school's copy
+  it needs a number series of its own; the alpha console does not issue receipts.
+
+**Attendance** (`attendance_sheets`, `attendance_entries`, `staff_attendance`):
+
+- Twins are: two live sheets for one section and day, two live entries for one student and
+  day, two live staff records for one staff member and day.
+- The two fold into one. The record with the earlier id survives; the other is soft-deleted
+  (it is kept, set aside). The survivor carries the marks of whichever was written later.
+  **Head office has no priority here.**
+- When sheets fold, the entries of the sheet that is set aside move to the survivor; an
+  entry that arrives for a sheet that was set aside is stored on the survivor.
+- Where the two sides marked a student or staff member differently, the earlier mark is
+  written to the log (`later_mark`) with both values. The same merge seen by both sides is
+  logged once.
+- A sheet's totals (`present`, `absent`, `late`, `leave`) are derived: never sent, counted
+  again from the live entries after every merge. A change to a derived column alone sends
+  only the bookkeeping columns, so "last changed" agrees on both sides.
+- Records a merge rewrites are stamped later than both originals and queued to be sent
+  back, so the other side takes them.
+- A correction to an existing entry on both sides: the later mark stands, the earlier is
+  logged.
