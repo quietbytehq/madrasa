@@ -1363,8 +1363,8 @@ depend on each other and were built together)
 The Nexus alpha was built as one design pull request and nine stage pull requests, each
 from a clean `main` and merged only after CI was green on Linux and Windows (#42 the design,
 #43 hub and container, #44 sync engine, #45 receipts and attendance, #46 joining and
-leaving, #47 reports, #48 key escrow, #49 console and corrections, #50 deployment templates, then
-this close-out). A school that has not joined a hub is unchanged: no extra
+leaving, #47 reports, #48 key escrow, #49 console and corrections, #50 deployment
+templates, then this close-out). A school that has not joined a hub is unchanged: no extra
 triggers, no background task, no network call, and every Lite and Standard test still
 passes.
 
