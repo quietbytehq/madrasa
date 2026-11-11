@@ -3,6 +3,7 @@
 pub mod audit;
 pub mod auth;
 pub mod health;
+pub mod reports;
 pub mod schools;
 pub mod setup;
 pub mod sync;

@@ -9,6 +9,7 @@ pub mod auth;
 pub mod config;
 pub mod error;
 pub mod permissions;
+pub mod reports;
 pub mod routes;
 pub mod server;
 pub mod state;
@@ -34,6 +35,7 @@ pub fn router(state: HubState) -> Router {
         .merge(routes::users::router())
         .merge(routes::audit::router())
         .merge(routes::schools::router())
+        .merge(routes::reports::router())
         .merge(routes::sync::router())
         .with_state(state);
     Router::new()

@@ -2029,3 +2029,36 @@ setting change is audited and the audit row would itself be a record to send.
 - Screen: Settings → School network (Nexus): the join form with what joining means, or the
   state of the link (last sync, changes waiting, problems, records waiting, the overwrite
   log), Sync now and Leave. English and Urdu.
+
+### 16.6 Network-wide reports (stage 5)
+
+Permission `nexus.reports`. A report asks the same question of every joined school and puts
+the answers together with the school as a column. Each school's part is a query in that
+school's schema; where a school report already answers the question, the hub runs the very
+same query (`madrasa_db::reports`), so a figure here is the figure the school sees, as of its
+last sync. Schools that left or were removed are not included (except in the sync report).
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/reports` | The catalogue: `{ code, title, about, takes_period }`, in `lang` (`en`, `ur`) |
+| GET | `/reports/{code}` | Run a report. `from`, `to` (default: the last twelve months; at most two years), `school_id` (one school, by its hub id), `lang`, `format` (`json`, `csv`, `xlsx`) |
+
+| Code | Rows | Columns |
+| --- | --- | --- |
+| `summary` | One per school | Code, edition, version, active students, active staff, sections of the active year, last sync; network total |
+| `enrolment` | School × class of the active year | Boys, girls, other, total (the school's class strength report, summed per class); network total |
+| `fees` | School × month | Currency, billed, collected, receipts, outstanding; one total per currency |
+| `attendance` | School × month | Marks, present, late, absent, leave, present % (present and late); network total |
+| `sync` | Every school in the register | Status, joined, last sync, changes waiting to go to the school, records waiting to be stored, overwritten values, version |
+
+- **Money** is sent as a string with two decimals (`"2500.00"`) and is never added across
+  currencies: the fees report has one total row per currency.
+- **Billed** is the month's own charges and late fees of vouchers that are not cancelled,
+  without arrears carried from earlier months; **collected** is by date of payment (the
+  school's collection-by-month report); **outstanding** is what is unpaid now on that
+  month's vouchers.
+- A report is `{ code, title, about, generated_at, from, to, schools, columns, rows, totals,
+  notes }`; each column has a `kind` (`text`, `int`, `money`, `percent`, `date`,
+  `date_time`). CSV carries a BOM so Excel opens Urdu text; Excel files have numbers as
+  numbers and bold totals. Titles, headings and notes come from one English and Urdu table.
+- Every run is written to the hub audit log with who ran it and with what parameters.
