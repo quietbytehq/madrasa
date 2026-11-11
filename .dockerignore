@@ -1,10 +1,12 @@
-# Keep the build context small: the hub image needs the Rust workspace only.
+# Keep the build context small: the hub image needs the Rust workspace and the sources of
+# the web console (apps/desktop).
 .git
 .github
 target
 **/target
 **/node_modules
 **/dist
+**/dist-console
 apps/desktop/src-tauri/gen
 docs
 deploy

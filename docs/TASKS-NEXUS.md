@@ -137,13 +137,16 @@ office entering receipts or attendance, hub-to-hub links, pre-computed report wa
 
 ## Stage 7 — Hub console and head office corrections
 
-- [ ] Web console served by the hub, built from the desktop app's components and
-      translations (English and Urdu, RTL): sign in, schools and invitations, sync status,
-      overwrite log, parked records, reports with downloads, key release, hub users
-- [ ] Head office corrections: search a school's students, guardians and staff and edit
-      names and contact details; edit the school profile; the change syncs down
-- [ ] Tests: component tests for the console; an end-to-end test that a head office
-      correction reaches the school and beats a concurrent school edit, with the log row
+- [x] Web console served by the hub, built from the desktop app's components and
+      translations (English and Urdu, RTL): first-run setup, sign in, schools and
+      invitations, sync status, overwrite log, held records, reports with downloads, key
+      escrow and release, hub users, activity log
+- [x] Head office corrections: search a school's students, guardians and staff and edit
+      names and contact details; edit the school's name and city; the change syncs down
+- [x] Tests: component tests for the console; an end-to-end test that a head office
+      correction reaches the school and beats a concurrent school edit, with the log row;
+      the hub serves the console's files with safe headers; the image's smoke test loads
+      the console
 
 ## Stage 8 — Deployment templates
 

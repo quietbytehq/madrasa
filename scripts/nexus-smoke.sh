@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke test for a running Madrasa Nexus hub: health, first-run setup, login.
+# Smoke test for a running Madrasa Nexus hub: health, the web console, first-run setup, login.
 #
 #   scripts/nexus-smoke.sh http://127.0.0.1:4780 <setup token>
 #
@@ -7,7 +7,8 @@
 # against a hub you are about to discard.
 set -euo pipefail
 
-base="${1:?usage: nexus-smoke.sh <base url> <setup token>}/api/nexus/v1"
+root="${1:?usage: nexus-smoke.sh <base url> <setup token>}"
+base="$root/api/nexus/v1"
 token="${2:?usage: nexus-smoke.sh <base url> <setup token>}"
 password="smoke-test-password-1"
 
@@ -18,6 +19,18 @@ health=$(curl -fsS "$base/health")
 say "health: $health"
 [ "$(printf '%s' "$health" | field "['status']")" = "ok" ]
 [ "$(printf '%s' "$health" | field "['database']")" = "ok" ]
+
+# The image serves the web console: the page, the script it names, and any console address
+# (the browser routes those). The API is not shadowed by it.
+page=$(curl -fsS "$root/")
+printf '%s' "$page" | grep -q '<title>Madrasa Nexus</title>' || { say "the console page is missing"; exit 1; }
+asset=$(printf '%s' "$page" | grep -o '/assets/[^"]*\.js' | head -n 1)
+[ -n "$asset" ] || { say "the console page names no script"; exit 1; }
+[ "$(curl -s -o /dev/null -w '%{http_code}' "$root$asset")" = "200" ] || { say "the console script did not load"; exit 1; }
+curl -fsS "$root/schools" | grep -q '<title>Madrasa Nexus</title>' || { say "a console address did not return the page"; exit 1; }
+curl -fsSI "$root/" | grep -qi '^content-security-policy:' || { say "the console is served without a content security policy"; exit 1; }
+[ "$(curl -s -o /dev/null -w '%{http_code}' "$base/no-such-thing")" = "404" ] || { say "an unknown API address should be 404"; exit 1; }
+say "console: served"
 
 [ "$(curl -fsS "$base/setup/status" | field "['needs_setup']")" = "True" ]
 

@@ -23,6 +23,8 @@ pub struct HubState {
     pub lockout: LockoutPolicy,
     pub version: &'static str,
     pub public_url: Option<String>,
+    /// Folder of the built web console, when there is one.
+    pub console_dir: Option<std::path::PathBuf>,
     /// SHA-256 of the one-time setup token while first-run setup is still open.
     setup_token_hash: Arc<RwLock<Option<String>>>,
 }
@@ -53,6 +55,7 @@ impl HubState {
                 lockout: LockoutPolicy::default(),
                 version: VERSION,
                 public_url: config.public_url.clone(),
+                console_dir: config.console_dir.clone(),
                 setup_token_hash: Arc::new(RwLock::new(hash)),
             },
             generated,

@@ -24,6 +24,7 @@ pub fn config(url: &str, setup_token: Option<&str>) -> Config {
         bind: "127.0.0.1:0".parse().unwrap(),
         public_url: Some("https://hub.example.org".into()),
         setup_token: setup_token.map(str::to_string),
+        console_dir: None,
     }
 }
 

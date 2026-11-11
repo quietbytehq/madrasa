@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:console": "tsc -b && vite build --config vite.console.config.ts",
+    "dev:console": "vite --config vite.console.config.ts",
     "preview": "vite preview",
     "tauri": "tauri",
     "lint": "eslint .",

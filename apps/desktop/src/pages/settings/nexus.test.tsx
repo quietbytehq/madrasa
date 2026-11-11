@@ -3,7 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
 import { api } from "@/api/endpoints";
 import type { NexusEscrowView, NexusLinkStatus, NexusOverwrite } from "@/api/types";
-import { NexusCard, showValue } from "./NexusCard";
+import { showValue } from "@/lib/showValue";
+import { NexusCard } from "./NexusCard";
 
 vi.mock("@/api/endpoints", () => ({
   api: {

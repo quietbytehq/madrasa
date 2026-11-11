@@ -27,6 +27,8 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+      # The Nexus hub console: a second build of the same components.
+      - run: pnpm build:console
 
   rust-linux:
     name: Rust (Linux, with PostgreSQL)
@@ -118,7 +120,7 @@ jobs:
           NEXUS_DB_PASSWORD: ciOnlyDatabasePassword
           NEXUS_SETUP_TOKEN: ci-only-setup-token
         run: docker compose up -d --no-build --wait --wait-timeout 180
-      - name: Smoke test (health, setup, login)
+      - name: Smoke test (health, console, setup, login)
         run: scripts/nexus-smoke.sh http://127.0.0.1:4780 ci-only-setup-token
       - name: Compose logs
         if: always()

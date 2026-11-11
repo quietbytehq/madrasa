@@ -15,6 +15,9 @@ pub struct Config {
     pub public_url: Option<String>,
     /// One-time token for first-run setup. When unset, one is generated and printed once.
     pub setup_token: Option<String>,
+    /// Folder holding the built web console (`index.html` and its assets). The container
+    /// image sets it; without it the hub serves the API only.
+    pub console_dir: Option<std::path::PathBuf>,
 }
 
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
@@ -64,6 +67,7 @@ impl Config {
             bind,
             public_url,
             setup_token: var("NEXUS_SETUP_TOKEN"),
+            console_dir: var("NEXUS_CONSOLE_DIR").map(std::path::PathBuf::from),
         })
     }
 }
@@ -79,6 +83,7 @@ impl std::fmt::Debug for Config {
                 "setup_token",
                 &self.setup_token.as_ref().map(|_| "<redacted>"),
             )
+            .field("console_dir", &self.console_dir)
             .finish()
     }
 }
