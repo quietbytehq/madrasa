@@ -7,6 +7,7 @@
 
 pub mod auth;
 pub mod config;
+pub mod demo;
 pub mod error;
 pub mod escrow;
 pub mod permissions;

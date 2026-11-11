@@ -446,19 +446,32 @@ async fn standard_generates_edits_publishes_prints_and_covers() {
         }
     }
 
-    // Manual edit: move the first card to a slot the checker marks ok; a blocked slot is refused.
-    let card = &cards[0];
-    let (s, options) = app
-        .get(
-            &format!(
-                "/timetable/timetables/{timetable_id}/options?lesson_id={}&number={}",
-                id(&card["lesson_id"]),
-                card["number"]
-            ),
-            &admin,
-        )
-        .await;
-    assert_eq!(s, StatusCode::OK, "{options}");
+    // Manual edit: move a card to a slot the checker marks ok; a blocked slot is refused.
+    // Which cards have a free slot depends on the arrangement the generator settled on
+    // (it works against the clock), so take the first card that has one.
+    let mut movable: Option<(&Value, Value)> = None;
+    for candidate in cards {
+        let (s, options) = app
+            .get(
+                &format!(
+                    "/timetable/timetables/{timetable_id}/options?lesson_id={}&number={}",
+                    id(&candidate["lesson_id"]),
+                    candidate["number"]
+                ),
+                &admin,
+            )
+            .await;
+        assert_eq!(s, StatusCode::OK, "{options}");
+        let free = options.as_array().unwrap().iter().any(|o| {
+            o["status"] == "ok"
+                && !(o["day"] == candidate["day"] && o["period"] == candidate["period"])
+        });
+        if free {
+            movable = Some((candidate, options));
+            break;
+        }
+    }
+    let (card, options) = movable.expect("some session has a free slot to move to");
     let ok = options
         .as_array()
         .unwrap()

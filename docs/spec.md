@@ -1806,6 +1806,11 @@ The design is `docs/adr/0005-nexus-hub-and-sync.md`; the stages and their accept
   PostgreSQL Flexible Server) and `deploy/nexus/gcp` (Terraform: Cloud Run, Cloud SQL,
   Secret Manager) are checked by CI but have not been deployed by the project. The hub runs
   as one instance. See `docs/nexus/deploy.md`.
+- **Commands.** `madrasa-nexus` serves the hub. `madrasa-nexus healthcheck` exits 0 when the
+  local hub answers `/health`. `madrasa-nexus demo-network --yes` fills an **empty** hub with
+  three generated demo schools (`DEMO-N`, `DEMO-S`, `DEMO-I`, the last in another currency),
+  each in its own schema as if it had joined and synced, then exits; it refuses a hub that
+  already has schools. Demo schools have no sync key, so nothing can sync as one.
 
 ### 16.1 Hub tables (stage 1)
 

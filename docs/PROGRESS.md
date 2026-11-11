@@ -1345,6 +1345,115 @@ depend on each other and were built together)
   (remove the school and invite it again).
 - Left: stage 9.
 
+### 2026-11-11 — Stage 9: Close-out (branch `dev/nexus-9-closeout`)
+- Done: `madrasa-nexus demo-network --yes` fills an empty hub with three generated schools
+  (320, 220 and 140 students; one billing in another currency), each in its own schema, so
+  the console, reports and corrections can be tried before any real school joins. It
+  refuses a hub that already has schools. TESTING.md section 7 (tasks 39 to 48, and the
+  cloud deployment nobody has done yet). README status. Spec §16 checked against the code
+  (tables, endpoints, commands); permissions document checked.
+- Tested: 1 database test of the demo network (three separate schools with no shared ids,
+  no password hashes, reports over all three with totals per currency, a correction, the
+  refusal to load twice, removal and purge) and the command run by hand against a scratch
+  database (with and without `--yes`, and a second time).
+- Fixed on the way: a Standard timetable test failed once in CI on a branch that changed no
+  Rust code. The generator works against the clock, and the test assumed the first session
+  of whatever arrangement came out had a free slot to move to. It now takes the first
+  session that has one. No product code changed.
+- Left: nothing in docs/TASKS-NEXUS.md. See the summary below for what is not proven.
+
+## Summary for the owner — Nexus alpha
+
+The Nexus alpha was built as one design pull request and nine stage pull requests, each
+from a clean `main` and merged only after CI was green on Linux and Windows (#42 the design,
+#43 hub and container, #44 sync engine, #45 receipts and attendance, #46 joining and
+leaving, #47 reports, #48 key escrow, #49 console and corrections, #50 deployment
+templates, then this close-out). A school that has not joined a hub is unchanged: no extra
+triggers, no background task, no network call, and every Lite and Standard test still
+passes.
+
+### What was built
+
+| Asked for | Built | Where |
+| --- | --- | --- |
+| Hub server in `crates/nexus` | `madrasa-nexus`: its own API (`/api/nexus/v1`), users, permissions, audit log | stage 1, spec §16.1–16.2 |
+| Docker image and Compose file | `deploy/nexus/Dockerfile` (hub and console, non-root, health check), `docker-compose.yml` (hub, PostgreSQL 16, optional HTTPS) | stages 1 and 7 |
+| Azure and Google Cloud templates | `deploy/nexus/azure` (Bicep), `deploy/nexus/gcp` (Terraform), guide | stage 8 |
+| Schools joining and leaving, data kept separate | One PostgreSQL schema per school; one-time join codes; leave, remove, archive, purge | stage 4, spec §16.5 |
+| Sync engine: field-level timestamps | Every field carries its own stamp; only changed fields are sent | stage 2, spec §16.3 |
+| Head office wins on the same field | Yes, and the losing value is logged on both sides | stages 2 and 7 |
+| Receipts and attendance always merged | Receipts from both sides are all kept; attendance marks for the same day are folded, later mark standing | stage 3, spec §16.4 |
+| Overwritten values logged | The overwrite log, shown in the school (Settings → School network) and in the console | stages 2, 4, 7 |
+| Network-wide reports | Five reports, JSON, Excel and CSV, English and Urdu, totals per currency | stage 5, spec §16.6 |
+| Backup key escrow | Sealed deposit, release with passphrase and reason, the school always told | stage 6, spec §16.7 |
+| (not asked, needed to use it) | Web console for head office; corrections to names and contact details; demo network | stages 7 and 9, spec §16.8 |
+
+Automated tests added for Nexus: 20 unit tests of the sync rules and 6 of the escrow
+cryptography in `madrasa_core`; 20 database tests of the sync engine (including a demo
+school of 20,687 records uploaded and compared); 17 unit and 19 database tests of the hub;
+4 end-to-end tests of a school's API against a real hub over HTTP; 23 screen tests (the
+school's Nexus card and the console). CI also builds the image, starts the Compose stack
+and runs a smoke test that loads the console, sets the hub up and signs in.
+
+### What to test by hand
+
+Follow TESTING.md section 7 (tasks 39 to 48). The points that automated tests cannot prove:
+
+1. **A real cloud deployment.** Neither the Azure template nor the Google Cloud module has
+   ever been deployed: no cloud account was available, and the tools could not be run on the
+   build machine, so the only check is CI building and validating them. Expect to fix
+   something on the first try. Before it can work at all: tag a release (the first hub image
+   is published then) and make the image package public on GitHub.
+2. **Schools on other PCs over real HTTPS.** Every automated test uses a local address. The
+   Compose `https` profile (Caddy) has not been run with a real domain.
+3. **The console in a browser, by a person.** It was driven once through a real browser
+   against a local hub and a demo school of 1,200 students (setup, invitation, join, reports,
+   a correction arriving at the school, Urdu). Releasing a key from the console screen was
+   not tried by hand (the release itself is tested).
+4. **Task 43, the conflict rule**, with real people at two desks: it is the heart of the
+   design and worth seeing once.
+5. **Task 45, a lost backup password**, end to end with a real backup file.
+6. **Two real schools** (task 48): compare each report figure with the school's own reports.
+
+### What is not built, or not proven
+
+- **Head office cannot enter records.** The console corrects names and contact details
+  only. It has no screens for receipts, attendance or marks, so "both sides entered a
+  receipt" can only happen through the API today; the merge rules for it are tested there.
+- **One hub instance.** The alpha hub must run as a single instance (the templates enforce
+  it). It has not been load-tested with many schools.
+- **No in-place replacement of a school's sync key or of a backup data key.** A leaked sync
+  key means removing the school and inviting it again; a released backup key keeps opening
+  that school's backups and must be guarded like the recovery key.
+- **Number sequences are not synced.** If head office ever issues receipts or admits
+  students it will need its own number series; today it issues none.
+- **Sync is every five minutes or on demand**, not instant, and a school that restores an
+  old backup needs *Send everything again* from the console to catch up.
+- **No version bump or release** was made: the hub reports 0.3.1.
+
+### Decisions left for the owner
+
+- **Should leaving a backup key be required to join?** It is optional now, the school's
+  choice.
+- **Should releasing a key need two people?** Now one user with the release permission, the
+  passphrase and a reason is enough; every release is logged and shown to the school.
+- **Who holds the escrow passphrase, and where is it written down?** If it is lost, no key
+  can ever be released.
+- **When a school leaves, its sealed backup key is erased at once.** This is stricter than
+  the design document (which kept it until the archive was deleted), so that a key can never
+  be released without the school being told. Say if you want the other behaviour.
+- **How long to keep the archive of a school that left.** Nothing deletes it automatically;
+  an administrator deletes it by typing the school's code.
+- **Which details head office may correct.** Now: the school's name and city; students'
+  name, father's name and address; guardians' name, phone, email and address; staff name,
+  father's name, phone and email. The list is one table in the code.
+- **Who gets which hub permission** (administer, read reports, release keys). The first
+  administrator has all three.
+- **Where to run the hub** (one machine with Compose, Azure or Google Cloud), and who makes
+  the first cloud deployment.
+- **When to tag the first release that carries the hub**, which is also what publishes the
+  image.
+
 ## Summary for the owner — Standard alpha
 
 The Standard alpha was built in eleven pull requests, each from a clean `main` with CI green

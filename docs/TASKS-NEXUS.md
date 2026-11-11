@@ -162,10 +162,11 @@ office entering receipts or attendance, hub-to-hub links, pre-computed report wa
 
 ## Stage 9 — Close-out
 
-- [ ] Demo network: a command that seeds a hub with demo schools for evaluation
-- [ ] TESTING.md section for Nexus (hand tests, including a first real cloud deployment)
-- [ ] Spec sections for the hub, the sync tables and the endpoints; permissions matrix
-- [ ] docs/PROGRESS.md: summary for the owner, what to test by hand, decisions left
+- [x] Demo network: `madrasa-nexus demo-network --yes` fills an empty hub with three
+      generated schools for evaluation
+- [x] TESTING.md section for Nexus (hand tests, including a first real cloud deployment)
+- [x] Spec sections for the hub, the sync tables and the endpoints; permissions matrix
+- [x] docs/PROGRESS.md: summary for the owner, what to test by hand, decisions left
 
 ## Done when
 
