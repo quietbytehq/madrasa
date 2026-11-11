@@ -36,3 +36,11 @@ demo-output/
 # Coverage / logs
 coverage
 *.log
+
+# Cloud deployment: local state, real parameters
+**/.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+deploy/nexus/azure/main.bicepparam
+deploy/nexus/azure/*.json

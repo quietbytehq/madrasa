@@ -130,6 +130,29 @@ jobs:
           NEXUS_DB_PASSWORD: ciOnlyDatabasePassword
         run: docker compose logs --no-color | tail -n 80
 
+  cloud-templates:
+    # The Azure and Google Cloud templates for the hub are checked for errors here. They are
+    # not deployed: no cloud account is used by CI.
+    name: Cloud templates (Bicep build, Terraform validate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Azure template builds
+        run: |
+          az bicep install
+          az bicep build --file deploy/nexus/azure/main.bicep --outfile "$RUNNER_TEMP/nexus-azure.json"
+      - name: Azure example parameters build
+        env:
+          # A throwaway value: the example file reads the password from the environment.
+          NEXUS_DB_PASSWORD: ciOnlyNotARealPassword1234
+        run: az bicep build-params --file deploy/nexus/azure/main.example.bicepparam --outfile "$RUNNER_TEMP/nexus-azure.parameters.json"
+      - uses: hashicorp/setup-terraform@v3
+      - name: Google Cloud module validates
+        working-directory: deploy/nexus/gcp
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate
+
   desktop:
     name: Desktop build (${{ matrix.os }})
     needs: [frontend]

@@ -1799,9 +1799,13 @@ The design is `docs/adr/0005-nexus-hub-and-sync.md`; the stages and their accept
 - **Configuration** is by environment variable only: `NEXUS_DATABASE_URL` (required),
   `NEXUS_BIND` (default `0.0.0.0:4780`) or `PORT`, `NEXUS_PUBLIC_URL`, `NEXUS_SETUP_TOKEN`,
   `NEXUS_CONSOLE_DIR` (the web console's files, §16.8), `RUST_LOG`. The database URL and the setup token are never logged.
-- **Packaging.** `deploy/nexus/Dockerfile` (non-root, self health check) and
-  `deploy/nexus/docker-compose.yml` (hub, PostgreSQL 16, optional Caddy for HTTPS). See
-  `docs/nexus/deploy.md`.
+- **Packaging.** `deploy/nexus/Dockerfile` (hub and web console, non-root, self health
+  check) and `deploy/nexus/docker-compose.yml` (hub, PostgreSQL 16, optional Caddy for
+  HTTPS). The release workflow publishes the image to GitHub Container Registry
+  (`ghcr.io/quietbytehq/madrasa-nexus`). `deploy/nexus/azure` (Bicep: Container Apps and
+  PostgreSQL Flexible Server) and `deploy/nexus/gcp` (Terraform: Cloud Run, Cloud SQL,
+  Secret Manager) are checked by CI but have not been deployed by the project. The hub runs
+  as one instance. See `docs/nexus/deploy.md`.
 
 ### 16.1 Hub tables (stage 1)
 

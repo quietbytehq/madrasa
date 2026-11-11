@@ -150,14 +150,15 @@ office entering receipts or attendance, hub-to-hub links, pre-computed report wa
 
 ## Stage 8 — Deployment templates
 
-- [ ] Azure: Bicep template (Container Apps + PostgreSQL Flexible Server), parameters
-      file, deployment guide
-- [ ] Google Cloud: Terraform module (Cloud Run + Cloud SQL + Secret Manager), example
+- [x] Azure: Bicep template (Container Apps + PostgreSQL Flexible Server), example
+      parameters file, deployment guide
+- [x] Google Cloud: Terraform module (Cloud Run + Cloud SQL + Secret Manager), example
       variables, deployment guide
-- [ ] Release workflow publishes the image to GitHub Container Registry
-- [ ] CI validates both templates; the guides state plainly that they were validated but
+- [x] Release workflow publishes the image to GitHub Container Registry
+- [x] CI validates both templates; the guides state plainly that they were validated but
       not deployed from the build environment
-- [ ] Operations notes: backups of the hub database, upgrades, rotating a sync token
+- [x] Operations notes: backups of the hub database, upgrades, what to do when a sync key
+      may have leaked (remove and invite again; replacing a key in place is not built)
 
 ## Stage 9 — Close-out
 

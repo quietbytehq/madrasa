@@ -8,7 +8,8 @@ What has been verified, and how:
 | Way to deploy | Status |
 | --- | --- |
 | Docker image and Docker Compose | Built and started by CI on every change (health, the web console, first-run setup and login over HTTP). The hub and its console were also run by hand on a development machine with a demo school joined to it. |
-| Azure, Google Cloud | Templates arrive in stage 8. |
+| Azure (Bicep) | Checked for errors by CI on every change (`az bicep build`). **Not deployed by the project**: no Azure subscription was available. Treat your first deployment as a test. |
+| Google Cloud (Terraform) | Checked for errors by CI on every change (`terraform validate`). **Not applied by the project**: no Google Cloud project was available. Treat your first deployment as a test. |
 
 ## Docker Compose (one machine)
 
@@ -103,6 +104,168 @@ token, once, which is useless after setup.
   its migrations when it starts.
 - **Health**: `GET /api/nexus/v1/health`; the container reports healthy or unhealthy by
   itself (`docker compose ps`).
+
+## The image
+
+The release workflow builds the image (hub and web console) and publishes it to GitHub
+Container Registry when a release is tagged:
+
+- `ghcr.io/quietbytehq/madrasa-nexus:<version>` (for example `:0.4.0`)
+- `ghcr.io/quietbytehq/madrasa-nexus:latest`
+
+Two things to know before the first cloud deployment:
+
+- **No image has been published yet.** The first one appears with the next tagged release.
+  Until then, build it from a checkout (`docker compose build nexus`).
+- **GitHub makes a new package private.** After the first publish, an owner of the
+  repository must set the package's visibility to public (GitHub → Packages →
+  madrasa-nexus → Package settings), or Azure and Google Cloud cannot pull it.
+
+Deploy a version tag, not `latest`, so that an upgrade is something you decide.
+
+## Azure (Container Apps and PostgreSQL Flexible Server)
+
+`deploy/nexus/azure/main.bicep` creates a Log Analytics workspace, a Container Apps
+environment, the hub as one Container App with HTTPS ingress, and an Azure Database for
+PostgreSQL Flexible Server (version 16) with a database named `nexus`. The database URL and
+the setup token are Container App secrets.
+
+**Not deployed by the project.** CI checks that the template builds; nobody has run it
+against a subscription. Read the plan Azure shows before you confirm.
+
+You need the Azure CLI, signed in (`az login`), and a subscription.
+
+```bash
+az group create --name madrasa-nexus --location centralindia
+```
+
+```bash
+export NEXUS_DB_PASSWORD="$(openssl rand -hex 24)"
+```
+
+```bash
+cd deploy/nexus/azure
+```
+
+Edit `main.example.bicepparam` (or a copy named `main.bicepparam`, which Git ignores): set
+`image` to a published release. Then see what would be created:
+
+```bash
+az deployment group what-if --resource-group madrasa-nexus --template-file main.bicep --parameters main.example.bicepparam
+```
+
+```bash
+az deployment group create --resource-group madrasa-nexus --template-file main.bicep --parameters main.example.bicepparam
+```
+
+The deployment prints `hubUrl`. Open it in a browser for first-run setup. The setup token is
+in the hub's log:
+
+```bash
+az containerapp logs show --resource-group madrasa-nexus --name madrasa-nexus --tail 50
+```
+
+Keep the database password: it is not shown again. Things this template decides for you:
+
+- The hub runs as exactly **one** instance (the alpha hub must not run as several).
+- The database has a public endpoint that accepts connections **from Azure services only**
+  and only over TLS with the password. For a private endpoint, put the server and the
+  Container Apps environment in a virtual network (not in this template).
+- Azure keeps automatic database backups for 14 days (`dbBackupRetentionDays`).
+- To use your own domain, add it to the Container App in the Azure portal, then deploy again
+  with `publicUrl` set so invitations show it.
+
+## Google Cloud (Cloud Run, Cloud SQL and Secret Manager)
+
+`deploy/nexus/gcp` is a Terraform module: a Cloud Run service for the hub, a Cloud SQL for
+PostgreSQL 16 instance with a database named `nexus`, the database URL and the setup token
+in Secret Manager, a service account for the hub that may read those secrets and connect to
+that database, and an Artifact Registry repository that fetches the image from GitHub
+Container Registry (Cloud Run cannot pull from it directly).
+
+**Not applied by the project.** CI checks that the module is valid; nobody has run it
+against a project. Read the plan Terraform shows before you confirm.
+
+You need Terraform 1.5 or newer, the gcloud CLI signed in
+(`gcloud auth application-default login`), and a project with billing.
+
+```bash
+cd deploy/nexus/gcp
+```
+
+```bash
+cp terraform.tfvars.example terraform.tfvars
+```
+
+Edit `terraform.tfvars` (project, region, image tag), then:
+
+```bash
+terraform init
+```
+
+```bash
+terraform plan
+```
+
+```bash
+terraform apply
+```
+
+Terraform prints `hub_url`. Open it in a browser for first-run setup. The setup token is in
+the hub's log:
+
+```bash
+gcloud run services logs read madrasa-nexus --region YOUR-REGION --limit 50
+```
+
+Things this module decides for you:
+
+- The hub runs as at most **one** instance. With `min_instances = 0` (the default) Cloud Run
+  stops it when nobody uses it and the next request takes a few seconds; set `1` to keep it
+  running.
+- The database password is generated by Terraform and is in the **Terraform state**. Keep the
+  state private: a storage bucket with restricted access, or a local file you do not share
+  or commit (Git ignores `*.tfstate` and `terraform.tfvars` here).
+- The database has no authorised networks: only the hub's Cloud SQL connection reaches it.
+  Automatic backups and point-in-time recovery are on. `deletion_protection` is on, so
+  `terraform destroy` refuses to delete the database until you turn it off.
+- The Cloud Run service is public (`allUsers` may call it): schools must reach it, and the
+  hub checks every request itself.
+
+## Operations
+
+**Back up the hub database.** It holds every school's synced copy and the hub's own records.
+Schools keep their own data and their own backups; the hub database is head office's copy.
+
+- Compose: `docker compose exec db pg_dump -U nexus nexus > nexus-backup.sql`, on a schedule,
+  kept on another machine.
+- Azure and Google Cloud: the managed database's automatic backups (14 days on Azure by this
+  template; daily with point-in-time recovery on Google Cloud). Try a restore once before
+  you rely on them.
+- If the hub database is lost and cannot be restored, no school loses anything: set up a new
+  hub, invite each school again, and each uploads its records again. Backup keys left in
+  escrow are gone and must be left again.
+
+**The escrow passphrase** is not in any backup, by design. Keep it written down, away from
+the server.
+
+**Upgrade.** Deploy the newer image tag (Compose: pull and `docker compose up -d`; Azure:
+deploy again with the new `image`; Google Cloud: change `image_tag` and `terraform apply`).
+The hub applies its own migrations and each school's when it starts. Upgrade the hub
+**before** the schools: a school on a newer version than its hub is told the hub must be
+upgraded first, and waits.
+
+**If a school's sync key may have leaked.** There is no way yet to replace a school's key
+in place. Remove the school at the hub (Schools → Open → Remove from the network): its key
+stops working at once. Then invite it again; it joins with a new key and uploads its records
+again into a new copy. Delete the old archive when you no longer need it.
+
+**If a head office password may have leaked.** An administrator sets a new one under Users;
+that ends the user's sessions. Disable accounts that are no longer needed.
+
+**Watching it.** `GET /api/nexus/v1/health` answers `200` when the hub and its database are
+well. The Schools page shows when each school last synced; a school that has been silent
+for days deserves a call. The Activity log shows everything done at the hub.
 
 ## Backup key escrow (optional)
 
