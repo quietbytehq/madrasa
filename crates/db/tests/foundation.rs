@@ -140,6 +140,11 @@ async fn migrations_apply_and_tables_follow_the_rules() {
             "subject_group_subjects",
             "subject_groups",
             "subjects",
+            "sync_changes",
+            "sync_field_stamps",
+            "sync_overwrites",
+            "sync_parked",
+            "sync_state",
             "terms",
             "timetable_absences",
             "timetable_cards",
@@ -182,6 +187,18 @@ async fn migrations_apply_and_tables_follow_the_rules() {
         .unwrap();
         assert_eq!(pk, "id", "{table} primary key");
         assert_eq!(col("id").unwrap().1, "uuid", "{table}.id type");
+
+        // Sync bookkeeping (migration 0026) is local to each copy and never synced itself:
+        // it has the UUID key and school_id, but the sync columns would mean nothing on it.
+        if table.starts_with("sync_") {
+            let c = col("school_id").unwrap_or_else(|| panic!("{table} lacks school_id"));
+            assert_eq!(
+                (c.1.as_str(), c.2.as_str()),
+                ("uuid", "NO"),
+                "{table}.school_id"
+            );
+            continue;
+        }
 
         // Rule 1b: school_id everywhere except on schools itself.
         if table != "schools" {

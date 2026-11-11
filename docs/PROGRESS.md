@@ -1154,6 +1154,38 @@ depend on each other and were built together)
   ca-certificates`, blocked by its network proxy); CI builds the unmodified Dockerfile.
 - Left: stages 2 to 9. The image is not yet published anywhere (stage 8).
 
+### 2026-11-11 — Stage 2: Sync engine, capture and field-level merge (branch `dev/nexus-2-sync`)
+- Done: `madrasa_core::sync` (the table policy for all 84 tables, the wire format, the
+  merge decisions and the per-record merge plan as pure functions); migration
+  `0026_sync.sql` (five bookkeeping tables, the generic capture trigger, a number-safe row
+  encoder); `madrasa_db::sync` (switch capture on and off, queue a full snapshot parents
+  first, collect a batch, apply a batch with the merge plan, acknowledge, the overwrite log
+  passed to the other side, parked records with reasons). Restore keeps the change counter
+  consistent. Spec §16.3.
+- How "head office wins" is decided: by whether this side has an unsent change to the same
+  field, not by clocks. The stamps are kept per field for replays and for the log. A school
+  PC with a wrong clock cannot win or lose a conflict because of it.
+- One refinement of ADR 0005's wording: a replay is recognised by comparing a change's stamp
+  with the latest stamp already received from the other side for that field (not with the
+  local stamp), which is exact where the ADR's sentence was approximate. Spec §16.3 has
+  the precise rule.
+- One deviation from the schema rules, on purpose: the five `sync_*` tables have a UUID v7
+  key and `school_id` but not `updated_at`, `updated_by`, `deleted_at` or `hlc`. Those
+  columns exist for syncing, and the bookkeeping is never synced. The rules test says so.
+- Tested: 16 unit tests in core (field rule on both sides, attendance rule, replays, equal
+  values, excluded columns, table order, version check) and 10 database tests with two real
+  databases as school and hub copy: the policy covers every table; an unjoined school has no
+  triggers and queues nothing; a first upload reproduces every synced table exactly;
+  password hashes never leave; different fields of one record both survive; a same-field
+  conflict resolves to head office with the same log entry on both sides, in both
+  directions; a replayed batch changes nothing, even after a later local edit; a child that
+  arrives before its parent and a duplicate student number are parked with a reason and go
+  in later; a record of another school is refused; leaving removes every trigger and keeps
+  the data. A whole demo school (20,687 records) uploads in 42 batches in under four
+  seconds on the development machine and matches table for table.
+- Left: receipts and attendance merging (stage 3). Nothing calls the engine over the
+  network yet (stage 4).
+
 ## Summary for the owner — Standard alpha
 
 The Standard alpha was built in eleven pull requests, each from a clean `main` with CI green

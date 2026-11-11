@@ -264,6 +264,14 @@ pub async fn restore(conn: &mut PgConnection, container: &[u8]) -> DbResult<Rest
         .execute(&mut *tx)
         .await?;
     }
+    // Nexus sync: the restored queue of unsent changes keeps its sequence numbers, so the
+    // counter must continue after them (an acknowledgement names changes by that number).
+    sqlx::query(
+        "SELECT setval('sync_change_seq',
+            GREATEST((SELECT COALESCE(max(seq), 0) FROM sync_changes) + 1, nextval('sync_change_seq')))",
+    )
+    .execute(&mut *tx)
+    .await?;
     tx.commit().await?;
     Ok(RestoreReport {
         tables: tables.len(),
