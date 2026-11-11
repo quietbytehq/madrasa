@@ -5,6 +5,7 @@ members = [
   "crates/db",
   "crates/api",
   "crates/demo-data",
+  "crates/nexus",
   "apps/desktop/src-tauri",
 ]
 
@@ -20,6 +21,7 @@ madrasa-core = { path = "crates/core" }
 madrasa-db = { path = "crates/db" }
 madrasa-api = { path = "crates/api" }
 madrasa-demo-data = { path = "crates/demo-data" }
+madrasa-nexus = { path = "crates/nexus" }
 
 anyhow = "1"
 thiserror = "2"

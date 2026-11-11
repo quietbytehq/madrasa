@@ -39,22 +39,22 @@ office entering receipts or attendance, hub-to-hub links, pre-computed report wa
 
 ## Stage 1 — Hub foundation and container
 
-- [ ] `crates/nexus` in the workspace: `madrasa-nexus` binary, configuration from
+- [x] `crates/nexus` in the workspace: `madrasa-nexus` binary, configuration from
       environment variables (`NEXUS_DATABASE_URL`, `NEXUS_BIND` / `PORT`,
       `NEXUS_PUBLIC_URL`, `NEXUS_SETUP_TOKEN`), graceful shutdown, structured logs that
       never contain secrets
-- [ ] Hub migrations in a `nexus` schema: hub users, sessions, roles and permissions
+- [x] Hub migrations in a `nexus` schema: hub users, sessions, roles and permissions
       (`nexus.admin`, `nexus.reports`, `nexus.escrow`), hub settings, append-only hub
       audit log
-- [ ] API `/api/nexus/v1`: `GET /health`, first-run setup guarded by a one-time setup
+- [x] API `/api/nexus/v1`: `GET /health`, first-run setup guarded by a one-time setup
       token, login, logout, `GET /auth/me`, hub users (list, create, disable, reset
       password); lockout after repeated failures; errors in the standard shape
-- [ ] Dockerfile (multi-stage, slim runtime, non-root, health check) and
+- [x] Dockerfile (multi-stage, slim runtime, non-root, health check) and
       `deploy/docker-compose.yml` (hub + PostgreSQL 16 with a volume, optional Caddy for
       HTTPS), `.env.example` with no real secrets
-- [ ] CI: a job that builds the image, starts the Compose stack and waits for the health
+- [x] CI: a job that builds the image, starts the Compose stack and waits for the health
       endpoint
-- [ ] Tests: setup once only, login and lockout, permission checks, audit rows; spec
+- [x] Tests: setup once only, login and lockout, permission checks, audit rows; spec
       section for the hub
 
 ## Stage 2 — Sync engine: capture and field-level merge

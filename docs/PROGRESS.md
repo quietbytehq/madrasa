@@ -1134,6 +1134,26 @@ depend on each other and were built together)
 - Tested: nothing to test; documents only.
 - Left: stages 1 to 9.
 
+### 2026-11-11 — Stage 1: Hub foundation and container (branch `dev/nexus-1-hub`)
+- Done: `crates/nexus` (`madrasa-nexus` binary) with configuration from environment
+  variables only, its own migrations in a `nexus` schema (`hub_users`, `hub_sessions`,
+  `hub_settings`, append-only `hub_audit_log`), first-run setup behind a one-time token,
+  login with lockout, logout, hub users with three permissions (`nexus.admin`,
+  `nexus.reports`, `nexus.escrow`), the audit log endpoint, and `madrasa-nexus healthcheck`.
+  `deploy/nexus/`: Dockerfile (cargo-chef dependency layer, non-root user, self health
+  check), Compose file (hub, PostgreSQL 16, optional Caddy for HTTPS, loopback-only by
+  default), `.env.example`. `scripts/nexus-smoke.sh`. CI job "Nexus hub image". Spec §16,
+  `docs/nexus/deploy.md`, hub section in `docs/permissions.md`.
+- Tested: 7 unit tests (configuration, secrets hidden from debug output, permission codes)
+  and 6 database-backed tests (setup once and only with the token, generated token, login
+  and lockout, logout, hash-only session storage, permission checks, the last
+  administrator rule, audit rows without secrets, append-only log, hub tables in their own
+  schema). The image was built on the development machine with the real build steps and the
+  Compose stack was started there: both containers healthy, smoke test passed, process
+  running as uid 10001. One step could not run on that machine (`apt-get install
+  ca-certificates`, blocked by its network proxy); CI builds the unmodified Dockerfile.
+- Left: stages 2 to 9. The image is not yet published anywhere (stage 8).
+
 ## Summary for the owner — Standard alpha
 
 The Standard alpha was built in eleven pull requests, each from a clean `main` with CI green

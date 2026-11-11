@@ -3749,6 +3749,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "madrasa-nexus"
+version = "0.3.1"
+dependencies = [
+ "anyhow",
+ "axum",
+ "chrono",
+ "http-body-util",
+ "madrasa-core",
+ "madrasa-db",
+ "rand 0.8.8",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror 2.0.21",
+ "tokio",
+ "tower",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
 name = "markup5ever"
 version = "0.39.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
