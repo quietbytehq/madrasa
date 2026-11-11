@@ -408,3 +408,25 @@ impl Hub {
         rows
     }
 }
+
+impl Hub {
+    /// GET a download: status, content type and the raw bytes.
+    pub async fn get_bytes(&self, path: &str, token: &str) -> (StatusCode, String, Vec<u8>) {
+        let req = Request::builder()
+            .method(Method::GET)
+            .uri(format!("{}{path}", madrasa_nexus::API_PREFIX))
+            .header(header::AUTHORIZATION, format!("Bearer {token}"))
+            .body(Body::empty())
+            .unwrap();
+        let res = self.router.clone().oneshot(req).await.unwrap();
+        let status = res.status();
+        let ctype = res
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or_default()
+            .to_string();
+        let bytes = res.into_body().collect().await.unwrap().to_bytes().to_vec();
+        (status, ctype, bytes)
+    }
+}

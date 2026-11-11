@@ -111,12 +111,12 @@ office entering receipts or attendance, hub-to-hub links, pre-computed report wa
 
 ## Stage 5 — Network-wide reports
 
-- [ ] Hub reports across all active schools: network summary, enrolment by school, class
+- [x] Hub reports across all active schools: network summary, enrolment by school, class
       and gender, fee billing and collection by school and month (totals per currency),
       attendance by school and month, sync health
-- [ ] JSON, CSV and Excel; filters for school and period; permission `nexus.reports`
-- [ ] Schools that left or were removed are excluded
-- [ ] Tests against two demo schools: figures equal each school's own reports
+- [x] JSON, CSV and Excel; filters for school and period; permission `nexus.reports`
+- [x] Schools that left or were removed are excluded
+- [x] Tests against two demo schools: figures equal each school's own reports
 
 ## Stage 6 — Backup key escrow
 

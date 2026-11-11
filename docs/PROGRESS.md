@@ -1246,6 +1246,23 @@ depend on each other and were built together)
   deployment is a hand test (TESTING.md, stage 9).
 - Left: stages 5 to 9.
 
+### 2026-11-11 — Stage 5: Network-wide reports (branch `dev/nexus-5-reports`)
+- Done: five hub reports (network summary; enrolment by school and class; fees billed,
+  collected and outstanding by school and month; attendance by school and month; sync
+  health), each as JSON, CSV or Excel, in English or Urdu, for all joined schools or one,
+  over a period of up to two years. Permission `nexus.reports`; every run audited.
+  Spec §16.6.
+- The enrolment and collection figures come from the same queries the school's own reports
+  use, run in each school's schema. Money is never added across currencies: the fees
+  report totals per currency.
+- Tested: 6 unit tests (catalogue in both languages, periods, money and percentage
+  formatting, CSV and Excel output, the text table complete in both languages) and one
+  database test with two demo schools (one in PKR, one in USD) and a third school that
+  left: every reported figure is compared with the school's own database; the school that
+  left is in no figure but is listed in the sync report; one-school filter, Urdu headings,
+  CSV and Excel downloads, refused periods and formats, permissions, audit entries.
+- Left: stages 6 to 9. The reports have no screen yet (stage 7).
+
 ## Summary for the owner — Standard alpha
 
 The Standard alpha was built in eleven pull requests, each from a clean `main` with CI green
