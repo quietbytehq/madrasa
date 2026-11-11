@@ -1840,3 +1840,71 @@ First-run setup is guarded by a one-time token: `NEXUS_SETUP_TOKEN` when set, ot
 generated at start and printed once in the server log. The hub keeps only its hash and the
 token stops working when setup completes. `madrasa-nexus healthcheck` exits 0 when the local
 hub answers `/health`; the container image uses it as its health check.
+
+### 16.3 Sync engine (stage 2)
+
+A joined school's data lives in two copies: the school's database and its schema in the hub.
+Sync is always between those two. The rules are pure code in `madrasa_core::sync`; the SQL
+is `madrasa_db::sync`; the school's API and the hub both run it.
+
+**Table policy** (`madrasa_core::sync::policy`). Every table is in exactly one class; a
+database test fails if a migration adds a table without classifying it.
+
+| Class | Tables | Merge |
+| --- | --- | --- |
+| Field-level | Everything not listed below | Field by field; head office wins a same-field conflict |
+| Append-only | `fee_receipts`, `audit_log` | Union of both sides; existing records never change |
+| Attendance | `attendance_sheets`, `attendance_entries`, `staff_attendance` | Always merged; the later mark stands |
+| Not synced | `sessions`, `settings`, `api_keys`, `api_key_calls`, `backup_runs`, `import_batch_rows`, `school_sequences` | Stay on the side that made them |
+
+`users.password_hash`, the lockout counters, `last_login_at` and `directory_synced_at` are
+never sent; the receiving copy stores the placeholder `!` as the hash, which matches no
+password. Rows without a school (instance-wide audit entries) are not synced.
+
+**Bookkeeping tables** (migration `0026_sync.sql`). They exist on every install and stay
+empty until a school joins. They are local to each copy and never synced themselves, so they
+have a UUID v7 key and `school_id` but not the sync columns.
+
+| Table | Holds |
+| --- | --- |
+| `sync_state` | One row per joined school: `role` (`school` or `head_office`), `enabled` |
+| `sync_changes` | What still has to be sent: one row per changed record with `fields` (NULL = the whole record) and a sequence number |
+| `sync_field_stamps` | Field-level timestamps: per field changed after its record was created, the HLC stamp of its value, which side wrote it (`origin`), and the latest stamp received from the other side (`remote_hlc`) |
+| `sync_overwrites` | The overwrite log: table, record, field, kept and discarded value, both stamps, who made the losing edit, the reason, and whether the other side has been told |
+| `sync_parked` | Incoming records that could not be stored yet, with a plain-language reason; retried at every sync |
+
+**Change capture.** Joining attaches one generic trigger (`sync_capture`) to every synced
+table; leaving removes it. On insert it queues the whole record; on update it compares old
+and new, queues the changed fields and stamps them with the record's new `hlc`. Columns that
+are excluded, derived or bookkeeping (`updated_at`, `updated_by`, `hlc`) never make a record
+"changed". The trigger is silent while a received batch is applied, so a change is never
+sent back. A school that has not joined has no triggers at all.
+
+**What travels.** A change is `{ table, id, fields, row, stamps, hlc, seq }`: the whole
+record when it is new to the other side, otherwise the changed fields with their stamps.
+Values are read when the batch is collected, so several edits travel as one change. Numbers
+are sent as strings (`"2500.00"`), so money never passes through a floating-point number, and
+timestamps in UTC. The first upload queues every record, parents before children.
+
+**Merging a field-level record** (`madrasa_core::sync::merge::plan_update`):
+
+- "Changed on both sides since the last sync" means the incoming field is one this side has
+  changed and not yet sent. It does not depend on either machine's clock.
+- Changed on one side only: applied. Different fields of one record changed on the two
+  sides: both kept.
+- Same field changed on both sides: **head office wins**. The hub refuses the school's
+  value; the school replaces its value with head office's. The losing value is written to
+  `sync_overwrites` on the side that detects it and passed to the other side, so both hold
+  the same log entry.
+- A change already received (its stamp is not later than `remote_hlc`) is a replay and is
+  ignored, even if the field was edited locally in between.
+- `updated_at`, `updated_by` and `hlc` follow the later record and are never conflicts.
+
+**Records that cannot be stored.** A record that breaks a database rule on arrival is
+retried at the end of the batch, then parked with the reason and retried at every later
+sync; a later change to it is folded into the parked record. Parked records never hold up
+the rest. A record that belongs to another school, or to a table that is not synced, is
+refused outright.
+
+**After a restore.** A backup contains the bookkeeping tables as they were; restore reloads
+them and moves the change counter past the restored queue.

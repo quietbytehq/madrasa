@@ -29,6 +29,7 @@ pub mod secrets;
 pub mod session_token;
 pub mod students;
 pub mod subjects;
+pub mod sync;
 pub mod transport;
 #[rustfmt::skip]
 pub mod timetable;

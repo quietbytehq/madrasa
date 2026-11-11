@@ -59,19 +59,19 @@ office entering receipts or attendance, hub-to-hub links, pre-computed report wa
 
 ## Stage 2 — Sync engine: capture and field-level merge
 
-- [ ] `madrasa_core::sync`: the table policy (every table classified as field-level,
+- [x] `madrasa_core::sync`: the table policy (every table classified as field-level,
       append-only, attendance or not synced; excluded columns such as password hashes),
       the wire format, and the merge decision for one field (apply, ignore as stale, head
       office wins) as pure functions
-- [ ] Migration: `sync_state`, `sync_changes`, `sync_field_stamps`, `sync_overwrites`,
+- [x] Migration: `sync_state`, `sync_changes`, `sync_field_stamps`, `sync_overwrites`,
       `sync_parked` and the generic capture trigger function (unused until a school joins)
-- [ ] `madrasa_db::sync`: switch capture on and off, queue a full snapshot, collect a
+- [x] `madrasa_db::sync`: switch capture on and off, queue a full snapshot, collect a
       batch to send, apply a batch (new rows, changed fields, stamps), acknowledge
-- [ ] Head office wins when both sides changed the same field since the last sync; the
+- [x] Head office wins when both sides changed the same field since the last sync; the
       losing value is written to `sync_overwrites` on both sides
-- [ ] Replays and stale changes are ignored; the clock folds in received stamps
-- [ ] Records that cannot be applied are retried, then parked with the reason
-- [ ] Tests: policy covers every table in the migrations; an unjoined database has no
+- [x] Replays and stale changes are ignored; the clock folds in received stamps
+- [x] Records that cannot be applied are retried, then parked with the reason
+- [x] Tests: policy covers every table in the migrations; an unjoined database has no
       triggers; two databases converge after edits on each side; different fields of one
       record both survive; same-field conflict resolves to head office with a log row on
       both sides; a replayed batch changes nothing; password hashes never leave
