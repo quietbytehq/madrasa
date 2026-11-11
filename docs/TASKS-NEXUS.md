@@ -78,14 +78,14 @@ office entering receipts or attendance, hub-to-hub links, pre-computed report wa
 
 ## Stage 3 — Sync engine: receipts and attendance always merge
 
-- [ ] Receipts and other append-only tables: union of both sides; voucher paid amount and
+- [x] Receipts and other append-only tables: union of both sides; voucher paid amount and
       status recomputed from receipts after every merge
-- [ ] Receipt number collisions keep both receipts (the later one renumbered with a
+- [x] Receipt number collisions keep both receipts (the later one renumbered with a
       suffix, logged); a receipt reversed on both sides is reversed once
-- [ ] Attendance: sheets and entries created separately on both sides for the same
+- [x] Attendance: sheets and entries created separately on both sides for the same
       section, student and day are folded into one; the later mark stands and the earlier
       is logged; sheet totals recomputed; staff attendance the same
-- [ ] Tests with the fee and attendance repository functions on both sides: receipts on
+- [x] Tests with the fee and attendance repository functions on both sides: receipts on
       both sides add up on the voucher; nothing is lost in either direction; duplicate
       sheets merge to one with every student present; totals match the entries; the
       merge is the same whichever side syncs first

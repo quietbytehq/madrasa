@@ -9,6 +9,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use chrono::{DateTime, Utc};
+use madrasa_core::hlc::{Hlc, HlcStamp};
 use madrasa_core::ids::new_id;
 use madrasa_core::sync::merge::LocalStamp;
 use madrasa_core::sync::{
@@ -21,6 +22,8 @@ use sqlx::{AssertSqlSafe, Connection, PgConnection};
 use uuid::Uuid;
 
 use crate::{DbError, DbResult};
+
+mod special;
 
 /// Session setting that silences the capture trigger while a received batch is applied, so
 /// a change that came from the other side is never sent back to it.
@@ -147,9 +150,10 @@ async fn install_triggers(conn: &mut PgConnection) -> DbResult<()> {
         // Both arguments come from the static policy, never from data.
         sqlx::query(sql(format!(
             "CREATE TRIGGER {TRIGGER} AFTER INSERT OR UPDATE ON {table}
-             FOR EACH ROW EXECUTE FUNCTION sync_capture('{}', '{}')",
+             FOR EACH ROW EXECUTE FUNCTION sync_capture('{}', '{}', '{}')",
             p.mode.as_str(),
-            p.untracked_columns().join(",")
+            p.untracked_columns().join(","),
+            p.derived.join(",")
         )))
         .execute(&mut *conn)
         .await?;
@@ -199,14 +203,18 @@ pub async fn adopt_school(conn: &mut PgConnection, school: &Change, role: Origin
         .bind(APPLY_FLAG)
         .execute(&mut *tx)
         .await?;
+    let clock = Hlc::new(0);
     let mut ap = Applier {
         state: SyncState {
             school_id: school.id,
             role,
             enabled: true,
         },
+        hlc: &clock,
         columns: HashMap::new(),
         report: ApplyReport::default(),
+        vouchers: HashSet::new(),
+        sheets: HashSet::new(),
     };
     let exists: bool = sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM schools WHERE id = $1)")
         .bind(school.id)
@@ -434,13 +442,19 @@ fn data_error(err: &sqlx::Error) -> Option<String> {
     }
 }
 
-struct Applier {
+struct Applier<'a> {
     state: SyncState,
+    /// This copy's clock: stamps the records a merge has to rewrite.
+    hlc: &'a Hlc,
     columns: HashMap<&'static str, Vec<String>>,
     report: ApplyReport,
+    /// Vouchers whose paid amount must be recounted from their receipts after the batch.
+    vouchers: HashSet<Uuid>,
+    /// Attendance sheets whose totals must be recounted from their entries after the batch.
+    sheets: HashSet<Uuid>,
 }
 
-impl Applier {
+impl Applier<'_> {
     async fn columns_of(
         &mut self,
         conn: &mut PgConnection,
@@ -570,9 +584,16 @@ impl Applier {
                     "The record these changes belong to has not arrived here yet.".into(),
                 ));
             }
+            // Receipts and attendance have their own rules for a record that meets a twin.
+            if let Some(outcome) = self.insert_special(conn, p, change).await? {
+                return Ok(outcome);
+            }
             self.insert_many(conn, p, &[change]).await?;
+            self.touch(p.table, &change.row);
             return Ok(Outcome::Applied);
         };
+        self.touch(table, &local);
+        self.touch(table, &change.row);
 
         let dirty: Option<Option<Vec<String>>> = sqlx::query_scalar(
             "SELECT fields FROM sync_changes WHERE table_name = $1 AND row_id = $2",
@@ -768,7 +789,11 @@ fn wait(list: &mut Vec<Waiting>, change: Change, reason: String) {
 /// `madrasa_core::sync::merge`, values that lose are written to `sync_overwrites`, and a
 /// record that cannot be stored yet is retried at the end and then parked with the reason.
 /// One bad record never stops the rest. The whole batch is one transaction (or savepoint).
-pub async fn apply(conn: &mut PgConnection, changes: &[Change]) -> DbResult<ApplyReport> {
+pub async fn apply(
+    conn: &mut PgConnection,
+    hlc: &Hlc,
+    changes: &[Change],
+) -> DbResult<ApplyReport> {
     let mut tx = conn.begin().await?;
     let st = active(&mut tx).await?;
     sqlx::query("SELECT set_config('TimeZone', 'UTC', true), set_config($1, 'on', true)")
@@ -777,8 +802,11 @@ pub async fn apply(conn: &mut PgConnection, changes: &[Change]) -> DbResult<Appl
         .await?;
     let mut ap = Applier {
         state: st,
+        hlc,
         columns: HashMap::new(),
         report: ApplyReport::default(),
+        vouchers: HashSet::new(),
+        sheets: HashSet::new(),
     };
 
     // Records parked by earlier batches are retried after this one.
@@ -799,15 +827,26 @@ pub async fn apply(conn: &mut PgConnection, changes: &[Change]) -> DbResult<Appl
         })
         .collect();
 
-    let mut i = 0;
-    while i < changes.len() {
-        let c = &changes[i];
-        ap.report.handled.push(c.seq);
+    // Fold every received stamp into this copy's clock first, so anything written here from
+    // now on carries a later stamp than what arrived.
+    let wall = Utc::now().timestamp_millis().max(0) as u64;
+    for c in changes {
         for stamp in std::iter::once(&c.hlc).chain(c.stamps.values()) {
+            if let Ok(parsed) = stamp.parse::<HlcStamp>() {
+                hlc.observe(parsed, wall);
+            }
             if ap.report.max_hlc.as_ref().is_none_or(|m| stamp > m) {
                 ap.report.max_hlc = Some(stamp.clone());
             }
         }
+    }
+
+    let mut i = 0;
+    // Records before this index go in one by one (a batch insert of their run failed).
+    let mut one_by_one_until = 0;
+    while i < changes.len() {
+        let c = &changes[i];
+        ap.report.handled.push(c.seq);
         // A run of new records of one table goes in as one statement (a first upload is
         // almost entirely such runs).
         let mut end = i + 1;
@@ -821,7 +860,12 @@ pub async fn apply(conn: &mut PgConnection, changes: &[Change]) -> DbResult<Appl
         }
         let run = &changes[i..end];
         let fast = match policy(&c.table).filter(|p| p.is_synced()) {
-            Some(p) if run.len() > 1 && run.iter().all(|c| ap.belongs(p.table, c)) => {
+            Some(p)
+                if i >= one_by_one_until
+                    && run.len() > 1
+                    && run.iter().all(|c| ap.belongs(p.table, c))
+                    && ap.may_insert_together(&mut tx, p, run).await? =>
+            {
                 let ids: Vec<Uuid> = run.iter().map(|c| c.id).collect();
                 let existing: Vec<Uuid> = sqlx::query_scalar(sql(format!(
                     "SELECT id FROM {} WHERE id = ANY($1)",
@@ -852,15 +896,16 @@ pub async fn apply(conn: &mut PgConnection, changes: &[Change]) -> DbResult<Appl
         };
         if fast {
             ap.report.applied += run.len() as u32;
+            for c in run {
+                ap.touch(&c.table, &c.row);
+            }
             for c in &run[1..] {
                 ap.report.handled.push(c.seq);
-                if ap.report.max_hlc.as_ref().is_none_or(|m| &c.hlc > m) {
-                    ap.report.max_hlc = Some(c.hlc.clone());
-                }
             }
             i = end;
             continue;
         }
+        one_by_one_until = one_by_one_until.max(end);
         match ap.apply_one(&mut tx, c).await? {
             Outcome::Applied => ap.report.applied += 1,
             Outcome::Unchanged => ap.report.unchanged += 1,
@@ -889,6 +934,10 @@ pub async fn apply(conn: &mut PgConnection, changes: &[Change]) -> DbResult<Appl
             break;
         }
     }
+
+    // Derived values follow from what is now here: paid amounts from receipts, sheet totals
+    // from entries. Both sides compute them the same way, so they are not sent.
+    ap.recount(&mut tx).await?;
 
     sqlx::query("DELETE FROM sync_parked")
         .execute(&mut *tx)

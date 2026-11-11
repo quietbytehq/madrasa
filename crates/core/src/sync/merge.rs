@@ -145,6 +145,8 @@ pub fn plan_update(
         None => change.row.keys().collect(),
     };
     let incoming_newer = change.hlc.as_str() > local.hlc();
+    // Did this side keep one of its own values against the incoming record?
+    let mut kept_ours = false;
     for field in candidates {
         let name = field.as_str();
         if name == "id"
@@ -181,6 +183,7 @@ pub fn plan_update(
             "head_office_wins"
         };
         let local_stamp = known.map(|s| s.hlc.as_str()).unwrap_or(local.hlc());
+        let logs = policy.logs(name, local_value, incoming_value);
         match decision {
             FieldDecision::Apply => {
                 plan.set.push(name.to_string());
@@ -195,6 +198,9 @@ pub fn plan_update(
                 if partial {
                     plan.applied_stamps
                         .push((name.to_string(), stamp.to_string()));
+                }
+                if !logs {
+                    continue;
                 }
                 plan.overwrites.push(Overwrite {
                     uid: None,
@@ -214,6 +220,10 @@ pub fn plan_update(
             FieldDecision::KeepLogged => {
                 if partial {
                     plan.seen_stamps.push((name.to_string(), stamp.to_string()));
+                }
+                kept_ours = true;
+                if !logs {
+                    continue;
                 }
                 plan.overwrites.push(Overwrite {
                     uid: None,
@@ -239,7 +249,7 @@ pub fn plan_update(
     }
     // The bookkeeping columns follow the later record, but only when something of it was
     // taken or nothing of ours was kept against it.
-    plan.take_meta = incoming_newer && (!plan.set.is_empty() || plan.overwrites.is_empty());
+    plan.take_meta = incoming_newer && (!plan.set.is_empty() || !kept_ours);
     plan
 }
 
@@ -600,6 +610,45 @@ mod tests {
             assert_eq!(p.overwrites[0].discarded, json!("absent"));
             assert_eq!(p.overwrites[0].kept, json!("late"));
         }
+    }
+
+    #[test]
+    fn a_vouchers_payment_status_merges_without_a_log_entry() {
+        let local = obj(
+            json!({ "id": "00000000-0000-7000-8000-000000000001", "status": "partial", "due_date": "2026-05-10",
+            "net_paid": "500.00", "hlc": T2, "updated_by": null }),
+        );
+        let c = |status: &str| Change {
+            table: "fee_vouchers".into(),
+            id: "00000000-0000-7000-8000-000000000001".parse().unwrap(),
+            fields: Some(vec!["status".into()]),
+            row: obj(
+                json!({ "status": status, "net_paid": "9999.00", "hlc": T3, "updated_by": null }),
+            ),
+            stamps: BTreeMap::new(),
+            hlc: T3.into(),
+            seq: 1,
+        };
+        let dirty = vec!["status".to_string()];
+        let row = LocalRow {
+            row: &local,
+            whole_dirty: false,
+            dirty_fields: &dirty,
+            stamps: &BTreeMap::new(),
+        };
+        let v = policy("fee_vouchers").unwrap();
+        // Both sides took a payment: no log; the status is recomputed from the receipts.
+        let hub = plan_update(v, Origin::HeadOffice, &row, &c("paid"));
+        assert!(hub.set.is_empty() && hub.overwrites.is_empty());
+        let school = plan_update(v, Origin::School, &row, &c("paid"));
+        assert_eq!(school.set, ["status"]);
+        assert!(school.overwrites.is_empty());
+        // The paid amount is never copied: each side sums its receipts.
+        assert!(!school.set.contains(&"net_paid".to_string()));
+        // A cancellation against a payment is a real conflict and is logged.
+        let hub = plan_update(v, Origin::HeadOffice, &row, &c("cancelled"));
+        assert_eq!(hub.overwrites.len(), 1);
+        assert_eq!(hub.overwrites[0].discarded, json!("cancelled"));
     }
 
     #[test]

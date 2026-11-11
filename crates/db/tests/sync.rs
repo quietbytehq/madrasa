@@ -32,12 +32,12 @@ impl Pair {
 
     /// Send everything the school has waiting to the hub copy.
     async fn push(&self) -> ApplyReport {
-        exchange(&self.school.pool, &self.hub.pool).await
+        exchange(&self.school.pool, &self.hub.pool, &self.hub_hlc).await
     }
 
     /// Bring everything head office has waiting down to the school.
     async fn pull(&self) -> ApplyReport {
-        exchange(&self.hub.pool, &self.school.pool).await
+        exchange(&self.hub.pool, &self.school.pool, &self.school_hlc).await
     }
 
     /// One full round, the order a school uses: push, then pull.
@@ -53,7 +53,7 @@ impl Pair {
 
 /// Move every pending change from one copy to the other, as the transport does: collect,
 /// apply, acknowledge, and pass the overwrite log entries back.
-async fn exchange(from: &PgPool, to: &PgPool) -> ApplyReport {
+async fn exchange(from: &PgPool, to: &PgPool, to_hlc: &Hlc) -> ApplyReport {
     let mut total = ApplyReport::default();
     let mut first = true;
     loop {
@@ -66,7 +66,7 @@ async fn exchange(from: &PgPool, to: &PgPool) -> ApplyReport {
         }
         first = false;
         let mut dst = to.begin().await.unwrap();
-        let report = sync::apply(&mut dst, &batch).await.unwrap();
+        let report = sync::apply(&mut dst, to_hlc, &batch).await.unwrap();
         dst.commit().await.unwrap();
         let mut src = from.begin().await.unwrap();
         sync::acknowledge(&mut src, &report.handled).await.unwrap();
@@ -352,7 +352,7 @@ async fn a_school_that_has_not_joined_has_no_triggers_and_notes_nothing() {
     assert_eq!(stamps, 0);
     // Collecting or applying without having joined is refused, not silently ignored.
     assert!(sync::collect(&mut c, 10).await.unwrap().is_empty());
-    assert!(sync::apply(&mut c, &[]).await.is_err());
+    assert!(sync::apply(&mut c, &hlc, &[]).await.is_err());
     assert!(sync::queue_snapshot(&mut c).await.is_err());
     drop(c);
     db.cleanup().await;
@@ -712,7 +712,7 @@ async fn a_replayed_batch_changes_nothing() {
     let batch = sync::collect(&mut c, 100).await.unwrap();
     c.commit().await.unwrap();
     let mut h = pair.hub.pool.begin().await.unwrap();
-    let first = sync::apply(&mut h, &batch).await.unwrap();
+    let first = sync::apply(&mut h, &pair.hub_hlc, &batch).await.unwrap();
     h.commit().await.unwrap();
     assert_eq!(
         first.applied, 2,
@@ -732,7 +732,7 @@ async fn a_replayed_batch_changes_nothing() {
     .await;
     // The school sends the same batch again.
     let mut h = pair.hub.pool.begin().await.unwrap();
-    let again = sync::apply(&mut h, &batch).await.unwrap();
+    let again = sync::apply(&mut h, &pair.hub_hlc, &batch).await.unwrap();
     h.commit().await.unwrap();
     assert_eq!((again.applied, again.unchanged), (0, 2));
     assert!(again.overwrites.is_empty(), "a replay is not a conflict");
@@ -750,7 +750,7 @@ async fn a_replayed_batch_changes_nothing() {
     let down = sync::collect(&mut h, 100).await.unwrap();
     h.commit().await.unwrap();
     let mut c = pair.school.pool.begin().await.unwrap();
-    sync::apply(&mut c, &down).await.unwrap();
+    sync::apply(&mut c, &pair.school_hlc, &down).await.unwrap();
     c.commit().await.unwrap();
     assert_eq!(
         student(&pair.school.pool, ali).await.full_name,
@@ -768,7 +768,7 @@ async fn a_replayed_batch_changes_nothing() {
     )
     .await;
     let mut c = pair.school.pool.begin().await.unwrap();
-    let again = sync::apply(&mut c, &down).await.unwrap();
+    let again = sync::apply(&mut c, &pair.school_hlc, &down).await.unwrap();
     c.commit().await.unwrap();
     assert!(again.overwrites.is_empty());
     assert_eq!(
@@ -831,7 +831,7 @@ async fn records_that_cannot_be_stored_yet_are_parked_and_retried() {
     let (class_change, section_change) = (pick("classes", class.id), pick("sections", section.id));
 
     let mut h = pair.hub.pool.begin().await.unwrap();
-    let report = sync::apply(&mut h, std::slice::from_ref(&section_change))
+    let report = sync::apply(&mut h, &pair.hub_hlc, std::slice::from_ref(&section_change))
         .await
         .unwrap();
     h.commit().await.unwrap();
@@ -873,13 +873,17 @@ async fn records_that_cannot_be_stored_yet_are_parked_and_retried() {
     c.commit().await.unwrap();
     assert!(rename_change.fields.is_some());
     let mut h = pair.hub.pool.begin().await.unwrap();
-    let report = sync::apply(&mut h, &[rename_change]).await.unwrap();
+    let report = sync::apply(&mut h, &pair.hub_hlc, &[rename_change])
+        .await
+        .unwrap();
     h.commit().await.unwrap();
     assert_eq!(report.parked.len(), 1, "still waiting for the class");
 
     // The class arrives: the section goes in with it, already renamed.
     let mut h = pair.hub.pool.begin().await.unwrap();
-    let report = sync::apply(&mut h, &[class_change]).await.unwrap();
+    let report = sync::apply(&mut h, &pair.hub_hlc, &[class_change])
+        .await
+        .unwrap();
     h.commit().await.unwrap();
     assert_eq!(report.applied, 2);
     assert!(report.parked.is_empty());
@@ -991,7 +995,7 @@ async fn a_record_of_another_school_is_refused() {
     };
     let before = table_rows(&pair.hub.pool, "students").await.len();
     let mut h = pair.hub.pool.begin().await.unwrap();
-    let report = sync::apply(&mut h, &[forged, unknown, skipped])
+    let report = sync::apply(&mut h, &pair.hub_hlc, &[forged, unknown, skipped])
         .await
         .unwrap();
     h.commit().await.unwrap();
