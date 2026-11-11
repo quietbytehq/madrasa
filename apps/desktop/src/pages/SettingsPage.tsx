@@ -16,6 +16,7 @@ import { NetworkCard } from "./settings/NetworkCard";
 import { EditionCard } from "./settings/EditionCard";
 import { DirectoryCard } from "./settings/DirectoryCard";
 import { ApiKeysCard } from "./settings/ApiKeysCard";
+import { NexusCard } from "./settings/NexusCard";
 import { useHasFeature } from "@/app/features";
 import { PageHeader } from "./PageHeader";
 
@@ -37,6 +38,7 @@ export function SettingsPage() {
         {can("settings.manage") && <EditionCard />}
         {can("settings.manage") && hasFeature("directory_login") && <DirectoryCard />}
         {can("settings.manage") && hasFeature("readonly_api") && <ApiKeysCard />}
+        {can("settings.manage") && hasFeature("nexus_link") && <NexusCard />}
         <section>
           <h2 className="mb-2 text-sm font-semibold text-navy">{t("academics.title")}</h2>
           <AcademicsSettings />

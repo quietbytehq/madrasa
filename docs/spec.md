@@ -1956,3 +1956,76 @@ run both orders). The code is `madrasa_db::sync::special`.
   back, so the other side takes them.
 - A correction to an existing entry on both sides: the later mark stands, the earlier is
   logged.
+
+### 16.5 Joining and leaving (stage 4)
+
+**On the hub.** Two more tables in the `nexus` schema (migration `0002_schools.sql`):
+
+| Table | Purpose |
+| --- | --- |
+| `hub_schools` | The school register: the school's own id, `name`, `code`, `schema_name` (`t_` + 32 hex digits; not exposed by the API), `status` (`joining`, `active`, `left`, `removed`, `purged`), `token_hash` (SHA-256 of the sync token), the school's version, schema version and edition, `joined_at`, `last_sync_at`, `left_at`, `leave_reason`, `purged_at`. |
+| `hub_invitations` | One-time join codes: `school_name`, `note`, `code_hash` (SHA-256; the code is shown once), `expires_at`, `used_at`, `used_by`, `revoked_at`. |
+
+Each joined school has a PostgreSQL schema of its own, created by the school migrations when
+it joins. Every statement that touches a school runs in a transaction that first sets
+`search_path` to that schema and nothing else (`tenants::begin`): the hub's tables and other
+schools' tables do not exist on that path, and the pooled connection is back on the `nexus`
+schema when the transaction ends. A sync token maps to exactly one schema. When the hub
+starts it brings every school schema to its own schema version and makes sure change capture
+covers any table a new version added.
+
+Hub endpoints for head office (`nexus.admin`; report readers may list schools):
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET / POST | `/invitations` | List (never the code); create `{ school_name, note?, expires_in_days? }` (1 to 90 days, default 7) → the invitation with `join_code` (8 groups of 4, shown once) and `hub_url` |
+| POST | `/invitations/{id}/revoke` | Revoke an unused invitation |
+| GET | `/schools` | The register with each school's sync state (`pending`, `parked`, `overwrites`, last round) |
+| GET | `/schools/{id}/overwrites`, `/schools/{id}/parked` | The school's overwrite log and waiting records |
+| POST | `/schools/{id}/remove` | `{ reason }`: the school's token stops working at once and its next sync is told why; its schema stays as an archive with capture off |
+| POST | `/schools/{id}/purge` | `{ confirm_code }` (the school's code): drop the schema of a school that left or was removed. Cannot be undone |
+| POST | `/schools/{id}/resend` | Queue the hub's whole copy to be sent down again (after a school restored an old backup) |
+
+Hub endpoints a school calls (the school always calls; the hub never does). After `/join`
+every call carries the sync token as a bearer token. Bodies up to 64 MB.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| POST | `/join` | `{ join_code, school, app_version, schema_version, edition }` → `{ school_ref, token, hub_name, hub_version, hub_schema_version }`. 403 `bad_join_code` for a wrong, used, expired or revoked code; 409 `hub_too_old` when the school's schema is newer than the hub's |
+| GET | `/sync/status` | The membership as the hub sees it |
+| POST | `/sync/push` | The school's changes and unreported log entries → what the hub handled, what waits there, and the hub's unreported log entries |
+| POST | `/sync/pull` | `{ limit }` → head office's changes, `more` |
+| POST | `/sync/ack` | The school has dealt with a pulled batch |
+| POST | `/sync/leave` | `{ reason }`: the school leaves |
+
+An unknown token is `401 unknown_school`; the token of a removed school is
+`410 school_removed` with the reason.
+
+**At the school.** Feature `nexus_link` (on in every edition), permission `settings.manage`.
+The link is the setting `nexus.link` (hub address, hub name, membership id, joined at, how
+the last membership ended) and changes only on joining and leaving, so it is audited without
+noise. The sync token is `nexus.token`, sealed with the instance key (ADR 0004) and never
+returned or logged. When the school last synced, and why the last attempt failed, is kept in
+`sync_state` (migration `0028_sync_status.sql`): local bookkeeping, not a setting, because a
+setting change is audited and the audit row would itself be a record to send.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/nexus/link` | `{ linked, hub_url, hub_name, joined_at, last_sync_at, last_error, last_report, ended, pending, parked, overwrites }` |
+| POST | `/nexus/link/join` | `{ hub_url, join_code }`. The address must be `https://` (plain `http://` only for `localhost`). 503 `hub_unreachable`; 409 `hub_refused` with the hub's own message |
+| POST | `/nexus/link/sync` | Run a round now. A hub that cannot be reached is a status (`last_error`), not a failure of this call |
+| POST | `/nexus/link/leave` | `{ reason }` → `{ hub_told, status }`. The school leaves even when the hub cannot be reached |
+| GET | `/nexus/link/overwrites` | The overwrite log, newest first |
+
+- **Joining** sends the join code and the school's own `schools` record; on success the
+  school switches change capture on and queues every record for the first upload.
+- **A round** (`madrasa_db::sync::round`) is push, then pull, then acknowledge, each step
+  its own short transaction; what is not acknowledged is sent again. A background task runs
+  one every five minutes; it makes no network call for a school that has not joined.
+- **Leaving** (or being removed) switches capture off, forgets the token and keeps a note
+  of what happened. No record of the school is touched. Joining again needs a new code.
+- **At start** the API checks that change capture matches the link: a joined school gets
+  the trigger on tables a new version added; a school that is not joined has none.
+- Screen: Settings → School network (Nexus): the join form with what joining means, or the
+  state of the link (last sync, changes waiting, problems, records waiting, the overwrite
+  log), Sync now and Leave. English and Urdu.

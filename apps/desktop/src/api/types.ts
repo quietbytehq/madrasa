@@ -27,7 +27,8 @@ export type Feature =
   | "admissions"
   | "inventory"
   | "directory_login"
-  | "readonly_api";
+  | "readonly_api"
+  | "nexus_link";
 
 export interface EditionSettings {
   edition: Edition;
@@ -3545,4 +3546,61 @@ export interface ApiKeyCall {
   path: string;
   status: number;
   ip: string;
+}
+
+// ---- Nexus link (Settings → Nexus) ----
+
+/** An incoming record that could not be stored yet, with a plain-language reason. */
+export interface NexusParked {
+  table: string;
+  id: string;
+  reason: string;
+}
+
+export interface NexusRoundReport {
+  sent: number;
+  received: number;
+  overwrites: number;
+  parked_at_hub: NexusParked[];
+  parked_here: NexusParked[];
+}
+
+export interface NexusEnded {
+  at: string;
+  by: "school" | "head_office";
+  reason: string;
+}
+
+/** `GET /nexus/link`: whether this school has joined a hub and how syncing is going. */
+export interface NexusLinkStatus {
+  linked: boolean;
+  hub_url: string | null;
+  hub_name: string | null;
+  joined_at: string | null;
+  last_sync_at: string | null;
+  /** Why the last sync failed, in plain words. */
+  last_error: string | null;
+  last_report: NexusRoundReport | null;
+  ended: NexusEnded | null;
+  pending: number;
+  parked: NexusParked[];
+  overwrites: number;
+}
+
+/** One entry of the overwrite log: a value that sync replaced or refused. */
+export interface NexusOverwrite {
+  uid: string | null;
+  at: string | null;
+  table: string;
+  id: string;
+  field: string;
+  kept: unknown;
+  discarded: unknown;
+  kept_origin: "school" | "head_office";
+  reason: string;
+}
+
+export interface NexusLeaveOutcome {
+  hub_told: boolean;
+  status: NexusLinkStatus;
 }

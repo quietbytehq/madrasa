@@ -231,6 +231,9 @@ import type {
   MovesApplied,
   EditionSettings,
   Edition,
+  NexusLinkStatus,
+  NexusLeaveOutcome,
+  NexusOverwrite,
   ConsentType,
   ConsentTypeRequest,
   StudentConsents,
@@ -360,6 +363,15 @@ export const api = {
   searchGuardians: (q: string) => request<GuardianView[]>(`/guardians${qs({ q })}`),
   updateGuardian: (id: string, body: Partial<GuardianView>) =>
     request<GuardianView>(`/guardians/${id}`, { method: "PATCH", body }),
+
+  // Nexus link (joining a school network)
+  nexusLink: () => request<NexusLinkStatus>("/nexus/link"),
+  nexusJoin: (hub_url: string, join_code: string) =>
+    request<NexusLinkStatus>("/nexus/link/join", { method: "POST", body: { hub_url, join_code } }),
+  nexusSync: () => request<NexusLinkStatus>("/nexus/link/sync", { method: "POST", body: {} }),
+  nexusLeave: (reason: string) =>
+    request<NexusLeaveOutcome>("/nexus/link/leave", { method: "POST", body: { reason } }),
+  nexusOverwrites: () => request<NexusOverwrite[]>("/nexus/link/overwrites?page_size=20"),
 
   // Settings
   editionSettings: () => request<EditionSettings>("/settings/edition"),

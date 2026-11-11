@@ -30,5 +30,6 @@ uuid = { workspace = true }
 
 [dev-dependencies]
 madrasa-db = { workspace = true, features = ["testing"] }
+serde_json = { workspace = true }
 tower = { workspace = true }
 http-body-util = "0.1"

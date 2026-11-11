@@ -11,7 +11,10 @@ pub mod wire;
 
 pub use merge::{decide_field, plan_update, FieldDecision, LocalRow, LocalStamp, RowPlan};
 pub use policy::{policy, Mode, TablePolicy, META_FIELDS, TABLES};
-pub use wire::{ApplyReport, Change, Origin, Overwrite, Parked};
+pub use wire::{
+    AckRequest, AckResponse, ApplyReport, Change, JoinRequest, JoinResponse, LeaveRequest, Origin,
+    Overwrite, Parked, PullRequest, PullResponse, PushRequest, PushResponse,
+};
 
 /// Rows per request. Small enough for a slow school uplink, large enough that a first
 /// upload of a full year finishes in a few minutes.
@@ -48,6 +51,29 @@ pub fn insertion_order(tables: &[&str], edges: &[(String, String)]) -> Vec<Strin
         done.extend(ready.into_iter().map(str::to_string));
     }
     done
+}
+
+/// The hub address a school may use. Schools send their records to it, so it must be HTTPS;
+/// plain HTTP is accepted only for this computer itself (trying a hub out). Returns the
+/// address without a trailing slash.
+pub fn hub_url(input: &str) -> Result<String, &'static str> {
+    let url = input.trim().trim_end_matches('/');
+    let rest = if let Some(rest) = url.strip_prefix("https://") {
+        rest
+    } else if let Some(rest) = url.strip_prefix("http://") {
+        let host = rest.split(['/', ':']).next().unwrap_or_default();
+        let bracketed = rest.starts_with("[::1]");
+        if !(bracketed || host == "localhost" || host == "127.0.0.1") {
+            return Err("The hub address must start with https://. Plain http:// is only accepted for this computer (localhost).");
+        }
+        rest
+    } else {
+        return Err("Enter the hub address in full, for example https://nexus.example.org.");
+    };
+    if rest.is_empty() || rest.starts_with('/') || rest.contains(char::is_whitespace) {
+        return Err("Enter the hub address in full, for example https://nexus.example.org.");
+    }
+    Ok(url.to_string())
 }
 
 /// Why a hub refuses to sync with a school.
@@ -107,6 +133,40 @@ mod tests {
         // A cycle does not hang; every table is still listed once.
         let cyc = [e("a", "b"), e("b", "a")];
         assert_eq!(insertion_order(&["b", "a", "c"], &cyc), ["c", "a", "b"]);
+    }
+
+    #[test]
+    fn hub_addresses_must_be_https_except_on_this_computer() {
+        assert_eq!(
+            hub_url(" https://nexus.example.org/ "),
+            Ok("https://nexus.example.org".into())
+        );
+        assert_eq!(
+            hub_url("https://nexus.example.org:8443/hub"),
+            Ok("https://nexus.example.org:8443/hub".into())
+        );
+        assert_eq!(
+            hub_url("http://localhost:4780"),
+            Ok("http://localhost:4780".into())
+        );
+        assert_eq!(
+            hub_url("http://127.0.0.1:4780/"),
+            Ok("http://127.0.0.1:4780".into())
+        );
+        assert_eq!(hub_url("http://[::1]:4780"), Ok("http://[::1]:4780".into()));
+        for bad in [
+            "http://nexus.example.org",
+            "http://localhost.evil.org",
+            "http://127.0.0.10",
+            "nexus.example.org",
+            "ftp://x",
+            "https://",
+            "https:///x",
+            "https://a b",
+            "",
+        ] {
+            assert!(hub_url(bad).is_err(), "{bad} must be refused");
+        }
     }
 
     #[test]

@@ -161,3 +161,97 @@ mod tests {
         );
     }
 }
+
+// ---- the school ↔ hub protocol ------------------------------------------------------------
+//
+// The school always calls; the hub never does. Every call after joining carries the school's
+// sync token as a bearer token.
+
+/// `POST /join`: a school joins with a one-time code and its own `schools` record.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JoinRequest {
+    pub join_code: String,
+    /// The school's `schools` record as a whole-record change.
+    pub school: Change,
+    /// The school's Madrasa version (`0.3.1`) and schema version (latest migration).
+    pub app_version: String,
+    pub schema_version: i64,
+    pub edition: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JoinResponse {
+    /// The hub's id for this membership.
+    pub school_ref: Uuid,
+    /// The sync token. Shown to the school once; the hub keeps only its hash.
+    pub token: String,
+    pub hub_name: String,
+    pub hub_version: String,
+    pub hub_schema_version: i64,
+}
+
+/// `POST /sync/push`: changes made at the school since the last sync.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PushRequest {
+    pub app_version: String,
+    pub schema_version: i64,
+    pub changes: Vec<Change>,
+    /// Overwrite-log entries the school detected and the hub has not confirmed yet.
+    #[serde(default)]
+    pub overwrites: Vec<Overwrite>,
+    /// Hub entries the school has stored since the last call.
+    #[serde(default)]
+    pub stored_overwrites: Vec<Uuid>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PushResponse {
+    /// Sequence numbers the hub has dealt with; the school forgets those changes.
+    pub handled: Vec<i64>,
+    pub applied: u32,
+    /// Records waiting at the hub.
+    pub parked: Vec<Parked>,
+    /// Hub log entries the school has not confirmed yet.
+    pub overwrites: Vec<Overwrite>,
+    /// School entries the hub has now stored.
+    pub stored_overwrites: Vec<Uuid>,
+    pub max_hlc: Option<String>,
+}
+
+/// `POST /sync/pull`: ask for head office's changes.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PullRequest {
+    pub limit: usize,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PullResponse {
+    pub changes: Vec<Change>,
+    /// More is waiting: ask again after acknowledging these.
+    pub more: bool,
+}
+
+/// `POST /sync/ack`: the school has dealt with a pulled batch.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct AckRequest {
+    pub handled: Vec<i64>,
+    #[serde(default)]
+    pub overwrites: Vec<Overwrite>,
+    #[serde(default)]
+    pub stored_overwrites: Vec<Uuid>,
+    /// Records waiting at the school after this batch, for the hub's status screen.
+    #[serde(default)]
+    pub parked: u32,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct AckResponse {
+    pub stored_overwrites: Vec<Uuid>,
+}
+
+/// `POST /sync/leave`: the school leaves the network.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct LeaveRequest {
+    #[serde(default)]
+    pub reason: String,
+}

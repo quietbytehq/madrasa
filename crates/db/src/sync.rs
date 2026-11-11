@@ -23,6 +23,7 @@ use uuid::Uuid;
 
 use crate::{DbError, DbResult};
 
+pub mod round;
 mod special;
 
 /// Session setting that silences the capture trigger while a received batch is applied, so
@@ -62,7 +63,16 @@ pub struct SyncStatus {
     pub parked: i64,
     /// Entries in the overwrite log.
     pub overwrites: i64,
+    /// When the last round completed.
+    pub last_sync_at: Option<DateTime<Utc>>,
+    /// Why the last attempt failed, in plain words; `None` after a successful round.
+    pub last_error: Option<String>,
+    /// What the last successful round did.
+    pub last_report: Option<Value>,
 }
+
+/// When the last round completed, why the last attempt failed, what the last round did.
+type LastRound = (Option<DateTime<Utc>>, Option<String>, Option<Value>);
 
 /// The sync state, if this copy has ever been joined.
 pub async fn state(conn: &mut PgConnection) -> DbResult<Option<SyncState>> {
@@ -95,15 +105,49 @@ pub async fn status(conn: &mut PgConnection) -> DbResult<SyncStatus> {
         "SELECT (SELECT count(*) FROM sync_changes), (SELECT count(*) FROM sync_parked),
                 (SELECT count(*) FROM sync_overwrites)",
     )
-    .fetch_one(conn)
+    .fetch_one(&mut *conn)
     .await?;
+    let last: Option<LastRound> = sqlx::query_as(
+        "SELECT last_sync_at, last_error, last_report FROM sync_state ORDER BY enabled_at LIMIT 1",
+    )
+    .fetch_optional(&mut *conn)
+    .await?;
+    let (last_sync_at, last_error, last_report) = last.unwrap_or_default();
     Ok(SyncStatus {
         enabled: st.is_some_and(|s| s.enabled),
         role: st.map(|s| s.role),
         pending,
         parked,
         overwrites,
+        last_sync_at,
+        last_error,
+        last_report,
     })
+}
+
+/// Note how a round went: `Ok(report)` for a completed round, `Err(message)` for one that
+/// could not reach the hub or was refused. Local bookkeeping; not audited, not synced.
+pub async fn note_round(
+    conn: &mut PgConnection,
+    outcome: Result<&round::RoundReport, &str>,
+) -> DbResult<()> {
+    match outcome {
+        Ok(report) => {
+            sqlx::query(
+                "UPDATE sync_state SET last_sync_at = now(), last_error = NULL, last_report = $1",
+            )
+            .bind(serde_json::to_value(report).unwrap_or(Value::Null))
+            .execute(conn)
+            .await?;
+        }
+        Err(message) => {
+            sqlx::query("UPDATE sync_state SET last_error = $1")
+                .bind(message)
+                .execute(conn)
+                .await?;
+        }
+    }
+    Ok(())
 }
 
 /// The schema version of this copy: the number of the latest migration applied.
@@ -177,15 +221,55 @@ async fn remove_triggers(conn: &mut PgConnection) -> DbResult<()> {
 /// table is noted for sending. `role` says which side this copy is. Call it again after a
 /// migration added tables; it is idempotent.
 pub async fn enable(conn: &mut PgConnection, school_id: Uuid, role: Origin) -> DbResult<()> {
+    // Joining again starts the "last sync" record afresh; switching capture back on for a
+    // school that is already joined (after an upgrade) keeps it.
     sqlx::query(
         "INSERT INTO sync_state (school_id, role, enabled) VALUES ($1, $2, TRUE)
-         ON CONFLICT (school_id) DO UPDATE SET role = EXCLUDED.role, enabled = TRUE, enabled_at = now()",
+         ON CONFLICT (school_id) DO UPDATE SET
+             role = EXCLUDED.role,
+             last_sync_at = CASE WHEN sync_state.enabled THEN sync_state.last_sync_at END,
+             last_error = CASE WHEN sync_state.enabled THEN sync_state.last_error END,
+             last_report = CASE WHEN sync_state.enabled THEN sync_state.last_report END,
+             enabled_at = CASE WHEN sync_state.enabled THEN sync_state.enabled_at ELSE now() END,
+             enabled = TRUE",
     )
     .bind(school_id)
     .bind(role.as_str())
     .execute(&mut *conn)
     .await?;
     install_triggers(conn).await
+}
+
+/// The school's own `schools` record as a whole-record change: what a school sends to join
+/// a hub, before anything is queued.
+pub async fn school_record(conn: &mut PgConnection, school_id: Uuid) -> DbResult<Change> {
+    let mut tx = conn.begin().await?;
+    sqlx::query("SELECT set_config('TimeZone', 'UTC', true)")
+        .execute(&mut *tx)
+        .await?;
+    let row: Option<Value> =
+        sqlx::query_scalar("SELECT sync_row(to_jsonb(t)) FROM schools t WHERE id = $1")
+            .bind(school_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+    tx.commit().await?;
+    let Some(Value::Object(row)) = row else {
+        return Err(DbError::NotFound("school".into()));
+    };
+    let hlc = row
+        .get("hlc")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    Ok(Change {
+        table: "schools".into(),
+        id: school_id,
+        fields: None,
+        row,
+        stamps: BTreeMap::new(),
+        hlc,
+        seq: 0,
+    })
 }
 
 /// Start the other copy of a school: store its `schools` record (the first change a school

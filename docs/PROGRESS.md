@@ -1214,6 +1214,38 @@ depend on each other and were built together)
   for timing dependence.
 - Left: nothing calls the engine over the network yet (stage 4).
 
+### 2026-11-11 — Stage 4: Joining and leaving (branch `dev/nexus-4-join`)
+- Done, hub: the school register and invitations (migration `0002_schools.sql`), one
+  PostgreSQL schema per school created on join, transactions that can see exactly one
+  school, the join and sync endpoints, removing a school, purging an archive, sending
+  everything again, and bringing school schemas up to date when the hub starts.
+- Done, school: feature `nexus_link`, the link as an audited setting, the sync token sealed
+  with the instance key, an HTTPS client, `madrasa_db::sync::round` (one round: push, pull,
+  acknowledge), `GET/POST /nexus/link…`, a background task every five minutes, and the
+  check at start that change capture matches the link. Settings → School network (Nexus)
+  in the desktop app, English and Urdu.
+- Found and fixed while testing end to end: writing "last synced" as a setting was audited,
+  the audit row was itself a record to send, and every sync left one record pending for the
+  next. The last sync time and error now live in `sync_state` (migration
+  `0028_sync_status.sql`), which is local bookkeeping.
+- Lite gains one feature code, `nexus_link` (the choice to join); the test that Lite has
+  exactly its nine core modules now says nine plus that. Nothing else changes for a school
+  that does not join: a test asserts it has no triggers and queues nothing.
+- Tested: hub tests (5): invitations work once, expire and can be revoked, and the code is
+  stored only as a hash; a school joins, uploads and syncs both ways through the hub's
+  endpoints; two installs with identical ids, codes and data never see each other, the
+  hub's tables are invisible from inside a school's transaction, and purging one leaves the
+  other complete; leaving and removal; sending everything again. End-to-end tests (3) with
+  a school's API and a hub talking over real HTTP: join, first upload, edits both ways,
+  head office winning a conflict with the log visible at the school, permissions, leaving
+  with every record intact and joining again; removal told to the school; the hub going
+  away (a status, nothing lost); a restart. Component tests (6) for the settings card. The
+  whole workspace suite and the frontend suite (193 tests) pass.
+- Not verified here: a school reaching a hub over real HTTPS on the internet. The tests use
+  `http://127.0.0.1`, which the client allows for this computer only. The first real
+  deployment is a hand test (TESTING.md, stage 9).
+- Left: stages 5 to 9.
+
 ## Summary for the owner — Standard alpha
 
 The Standard alpha was built in eleven pull requests, each from a clean `main` with CI green

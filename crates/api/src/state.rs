@@ -56,6 +56,8 @@ pub struct AppState {
     pub directory: SharedDirectory,
     /// Per-key rate windows of the read-only API (Standard stage 9).
     pub ro_limits: Arc<RateLimits>,
+    /// Held while a Nexus sync round runs, so the timer and "Sync now" never interleave.
+    pub nexus_sync: Arc<tokio::sync::Mutex<()>>,
 }
 
 impl AppState {
@@ -77,6 +79,7 @@ impl AppState {
             directory: Arc::new(LdapDirectory),
             ro_limits: Arc::new(RateLimits::default()),
             timetable_jobs: Arc::new(TimetableJobs::default()),
+            nexus_sync: Arc::new(tokio::sync::Mutex::new(())),
         })
     }
 

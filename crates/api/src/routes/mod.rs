@@ -21,6 +21,7 @@ pub mod inventory;
 pub mod leave;
 pub mod library;
 pub mod nexus;
+pub mod nexus_link;
 pub mod reports;
 pub mod rollover;
 pub mod school_settings;

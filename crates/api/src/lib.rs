@@ -13,6 +13,7 @@ pub mod export;
 pub mod imports;
 pub mod lan;
 pub mod late_fees;
+pub mod nexus_link;
 pub mod reports;
 pub mod ro;
 pub mod routes;
@@ -41,6 +42,7 @@ pub fn router(state: AppState) -> Router {
         .merge(routes::schools::router())
         .merge(routes::audit::router())
         .merge(routes::nexus::router())
+        .merge(routes::nexus_link::router())
         .merge(routes::academics::router())
         .merge(routes::rollover::router())
         .merge(routes::staff::router())

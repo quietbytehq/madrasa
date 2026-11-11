@@ -111,6 +111,9 @@ pub enum Feature {
     DirectoryLogin,
     /// Read-only API keys and endpoints.
     ReadonlyApi,
+    /// Joining a Madrasa Nexus hub and syncing with it (docs/TASKS-NEXUS.md). Every school
+    /// edition may join; a school that has not joined is unchanged.
+    NexusLink,
 }
 
 impl Feature {
@@ -137,6 +140,7 @@ impl Feature {
         Feature::Inventory,
         Feature::DirectoryLogin,
         Feature::ReadonlyApi,
+        Feature::NexusLink,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -163,6 +167,7 @@ impl Feature {
             Feature::Inventory => "inventory",
             Feature::DirectoryLogin => "directory_login",
             Feature::ReadonlyApi => "readonly_api",
+            Feature::NexusLink => "nexus_link",
         }
     }
 }
@@ -183,6 +188,7 @@ const LITE_FEATURES: &[Feature] = &[
     Feature::Reports,
     Feature::Backup,
     Feature::Settings,
+    Feature::NexusLink,
 ];
 
 /// Everything Standard adds to Lite (docs/TASKS-STANDARD.md), in sidebar order.
@@ -221,6 +227,7 @@ const STANDARD_FEATURES: &[Feature] = &[
     Feature::Campuses,
     Feature::DirectoryLogin,
     Feature::ReadonlyApi,
+    Feature::NexusLink,
 ];
 
 const NEXUS_FEATURES: &[Feature] = &[
@@ -246,6 +253,7 @@ const NEXUS_FEATURES: &[Feature] = &[
     Feature::ReadonlyApi,
     Feature::ParentsPortal,
     Feature::NexusHub,
+    Feature::NexusLink,
 ];
 
 #[cfg(test)]
@@ -280,8 +288,11 @@ mod tests {
             assert!(!Edition::Lite.enables(*f), "{f} must not be on in Lite");
             assert!(Edition::Standard.enables(*f), "{f} missing from standard");
         }
-        // Lite's list is exactly the nine core modules: nothing Standard leaks in.
-        assert_eq!(Edition::Lite.features().len(), 9);
+        // Lite's list is exactly the nine core modules, plus the choice to join a Nexus
+        // hub: nothing Standard leaks in.
+        assert_eq!(Edition::Lite.features().len(), 10);
+        assert!(Edition::Lite.enables(Feature::NexusLink));
+        assert!(!STANDARD_ONLY.contains(&Feature::NexusLink));
     }
 
     #[test]
