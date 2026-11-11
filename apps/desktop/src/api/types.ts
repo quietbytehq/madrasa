@@ -3604,3 +3604,26 @@ export interface NexusLeaveOutcome {
   hub_told: boolean;
   status: NexusLinkStatus;
 }
+
+/** One time head office released this school's backup key: who, when and why. */
+export interface NexusKeyRelease {
+  id: string;
+  released_at: string;
+  released_by: string;
+  reason: string;
+  key_id: string;
+  /** The school has recorded it in its own audit log. */
+  seen: boolean;
+}
+
+/** `GET /nexus/link/escrow`: the school's backup key and head office. */
+export interface NexusEscrowView {
+  /** Head office has set key escrow up. */
+  available: boolean;
+  /** This school has left a key with head office. */
+  deposited: boolean;
+  /** The key left there is the school's current backup key. */
+  current: boolean;
+  deposited_at: string | null;
+  releases: NexusKeyRelease[];
+}

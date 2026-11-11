@@ -905,6 +905,10 @@ export const en = {
   "backup.restore.recoveryKey": "Recovery key",
   "backup.restore.useRecovery": "Use the recovery key instead",
   "backup.restore.usePassword": "Use the backup password instead",
+  "backup.restore.releasedKey": "Key released by head office",
+  "backup.restore.useReleased": "Use a key released by head office instead",
+  "backup.restore.releasedHint":
+    "The code head office gave you: eleven groups of five characters. Capitals, spaces and dashes do not matter.",
   "backup.restore.confirm": "Restore now",
   "backup.restore.done": "Restored {rows} records from the backup of {date}. Please log in again.",
   "backup.restore.invalid": "This file is not a valid Madrasa backup or has been changed.",
@@ -912,6 +916,7 @@ export const en = {
   "backup.password.hint":
     "Changing the password applies to new backups only. Backups made before still open with the password in use when they were made, or with the recovery key.",
   "backup.password.current": "Current backup password",
+  "backup.password.useReleased": "I have a key released by head office instead",
   "backup.password.new": "New backup password",
   "backup.password.confirm": "Confirm new password",
   "backup.password.change": "Change password",
@@ -1317,6 +1322,29 @@ export const en = {
   "nexus.reason.later_mark": "A later attendance mark",
   "nexus.reason.renumbered": "Two receipts had this number",
   "nexus.reason.duplicate_reversal": "Reversed on both sides",
+  "nexus.escrow.title": "Backup key and head office",
+  "nexus.escrow.hint":
+    "If the backup password and the recovery key are both lost, the backups cannot be opened. You may leave a sealed copy of the backup key with head office. Head office needs its own escrow passphrase to open it, and every time it does, this page shows who did and why. This is your choice; syncing works without it.",
+  "nexus.escrow.unreachable": "Head office could not be reached to check the backup key.",
+  "nexus.escrow.retry": "Try again",
+  "nexus.escrow.notAvailable": "Head office has not set up key escrow yet.",
+  "nexus.escrow.needsBackupRole":
+    "Someone who manages backups can leave the backup key with head office.",
+  "nexus.escrow.passwordHint": "Proves that you may hand the key over. It is not sent.",
+  "nexus.escrow.deposit": "Leave the key with head office",
+  "nexus.escrow.deposited": "A sealed copy of the backup key is now with head office.",
+  "nexus.escrow.held": "A sealed copy of the backup key has been with head office since {date}.",
+  "nexus.escrow.stale":
+    "The key at head office is not this school's current backup key. Leave the key again so head office can help with new backups.",
+  "nexus.escrow.withdraw": "Take the key back",
+  "nexus.escrow.withdraw.title": "Take the backup key back?",
+  "nexus.escrow.withdraw.body":
+    "Head office erases its sealed copy. If the backup password and the recovery key are both lost afterwards, nobody can open the backups.",
+  "nexus.escrow.withdrawn": "Head office no longer holds the backup key.",
+  "nexus.escrow.released.title": "Head office has opened this school's backup key",
+  "nexus.escrow.released.item": "{date}, by {by}: {reason}",
+  "nexus.escrow.released.hint":
+    "Whoever has the released key can open this school's backups. If you did not ask for it, speak to head office.",
   "feature.timetable": "Timetable",
   "feature.leave": "Leave",
   "feature.admissions": "Admissions",

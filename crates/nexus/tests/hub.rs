@@ -450,6 +450,8 @@ async fn hub_tables_live_in_their_own_schema() {
         [
             "_sqlx_migrations",
             "hub_audit_log",
+            "hub_escrow_deposits",
+            "hub_escrow_releases",
             "hub_invitations",
             "hub_schools",
             "hub_sessions",

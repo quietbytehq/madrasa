@@ -340,6 +340,7 @@ function PasswordCard({ onError }: { onError: (e: unknown) => void }) {
   const { t } = useI18n();
   const toast = useToast();
   const [current, setCurrent] = useState("");
+  const [released, setReleased] = useState(false);
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
@@ -350,7 +351,11 @@ function PasswordCard({ onError }: { onError: (e: unknown) => void }) {
     setError(null);
     setBusy(true);
     try {
-      await api.changeBackupPassword({ current_password: current, new_password: next });
+      await api.changeBackupPassword(
+        released
+          ? { released_key: current, new_password: next }
+          : { current_password: current, new_password: next },
+      );
       toast.push({ kind: "success", title: t("backup.password.changed") });
       setCurrent("");
       setNext("");
@@ -371,11 +376,22 @@ function PasswordCard({ onError }: { onError: (e: unknown) => void }) {
       </p>
       <form onSubmit={submit} noValidate className="flex flex-col gap-3">
         <Input
-          label={t("backup.password.current")}
-          type="password"
+          label={released ? t("backup.restore.releasedKey") : t("backup.password.current")}
+          type={released ? "text" : "password"}
+          dir={released ? "ltr" : undefined}
           value={current}
           onChange={(e) => setCurrent(e.target.value)}
         />
+        <button
+          type="button"
+          className="self-start text-xs text-blue hover:underline"
+          onClick={() => {
+            setReleased((v) => !v);
+            setCurrent("");
+          }}
+        >
+          {released ? t("backup.restore.usePassword") : t("backup.password.useReleased")}
+        </button>
         <Input
           label={t("backup.password.new")}
           type="password"
@@ -411,6 +427,20 @@ const COUNT_KEYS = [
   "audit_log",
 ] as const;
 
+/** The three things that open a backup. */
+type SecretMode = "password" | "recovery" | "released";
+const SECRET_MODES: SecretMode[] = ["password", "recovery", "released"];
+const SECRET_LABEL: Record<SecretMode, TranslationKey> = {
+  password: "backup.restore.password",
+  recovery: "backup.restore.recoveryKey",
+  released: "backup.restore.releasedKey",
+};
+const SECRET_SWITCH: Record<SecretMode, TranslationKey> = {
+  password: "backup.restore.usePassword",
+  recovery: "backup.restore.useRecovery",
+  released: "backup.restore.useReleased",
+};
+
 function RestoreDialog({
   preview,
   onClose,
@@ -423,7 +453,7 @@ function RestoreDialog({
   onError: (e: unknown) => void;
 }) {
   const { t, formatDate } = useI18n();
-  const [useRecovery, setUseRecovery] = useState(false);
+  const [mode, setMode] = useState<SecretMode>("password");
   const [secret, setSecret] = useState("");
   const [busy, setBusy] = useState(false);
   const submit = async (e: FormEvent) => {
@@ -432,8 +462,9 @@ function RestoreDialog({
     try {
       const r = await api.restoreBackup({
         path: preview.path,
-        password: useRecovery ? undefined : secret,
-        recovery_key: useRecovery ? secret : undefined,
+        password: mode === "password" ? secret : undefined,
+        recovery_key: mode === "recovery" ? secret : undefined,
+        released_key: mode === "released" ? secret : undefined,
       });
       onRestored(r.rows, r.meta.created_at);
     } catch (err) {
@@ -487,22 +518,29 @@ function RestoreDialog({
       ) : (
         <form onSubmit={submit} noValidate className="mt-3 flex flex-col gap-2">
           <Input
-            label={useRecovery ? t("backup.restore.recoveryKey") : t("backup.restore.password")}
-            type={useRecovery ? "text" : "password"}
+            label={t(SECRET_LABEL[mode])}
+            hint={mode === "released" ? t("backup.restore.releasedHint") : undefined}
+            type={mode === "password" ? "password" : "text"}
+            dir={mode === "password" ? undefined : "ltr"}
             value={secret}
             onChange={(e) => setSecret(e.target.value)}
             autoFocus
           />
-          <button
-            type="button"
-            className="self-start text-xs text-blue hover:underline"
-            onClick={() => {
-              setUseRecovery((v) => !v);
-              setSecret("");
-            }}
-          >
-            {useRecovery ? t("backup.restore.usePassword") : t("backup.restore.useRecovery")}
-          </button>
+          <div className="flex flex-col items-start gap-1">
+            {SECRET_MODES.filter((m) => m !== mode).map((m) => (
+              <button
+                key={m}
+                type="button"
+                className="text-xs text-blue hover:underline"
+                onClick={() => {
+                  setMode(m);
+                  setSecret("");
+                }}
+              >
+                {t(SECRET_SWITCH[m])}
+              </button>
+            ))}
+          </div>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={onClose}>
               {t("action.cancel")}

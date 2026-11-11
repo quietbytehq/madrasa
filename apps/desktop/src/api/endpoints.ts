@@ -232,6 +232,7 @@ import type {
   EditionSettings,
   Edition,
   NexusLinkStatus,
+  NexusEscrowView,
   NexusLeaveOutcome,
   NexusOverwrite,
   ConsentType,
@@ -372,6 +373,10 @@ export const api = {
   nexusLeave: (reason: string) =>
     request<NexusLeaveOutcome>("/nexus/link/leave", { method: "POST", body: { reason } }),
   nexusOverwrites: () => request<NexusOverwrite[]>("/nexus/link/overwrites?page_size=20"),
+  nexusEscrow: () => request<NexusEscrowView>("/nexus/link/escrow"),
+  nexusEscrowDeposit: (password: string) =>
+    request<NexusEscrowView>("/nexus/link/escrow", { method: "POST", body: { password } }),
+  nexusEscrowWithdraw: () => request<NexusEscrowView>("/nexus/link/escrow", { method: "DELETE" }),
 
   // Settings
   editionSettings: () => request<EditionSettings>("/settings/edition"),
@@ -567,11 +572,16 @@ export const api = {
   backupFiles: () => request<BackupFile[]>("/backup/files"),
   previewRestore: (path: string) =>
     request<RestorePreview>("/backup/preview", { method: "POST", body: { path } }),
-  restoreBackup: (body: { path: string; password?: string; recovery_key?: string }) =>
-    request<RestoreResult>("/backup/restore", { method: "POST", body }),
+  restoreBackup: (body: {
+    path: string;
+    password?: string;
+    recovery_key?: string;
+    released_key?: string;
+  }) => request<RestoreResult>("/backup/restore", { method: "POST", body }),
   changeBackupPassword: (body: {
     current_password?: string;
     recovery_key?: string;
+    released_key?: string;
     new_password: string;
   }) => request<void>("/backup/password", { method: "POST", body }),
   unlockBackups: (body: { password?: string; recovery_key?: string }) =>

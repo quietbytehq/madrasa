@@ -12,6 +12,7 @@ pub mod boards;
 pub mod consents;
 pub mod directory;
 pub mod edition;
+pub mod escrow;
 pub mod exams;
 pub mod fees;
 pub mod hlc;

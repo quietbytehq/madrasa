@@ -88,6 +88,22 @@ token, once, which is useless after setup.
 - **Health**: `GET /api/nexus/v1/health`; the container reports healthy or unhealthy by
   itself (`docker compose ps`).
 
+## Backup key escrow (optional)
+
+Schools may leave a sealed copy of their backup key with head office, for the day a school
+loses both its backup password and its recovery key (docs/spec.md §16.7). To allow it,
+choose an **escrow passphrase** of at least 12 characters. Either give it at first-run
+setup (`"escrow_passphrase"` in the setup call) or set it up later:
+
+```bash
+curl -X POST https://nexus.example.org/api/nexus/v1/escrow/setup -H "authorization: Bearer SESSION-TOKEN" -H "content-type: application/json" -d '{"passphrase":"CHOOSE-A-LONG-PASSPHRASE"}'
+```
+
+Write the passphrase down and keep it somewhere safe, away from the server. The hub does
+not store it. Without it no key can be released, and nobody can recover it for you.
+Releasing a key needs a hub user with the `nexus.escrow` permission, the passphrase and a
+reason; the school is told at its next sync.
+
 ## Adding a school
 
 1. Head office creates an invitation at the hub. Until the console arrives (stage 7) this is
