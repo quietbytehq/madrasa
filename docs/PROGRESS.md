@@ -1324,6 +1324,27 @@ depend on each other and were built together)
   tests).
 - Left: stages 8 and 9.
 
+### 2026-11-11 — Stage 8: Deployment templates (branch `dev/nexus-8-deploy`)
+- Done: an Azure Bicep template (`deploy/nexus/azure`: Container Apps, PostgreSQL Flexible
+  Server, Log Analytics) and a Google Cloud Terraform module (`deploy/nexus/gcp`: Cloud Run,
+  Cloud SQL, Secret Manager, an Artifact Registry cache of the image), each with an example
+  parameters file and a step-by-step guide in `docs/nexus/deploy.md`. The release workflow
+  now builds the hub image and publishes it to GitHub Container Registry on a tagged
+  release. Operations notes: backing up the hub database, upgrading (hub before schools),
+  a leaked sync key, a leaked password, what to watch.
+- Checked: CI builds the Bicep template and its example parameters (`az bicep build`,
+  `az bicep build-params`) and validates the Terraform module (`terraform validate`) on
+  every change.
+- **Not done, said plainly: neither template has been deployed.** No Azure subscription or
+  Google Cloud project was available, and the tools could not be run on the build machine,
+  so the only check is CI's. The first real deployment is a manual test for the owner.
+- **No image is published yet.** The first appears with the next tagged release, and GitHub
+  will create the package as private: an owner must make it public before Azure or Google
+  Cloud can pull it.
+- Not built: replacing a school's sync key in place. The guide says what to do instead
+  (remove the school and invite it again).
+- Left: stage 9.
+
 ## Summary for the owner — Standard alpha
 
 The Standard alpha was built in eleven pull requests, each from a clean `main` with CI green

@@ -1,0 +1,13 @@
+# Copy to terraform.tfvars and edit. terraform.tfvars is not committed.
+
+project_id = "my-project-id"
+region     = "asia-south1"
+
+# A release of the hub image (ghcr.io/quietbytehq/madrasa-nexus).
+image_tag = "0.4.0"
+
+# Optional. Your own domain, once it is mapped to the Cloud Run service.
+# public_url = "https://nexus.example.org"
+
+# Optional. Keep one instance warm so the first request is not slow.
+# min_instances = 1
