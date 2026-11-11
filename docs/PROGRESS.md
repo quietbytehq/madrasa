@@ -1119,6 +1119,21 @@ depend on each other and were built together)
   demo setup (`notes` is empty); wizard test for the notes panel.
 - Left: nothing from the report. Version 0.3.1.
 
+## Nexus alpha
+
+### 2026-11-11 — Stage 0: Design (branch `dev/nexus-0-design`)
+- Done: `docs/adr/0005-nexus-hub-and-sync.md` (hub server in `crates/nexus`, one
+  PostgreSQL schema per school, joining and leaving, the sync engine with field-level
+  timestamps, head office winning same-field conflicts, receipts and attendance always
+  merged, the overwrite log, network-wide reports, backup key escrow, Docker, Azure and
+  Google Cloud packaging) and `docs/TASKS-NEXUS.md` (nine build stages).
+- The spec describes Nexus in one line (§2), so the design fills the gaps from the request
+  and from what the code already guarantees: all 84 tables have an `id` key and an `hlc`
+  stamp, nothing is hard-deleted, and every update writes a fresh stamp. That lets change
+  capture be one generic database trigger, attached only when a school joins.
+- Tested: nothing to test; documents only.
+- Left: stages 1 to 9.
+
 ## Summary for the owner — Standard alpha
 
 The Standard alpha was built in eleven pull requests, each from a clean `main` with CI green
