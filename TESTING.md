@@ -1,4 +1,4 @@
-# Testing Madrasa v0.3.1-alpha (Lite and Standard)
+# Testing Madrasa v0.3.1-alpha (Lite, Standard and the Nexus hub)
 
 Thank you for trying Madrasa. This is an early build for a small group of testers. It is
 not ready for a school's real records yet: use made-up data, expect rough edges, and tell us
@@ -338,7 +338,110 @@ restarting the server and continuing. If the server is ever reinstalled from scr
 fingerprint changes and clients will refuse to connect until they are set up again: that is
 intended.
 
-## 7. Report a problem
+## 7. Madrasa Nexus: several schools and a head office
+
+Madrasa Nexus joins schools into one network. Each school keeps working on its own install
+and keeps all its data; a **hub** server at head office holds a synced copy of each school,
+kept apart from every other school's, and shows network-wide reports. A school that never
+joins a hub is unchanged: everything in sections 1 to 6 works as before.
+
+This section is for a tester who is comfortable with a terminal. **You need** a PC with
+Docker and the Compose plugin for the hub, this repository checked out on it, and one or two
+Madrasa installs to act as schools (the demo school of section 3 is fine).
+
+### Start a hub
+
+No hub image has been published yet, so build it from the checkout (about ten minutes the
+first time):
+
+```bash
+cd deploy/nexus
+```
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and set `NEXUS_DB_PASSWORD` (letters and digits) and `NEXUS_SETUP_TOKEN` (any
+long text you choose). Then:
+
+```bash
+docker compose build nexus
+```
+
+To look around with made-up schools first, fill the empty hub with the demo network (three
+schools; one bills in another currency):
+
+```bash
+docker compose run --rm nexus demo-network --yes
+```
+
+```bash
+docker compose up -d
+```
+
+Open <http://127.0.0.1:4780> on the hub PC.
+
+### Things to try
+
+39. **First run.** The first visit shows the setup page. Paste your setup token, name the
+    network, create the administrator, and sign in. Reload the page: setup is gone for good.
+    Switch the console to Urdu and back.
+40. **The demo network.** Schools lists three demo schools. Open Reports: run *Network
+    summary*, then the fees report. The fees totals are one line per currency and are never
+    added together. Download a report as Excel and open it.
+41. **A school joins.** In the console: Schools → *Invite a school*. Copy the join code. In a
+    Madrasa install **on the same PC as the hub**, log in as the administrator, open Settings
+    → School network (Nexus), enter `http://localhost:4780` and the code, and join. The first
+    upload starts at once; press *Sync now* until nothing is waiting. The school appears in
+    the console with its last sync time. *(A school on another PC needs the hub on an
+    `https://` address: the app refuses to send records over plain `http://` except to the
+    same PC. See `docs/nexus/deploy.md` for the HTTPS profile.)*
+42. **A correction from head office.** Console → Corrections: choose the school, find a
+    student, correct the spelling of the name. In the school, press *Sync now* and open the
+    student: the name has changed.
+43. **Both sides change the same thing.** Without syncing in between: change a student's name
+    in the school, and correct the same student's name in the console to something else. Sync.
+    The school now shows head office's name, and Settings → School network lists the school's
+    own value under *Overwritten values*. The console shows the same entry when you open the
+    school. Then change two different details of one student on the two sides: both survive.
+44. **The hub is away.** `docker compose stop nexus`. Keep working in the school (add a
+    student, take a payment): nothing is blocked; the Nexus card says the hub could not be
+    reached. `docker compose start nexus`, press *Sync now*: everything arrives.
+45. **Backup key with head office.** Console → Backup keys: set up escrow with a passphrase
+    (write it down). In the school (it must have been set up with a backup password, section
+    2): Settings → School network → *Leave the key with head office*, with the backup
+    password. Make a backup (Backup → Back up now). In the console, release the school's key
+    with a reason: a code is shown once. Sync the school: the Nexus card now says head office
+    opened the key, who and why. In the school: Backup → Restore → *Use a key released by
+    head office instead*, paste the code, restore. Try the code with one character changed:
+    it is refused before anything happens.
+46. **Head office accounts.** Console → Users: add a user who may only read reports. Sign in
+    as that user: only Schools and Reports are there. Try
+    `http://127.0.0.1:4780/users` in the address bar: the page is not offered.
+47. **Leaving.** In the school: Settings → School network → *Leave the network*. Every record
+    is still in the school and it works as before. In the console the school is *Left* and is
+    in no report. Invite it again and join: it uploads into a fresh copy. Then, in the
+    console, remove a school (it is told why at its next sync and unlinks itself, keeping its
+    data), and delete the archive of a school that has gone by typing its code.
+48. **Two real schools.** With two installs joined, run the reports again and check that
+    each figure matches what each school's own reports say, and that nothing of one school
+    shows up in the other.
+
+### Not tested by us: a real cloud deployment
+
+The Azure template and the Google Cloud module in `deploy/nexus` are checked by automated
+tests for mistakes, but **nobody has deployed them**: no cloud account was available. If you
+have one, follow `docs/nexus/deploy.md` (Azure or Google Cloud), then repeat tasks 39 to 43
+against the cloud address with a school on another PC, and tell us exactly what happened,
+including anything the cloud provider refused. Two things will need doing first: publishing
+a release (so the image exists) and making the image package public on GitHub.
+
+Also not tried by hand: schools on other PCs over real HTTPS (the automated tests use a
+local address), and receipts or attendance entered for the same day on both sides (covered
+by automated tests only, because the console has no screens for entering them).
+
+## 8. Report a problem
 
 Please report anything, including small things, at
 <https://github.com/quietbytehq/madrasa/issues/new>. If you do not have a GitHub account,

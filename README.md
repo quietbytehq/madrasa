@@ -12,7 +12,7 @@ Status: **pre-alpha**. Nothing here is ready for a real school yet.
 | --- | --- | --- |
 | **Lite** | One school, up to ~1,200 students and ~250 staff accounts (soft limits). All-in-one desktop install with a bundled database. | In development (milestone M0: foundation) |
 | **Standard** | All modules, server plus multiple clients. | Planned |
-| **Madrasa Nexus** | Network hub that joins several schools into one tenant, like an Active Directory forest root. | Planned |
+| **Madrasa Nexus** | Network hub that joins several schools into one tenant, like an Active Directory forest root. | Alpha: hub server with web console (`crates/nexus`, [deployment guide](docs/nexus/deploy.md)) |
 
 Lite is built first, but the data model and backend are written so Standard and Nexus plug in
 later without rewrites (UUID v7 keys, `school_id` on every school-owned row, sync-ready

@@ -118,18 +118,13 @@ pub async fn begin<'a>(
     Ok(tx)
 }
 
-/// Run the school migrations in a schema (creating it when new). The migrator needs the
-/// path set for a whole session, so it gets a one-connection pool of its own whose
-/// connection starts on that schema; the hub's pool is not touched.
-async fn migrate_schema(pool: &PgPool, schema: &str, create: bool) -> anyhow::Result<()> {
+/// A one-connection pool whose connection starts on a school's schema. For code that takes
+/// a pool and must work inside one school (the migrator, the demo loader); the hub's own
+/// pool is not touched. Close it when done.
+pub(crate) async fn scoped_pool(pool: &PgPool, schema: &str) -> anyhow::Result<PgPool> {
     anyhow::ensure!(is_schema_name(schema), "not a school schema name");
-    if create {
-        sqlx::query(AssertSqlSafe(format!("CREATE SCHEMA \"{schema}\"")))
-            .execute(pool)
-            .await?;
-    }
     let set_path = format!("SET search_path TO \"{schema}\"");
-    let scoped = sqlx::postgres::PgPoolOptions::new()
+    Ok(sqlx::postgres::PgPoolOptions::new()
         .max_connections(1)
         .after_connect(move |conn, _meta| {
             let set_path = set_path.clone();
@@ -141,7 +136,23 @@ async fn migrate_schema(pool: &PgPool, schema: &str, create: bool) -> anyhow::Re
             })
         })
         .connect_with((*pool.connect_options()).clone())
-        .await?;
+        .await?)
+}
+
+/// Run the school migrations in a schema (creating it when new). The migrator needs the
+/// path set for a whole session, so it gets a pool of its own on that schema.
+pub(crate) async fn migrate_schema(
+    pool: &PgPool,
+    schema: &str,
+    create: bool,
+) -> anyhow::Result<()> {
+    anyhow::ensure!(is_schema_name(schema), "not a school schema name");
+    if create {
+        sqlx::query(AssertSqlSafe(format!("CREATE SCHEMA \"{schema}\"")))
+            .execute(pool)
+            .await?;
+    }
+    let scoped = scoped_pool(pool, schema).await?;
     let result = madrasa_db::MIGRATOR.run(&scoped).await;
     scoped.close().await;
     result?;

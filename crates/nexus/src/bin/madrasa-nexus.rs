@@ -9,6 +9,9 @@
 //!
 //! `madrasa-nexus healthcheck` exits 0 when the local hub answers `/health` (used by the
 //! container health check).
+//!
+//! `madrasa-nexus demo-network --yes` fills an empty hub with three made-up schools for
+//! trying it out, then exits.
 
 use madrasa_nexus::{server, store, Config, HubState};
 
@@ -45,6 +48,14 @@ async fn main() -> anyhow::Result<()> {
         )
     })?;
     store::migrate(&pool).await?;
+    if std::env::args().nth(1).as_deref() == Some("demo-network") {
+        // A refusal is something to read, not a crash: one plain line, exit code 1.
+        if let Err(problem) = demo_network(&pool).await {
+            eprintln!("{problem}");
+            std::process::exit(1);
+        }
+        return Ok(());
+    }
     // After an upgrade, bring every school's schema to this version.
     let schools = madrasa_nexus::tenants::migrate_all(&pool).await?;
     tracing::info!(schools, "school schemas are up to date");
@@ -57,6 +68,29 @@ async fn main() -> anyhow::Result<()> {
     let (addr, fut) = server::bind(config.bind, state, shutdown_signal()).await?;
     tracing::info!(%addr, version = madrasa_nexus::VERSION, "madrasa-nexus listening");
     fut.await?;
+    Ok(())
+}
+
+/// `madrasa-nexus demo-network --yes`: three made-up schools in an empty hub.
+async fn demo_network(pool: &sqlx::PgPool) -> anyhow::Result<()> {
+    if !std::env::args().any(|a| a == "--yes") {
+        anyhow::bail!(
+            "This fills the hub with made-up demo schools. It is for a hub you are only trying out. Run it again with --yes to go ahead."
+        );
+    }
+    let node = {
+        let mut conn = pool.acquire().await?;
+        store::node_id(&mut conn).await?
+    };
+    let hlc = madrasa_core::hlc::Hlc::new(node);
+    let schools = madrasa_nexus::demo::seed_network(pool, &hlc).await?;
+    for school in &schools {
+        println!("created {} ({})", school.name, school.code);
+    }
+    println!(
+        "The demo network is ready: {} schools. Start the hub and open its address.",
+        schools.len()
+    );
     Ok(())
 }
 

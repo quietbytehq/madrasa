@@ -70,6 +70,19 @@ curl -X POST http://127.0.0.1:4780/api/nexus/v1/setup -H "content-type: applicat
 The token stops working as soon as setup succeeds. To choose the token yourself, set
 `NEXUS_SETUP_TOKEN` in `.env` before the first start.
 
+### Trying it with made-up schools
+
+To look around before any real school joins, fill the **empty** hub with a demo network of
+three generated schools (one bills in another currency):
+
+```bash
+docker compose run --rm nexus demo-network --yes
+```
+
+Nothing in it is real, and no installation can sync as a demo school. When you are done,
+remove each demo school in the console and delete its archive. The command refuses to run
+on a hub that already has schools.
+
 ### The console
 
 The hub serves its own web console at its address: schools and invitations, sync state and

@@ -14,6 +14,8 @@ path = "src/bin/madrasa-nexus.rs"
 [dependencies]
 madrasa-core = { workspace = true }
 madrasa-db = { workspace = true }
+# Only for `madrasa-nexus demo-network`: generated schools for trying the hub out.
+madrasa-demo-data = { workspace = true }
 anyhow = { workspace = true }
 axum = { workspace = true }
 chrono = { workspace = true }
@@ -34,7 +36,6 @@ uuid = { workspace = true }
 
 [dev-dependencies]
 madrasa-db = { workspace = true, features = ["testing"] }
-madrasa-demo-data = { workspace = true }
 serde_json = { workspace = true }
 tower = { workspace = true }
 http-body-util = "0.1"
