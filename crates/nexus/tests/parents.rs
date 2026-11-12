@@ -5,79 +5,9 @@
 mod common;
 
 use axum::http::{Method, StatusCode};
-use common::{Hub, SchoolSim};
+use common::{activate, as_school, code_for, guardian, joined, Hub};
 use serde_json::{json, Value};
 use uuid::Uuid;
-
-/// A guardian in a school's own records, with one child (or none).
-async fn guardian(sim: &SchoolSim, name: &str, child: Option<&str>) -> Uuid {
-    let id = Uuid::now_v7();
-    sqlx::query("INSERT INTO guardians (id, school_id, full_name, phone, hlc) VALUES ($1, $2, $3, '0300-0000000', $4)")
-        .bind(id)
-        .bind(sim.school.id)
-        .bind(name)
-        .bind(sim.hlc.now().to_string())
-        .execute(&sim.db.pool)
-        .await
-        .unwrap();
-    if let Some(child) = child {
-        sqlx::query(
-            "INSERT INTO student_guardians (id, school_id, student_id, guardian_id, relationship, is_primary, hlc)
-             SELECT $1, $2, s.id, $3, 'father', TRUE, $4 FROM students s WHERE s.full_name = $5",
-        )
-        .bind(Uuid::now_v7())
-        .bind(sim.school.id)
-        .bind(id)
-        .bind(sim.hlc.now().to_string())
-        .bind(child)
-        .execute(&sim.db.pool)
-        .await
-        .unwrap();
-    }
-    id
-}
-
-async fn joined(hub: &Hub, admin: &str, name: &str, code: &str) -> SchoolSim {
-    let mut sim = SchoolSim::new(name, code).await.unwrap();
-    let join_code = hub.invite(admin, name).await;
-    let (s, b) = sim.join(hub, &join_code).await;
-    assert_eq!(s, StatusCode::OK, "{b}");
-    sim
-}
-
-async fn as_school(
-    hub: &Hub,
-    sim: &SchoolSim,
-    method: Method,
-    path: &str,
-    body: Option<Value>,
-) -> (StatusCode, Value) {
-    hub.call(method, path, sim.token.as_deref(), body).await
-}
-
-/// The school asks for a code for a guardian and gets it back in clear, once.
-async fn code_for(hub: &Hub, sim: &SchoolSim, guardian: Uuid) -> String {
-    let (s, b) = as_school(
-        hub,
-        sim,
-        Method::POST,
-        "/sync/parents/codes",
-        Some(json!({ "guardian_id": guardian })),
-    )
-    .await;
-    assert_eq!(s, StatusCode::OK, "{b}");
-    b["code"].as_str().unwrap().to_string()
-}
-
-async fn activate(hub: &Hub, code: &str, phone: &str, password: &str) -> (StatusCode, Value) {
-    hub.call(
-        Method::POST,
-        "/parent/activate",
-        None,
-        Some(json!({ "code": code, "phone": phone, "password": password })),
-    )
-    .await
-}
 
 async fn links(hub: &Hub, token: &str) -> i64 {
     let (s, me) = hub.get("/parent/me", token).await;

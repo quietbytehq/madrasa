@@ -63,6 +63,7 @@ pub fn router(state: HubState) -> Router {
         .merge(routes::escrow::router())
         .merge(routes::corrections::router())
         .merge(routes::parents::router())
+        .merge(routes::parent_data::router())
         .merge(routes::sync::router())
         .fallback(no_such_api)
         .with_state(state);

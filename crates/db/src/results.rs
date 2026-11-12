@@ -531,6 +531,8 @@ pub struct ReportCard {
     pub grading: GradingScheme,
 }
 
+/// A student's report card as the school sees it: every mark entered so far, each cell
+/// saying whether its sheet is approved.
 pub async fn build_report_card(
     c: &mut sqlx::PgConnection,
     school_id: Uuid,
@@ -538,6 +540,42 @@ pub async fn build_report_card(
     year: &crate::models::AcademicYear,
     section: Option<&Section>,
     positions_cache: &mut HashMap<Uuid, HashMap<Uuid, (u32, usize)>>,
+) -> DbResult<ReportCard> {
+    report_card(
+        c,
+        school_id,
+        student_id,
+        year,
+        section,
+        positions_cache,
+        false,
+    )
+    .await
+}
+
+/// The report card a parent sees: built from **approved** marks sheets only. Marks still
+/// in draft or waiting for approval are left out as if they had not been entered, and a
+/// position in class is given only for an assessment whose sheets are all approved (a
+/// rank that leans on unapproved marks of classmates is not shown).
+pub async fn build_approved_report_card(
+    c: &mut sqlx::PgConnection,
+    school_id: Uuid,
+    student_id: Uuid,
+    year: &crate::models::AcademicYear,
+    section: Option<&Section>,
+) -> DbResult<ReportCard> {
+    let mut cache = HashMap::new();
+    report_card(c, school_id, student_id, year, section, &mut cache, true).await
+}
+
+async fn report_card(
+    c: &mut sqlx::PgConnection,
+    school_id: Uuid,
+    student_id: Uuid,
+    year: &crate::models::AcademicYear,
+    section: Option<&Section>,
+    positions_cache: &mut HashMap<Uuid, HashMap<Uuid, (u32, usize)>>,
+    approved_only: bool,
 ) -> DbResult<ReportCard> {
     let student = students::get(c, student_id).await?;
     let school = schools::get(c, school_id).await?;
@@ -558,7 +596,10 @@ pub async fn build_report_card(
             .unwrap_or(usize::MAX);
         (term_pos, a.position, a.name.clone())
     });
-    let entered_rows = repo::student_marks(c, student_id, year.id).await?;
+    let mut entered_rows = repo::student_marks(c, student_id, year.id).await?;
+    if approved_only {
+        entered_rows.retain(|r| r.sheet_status == SheetStatus::Approved.as_str());
+    }
     // Rows for every component: entered ones from the sheets, calculated ones evaluated.
     let mut rows: Vec<MarkRow> = entered_rows.clone();
     for a in components.iter().filter(|a| a.kind == "calculated") {
@@ -750,11 +791,15 @@ pub async fn build_report_card(
                         let assessment = repo::get_assessment(c, a.id).await?;
                         let sheet =
                             build_result_sheet(c, school_id, assessment, sec.clone()).await?;
-                        let map: HashMap<Uuid, (u32, usize)> = sheet
-                            .rows
-                            .iter()
-                            .map(|r| (r.student_id, (r.position, sheet.rows.len())))
-                            .collect();
+                        let map: HashMap<Uuid, (u32, usize)> = if approved_only && !sheet.complete {
+                            HashMap::new()
+                        } else {
+                            sheet
+                                .rows
+                                .iter()
+                                .map(|r| (r.student_id, (r.position, sheet.rows.len())))
+                                .collect()
+                        };
                         positions_cache.entry(a.id).or_insert(map)
                     }
                 };

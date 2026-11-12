@@ -2292,3 +2292,50 @@ School API (`/api/v1`, permission `parents.manage`, joined schools only):
 | POST | `/parent-app/access/{guardian_id}/code` | Syncs anything not sent yet, then asks the hub → `{ code, expires_at, guardian_name, hub_url, hub_name }`, to print on a slip. Shown once |
 | DELETE | `/parent-app/access/{guardian_id}` | End access → `{ ended }` |
 
+### 17.3 What a parent can see (stage 3)
+
+Hub endpoints for the parent (parent session). A child is named by `school_ref` (the hub's
+id for the school) and `student_id`, both from the list of children.
+
+| Method | Path | Answer |
+| --- | --- | --- |
+| GET | `/parent/children` | `{ children: [{ school_ref, school_name, synced_at, student_id, full_name, student_number, status, relationship, class_name, section_name, roll_no, unread }] }` across every school the account has access to |
+| GET | `/parent/children/{school_ref}/{student_id}` | Overview: the child, `class_teacher`, `academic_year`, `attendance` (the active year so far), `currency`, `balance`, `open_vouchers`, `unread`, `notices` (a count) |
+| GET | `…/attendance?month=YYYY-MM` | `{ month, days: [{ date, status }], summary, year: { name, start_date, end_date, summary } }`; this month at the school when `month` is left out. A summary is `{ present, absent, late, leave, total, percent }`, the percentage as the school shows it (present and late count as attended). Teachers' notes on a day are not sent |
+| GET | `…/results` | `{ card }`: the report card of the active year (the shape of the school's own, §5.7), from **approved marks sheets only** |
+| GET | `…/fees` | `{ currency, balance, vouchers: [{ id, voucher_no, billing_month, issue_date, due_date, lines: [{ description, amount }], gross, sibling_discount, concession_discount, net_monthly, arrears, total_due, late_fee, net_paid, balance, status }], receipts: [{ id, receipt_no, voucher_no, paid_on, amount, method, reversal }] }`. Read-only |
+| GET | `…/notices` | `{ notices: [{ id, title, body, published_at, expires_on, whole_school }] }`, newest first |
+| GET | `…/messages` | `{ class_teacher, class_name, section_name, can_send, messages: [{ id, sender, sender_name, body, sent_at }], unread }`, oldest first |
+| POST | `…/messages` | `{ body }` → `201` and the message. `409 no_class_teacher` when the class has none; `429 too_many_messages` after 20 in an hour for one child |
+| POST | `…/messages/read` | The parent has read the conversation up to now → `{ unread }` |
+
+- **Who may see what.** Before anything is read, the account must hold a live link to a
+  guardian record of that school and the school must still be joined; then, inside that
+  school's data and nothing else, that guardian record must be a guardian of that student.
+  When either fails the answer is `404` with the same body on every route: another family's
+  child, a child at another school, a guardian the school has removed from the student,
+  access the school has ended and a school that has left cannot be told apart.
+- **As of the last sync.** Everything is read from the hub's copy of the school. Every
+  answer carries `synced_at`, the time the school last synced; the app shows it.
+- **Results.** The report card is calculated by the same code the school uses
+  (`madrasa_db::results`, moved there from the school API so the hub can run it). Marks in
+  a sheet that is still a draft or waiting for approval are left out as if they had not
+  been entered: no cell, no share in any total, percentage or grade. A position in class is
+  given for an assessment only when every sheet of it is approved. Once everything is
+  approved and synced, the parent's card equals the school's card field for field.
+- **Fees.** Amounts are decimal text. Cancelled vouchers are left out. A voucher whose
+  amount was carried into a later voucher as arrears has status `carried` and balance `0`,
+  so that nothing is shown as owed twice. Who received a payment, references and notes are
+  not sent.
+- **Notices.** Published notices that have not passed their last day, for the whole school
+  or for the child's class (§17.1).
+- **Messages.** A parent's message is written into the hub's copy of the school as a
+  school record from the guardian's side and reaches the school at its next sync; the
+  class teacher's answer comes back the same way. Messages are never changed or removed.
+  Sending marks the conversation read for the parent. The school's audit log records that
+  a message was sent, never its text.
+- **Other origins.** The parent routes (`/parent/…`) answer cross-origin requests from any
+  origin, because the app's pages are served from inside the app. Nothing is trusted from
+  the origin: every request needs the parent's token in the `Authorization` header, and
+  cookies are neither used nor allowed across origins. The console and sync routes send no
+  cross-origin headers.
