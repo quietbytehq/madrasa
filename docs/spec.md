@@ -2412,3 +2412,29 @@ local addresses only.
   areas respected. Every control has a label for screen readers.
 - Not in the alpha: push notifications, changing the password inside the app (a new access
   code does it), paying fees, PDF report cards, attachments, iOS.
+
+### 17.6 The Android package (stage 6)
+
+- `scripts/build-parent-apk.sh` generates the Android project (`tauri android init`; it is
+  not kept in the repository), gives it Madrasa's launcher icon and builds one package
+  (APK) for 64-bit and 32-bit ARM phones, Android 7.0 (API 24) or newer.
+  `scripts/sign-apk.sh` aligns and signs it and writes `SIGNING.txt`, which names the file,
+  the kind of key and the certificate's SHA-256.
+- **CI** (job *Parent app (Android APK)*, every pull request and push) runs both scripts,
+  always signing with a throwaway test key, and keeps the result as the artifact
+  `madrasa-parent-apk`. A further step makes a stand-in keystore and runs the signing
+  script's release-key path with it, so that path is exercised before a release needs it.
+- **The Release workflow** runs the same scripts. With the secrets
+  `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` (and
+  `ANDROID_KEY_PASSWORD` when it differs) the package is signed with the release key and
+  named `madrasa-parent-<version>.apk`; without them it is signed with a throwaway key and
+  named `madrasa-parent-<version>-testkey.apk`. On a tagged release the package and its
+  `…-SIGNING.txt` are attached to the draft release once the desktop builds have created
+  it; a manual run keeps them as an artifact.
+- A test-key package installs and runs but cannot update an earlier install and is not for
+  parents. Passwords travel through the environment only, never on a command line; the
+  keystore is decoded into a temporary folder that is removed when the step ends; nothing
+  of the key is logged. `docs/RELEASING.md` says how to make the key and add the secrets.
+- The version in the parent app's `package.json` and `tauri.conf.json` is set by
+  `scripts/set-version.sh` with all the others, and the unit test that keeps the version
+  files in step covers them.

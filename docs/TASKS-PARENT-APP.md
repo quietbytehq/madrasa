@@ -126,12 +126,12 @@ attachments, messages to anyone but the class teacher, SMS or email, self-regist
 
 ## Stage 6 — Android builds
 
-- [ ] CI builds the APK on every pull request and keeps it as an artifact
-- [ ] The Release workflow builds the APK and attaches it to the release
-- [ ] Signing with the repository's keystore secrets when present, otherwise a throwaway
+- [x] CI builds the APK on every pull request and keeps it as an artifact
+- [x] The Release workflow builds the APK and attaches it to the release
+- [x] Signing with the repository's keystore secrets when present, otherwise a throwaway
       key for that run, stated in the log; `docs/RELEASING.md` says how to create the
       keystore and add the secrets
-- [ ] Honest note of what could not be checked from the build environment (running the
+- [x] Honest note of what could not be checked from the build environment (running the
       APK on a phone)
 
 ## Stage 7 — Close-out

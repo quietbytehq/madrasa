@@ -169,6 +169,63 @@ jobs:
           terraform init -backend=false -input=false
           terraform validate
 
+
+  parent-apk:
+    # The parent app for Android (apps/parent), on every pull request and every push. The
+    # Release workflow runs the same two scripts, so a change that would break the release
+    # build fails here first. The package is signed with a throwaway test key: the release
+    # key is used by the Release workflow only. The last step proves that the release-key
+    # path of the signing script works, with a key made on the spot.
+    name: Parent app (Android APK)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: android
+      - run: pnpm install --frozen-lockfile
+      - name: Build the APK
+        run: scripts/build-parent-apk.sh
+      - name: Sign it with a throwaway test key
+        run: scripts/sign-apk.sh dist-apk/madrasa-parent-unsigned.apk dist-apk madrasa-parent-ci
+      - name: The release-key path of the signing script works
+        shell: bash
+        run: |
+          # A keystore made here stands in for the real one, passed the way the Release
+          # workflow passes the secrets.
+          ANDROID_KEYSTORE_PASSWORD=$(head -c 32 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 32)
+          export ANDROID_KEYSTORE_PASSWORD
+          keytool -genkeypair -keystore "$RUNNER_TEMP/stand-in.p12" -storetype PKCS12 \
+            -storepass:env ANDROID_KEYSTORE_PASSWORD -keypass:env ANDROID_KEYSTORE_PASSWORD \
+            -alias madrasa -keyalg RSA -keysize 2048 -validity 30 -dname "CN=CI stand-in" >/dev/null 2>&1
+          ANDROID_KEYSTORE_BASE64=$(base64 -w0 "$RUNNER_TEMP/stand-in.p12")
+          export ANDROID_KEYSTORE_BASE64
+          export ANDROID_KEY_ALIAS=madrasa
+          scripts/sign-apk.sh dist-apk/madrasa-parent-unsigned.apk "$RUNNER_TEMP/release-path" madrasa-parent
+          test -f "$RUNNER_TEMP/release-path/madrasa-parent.apk"
+          grep -q "Signed with: the release key" "$RUNNER_TEMP/release-path/SIGNING.txt"
+          rm -rf "$RUNNER_TEMP/stand-in.p12" "$RUNNER_TEMP/release-path"
+      - name: Upload the APK
+        uses: actions/upload-artifact@v5
+        with:
+          name: madrasa-parent-apk
+          path: |
+            dist-apk/madrasa-parent-ci-testkey.apk
+            dist-apk/SIGNING.txt
+          if-no-files-found: error
+
   desktop:
     name: Desktop build (${{ matrix.os }})
     needs: [frontend]
