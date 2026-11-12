@@ -4,16 +4,23 @@
 //!
 //! The demo schools have no sync key: no installation can sync as one of them. Remove and
 //! purge them from the console when you are done.
+//!
+//! To try the parent app against the demo network, [`parent_codes`] gives one access code
+//! for a made-up guardian of each demo school (`madrasa-nexus demo-parent-codes`).
 
+use chrono::{DateTime, Utc};
 use madrasa_core::hlc::Hlc;
 use madrasa_core::ids::new_id;
+use madrasa_core::parent_app::{generate_access_code, normalize_access_code};
+use madrasa_core::session_token;
 use madrasa_core::sync::Origin;
 use madrasa_db::sync;
 use madrasa_demo_data::{generate, load, DemoOptions, LoadOptions};
 use sqlx::{AssertSqlSafe, PgPool};
+use uuid::Uuid;
 
 use crate::tenants::{self, HubSchool};
-use crate::{store, VERSION};
+use crate::{parents, store, VERSION};
 
 /// One made-up school of the demo network.
 #[derive(Debug, Clone, Copy)]
@@ -190,4 +197,115 @@ async fn fill_schema(
     .await;
     scoped.close().await;
     result
+}
+
+/// A parent app access code for a made-up guardian of a demo school.
+#[derive(Debug, Clone)]
+pub struct DemoParentCode {
+    pub school_name: String,
+    pub guardian_name: String,
+    pub children: Vec<String>,
+    /// Shown once, like every access code: only its hash is kept.
+    pub code: String,
+    pub expires_at: DateTime<Utc>,
+}
+
+/// One fresh access code for each school of the demo network, for trying the parent app:
+/// the guardian of the demo conversation where there is one. Each code works once and for
+/// fourteen days, and replaces an unused earlier code of that guardian.
+///
+/// Only for schools the demo network made (marked demo in their own records, and without a
+/// sync key). A real school's guardians get their codes from the school, never from here.
+pub async fn parent_codes(pool: &PgPool, hlc: &Hlc) -> anyhow::Result<Vec<DemoParentCode>> {
+    let schools: Vec<HubSchool> = {
+        let mut conn = pool.acquire().await?;
+        let demo_ids: Vec<Uuid> = sqlx::query_scalar(
+            "SELECT id FROM hub_schools
+             WHERE status = 'active' AND token_hash IS NULL AND deleted_at IS NULL
+             ORDER BY name, created_at",
+        )
+        .fetch_all(&mut *conn)
+        .await?;
+        let mut found = Vec::with_capacity(demo_ids.len());
+        for id in demo_ids {
+            if let Some(school) = tenants::get(&mut conn, id).await? {
+                found.push(school);
+            }
+        }
+        found
+    };
+    let mut out = Vec::new();
+    for school in schools {
+        let mut tx = tenants::begin(pool, &school).await?;
+        let is_demo: bool = sqlx::query_scalar("SELECT is_demo FROM schools WHERE id = $1")
+            .bind(school.school_id)
+            .fetch_optional(&mut *tx)
+            .await?
+            .unwrap_or(false);
+        if !is_demo {
+            continue;
+        }
+        let guardian: Option<(Uuid, String)> = sqlx::query_as(
+            "SELECT g.id, g.full_name FROM guardians g
+             WHERE g.deleted_at IS NULL AND EXISTS (
+                 SELECT 1 FROM student_guardians sg
+                 JOIN students s ON s.id = sg.student_id AND s.deleted_at IS NULL
+                 WHERE sg.guardian_id = g.id AND sg.deleted_at IS NULL)
+             ORDER BY EXISTS (SELECT 1 FROM messages m WHERE m.guardian_id = g.id) DESC,
+                      g.full_name, g.id
+             LIMIT 1",
+        )
+        .fetch_optional(&mut *tx)
+        .await?;
+        let Some((guardian_id, guardian_name)) = guardian else {
+            continue;
+        };
+        let children: Vec<String> = sqlx::query_scalar(
+            "SELECT s.full_name FROM student_guardians sg
+             JOIN students s ON s.id = sg.student_id AND s.deleted_at IS NULL
+             WHERE sg.guardian_id = $1 AND sg.deleted_at IS NULL ORDER BY s.full_name, s.id",
+        )
+        .bind(guardian_id)
+        .fetch_all(&mut *tx)
+        .await?;
+        tx.commit().await?;
+
+        let code = generate_access_code();
+        let hash = session_token::hash(
+            &normalize_access_code(&code)
+                .ok_or_else(|| anyhow::anyhow!("a generated access code did not normalize"))?,
+        );
+        let mut tx = pool.begin().await?;
+        let expires_at = parents::issue_code(
+            &mut tx,
+            hlc,
+            school.id,
+            guardian_id,
+            &guardian_name,
+            &hash,
+            Utc::now(),
+        )
+        .await?;
+        // As for any code: the log says one was issued and for whom, never the code.
+        store::audit(
+            &mut tx,
+            hlc,
+            None,
+            "parent_code",
+            "hub_school",
+            Some(school.id),
+            None,
+            Some(serde_json::json!({ "guardian_id": guardian_id, "demo": true })),
+        )
+        .await?;
+        tx.commit().await?;
+        out.push(DemoParentCode {
+            school_name: school.name.clone(),
+            guardian_name,
+            children,
+            code,
+            expires_at,
+        });
+    }
+    Ok(out)
 }

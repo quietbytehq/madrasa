@@ -335,7 +335,11 @@ describe("Parent app area", () => {
     expect(within(slip).getByTestId("access-code")).toHaveTextContent("ABCD-EFGH-JKMN");
     expect(within(slip).getByText("https://hub.example.org")).toBeInTheDocument();
     expect(within(slip).getByText("Nadia Noor")).toBeInTheDocument();
-    expect(slip).toHaveClass("print-area");
+    // The copy that prints sits straight under the page, and says the same.
+    const printed = screen.getByTestId("access-slip-print");
+    expect(printed).toHaveClass("print-area");
+    expect(printed.parentElement).toBe(document.body);
+    expect(within(printed).getByTestId("access-code")).toHaveTextContent("ABCD-EFGH-JKMN");
     expect(screen.getByText(/shown once and works once/)).toBeInTheDocument();
     // Closing the slip forgets the code.
     await userEvent.click(screen.getByRole("button", { name: "Close" }));

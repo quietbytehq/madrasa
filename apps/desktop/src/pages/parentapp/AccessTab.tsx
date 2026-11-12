@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Printer } from "lucide-react";
 import { api } from "@/api/endpoints";
 import type { GuardianAccessRow, GuardianView, ParentAccessCode } from "@/api/types";
@@ -255,10 +256,50 @@ function GuardianSearch({
   );
 }
 
-/** The code, shown once, with a slip to print and hand to the guardian. */
-function AccessSlip({ code, onClose }: { code: ParentAccessCode; onClose: () => void }) {
+/** What the slip says: who it is for, the address, the code, and how to start. */
+function SlipText({ code }: { code: ParentAccessCode }) {
   const { t, formatDate } = useI18n();
   const school = useSchool();
+  return (
+    <>
+      <div className="text-base font-semibold text-navy">{school.name}</div>
+      <div className="mb-3 text-xs text-muted">{t("pa.slip.title")}</div>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
+        <dt className="text-muted">{t("pa.slip.for")}</dt>
+        <dd className="font-medium">{code.guardian_name}</dd>
+        <dt className="text-muted">{t("pa.slip.address")}</dt>
+        <dd dir="ltr" className="break-all text-start font-mono">
+          {code.hub_url}
+        </dd>
+        <dt className="text-muted">{t("pa.slip.code")}</dt>
+        <dd
+          dir="ltr"
+          className="text-start font-mono text-lg font-semibold tracking-widest"
+          data-testid="access-code"
+        >
+          {code.code}
+        </dd>
+        <dt className="text-muted">{t("pa.slip.validUntil")}</dt>
+        <dd>{formatDate(code.expires_at, { dateStyle: "long" })}</dd>
+      </dl>
+      <div className="mt-4 font-medium">{t("pa.slip.steps.title")}</div>
+      <ol className="mt-1 list-decimal ps-5">
+        <li>{t("pa.slip.step1")}</li>
+        <li>{t("pa.slip.step2")}</li>
+        <li>{t("pa.slip.step3")}</li>
+      </ol>
+      <p className="mt-3 text-xs text-muted">{t("pa.slip.keepSafe")}</p>
+    </>
+  );
+}
+
+/**
+ * The code, shown once, with a slip to print and hand to the guardian. The printed copy is
+ * a second copy placed straight under the page, so it prints at the top of the sheet and
+ * not where the dialog happens to sit; on screen only the one in the dialog is shown.
+ */
+function AccessSlip({ code, onClose }: { code: ParentAccessCode; onClose: () => void }) {
+  const { t } = useI18n();
   return (
     <Dialog
       open
@@ -277,38 +318,19 @@ function AccessSlip({ code, onClose }: { code: ParentAccessCode; onClose: () => 
         </>
       }
     >
-      <p className="mb-3 rounded bg-warning-bg px-3 py-2 text-xs text-text print:hidden">
-        {t("pa.slip.once")}
-      </p>
-      <div className="print-area text-sm text-text" data-testid="access-slip">
-        <div className="text-base font-semibold text-navy">{school.name}</div>
-        <div className="mb-3 text-xs text-muted">{t("pa.slip.title")}</div>
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
-          <dt className="text-muted">{t("pa.slip.for")}</dt>
-          <dd className="font-medium">{code.guardian_name}</dd>
-          <dt className="text-muted">{t("pa.slip.address")}</dt>
-          <dd dir="ltr" className="break-all text-start font-mono">
-            {code.hub_url}
-          </dd>
-          <dt className="text-muted">{t("pa.slip.code")}</dt>
-          <dd
-            dir="ltr"
-            className="text-start font-mono text-lg font-semibold tracking-widest"
-            data-testid="access-code"
-          >
-            {code.code}
-          </dd>
-          <dt className="text-muted">{t("pa.slip.validUntil")}</dt>
-          <dd>{formatDate(code.expires_at, { dateStyle: "long" })}</dd>
-        </dl>
-        <div className="mt-4 font-medium">{t("pa.slip.steps.title")}</div>
-        <ol className="mt-1 list-decimal ps-5">
-          <li>{t("pa.slip.step1")}</li>
-          <li>{t("pa.slip.step2")}</li>
-          <li>{t("pa.slip.step3")}</li>
-        </ol>
-        <p className="mt-3 text-xs text-muted">{t("pa.slip.keepSafe")}</p>
+      <p className="mb-3 rounded bg-warning-bg px-3 py-2 text-xs text-text">{t("pa.slip.once")}</p>
+      <div className="text-sm text-text" data-testid="access-slip">
+        <SlipText code={code} />
       </div>
+      {createPortal(
+        <div
+          className="print-area hidden text-sm text-text print:block"
+          data-testid="access-slip-print"
+        >
+          <SlipText code={code} />
+        </div>,
+        document.body,
+      )}
     </Dialog>
   );
 }

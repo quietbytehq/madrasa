@@ -441,7 +441,109 @@ Also not tried by hand: schools on other PCs over real HTTPS (the automated test
 local address), and receipts or attendance entered for the same day on both sides (covered
 by automated tests only, because the console has no screens for entering them).
 
-## 8. Report a problem
+## 8. The parent app
+
+*New since v0.4.1-alpha: it needs a build from `main`, or the next release.*
+
+Parents use the **Madrasa Parent** app on a phone to see their own children's attendance,
+results, fees and the school's notices, and to write to the class teacher. The app talks to
+a Nexus hub, so this section builds on section 7: you need a running hub. A school that has
+not joined a hub has no Parent app area and is unchanged.
+
+There are two ways to open the app:
+
+- **In a browser on the hub PC, at phone size.** This is what we tried, and it works with
+  the hub of section 7 as it is. You need Node 22 and pnpm, and this repository checked out:
+
+  ```bash
+  pnpm install
+  ```
+
+  ```bash
+  pnpm dev:parent
+  ```
+
+  Open <http://localhost:1440>, then your browser's device toolbar (F12, then the phone
+  icon) and choose a phone.
+- **On an Android phone**, with the package from the release page (`madrasa-parent-….apk`)
+  or from a CI run (artifact `madrasa-parent-apk`). Read "On a phone" below first: the hub
+  must be on an `https://` address, and **we have not been able to try this ourselves**.
+
+### Things to try
+
+49. **A demo parent.** With the demo network of section 7 loaded, ask the hub for parent
+    access codes (the demo-network command also prints them when it is first run):
+
+    ```bash
+    docker compose run --rm nexus demo-parent-codes
+    ```
+
+    Each line is a code, a demo school and a made-up guardian with their children. In the
+    app choose *I have an access code*, enter `http://localhost:4780` and one code. The app
+    shows whose code it is before you choose a phone number (any number) and a password (at
+    least 10 characters). You arrive at *My children*.
+50. **One child.** Open a child. Home shows the class, the class teacher, attendance, the
+    amount due, notices and messages. Go through the six sections at the bottom. In
+    Attendance move back to April and May (the demo school's records are there). In Results
+    look at the marks, totals, grade and position. In Fees open *Details* on a voucher. Read
+    the notices. In Messages there is a short conversation with the class teacher: write an
+    answer.
+51. **Urdu.** Go back to *My children* and switch to اردو. Go through the same screens:
+    everything reads right to left, and class names such as 4-A, amounts and dates stay
+    readable. Tell us about any wording that sounds wrong.
+52. **Sign out and in.** Sign out; sign in again with the phone number and password. Try a
+    wrong password. Use the same code again in *I have an access code*: it is refused (a
+    code works once).
+53. **A real school gives access.** Join a Madrasa install to the hub (task 41). A new
+    **Parent app** entry appears in the school's sidebar. Open it, then *Access* → *Give
+    access*: find a guardian by name, get the code. It is shown once, on a slip: print it
+    (or print to PDF) and check that only the slip prints. Use the code in the app.
+54. **Notices.** In the school: Parent app → Notices → *New notice*, for the whole school;
+    publish. Press *Sync now* (Settings → School network) or wait five minutes: the notice is
+    in the app. Write one for a single class and check that a parent of another class does
+    not get it. Withdraw a notice: after the next sync it is gone from the app.
+55. **Messages, both ways.** In the app, write to the class teacher. Log in at the school as
+    that child's class teacher (in the demo school: the class teacher's username from Staff,
+    password `demo-password-1`): after a sync the sidebar shows a count beside Parent app.
+    Open the conversation and answer. In the app press *Refresh*: the answer is there. Log
+    in as the principal: every conversation can be read, none can be answered.
+56. **Only approved results.** In the school, enter marks for a new assessment and leave the
+    sheet unapproved; sync. The app does not show those marks. Approve the sheet; sync. Now
+    it does, and the figures match the school's own report card for that student.
+57. **Only your own children.** Give a second guardian (another family) access and use that
+    code in a private browser window. Each parent sees only their own children. Fees and
+    results of one family must never appear for the other.
+58. **Access ends.** In the school: Parent app → Access → *End access* for a guardian. In
+    the app that parent's child is no longer available and *My children* is empty. Give a
+    *New code* and use it with the same phone number and a new password: access is back
+    (this is also how a forgotten password is handled).
+59. **The school goes quiet.** Stop syncing for a while (close the school's app). The app
+    keeps showing the last records with "Last updated by the school" and, after a day, a
+    warning that they may be behind.
+
+### On a phone
+
+The package installs on Android 7.0 or newer (allow "install unknown apps" for your browser
+or file manager). Two things to know:
+
+- **The hub must be reachable at an `https://` address.** The app, and Android itself,
+  refuse plain `http://` to anything but the phone itself, so a hub on your PC's
+  `http://192.168…` address will not work. Put the hub behind HTTPS first
+  (`docs/nexus/deploy.md`, the HTTPS profile), then enter that address in the app.
+- **A package with `-testkey` in its name is a test build.** It installs and runs, but a
+  later build cannot be installed over it: remove the app first. See
+  `docs/RELEASING.md` ("The parent app (Android)").
+
+**Not tested by us:** the package has been built and signed by the automated build, but
+nobody has installed it on a phone or an emulator yet. If you can, do tasks 49 to 52 on a
+phone and tell us what happened from the first screen on: whether it installed, whether it
+opened, whether the keyboard covers the fields, whether the back button behaves, how Urdu
+looks on your phone.
+
+Also not in this build: notifications when a message or notice arrives (open the app to
+see), paying fees in the app, report cards as PDF, attachments, and an iPhone version.
+
+## 9. Report a problem
 
 Please report anything, including small things, at
 <https://github.com/quietbytehq/madrasa/issues/new>. If you do not have a GitHub account,

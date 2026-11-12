@@ -11,7 +11,10 @@
 //! container health check).
 //!
 //! `madrasa-nexus demo-network --yes` fills an empty hub with three made-up schools for
-//! trying it out, then exits.
+//! trying it out, prints a parent app access code for each, then exits.
+//!
+//! `madrasa-nexus demo-parent-codes` prints fresh parent app access codes for the demo
+//! schools (a code works once and for fourteen days), then exits.
 
 use madrasa_nexus::{server, store, Config, HubState};
 
@@ -48,9 +51,17 @@ async fn main() -> anyhow::Result<()> {
         )
     })?;
     store::migrate(&pool).await?;
-    if std::env::args().nth(1).as_deref() == Some("demo-network") {
+    let command = std::env::args().nth(1);
+    if matches!(
+        command.as_deref(),
+        Some("demo-network" | "demo-parent-codes")
+    ) {
+        let done = match command.as_deref() {
+            Some("demo-network") => demo_network(&pool).await,
+            _ => demo_parent_codes(&pool).await,
+        };
         // A refusal is something to read, not a crash: one plain line, exit code 1.
-        if let Err(problem) = demo_network(&pool).await {
+        if let Err(problem) = done {
             eprintln!("{problem}");
             std::process::exit(1);
         }
@@ -91,6 +102,43 @@ async fn demo_network(pool: &sqlx::PgPool) -> anyhow::Result<()> {
         "The demo network is ready: {} schools. Start the hub and open its address.",
         schools.len()
     );
+    print_parent_codes(pool, &hlc).await
+}
+
+/// `madrasa-nexus demo-parent-codes`: fresh parent app access codes for the demo schools.
+async fn demo_parent_codes(pool: &sqlx::PgPool) -> anyhow::Result<()> {
+    let node = {
+        let mut conn = pool.acquire().await?;
+        store::node_id(&mut conn).await?
+    };
+    print_parent_codes(pool, &madrasa_core::hlc::Hlc::new(node)).await
+}
+
+/// The codes are printed on purpose: they open made-up records only, and whoever runs
+/// this command is the person meant to type one into the parent app.
+async fn print_parent_codes(
+    pool: &sqlx::PgPool,
+    hlc: &madrasa_core::hlc::Hlc,
+) -> anyhow::Result<()> {
+    let codes = madrasa_nexus::demo::parent_codes(pool, hlc).await?;
+    if codes.is_empty() {
+        anyhow::bail!(
+            "This hub has no demo schools. Parent app access codes for a real school are given by the school (Parent app, Access)."
+        );
+    }
+    println!();
+    println!("Parent app: an access code for one made-up guardian of each demo school.");
+    println!("Each code works once, for fourteen days.");
+    for c in &codes {
+        println!(
+            "  {}  {}: {} ({})",
+            c.code,
+            c.school_name,
+            c.guardian_name,
+            c.children.join(", ")
+        );
+    }
+    println!("New codes at any time: madrasa-nexus demo-parent-codes");
     Ok(())
 }
 

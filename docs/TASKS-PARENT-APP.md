@@ -136,12 +136,12 @@ attachments, messages to anyone but the class teacher, SMS or email, self-regist
 
 ## Stage 7 — Close-out
 
-- [ ] Demo: the demo school and the hub's demo network have notices, a conversation and
+- [x] Demo: the demo school and the hub's demo network have notices, a conversation and
       a guardian ready to be given access
-- [ ] TESTING.md section for the parent app (install the APK, get a code, each screen,
+- [x] TESTING.md section for the parent app (install the APK, get a code, each screen,
       messaging both ways, a second child, Urdu)
-- [ ] Spec sections (tables, endpoints, permissions); `docs/permissions.md`
-- [ ] docs/PROGRESS.md: summary for the owner, what to test by hand, decisions left
+- [x] Spec sections (tables, endpoints, permissions); `docs/permissions.md`
+- [x] docs/PROGRESS.md: summary for the owner, what to test by hand, decisions left
 
 ## Done when
 

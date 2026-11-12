@@ -5,6 +5,7 @@
 
 pub mod generate;
 pub mod load;
+pub mod parent_app;
 pub mod standard;
 
 pub use generate::{generate, DemoOptions, DemoSchool};
