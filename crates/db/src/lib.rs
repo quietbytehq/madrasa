@@ -24,6 +24,7 @@ pub mod leave;
 pub mod library;
 pub mod models;
 pub mod nexus_link;
+pub mod parent_app;
 pub mod report_definitions;
 pub mod reports;
 pub mod ro;

@@ -1395,6 +1395,41 @@ depend on each other and were built together)
   new action versions in the publishing job) run only on a tag or a manual run, so they are
   not exercised by this pull request.**
 
+## Parent app alpha
+
+### 2026-11-12 — Stage 0: Design (branch `dev/parent-0-tasks`)
+- Done: `docs/adr/0006-parent-app.md` and `docs/TASKS-PARENT-APP.md` (eight stages). The
+  app talks only to the Nexus hub; parent accounts live at the hub and are opened by the
+  school with one-time access codes; a parent sees only their own children; only approved
+  results are shown; notices and messages are school records that sync; messages are
+  add-only and not instant.
+- Tested: documents only.
+
+### 2026-11-12 — Stage 1: School records, notices and messages (branch `dev/parent-1-records`)
+- Done: school migration 29 (`notices`, `messages`, `message_reads`), their sync rules,
+  four permissions (`parents.manage`, `notices.manage`, `messages.reply`,
+  `messages.view_all`) granted to the built-in roles, and the school API for notices and
+  conversations. A conversation is with the class teacher of the child's section; the
+  principal reads all and answers none; a teacher cannot open another teacher's class.
+  Everything is refused, with a plain message, in a school that has not joined a hub.
+  Spec §17.1.
+- Changed from the task list: no new feature flag. The parent features hang off
+  `nexus_link`, which every edition already has, and work only while the school is joined,
+  so the feature lists of Lite and Standard are exactly as before.
+- A trap avoided: the migration grants the new permissions to existing roles, and it runs
+  both on a school and on the hub's copy of that school. Two different records for the
+  same grant could never both be stored and would have waited at every sync for ever. The
+  grants now get an id computed from the role and the permission and are not queued for
+  sending, so both copies hold the same records. A test simulates the upgrade on both
+  copies and syncs them.
+- Tested: 5 unit tests (message and notice limits, when a notice is shown, previews); 3
+  database tests (messages from both sides all kept and read marks not colliding; a notice
+  with its classes reaching the hub and a withdrawal following; the migration's grants
+  identical on both copies); 1 school API test (roles, the class-teacher rule, a class
+  changing teacher, the not-joined refusal, validation, audit entries without message
+  text, records queued for the hub).
+- Left: stages 2 to 7. No screen yet (stage 4), no parent accounts yet (stage 2).
+
 ## Summary for the owner — Nexus alpha
 
 The Nexus alpha was built as one design pull request and nine stage pull requests, each

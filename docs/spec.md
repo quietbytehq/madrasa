@@ -2195,3 +2195,48 @@ without that folder serves the API only.
   so a console link survives a reload; an unknown API address is a JSON 404.
 - Money in reports is shown digit for digit as the hub sent it, with thousands separators
   added as text; it is never parsed into a floating-point number.
+
+## 17. Parent app (alpha)
+
+The design is `docs/adr/0006-parent-app.md`; the stages are in `docs/TASKS-PARENT-APP.md`.
+The app is a client of the Nexus hub; a school offers it to parents by joining a hub. Every
+route below answers `409 not_joined` in a school that has not joined.
+
+### 17.1 School records and the school API (stage 1)
+
+School migration 29 adds three tables. They sync with the hub (§16.3), where the parent app
+reads and writes them.
+
+| Table | Columns | Sync |
+| --- | --- | --- |
+| `notices` | `title`, `body`, `class_ids` (empty: whole school), `published_at` (null: draft or withdrawn), `expires_on` (last day shown), `created_by` | by field |
+| `messages` | `student_id`, `guardian_id`, `sender` (`guardian` or `staff`), `sender_user_id` (staff only), `sender_name`, `body` (at most 2,000 characters), `sent_at` | add-only: rows from both sides are all kept; a database trigger refuses any change or removal |
+| `message_reads` | `student_id`, `guardian_id`, `reader` (`guardian` or `staff`), `read_up_to` | by field; each side writes only its own row |
+
+A **conversation** is the messages of one student and one guardian of that student. It is
+with **the class teacher of the student's section in the active year**; when the class
+changes teacher the conversation goes with the class.
+
+A parent sees a notice from `published_at` until the end of `expires_on`, when it is for the
+whole school or for the class of one of their children.
+
+School API (`/api/v1`):
+
+| Method | Path | Permission | Purpose |
+| --- | --- | --- | --- |
+| GET, POST | `/parent-app/notices` | `notices.manage` | List (drafts included); create `{ title, body?, class_ids?, expires_on?, publish? }` |
+| PATCH, DELETE | `/parent-app/notices/{id}` | `notices.manage` | Edit; remove |
+| POST | `/parent-app/notices/{id}/publish`, `/withdraw` | `notices.manage` | Show to parents from now; stop showing |
+| GET | `/parent-app/conversations` | `messages.view_all` or `messages.reply` | Conversations with at least one message: student, guardian, class, last message, `unread` (from the guardian, not read by the class teacher), `can_reply` |
+| GET | `/parent-app/conversations/{student}/{guardian}` | as above | The messages, the class teacher's name, `can_reply` |
+| POST | `/parent-app/conversations/{student}/{guardian}/messages` | `messages.reply` **and** class teacher of the student's section | `{ body }`; also marks the conversation read |
+| POST | `/parent-app/conversations/{student}/{guardian}/read` | as above | Read up to now |
+
+- `messages.view_all` (the principal) reads every conversation and answers none: answering
+  and marking read are `403 not_class_teacher` for anyone who is not the class teacher.
+- `messages.reply` alone reaches only the sections the caller is class teacher of; another
+  section's conversation is `403`. A student and a guardian who do not belong together are
+  `404`.
+- The audit log records that a message was sent and by which side, never its text.
+- Saving a notice or a message wakes the sync timer, so it leaves within seconds instead of
+  at the next five-minute round.

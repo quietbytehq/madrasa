@@ -58,6 +58,8 @@ pub struct AppState {
     pub ro_limits: Arc<RateLimits>,
     /// Held while a Nexus sync round runs, so the timer and "Sync now" never interleave.
     pub nexus_sync: Arc<tokio::sync::Mutex<()>>,
+    /// Wakes the sync timer early (a teacher answered a parent, a notice was published).
+    pub nexus_wake: Arc<tokio::sync::Notify>,
 }
 
 impl AppState {
@@ -80,6 +82,7 @@ impl AppState {
             ro_limits: Arc::new(RateLimits::default()),
             timetable_jobs: Arc::new(TimetableJobs::default()),
             nexus_sync: Arc::new(tokio::sync::Mutex::new(())),
+            nexus_wake: Arc::new(tokio::sync::Notify::new()),
         })
     }
 
@@ -117,6 +120,13 @@ impl AppState {
         let edition = settings::edition(&mut conn).await?;
         *self.edition.write().unwrap_or_else(|e| e.into_inner()) = edition;
         Ok(edition)
+    }
+
+    /// Ask the background sync to run now instead of at its next turn. Does nothing for a
+    /// school that has not joined a hub (the timer checks), and nothing in a process
+    /// without the timer.
+    pub fn wake_nexus_sync(&self) {
+        self.nexus_wake.notify_one();
     }
 
     pub fn has_feature(&self, feature: Feature) -> bool {
