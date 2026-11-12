@@ -33,4 +33,24 @@ describe("visibleNavItems", () => {
     ).map((i) => i.path);
     expect(all).toEqual(expect.arrayContaining(["/fees", "/settings", "/backup", "/import"]));
   });
+  it("shows the Parent app only to a joined school and to people with something to do there", () => {
+    const paths = (can: (p: string) => boolean, joined: boolean) =>
+      visibleNavItems(() => true, can, joined).map((i) => i.path);
+    const teacher = (p: string) => TEACHER.has(p) || p === "messages.reply";
+    // Not joined to a school network: nobody sees it, whatever they may do.
+    expect(paths(() => true, false)).not.toContain("/parent-app");
+    expect(paths(teacher, false)).not.toContain("/parent-app");
+    // Joined: a class teacher (messages), an administrator; not someone without any of it.
+    expect(paths(teacher, true)).toContain("/parent-app");
+    expect(paths((p) => p === "notices.manage", true)).toContain("/parent-app");
+    expect(paths((p) => TEACHER.has(p), true)).not.toContain("/parent-app");
+    // An edition without the school network link has no Parent app.
+    expect(
+      visibleNavItems(
+        (f) => f !== "nexus_link",
+        () => true,
+        true,
+      ).map((i) => i.path),
+    ).not.toContain("/parent-app");
+  });
 });

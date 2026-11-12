@@ -1492,6 +1492,33 @@ depend on each other and were built together)
 - Left: stages 4 to 7 (school desktop screens, the app itself, the APK in CI, demo data
   and the hand-test script).
 
+### 2026-11-12 — Stage 4: The school's screens (branch `dev/parent-4-desktop`)
+- Done: a **Parent app** area in the desktop app with three tabs: Messages (class teacher
+  answers own sections; the principal reads all, read-only), Notices (draft, publish for
+  the whole school or chosen classes, last day, withdraw, delete) and Access (who has
+  access, give access with a one-time code on a printable slip, new code, end access).
+  Spec §17.4.
+- Done: the sidebar entry appears only while the school is joined to a school network and
+  only for people with one of the four parent app permissions, with the unread count
+  beside it. New `GET /parent-app/status` answers that question in one call; a school that
+  has not joined gets `joined: false`, never an error. Lite and Standard schools that have
+  not joined see no change.
+- Done: English and Urdu strings (`pa.*`, 81 keys each).
+- Left as it was: the "Parents" sidebar placeholder of the Nexus edition (feature
+  `parents_portal`, "Coming soon"). It predates this work and is a decision for the owner
+  (see the summary at the end of the parent app work).
+- Tested: 14 screen tests in `parentapp.test.tsx` (not joined; tabs follow permissions;
+  class teacher reads, is marked read once and answers; principal read-only and never
+  marks read; empty state; a notice for chosen classes with the missing-class check;
+  withdraw; notice states; the access code slip, shown once and forgotten on close;
+  ending access asks first; Urdu; the sidebar entry with its count, hidden when not
+  joined, not asked about for people without the permissions), 1 more navigation test,
+  and the status endpoint in `crates/api/tests/parent_app.rs`. ESLint, Prettier and tsc
+  clean.
+- Not done here: looking at the screens in a running app. That is part of the stage 5
+  walkthrough against a local hub.
+- Left: stages 5 to 7.
+
 ## Summary for the owner — Nexus alpha
 
 The Nexus alpha was built as one design pull request and nine stage pull requests, each

@@ -263,6 +263,19 @@ async fn notices_and_conversations_follow_roles_the_class_teacher_rule_and_need_
     assert_eq!(s, StatusCode::FORBIDDEN);
     let (s, _) = app.get("/parent-app/conversations", &accounts).await;
     assert_eq!(s, StatusCode::FORBIDDEN);
+    // The sidebar's question is answered without an error: there is nothing to show yet.
+    for token in [&principal, &sana] {
+        let (s, st) = app.get("/parent-app/status", token).await;
+        assert_eq!(
+            (s, &st),
+            (
+                StatusCode::OK,
+                &json!({ "joined": false, "hub_name": null, "unread": 0 })
+            )
+        );
+    }
+    let (s, _) = app.get("/parent-app/status", &accounts).await;
+    assert_eq!(s, StatusCode::FORBIDDEN);
     let nothing: i64 = sqlx::query_scalar(
         "SELECT (SELECT count(*) FROM notices) + (SELECT count(*) FROM messages)",
     )
@@ -587,12 +600,28 @@ async fn notices_and_conversations_follow_roles_the_class_teacher_rule_and_need_
         ),
         (Some(1), Some(3), Some("guardian"))
     );
+    // The sidebar count: the class teacher's unread messages; the principal, who reads
+    // every conversation and answers none of them, has none waiting.
+    let (_, st) = app.get("/parent-app/status", &sana).await;
+    assert_eq!(
+        (st["joined"].as_bool(), st["unread"].as_i64()),
+        (Some(true), Some(1)),
+        "{st}"
+    );
+    assert!(st["hub_name"].is_string());
+    let (_, st) = app.get("/parent-app/status", &principal).await;
+    assert_eq!(
+        (st["joined"].as_bool(), st["unread"].as_i64()),
+        (Some(true), Some(0))
+    );
     let (s, _) = app
         .post(&format!("{}/read", thread(ali, imran)), &sana, json!({}))
         .await;
     assert_eq!(s, StatusCode::NO_CONTENT);
     let (_, mine) = app.get("/parent-app/conversations", &sana).await;
     assert_eq!(mine[0]["unread"], 0);
+    let (_, st) = app.get("/parent-app/status", &sana).await;
+    assert_eq!(st["unread"], 0);
 
     // A teacher may write first to a guardian of their own class.
     let (s, _) = app

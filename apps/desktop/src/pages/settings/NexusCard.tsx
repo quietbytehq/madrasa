@@ -12,6 +12,7 @@ import { useToast } from "@/components/ui/Toast";
 import { useI18n } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
 import { errorMessage, useAsync } from "@/lib/useAsync";
+import { announceParentAppChange } from "@/app/parentApp";
 import { showValue } from "@/lib/showValue";
 import { NexusEscrow } from "./NexusEscrow";
 
@@ -74,6 +75,7 @@ export function NexusCard({ canManageBackups = false }: { canManageBackups?: boo
     try {
       const next = await api.nexusJoin(hubUrl.trim(), joinCode.trim());
       link.setData(next);
+      announceParentAppChange();
       setJoinCode("");
       toast.push({ kind: "success", title: t("nexus.joined", { hub: next.hub_name ?? "" }) });
       // The first upload starts at once; the screen shows it finishing.
@@ -89,6 +91,7 @@ export function NexusCard({ canManageBackups = false }: { canManageBackups?: boo
     try {
       const out = await api.nexusLeave(reason.trim());
       link.setData(out.status);
+      announceParentAppChange();
       setLeaving(false);
       setReason("");
       setLog(null);

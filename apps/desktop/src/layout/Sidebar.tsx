@@ -5,6 +5,8 @@ import { useI18n } from "@/i18n";
 import { useFeatures } from "@/app/features";
 import { useSession } from "@/app/session";
 import { visibleNavItems } from "@/app/navigation";
+import { PARENT_APP_PERMISSIONS, useParentAppStatus } from "@/app/parentApp";
+import { Badge } from "@/components/ui/Badge";
 
 export interface SidebarProps {
   collapsed: boolean;
@@ -15,7 +17,12 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { t } = useI18n();
   const { has, edition } = useFeatures();
   const { can } = useSession();
-  const items = visibleNavItems(has, can);
+  // Only people with something to do in the Parent app ask whether the school is joined.
+  const parentApp = useParentAppStatus(
+    has("nexus_link") && PARENT_APP_PERMISSIONS.some((p) => can(p)),
+  );
+  const items = visibleNavItems(has, can, parentApp?.joined ?? false);
+  const unread = parentApp?.unread ?? 0;
 
   return (
     <aside
@@ -68,6 +75,16 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 >
                   <Icon className="h-4 w-4 shrink-0" aria-hidden />
                   {!collapsed && <span className="nav-label truncate">{label}</span>}
+                  {item.path === "/parent-app" && unread > 0 && !collapsed && (
+                    <Badge
+                      tone="info"
+                      className="ms-auto"
+                      aria-label={t("pa.msg.unread", { count: unread })}
+                      data-testid="nav-unread"
+                    >
+                      {unread}
+                    </Badge>
+                  )}
                 </NavLink>
               </li>
             );

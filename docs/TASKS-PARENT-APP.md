@@ -105,13 +105,13 @@ attachments, messages to anyone but the class teacher, SMS or email, self-regist
 
 ## Stage 4 — School desktop: access codes, notices, messages
 
-- [ ] A "Parent app" area in the desktop app, shown only when the school is joined to a
+- [x] A "Parent app" area in the desktop app, shown only when the school is joined to a
       hub: give a guardian access (the code is shown once, with a printable slip), see who
       has access, end access
-- [ ] Notices: write, publish for the whole school or chosen classes, withdraw
-- [ ] Messages: a class teacher sees and answers the conversations of their sections;
+- [x] Notices: write, publish for the whole school or chosen classes, withdraw
+- [x] Messages: a class teacher sees and answers the conversations of their sections;
       the principal sees all, read-only; unread counts; sending triggers a sync
-- [ ] English and Urdu; screen tests
+- [x] English and Urdu; screen tests
 
 ## Stage 5 — The parent app
 

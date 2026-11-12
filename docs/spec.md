@@ -2339,3 +2339,29 @@ id for the school) and `student_id`, both from the list of children.
   the origin: every request needs the parent's token in the `Authorization` header, and
   cookies are neither used nor allowed across origins. The console and sync routes send no
   cross-origin headers.
+
+### 17.4 The school's screens (stage 4)
+
+The desktop app has a **Parent app** area (`/parent-app`). Its sidebar entry is shown only
+while the school is joined to a school network, and only to people who hold at least one
+of `messages.reply`, `messages.view_all`, `notices.manage`, `parents.manage`. A school that
+has not joined sees nothing new; opened by its address, the page explains that a school
+network is needed. Each tab needs its own permission, checked again by the API.
+
+| Tab | Permission | What it does |
+| --- | --- | --- |
+| Messages | `messages.reply` or `messages.view_all` | Conversations, most recent first, with the unread count. A class teacher reads and answers the conversations of their own sections; opening one marks it read. Someone who may view all (the principal) reads every conversation; the answer box is shown only to the class teacher of that section |
+| Notices | `notices.manage` | List with status (draft, published, past its last day). Write a notice for the whole school or for chosen classes, with an optional last day; save as draft, publish, withdraw, delete |
+| Access | `parents.manage` | Guardians who have access or a code waiting, with the last digits of their phone number and their last sign-in. **Give access**: find a guardian by name or phone, get a one-time code. **New code** for a forgotten password or a new phone. **End access**, after a confirmation |
+
+- The access code is shown once, on a slip that prints by itself (school name, guardian,
+  the school network's address, the code, its last day and three steps to start). Closing
+  the slip forgets the code; the school asks for a new one if it is lost.
+- `GET /parent-app/status` → `{ joined, hub_name, unread }` for anyone who holds one of the
+  four permissions (`403` otherwise). `unread` counts messages from guardians in the
+  sections the caller is class teacher of. The sidebar asks it every two minutes and
+  after joining, leaving or reading, and shows the count beside the entry.
+- Sending a message, publishing or withdrawing a notice wakes the sync, so parents see it
+  within seconds while the hub can be reached (§17.1).
+- Every string is in English and Urdu (`pa.*`); the slip and the conversation follow the
+  reading direction, with codes, addresses and phone numbers kept left to right.

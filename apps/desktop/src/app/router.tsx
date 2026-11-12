@@ -27,6 +27,8 @@ import { AdmissionsPage } from "@/pages/admissions/AdmissionsPage";
 import { LibraryPage } from "@/pages/library/LibraryPage";
 import { TransportPage } from "@/pages/transport/TransportPage";
 import { HostelPage } from "@/pages/hostel/HostelPage";
+import { ParentAppPage } from "@/pages/parentapp/ParentAppPage";
+import { PARENT_APP_PERMISSIONS } from "@/app/parentApp";
 import { InventoryPage } from "@/pages/inventory/InventoryPage";
 import { TeacherAllocationPage } from "@/pages/staff/TeacherAllocationPage";
 import { Spinner } from "@/components/ui/Spinner";
@@ -73,6 +75,12 @@ export function RequirePermission({
 }) {
   const { can } = useSession();
   return can(permission) ? <>{children}</> : <NoAccess />;
+}
+
+/** The Parent app area is for anyone with one of its permissions; each tab checks its own. */
+function ParentAppRoute() {
+  const { can } = useSession();
+  return PARENT_APP_PERMISSIONS.some((p) => can(p)) ? <ParentAppPage /> : <NoAccess />;
 }
 
 export interface AppRoutesProps {
@@ -273,6 +281,7 @@ export function AppRoutes({ login, setup }: AppRoutesProps) {
             }
           />
         )}
+        {has("nexus_link") && <Route path="/parent-app" element={<ParentAppRoute />} />}
         {has("hostel") && (
           <Route
             path="/hostel"

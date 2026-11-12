@@ -13,6 +13,7 @@ import {
   GraduationCap,
   IdCard,
   LayoutDashboard,
+  MessagesSquare,
   Network,
   Package,
   School,
@@ -24,6 +25,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import type { Feature } from "@/api/types";
 import type { TranslationKey } from "@/i18n";
+import { PARENT_APP_PERMISSIONS } from "./parentAppPermissions";
 
 export interface NavItem {
   path: string;
@@ -34,6 +36,10 @@ export interface NavItem {
   available: boolean;
   /** Permission needed to use the module; items the user lacks are hidden from the sidebar. */
   permission?: string;
+  /** The item is for anyone who holds at least one of these permissions. */
+  anyPermission?: readonly string[];
+  /** Shown only while the school is joined to a school network (a hub). */
+  needsNetwork?: boolean;
 }
 
 /** Sidebar modules in display order. Items whose feature is off for the edition are hidden. */
@@ -188,6 +194,15 @@ export const NAV_ITEMS: readonly NavItem[] = [
     available: false,
   },
   {
+    path: "/parent-app",
+    labelKey: "nav.parentApp",
+    icon: MessagesSquare,
+    feature: "nexus_link",
+    available: true,
+    anyPermission: PARENT_APP_PERMISSIONS,
+    needsNetwork: true,
+  },
+  {
     path: "/parents",
     labelKey: "nav.parents",
     icon: UsersRound,
@@ -206,12 +221,19 @@ export const NAV_ITEMS: readonly NavItem[] = [
 /**
  * Sidebar items for this user: the edition must enable the feature and, where an item names
  * a permission, the role must hold it (teachers see no Fees, Settings, Backup or Import).
+ * The Parent app entry also needs the school to be joined to a school network.
  */
 export function visibleNavItems(
   has: (feature: Feature) => boolean,
   can: (permission: string) => boolean = () => true,
+  /** The school is joined to a school network. */
+  joined = false,
 ): NavItem[] {
   return NAV_ITEMS.filter(
-    (item) => has(item.feature) && (!item.permission || can(item.permission)),
+    (item) =>
+      has(item.feature) &&
+      (!item.permission || can(item.permission)) &&
+      (!item.anyPermission || item.anyPermission.some(can)) &&
+      (!item.needsNetwork || joined),
   );
 }
