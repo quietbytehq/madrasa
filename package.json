@@ -9,6 +9,8 @@
     "tauri": "pnpm --filter madrasa-desktop tauri",
     "build": "pnpm --filter madrasa-desktop build",
     "build:console": "pnpm --filter madrasa-desktop build:console",
+    "dev:parent": "pnpm --filter madrasa-parent dev",
+    "build:parent": "pnpm --filter madrasa-parent build",
     "lint": "pnpm -r lint",
     "format": "pnpm -r format",
     "format:check": "pnpm -r format:check",

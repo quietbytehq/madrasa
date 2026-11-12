@@ -3784,6 +3784,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "madrasa-parent"
+version = "0.4.1"
+dependencies = [
+ "tauri",
+ "tauri-build",
+]
+
+[[package]]
 name = "markup5ever"
 version = "0.39.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

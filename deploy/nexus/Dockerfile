@@ -38,7 +38,9 @@ ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 CI=true
 RUN corepack enable
 WORKDIR /src
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+# Every package of the workspace, so the lock file matches; only the console is built.
 COPY apps/desktop/package.json apps/desktop/package.json
+COPY apps/parent/package.json apps/parent/package.json
 RUN pnpm install --frozen-lockfile
 COPY apps/desktop apps/desktop
 RUN pnpm build:console

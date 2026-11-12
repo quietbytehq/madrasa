@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Set the same version in Cargo.toml, package.json, apps/desktop/package.json and
-# apps/desktop/src-tauri/tauri.conf.json, and bring Cargo.lock in step with it.
+# Set the same version in Cargo.toml, package.json, the desktop app's and the parent app's
+# package.json and tauri.conf.json, and bring Cargo.lock in step with it.
 # Usage: scripts/set-version.sh 0.1.4
 #
 # Cargo.lock records the version of every crate in this workspace. The Nexus hub image is
@@ -15,7 +15,8 @@ if ! [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
 fi
 cd "$(dirname "$0")/.."
 sed -i.bak -E "0,/^version = \"[^\"]+\"/s//version = \"$v\"/" Cargo.toml && rm Cargo.toml.bak
-for f in package.json apps/desktop/package.json apps/desktop/src-tauri/tauri.conf.json; do
+for f in package.json apps/desktop/package.json apps/desktop/src-tauri/tauri.conf.json \
+  apps/parent/package.json apps/parent/src-tauri/tauri.conf.json; do
   sed -i.bak -E "0,/\"version\": \"[^\"]+\"/s//\"version\": \"$v\"/" "$f" && rm "$f.bak"
 done
 # Rewrite only this workspace's own entries in Cargo.lock; no dependency is upgraded. Works
@@ -24,5 +25,5 @@ if ! cargo update --workspace --offline >/dev/null 2>&1; then
   cargo update --workspace
 fi
 scripts/check-lockfile.sh
-echo "version $v set in Cargo.toml, Cargo.lock, package.json files and tauri.conf.json"
-echo "commit all five files together"
+echo "version $v set in Cargo.toml, Cargo.lock, the package.json files and the tauri.conf.json files"
+echo "commit all seven files together"

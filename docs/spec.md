@@ -2365,3 +2365,50 @@ network is needed. Each tab needs its own permission, checked again by the API.
   within seconds while the hub can be reached (§17.1).
 - Every string is in English and Urdu (`pa.*`); the slip and the conversation follow the
   reading direction, with codes, addresses and phone numbers kept left to right.
+
+### 17.5 The parent app (stage 5)
+
+`apps/parent`: the app parents use on their phones. Its front end is Vite, React and
+TypeScript, built from the desktop app's components, tokens and translation layer (strings
+`parent.*`, English and Urdu); a Tauri 2 shell (`apps/parent/src-tauri`) packages it for
+Android. The shell only shows the front end: the app talks to a Madrasa Nexus hub over
+HTTPS and to nothing else.
+
+**What is kept on the phone:** the hub's address, the session token, the parent's name and
+phone number, the chosen language. No child's record is stored; every screen asks the hub.
+
+**The hub's address** is typed once, as printed on the slip. `https://` is added when no
+scheme is given. Plain `http://` is accepted only for this device (`localhost`,
+`127.0.0.1`) and the Android emulator (`10.0.2.2`), for development; any other hub must be
+`https://`. The page's content security policy allows connections to `https:` and those
+local addresses only.
+
+| Screen | What it shows |
+| --- | --- |
+| Welcome | "I have an access code" and "Sign in"; the language switch (on every screen before sign-in and on the children list) |
+| Access code | The hub address and the code; then, after the hub has said whose code it is, the guardian's name, the school and the children it opens, and the phone number and password to sign in with. The same screen adds another school to an account (the account's password is asked for once) and sets a new password after a forgotten one, as the hub decides from the phone number (§17.2) |
+| Sign in | Hub address, phone number, password. A phone that was set up before opens here with the address filled in |
+| My children | Every child across the schools that gave access: name, class, school, unread messages, and when that school last synced. "I have another access code" and "Sign out" |
+| A child: Home | School, class and roll number, class teacher, student number; attendance this year, the report card, the amount due, notices to read and new messages, each leading to its section |
+| Attendance | One month at a time (no further back than the school year, no further on than this month): counts, the percentage and the days; the year so far |
+| Results | The report card of the school year from approved marks only: each assessment held with marks, percentage, total, grade and, when the school's sheet is complete, the position in class; the year so far. A line says that only approved results are shown |
+| Fees | The amount due; each voucher (month, status, total, late fee, paid, still to pay, due date, and its lines under "Details"); payments received. Read-only: fees are paid at the school, and the screen says so |
+| Notices | Title, date and text, newest first; a notice for the child's class is marked |
+| Messages | The conversation with the class teacher. Opening it marks it read. After sending, a line says that the teacher sees the message when the school next connects and that the answer arrives the same way |
+
+- **Last updated.** Every screen about a child shows when the school last sent its records.
+  After a day without a sync the line turns into a warning that what is shown may be
+  behind the school's records; a school that never synced says so.
+- **No connection** is said in plain words with a "Retry" button; a child that is no
+  longer available to the account (`404`) says so and leads back to the children; a
+  session the hub has ended returns to sign-in with a line explaining why. Refusals the app
+  knows (wrong password, locked account, bad code, no class teacher, too many messages) are
+  shown in the reader's language.
+- **Right to left.** In Urdu the layout mirrors; class names such as `4-A`, codes,
+  addresses, phone numbers and amounts stay left to right. Nastaliq text gets taller lines
+  than Latin text at every size.
+- **Phone layout.** One column up to 28 rem wide, a bar on top with the back arrow, six
+  sections on a bar at the bottom, touch targets of at least 44 px for navigation, safe
+  areas respected. Every control has a label for screen readers.
+- Not in the alpha: push notifications, changing the password inside the app (a new access
+  code does it), paying fees, PDF report cards, attachments, iOS.

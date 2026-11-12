@@ -115,14 +115,14 @@ attachments, messages to anyone but the class teacher, SMS or email, self-regist
 
 ## Stage 5 — The parent app
 
-- [ ] `apps/parent`: Vite, React, TypeScript, the desktop app's components, tokens and
+- [x] `apps/parent`: Vite, React, TypeScript, the desktop app's components, tokens and
       translation layer; Tauri 2 mobile shell (`src-tauri`) in the workspace
-- [ ] Screens: hub address and access code (first time), sign in, children, and for a
+- [x] Screens: hub address and access code (first time), sign in, children, and for a
       child: overview, attendance, results and report card, fees and vouchers, notices,
       messages; language switch; sign out; "last updated" from the school's last sync;
       clear states for no connection and for a school that has stopped syncing
-- [ ] English and Urdu, right to left; phone-sized layout; keyboard and screen-reader labels
-- [ ] Screen tests; tried in a phone-sized browser against a local hub with a demo school
+- [x] English and Urdu, right to left; phone-sized layout; keyboard and screen-reader labels
+- [x] Screen tests; tried in a phone-sized browser against a local hub with a demo school
 
 ## Stage 6 — Android builds
 
