@@ -26,6 +26,8 @@ use crate::{ApiError, ApiResult, AppState};
 const HUB_API: &str = "/api/nexus/v1";
 /// How often a joined school syncs by itself.
 pub const SYNC_EVERY: Duration = Duration::from_secs(5 * 60);
+/// After being woken early: wait this long so several changes go in one round.
+const WAKE_SETTLE: Duration = Duration::from_secs(2);
 /// The first automatic sync after the app starts.
 const FIRST_SYNC_AFTER: Duration = Duration::from_secs(20);
 
@@ -639,7 +641,15 @@ pub fn spawn_scheduler(state: AppState) {
                 }
                 _ => {}
             }
-            tokio::time::sleep(SYNC_EVERY).await;
+            // The next round: at the usual interval, or as soon as something asks for it
+            // (a message to a parent should not wait five minutes).
+            tokio::select! {
+                _ = tokio::time::sleep(SYNC_EVERY) => {}
+                _ = state.nexus_wake.notified() => {
+                    // Let a burst of changes settle into one round.
+                    tokio::time::sleep(WAKE_SETTLE).await;
+                }
+            }
         }
     });
 }

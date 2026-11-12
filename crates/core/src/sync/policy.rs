@@ -218,6 +218,12 @@ pub const TABLES: &[TablePolicy] = &[
     fields("library_loans"),
     fields("mark_sheets"),
     fields("marks"),
+    // Parent app: each side writes only its own "read up to" mark.
+    fields("message_reads"),
+    // Immutable by database trigger: what a parent or a teacher wrote is never changed, so
+    // messages written on both sides are all kept.
+    with_mode("messages", Mode::Append),
+    fields("notices"),
     fields("permissions"),
     fields("report_definitions"),
     fields("roles"),

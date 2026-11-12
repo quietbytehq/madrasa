@@ -111,6 +111,19 @@ pub enum Permission {
     InventoryRead,
     #[serde(rename = "inventory.manage")]
     InventoryManage,
+    // Parent app (docs/TASKS-PARENT-APP.md); used only while the school is joined to a hub.
+    /// Give a guardian access to the parent app, see who has access, end access.
+    #[serde(rename = "parents.manage")]
+    ParentsManage,
+    /// Write, publish and withdraw school notices.
+    #[serde(rename = "notices.manage")]
+    NoticesManage,
+    /// Answer parents' messages, as class teacher of the child's section.
+    #[serde(rename = "messages.reply")]
+    MessagesReply,
+    /// Read every conversation between parents and class teachers.
+    #[serde(rename = "messages.view_all")]
+    MessagesViewAll,
     // Nexus
     #[serde(rename = "nexus.admin")]
     NexusAdmin,
@@ -158,6 +171,10 @@ impl Permission {
         Permission::HostelManage,
         Permission::InventoryRead,
         Permission::InventoryManage,
+        Permission::ParentsManage,
+        Permission::NoticesManage,
+        Permission::MessagesReply,
+        Permission::MessagesViewAll,
         Permission::NexusAdmin,
     ];
 
@@ -203,6 +220,10 @@ impl Permission {
             Permission::HostelManage => "hostel.manage",
             Permission::InventoryRead => "inventory.read",
             Permission::InventoryManage => "inventory.manage",
+            Permission::ParentsManage => "parents.manage",
+            Permission::NoticesManage => "notices.manage",
+            Permission::MessagesReply => "messages.reply",
+            Permission::MessagesViewAll => "messages.view_all",
             Permission::NexusAdmin => "nexus.admin",
         }
     }
@@ -347,6 +368,8 @@ impl RoleCode {
                 HostelManage,
                 InventoryRead,
                 InventoryManage,
+                ParentsManage,
+                NoticesManage,
             ],
             RoleCode::Accountant => {
                 vec![
@@ -377,6 +400,7 @@ impl RoleCode {
                 TimetableRead,
                 LeaveRead,
                 LibraryRead,
+                MessagesReply,
             ],
             RoleCode::Librarian => vec![
                 SchoolRead,

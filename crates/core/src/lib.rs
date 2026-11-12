@@ -23,6 +23,7 @@ pub mod inventory;
 pub mod leave;
 pub mod library;
 pub mod locale;
+pub mod parent_app;
 pub mod password;
 pub mod periods;
 pub mod permissions;

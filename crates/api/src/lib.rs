@@ -43,6 +43,7 @@ pub fn router(state: AppState) -> Router {
         .merge(routes::audit::router())
         .merge(routes::nexus::router())
         .merge(routes::nexus_link::router())
+        .merge(routes::parent_app::router())
         .merge(routes::academics::router())
         .merge(routes::rollover::router())
         .merge(routes::staff::router())

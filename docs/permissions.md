@@ -49,6 +49,10 @@ Legend: ✓ granted by default · — not granted.
 | `inventory.read` | Store items, stock on hand, movements, assets and reports (Standard) | ✓ | ✓ | ✓ | — | — | ✓ |
 | `inventory.manage` | Items, locations, record movements and transfers, asset tags (Standard) | ✓ | ✓ | — | — | — | ✓ |
 | `timetable.manage` | Shifts, rooms, lessons, rules, generate, edit and publish timetables, record absences and covers (Standard) | ✓ | ✓ | — | — | — | — |
+| `parents.manage` | Parent app: give a guardian access, see who has access, end access (schools joined to a hub) | ✓ | ✓ | — | — | — | — |
+| `notices.manage` | Parent app: write, publish and withdraw school notices | ✓ | ✓ | — | — | — | — |
+| `messages.reply` | Parent app: answer parents' messages, only as class teacher of the child's section | ✓ | — | — | ✓ | — | — |
+| `messages.view_all` | Parent app: read every conversation between parents and class teachers (read-only) | ✓ | — | — | — | — | — |
 | `nexus.admin` | Network hub (Nexus edition only) | — | — | — | — | — | — |
 
 Notes

@@ -43,23 +43,29 @@ attachments, messages to anyone but the class teacher, SMS or email, self-regist
 
 ## Stage 1 — School records: notices and messages
 
-- [ ] School migration: `notices` (title, body, audience: whole school or chosen classes,
-      published and expiry dates), `message_threads` (one per student and guardian),
-      `messages` (who wrote it, text, when); ids, `school_id`, sync columns, soft delete
-- [ ] Sync policy for the three tables: notices by field; threads by field (each side
-      writes only its own "read up to" mark); messages add-only like receipts. Unit and
-      database tests: a parent's message written at the hub and a teacher's written at the
-      school both survive a sync, in order
-- [ ] Feature `parent_app` (all editions; active only while the school is joined to a hub)
-      and permissions: `parents.manage` (access codes), `notices.manage`, `messages.reply`
-      (class teachers, for their own sections), `messages.view_all` (principal); granted to
-      the built-in roles by the migration; permissions document
-- [ ] School API: notices (list, create, edit, publish, withdraw); messages (threads a
-      teacher may see, read a thread, reply, mark read); the principal reads all and cannot
-      reply; a teacher cannot open a thread of another teacher's section. All refused with
-      a plain message while the school is not joined. Audit log entries
-- [ ] Tests: permissions for each role, the class-teacher rule, the not-joined refusal,
-      Lite and Standard unchanged when not joined
+- [x] School migration 0029: `notices` (title, body, audience: whole school or chosen
+      classes, published and expiry dates), `messages` (student, guardian, who wrote it,
+      text, when; never changed or removed) and `message_reads` (how far each side has
+      read); ids, `school_id`, sync columns, soft delete. There is no thread record: a
+      conversation is the messages of one student and one guardian, so neither side can
+      create it twice
+- [x] Sync policy for the three tables: notices by field; read marks by field (each side
+      writes only its own); messages add-only like receipts. Database tests: a parent's
+      messages written at the hub and a teacher's written at the school all survive a
+      sync, in order; a notice with its classes reaches the hub and a withdrawal follows
+- [x] No new feature flag: the parent features use `nexus_link` (already in every edition)
+      and work only while the school is joined to a hub, so the feature lists of Lite and
+      Standard are unchanged. Permissions `parents.manage` (access codes), `notices.manage`,
+      `messages.reply` (class teachers, for their own sections), `messages.view_all`
+      (principal); granted to the built-in roles by the migration, with identical records
+      on a school and its hub copy; permissions document
+- [x] School API: notices (list, create, edit, publish, withdraw, remove); conversations
+      (list, read, answer, mark read). The principal reads all and cannot answer; a teacher
+      cannot open a conversation of another teacher's section; the conversation follows the
+      class when its teacher changes. All refused with a plain message while the school is
+      not joined. Audit log entries without message text. Answering wakes the sync timer
+- [x] Tests: permissions for each role, the class-teacher rule, the not-joined refusal;
+      the existing Lite and Standard suites unchanged
 
 ## Stage 2 — Hub: parent accounts and access codes
 
