@@ -29,6 +29,8 @@ jobs:
       - run: pnpm build
       # The Nexus hub console: a second build of the same components.
       - run: pnpm build:console
+      # The parent app's front end (apps/parent); its Android package is built separately.
+      - run: pnpm build:parent
 
   rust-linux:
     name: Rust (Linux, with PostgreSQL)

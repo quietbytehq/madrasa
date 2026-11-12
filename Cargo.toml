@@ -7,6 +7,7 @@ members = [
   "crates/demo-data",
   "crates/nexus",
   "apps/desktop/src-tauri",
+  "apps/parent/src-tauri",
 ]
 
 [workspace.package]

@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/mobile-schema.json",
+  "identifier": "default",
+  "description": "The app's one window. The page calls no commands; it talks to the hub over HTTPS.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

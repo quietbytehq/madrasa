@@ -30,10 +30,12 @@ columns, edition feature flags).
 
 ```
 apps/desktop/        Tauri app (src-tauri/ Rust shell, src/ React UI)
+apps/parent/         Parent app for Android, alpha (src-tauri/ Tauri 2 mobile shell, src/ React UI)
 crates/api/          Axum API server
 crates/core/         domain logic (fees, grading, permissions): pure, well tested
 crates/db/           migrations, queries
 crates/demo-data/    fake data generator
+crates/nexus/        Madrasa Nexus hub server
 docs/                spec.md, task lists, progress log, architecture decisions (docs/adr/)
 ```
 

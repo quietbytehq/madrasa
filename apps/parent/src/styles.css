@@ -1,0 +1,37 @@
+/* The desktop app's tokens, fonts and base styles, then what a phone needs on top. */
+@import "../../desktop/src/styles/index.css";
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    /* A little larger than the dense desktop layout: this is read at arm's length. */
+    font-size: 0.9375rem;
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer utilities {
+  /* Keep clear of the status bar, the notch and the gesture bar. */
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+/*
+ * Urdu is set in Nastaliq, which hangs well below and rises well above the line. Tailwind's
+ * text sizes bring their own Latin line heights, so give every size room in Urdu, and let
+ * a clipped (truncated) line keep its dots without cutting letters off.
+ */
+html[lang="ur"] :is(.text-2xs, .text-xs, .text-sm, .text-base, .text-lg, .text-xl, .text-2xl) {
+  line-height: 2;
+}
+html[lang="ur"] .truncate {
+  padding-block: 0.15em;
+}

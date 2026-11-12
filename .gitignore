@@ -16,6 +16,9 @@ dist-ssr
 apps/desktop/src-tauri/gen/schemas
 apps/desktop/src-tauri/target
 apps/desktop/src-tauri/binaries
+# The parent app's Android project is generated (`tauri android init`), in CI too.
+apps/parent/src-tauri/gen
+apps/parent/src-tauri/target
 
 # Editors / OS
 .vscode/*

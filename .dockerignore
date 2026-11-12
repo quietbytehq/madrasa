@@ -8,6 +8,7 @@ target
 **/dist
 **/dist-console
 apps/desktop/src-tauri/gen
+apps/parent/src-tauri/gen
 docs
 deploy
 *.md
