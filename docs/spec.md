@@ -1045,7 +1045,6 @@ its data model and endpoints to this document when it is built. Shared decisions
   never removes a grant). Nexus is an installation choice and is not switched here. Every
   switch is audited (`edition`, old and new).
 
-
 Sections per stage: timetable §5.18, leave §5.19, admissions §5.20, library §5.21, transport
 §5.22, hostel §5.23, inventory §5.24, directory login §5.25, read-only API §5.26; endpoints
 §6.22–§6.31. Demo data for every module loads with the demo school (`crates/demo-data`,
@@ -2381,7 +2380,8 @@ phone number, the chosen language. No child's record is stored; every screen ask
 scheme is given. Plain `http://` is accepted only for this device (`localhost`,
 `127.0.0.1`) and the Android emulator (`10.0.2.2`), for development; any other hub must be
 `https://`. The page's content security policy allows connections to `https:` and those
-local addresses only.
+local addresses only. A looser policy applies
+only to development builds (`devCsp`), so that live reload works.
 
 | Screen | What it shows |
 | --- | --- |
@@ -2438,3 +2438,18 @@ local addresses only.
 - The version in the parent app's `package.json` and `tauri.conf.json` is set by
   `scripts/set-version.sh` with all the others, and the unit test that keeps the version
   files in step covers them.
+
+### 17.7 Demo data (stage 7)
+
+- The demo school (every size) has three notices: one for the whole school and one for a
+  single class, both published, and a draft. It has one conversation of three messages
+  between a guardian and the class teacher of one of that guardian's children; the guardian
+  is the one with the most children at the school, so the parent app shows several
+  children. These are ordinary school records and sync like any other.
+- The hub's demo network (§16, the introduction) is loaded from the same generator, so its three schools
+  have them too. `madrasa-nexus demo-network --yes` ends by printing one parent app access
+  code for each demo school, for the guardian of the demo conversation.
+  `madrasa-nexus demo-parent-codes` prints fresh ones at any time (a code works once and
+  for fourteen days, and a new code replaces an unused older one). Codes are issued this
+  way only for schools the demo network made: marked demo in their own records and without
+  a sync key. A real school's guardians get their codes from the school.

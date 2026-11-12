@@ -76,6 +76,12 @@ async fn loads_into_an_empty_database_and_marks_everything_demo() {
     assert_eq!(std.inventory_items, 12);
     assert!(std.leave_requests >= 1);
     assert!(std.api_key_prefix.starts_with("mk_demo"));
+    // Parent app: two published notices and a draft, and one conversation.
+    assert_eq!(
+        (report.parent_app.notices, report.parent_app.messages),
+        (3, 3)
+    );
+    assert!(report.parent_app.guardian_id.is_some());
     assert_eq!(report.files_written.len(), 6);
     assert!(out.join("students.json").exists());
     std::fs::remove_dir_all(&out).ok();
@@ -86,6 +92,45 @@ async fn loads_into_an_empty_database_and_marks_everything_demo() {
     assert!(school.name.starts_with("DEMO"));
     assert_eq!(users::count(&mut conn, school.id).await.unwrap(), 40);
     assert!(settings::setup_completed(&mut conn).await.unwrap());
+    // The conversation is between a guardian and the class teacher of one of their own
+    // children; the class notice is for that child's class; the draft is not published.
+    let thread: Vec<(String, bool, bool)> = sqlx::query_as(
+        "SELECT m.sender,
+                EXISTS (SELECT 1 FROM student_guardians sg
+                        WHERE sg.student_id = m.student_id AND sg.guardian_id = m.guardian_id),
+                m.sender_user_id IS NULL OR m.sender_user_id = (
+                    SELECT st.user_id FROM enrollments e
+                    JOIN academic_years y ON y.id = e.academic_year_id AND y.is_active
+                    JOIN sections sec ON sec.id = e.section_id
+                    JOIN staff st ON st.id = sec.class_teacher_id
+                    WHERE e.student_id = m.student_id)
+         FROM messages m ORDER BY m.sent_at, m.id",
+    )
+    .fetch_all(&mut *conn)
+    .await
+    .unwrap();
+    assert_eq!(
+        thread,
+        [
+            ("guardian".to_string(), true, true),
+            ("staff".to_string(), true, true),
+            ("guardian".to_string(), true, true)
+        ]
+    );
+    let notices: Vec<(String, bool, i32)> = sqlx::query_as(
+        "SELECT title, published_at IS NOT NULL, cardinality(class_ids) FROM notices ORDER BY title",
+    )
+    .fetch_all(&mut *conn)
+    .await
+    .unwrap();
+    assert_eq!(
+        notices,
+        [
+            ("Class trip: permission slips".to_string(), true, 1),
+            ("Parent teacher meeting on Saturday".to_string(), true, 0),
+            ("Winter uniform".to_string(), false, 0)
+        ]
+    );
 
     let principal = users::find_by_username(&mut conn, school.id, &demo.staff[0].username)
         .await

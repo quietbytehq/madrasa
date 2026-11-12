@@ -1590,6 +1590,133 @@ depend on each other and were built together)
   only on a tag).
 - Left: stage 7.
 
+### 2026-11-12 — Stage 7: Close-out (branch `dev/parent-7-closeout`)
+- Done, demo data: the demo school has three notices (whole school, one class, a draft)
+  and one conversation of three messages between the guardian with the most children and
+  the class teacher of one of them (`crates/demo-data/src/parent_app.rs`). The hub's demo
+  network has them too, and `madrasa-nexus demo-network --yes` now ends by printing a
+  parent app access code for one made-up guardian of each demo school;
+  `madrasa-nexus demo-parent-codes` prints fresh ones. Spec §17.7.
+- Done: TESTING.md section 8, "The parent app" (tasks 49 to 59, how to open the app in a
+  browser against a local hub, what a phone needs, and what we have not tested); the user
+  guide has a Parent app section in English and Urdu; README mentions the app and its
+  folder.
+- Checked: `docs/permissions.md` lists the four parent app permissions and matches the
+  code (unit test `matrix_matches_docs`); spec §17.1 to §17.7 cover the tables, both APIs,
+  the screens, the Android package and the demo data.
+- Tested: the demo loader test checks the notices and the conversation (who wrote, to the
+  class teacher of the guardian's own child); the demo school of 20,000 records still
+  uploads completely and exactly; the hub's demo network test activates a printed code and
+  reads every section for each child, finds the conversation and the notices but not the
+  draft, and checks that a code works once and that new codes retire unused old ones.
+  `cargo clippy --workspace` and the whole `cargo test --workspace` pass locally, as do
+  both front ends' lint, format, type and test steps.
+- Left: nothing in `docs/TASKS-PARENT-APP.md`. What needs a person is in the summary below.
+
+## Summary for the owner — Parent app alpha
+
+The parent app alpha was built as one design pull request and seven stage pull requests,
+each started from the latest `main` and merged only after CI was green on Linux and
+Windows: #53 the design and task list, #54 notices and messages as school records, #55
+parent accounts and access codes at the hub, #56 what a parent can see at the hub, #57
+the school's screens, #58 the app, #59 the Android package, and this close-out.
+
+**Lite and Standard keep working unchanged.** A school that has not joined a hub gets
+three empty tables and four permissions from a migration, and nothing else: no sidebar
+entry, no background task, no network call. Every existing Lite, Standard and Nexus test
+still passes, and the school's report card answers are byte-for-byte what they were (the
+calculation moved to a shared crate so the hub can run the same code).
+
+### What was built
+
+| Asked for | Built | Where |
+| --- | --- | --- |
+| A parent app for Android in `apps/parent`, Tauri 2 mobile | `apps/parent`: React front end and a Tauri 2 mobile shell; the Android project is generated at build time | stage 5, spec §17.5 |
+| The same design system as the desktop app | It imports the desktop app's components, tokens and fonts directly (`@/…`); nothing was copied | stage 5 |
+| English and Urdu | 135 `parent.*` strings in each; right-to-left layout; class names, codes and amounts kept left to right | stage 5 |
+| Parents log in | Accounts at the hub: phone number and password, opened with a one-time access code the school prints on a slip. One account can hold children at several schools | stage 2, spec §17.2 |
+| Pick a child | "My children" lists every child across the schools that gave access | stages 3 and 5 |
+| Attendance | Month by month with counts and percentage, and the year so far | stages 3 and 5 |
+| Results and report cards | The school's own report card calculation, from **approved** marks sheets only, on screen | stage 3, spec §17.3 |
+| Fee status and vouchers | Amount due, each voucher with its lines, payments received. Read-only | stages 3 and 5 |
+| School notices | Written at the school for the whole school or chosen classes; draft, publish, withdraw | stages 1, 4, 5 |
+| One-to-one messaging with the class teacher | A conversation per child and guardian; only that section's class teacher answers | stages 1, 3, 4, 5 |
+| Principal can view threads | `messages.view_all`: reads every conversation, answers none | stages 1 and 4 |
+| Connects to the Nexus hub; hub endpoints in `crates/nexus` | `/parent/…` routes: accounts, children, and six sections per child | stages 2 and 3 |
+| A parent only ever sees their own children | One check in front of every route, in the school's own schema; anything else is the same `404` | stage 3 |
+| Android APK built in CI | Job *Parent app (Android APK)* on every pull request; artifact `madrasa-parent-apk` | stage 6, spec §17.6 |
+| APK attached to releases | The Release workflow builds, signs and attaches it to the draft release | stage 6 |
+| (not asked, needed to use it) | The school's "Parent app" screens (access codes with a printable slip, notices, messages); demo data and demo access codes; tester and user guides | stages 4 and 7 |
+
+Automated tests added: 7 unit tests of the rules in `madrasa_core`; 3 database tests of
+the sync of messages, notices and permission grants; 4 database tests of the hub (accounts
+and codes; the seven kinds of "not yours" on all nine child routes; messages both ways); 1
+test of the school's own routes and 2 end-to-end tests of a real school API against a live
+hub (one compares every figure a parent sees with the school's own answers); additions to
+the demo data and demo network tests; 15 tests of the school's screens and 37 tests of the
+app. CI builds the Android package and signs it on every pull request.
+
+### What to test by hand
+
+Follow TESTING.md section 8 (tasks 49 to 59). What the automated tests cannot prove:
+
+1. **The app on a real Android phone. This has never been done.** The package is built
+   and signed by CI, and the same front end was walked through in a phone-sized browser,
+   but nobody has installed the APK. Please install it and report from the first screen
+   on: does it install and open, does the keyboard cover the fields, does the back button
+   behave, does Urdu look right in the phone's own text rendering.
+2. **A phone needs the hub on `https://`.** Android and the app both refuse plain
+   `http://` except to the phone itself, so a hub on a PC's LAN address cannot be used
+   from a phone. The hub's HTTPS profile (Caddy with a real domain) has still not been
+   run by us (see the Nexus summary below). Until it has, the browser on the hub PC is the
+   only way we have tried the app.
+3. **The Urdu wording**, by someone who reads Urdu natively: the app's strings and the
+   school's Parent app screens were written by the developer and checked only for layout.
+4. **Printing the access slip** on a real printer (it was checked in print layout only).
+5. **Real records.** Everything was tried with made-up schools. With a real class: do the
+   figures in the app match the printed report card and the fee voucher exactly?
+
+### Decisions left to you
+
+1. **The signing key, before any parent gets the app.** No key exists yet, so every build
+   is signed with a throwaway test key (the file name says `-testkey`). Such a build cannot
+   be updated: the next one needs the old app removed first. `docs/RELEASING.md` ("The
+   parent app (Android)") gives the one command to make a key and the four secrets to add.
+   Keep the key safe: losing it means parents can never update.
+2. **When to release.** Nothing was tagged and the version was not changed (0.4.1). The
+   next tag will build and attach the APK. The attach step has never run, because it only
+   runs on a tag; watch it the first time.
+3. **Position in class.** A parent sees the child's position in class for an assessment
+   once every marks sheet of it is approved, because the school's report card has it. Some
+   schools do not tell parents positions. There is no setting for this yet: say if it
+   should be hidden, or made a school setting.
+4. **Forgotten passwords** are handled by the school giving a new access code; there is no
+   SMS or email. Acceptable for the alpha, or is self-service needed?
+5. **Messages are not instant** and there are no notifications: a message travels with the
+   school's sync (within seconds while the school is online, otherwise at its next
+   connection), and the parent sees an answer when they open the app. Push notifications
+   would need Google's messaging service and are not built.
+6. **Who may give access**: administrators and the principal (`parents.manage`). Class
+   teachers cannot. Change the role grants if teachers should hand out slips.
+7. **One guardian record, one code.** A code opens the children linked to that guardian
+   record. Where the school entered the same parent as separate guardian records for each
+   child, each record needs its own code (the parent can add them all to one account).
+   Merging duplicate guardians is not part of this work.
+8. **What the app leaves out on purpose**: teachers' notes on attendance, who received a
+   payment and payment references, anything of another family. Fees show discounts and
+   concessions as on the voucher. Say if any of this should change.
+9. **Limits**: a message is at most 2,000 characters; a parent may send 20 an hour about
+   one child; an access code lasts 14 days; five wrong passwords lock an account for 15
+   minutes. All are constants, easy to change.
+10. **The old "Parents" entry.** The Nexus edition's sidebar still has a "Parents — Coming
+    soon" placeholder from the first milestone (feature `parents_portal`). The Parent app
+    area replaces its purpose. It was left untouched because it is outside this work:
+    remove it, or tell me what it was meant to become.
+11. **Not built**: an iPhone version, a Google Play listing, payments in the app, report
+    cards as PDF in the app, attachments in messages, changing the password inside the app.
+12. `CLAUDE.md` still lists only `apps/desktop` under the folder layout; I did not edit
+    your instructions file. `README.md` has the new folders.
+
 ## Summary for the owner — Nexus alpha
 
 The Nexus alpha was built as one design pull request and nine stage pull requests, each

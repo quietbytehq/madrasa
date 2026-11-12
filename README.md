@@ -14,6 +14,10 @@ Status: **pre-alpha**. Nothing here is ready for a real school yet.
 | **Standard** | All modules, server plus multiple clients. | Planned |
 | **Madrasa Nexus** | Network hub that joins several schools into one tenant, like an Active Directory forest root. | Alpha: hub server with web console (`crates/nexus`, [deployment guide](docs/nexus/deploy.md)) |
 
+A **parent app** for Android (alpha, `apps/parent`) lets parents of a school that has joined
+a hub see their own children's attendance, approved results, fees and school notices, and
+write to the class teacher.
+
 Lite is built first, but the data model and backend are written so Standard and Nexus plug in
 later without rewrites (UUID v7 keys, `school_id` on every school-owned row, sync-ready
 columns, edition feature flags).

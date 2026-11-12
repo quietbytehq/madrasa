@@ -53,6 +53,8 @@ pub struct LoadReport {
     pub consents_recorded: usize,
     /// The Standard modules (visible once the install is switched to Standard).
     pub standard: crate::standard::StandardReport,
+    /// Parent app records: notices and a conversation.
+    pub parent_app: crate::parent_app::ParentAppReport,
     pub files_written: Vec<PathBuf>,
 }
 
@@ -1043,6 +1045,9 @@ pub async fn load(
     )
     .await?;
 
+    // Parent app: notices and one conversation (shown once the school joins a hub).
+    let parent_app = crate::parent_app::load(&mut tx, hlc, actor, school.id).await?;
+
     settings::set_edition(&mut tx, hlc, Actor::SYSTEM, Edition::Lite).await?;
     settings::set(
         &mut tx,
@@ -1095,6 +1100,7 @@ pub async fn load(
         allocated_students,
         consents_recorded,
         standard,
+        parent_app,
         files_written,
     })
 }

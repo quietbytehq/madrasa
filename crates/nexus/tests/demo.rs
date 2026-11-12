@@ -6,7 +6,7 @@
 mod common;
 
 use axum::http::StatusCode;
-use madrasa_nexus::demo::{seed_network, DemoError, DEMO_NETWORK};
+use madrasa_nexus::demo::{parent_codes, seed_network, DemoError, DEMO_NETWORK};
 use serde_json::{json, Value};
 
 #[tokio::test]
@@ -128,6 +128,94 @@ async fn the_demo_network_fills_an_empty_hub_with_three_separate_schools() {
             .await
             .unwrap();
     assert_eq!(keys, 0);
+
+    // ---- the parent app can be tried at once: a code for a made-up guardian of each ----
+    let codes = parent_codes(&hub.state.pool, &hub.state.hlc).await.unwrap();
+    assert_eq!(codes.len(), 3);
+    let first = &codes[0];
+    assert!(!first.children.is_empty(), "{first:?}");
+    let activate = |code: String, phone: &'static str| {
+        let hub = &hub;
+        async move {
+            hub.call(
+                axum::http::Method::POST,
+                "/parent/activate",
+                None,
+                Some(json!({ "code": code, "phone": phone, "password": "demo-parent-pass-1" })),
+            )
+            .await
+        }
+    };
+    let (s, opened) = activate(first.code.clone(), "0300-1000001").await;
+    assert_eq!(s, StatusCode::OK, "{opened}");
+    let token = opened["token"].as_str().unwrap().to_string();
+    let (s, list) = hub.get("/parent/children", &token).await;
+    assert_eq!(s, StatusCode::OK, "{list}");
+    let kids = list["children"].as_array().unwrap();
+    let mut names: Vec<&str> = kids
+        .iter()
+        .map(|k| k["full_name"].as_str().unwrap())
+        .collect();
+    names.sort_unstable();
+    assert_eq!(
+        names,
+        first
+            .children
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>()
+    );
+    // The demo conversation, the notices and every other section answer for those children.
+    let mut messages = 0;
+    for kid in kids {
+        assert_eq!(kid["school_name"], first.school_name);
+        let base = format!(
+            "/parent/children/{}/{}",
+            kid["school_ref"].as_str().unwrap(),
+            kid["student_id"].as_str().unwrap()
+        );
+        for tail in [
+            "",
+            "/attendance",
+            "/results",
+            "/fees",
+            "/notices",
+            "/messages",
+        ] {
+            let (s, b) = hub.get(&format!("{base}{tail}"), &token).await;
+            assert_eq!(s, StatusCode::OK, "{tail}: {b}");
+            if tail == "/messages" {
+                messages += b["messages"].as_array().unwrap().len();
+            }
+            if tail == "/notices" {
+                let titles: Vec<&str> = b["notices"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|n| n["title"].as_str().unwrap())
+                    .collect();
+                assert!(
+                    titles.contains(&"Parent teacher meeting on Saturday"),
+                    "{titles:?}"
+                );
+                assert!(!titles.contains(&"Winter uniform"), "a draft is not shown");
+            }
+        }
+    }
+    assert_eq!(
+        messages, 3,
+        "the demo conversation is with one of the children"
+    );
+    // A code works once; asking again gives new codes and retires the unused old ones.
+    let (s, _) = activate(first.code.clone(), "0300-1000002").await;
+    assert_eq!(s, StatusCode::FORBIDDEN);
+    let again = parent_codes(&hub.state.pool, &hub.state.hlc).await.unwrap();
+    assert_eq!(again.len(), 3);
+    assert_ne!(again[1].code, codes[1].code);
+    let (s, _) = activate(codes[1].code.clone(), "0300-1000003").await;
+    assert_eq!(s, StatusCode::FORBIDDEN, "replaced by a newer code");
+    let (s, _) = activate(again[1].code.clone(), "0300-1000003").await;
+    assert_eq!(s, StatusCode::OK);
 
     // The hub's log says where these schools came from.
     let (_, audit) = hub.get("/audit?page_size=200", &admin).await;

@@ -346,3 +346,29 @@ timetable and the substitutions.
    back as `If-None-Match` returns 304 when nothing changed. Each key may make 120
    requests a minute.
 3. Nothing can be written through this API, and it does not exist on Lite installs.
+
+## 18. Parent app (schools joined to a school network)
+
+Parents can see their own children's attendance, approved results, fees and the school's
+notices on their phones, and write to the class teacher, with the **Madrasa Parent** app.
+The app works through the school network (Madrasa Nexus): once the school has joined one
+(Settings → School network), **Parent app** appears in the sidebar for the people who have
+something to do there.
+
+- **Access** (administrators and the principal). *Give access* → find the guardian → a
+  one-time code is shown on a slip. Print it and hand it to the guardian in person: anyone
+  with the code can open access to that guardian's children. The code works once, for 14
+  days, and is not shown again. The list shows who has access, the last digits of the phone
+  number they sign in with and when they last signed in. *New code* is for a forgotten
+  password or a new phone number. *End access* signs the guardian out and closes their
+  access to this school.
+- **Notices** (administrators and the principal). Write a notice for the whole school or
+  for chosen classes, with a last day if it should disappear by itself. Save it as a draft
+  or publish it; a published notice can be withdrawn.
+- **Messages.** A parent writes to the class teacher of their child. The class teacher sees
+  a count beside *Parent app*, opens the conversation and answers. Only the class teacher
+  of that section answers; the principal can read every conversation. Messages are not
+  instant: they travel with the sync, every few minutes while the school is connected.
+- **What parents see.** Only their own children. Only results from marks sheets that have
+  been approved. Fees as on the school's vouchers; nothing is paid in the app. What they
+  see is as fresh as the school's last sync, and the app says when that was.
