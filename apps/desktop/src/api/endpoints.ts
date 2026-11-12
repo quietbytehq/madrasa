@@ -1,5 +1,13 @@
 import { download, request } from "./client";
 import type {
+  GuardianAccessRow,
+  ParentAccessCode,
+  ParentAppStatus,
+  ParentConversation,
+  ParentConversationRow,
+  ParentMessage,
+  ParentNotice,
+  ParentNoticeBody,
   ApiKey,
   ApiKeyBody,
   ApiKeyCall,
@@ -1193,4 +1201,39 @@ export const api = {
   revokeApiKey: (id: string) => request<ApiKey>(`/settings/api-keys/${id}`, { method: "DELETE" }),
   apiKeyCalls: (id: string, limit = 100) =>
     request<ApiKeyCall[]>(`/settings/api-keys/${id}/calls${qs({ limit })}`),
+
+  // Parent app, the school's side
+  parentAppStatus: () => request<ParentAppStatus>("/parent-app/status"),
+  parentAccess: () => request<GuardianAccessRow[]>("/parent-app/access"),
+  parentAccessCode: (guardianId: string) =>
+    request<ParentAccessCode>(`/parent-app/access/${guardianId}/code`, {
+      method: "POST",
+      body: {},
+    }),
+  parentAccessEnd: (guardianId: string) =>
+    request<{ ended: boolean }>(`/parent-app/access/${guardianId}`, { method: "DELETE" }),
+  parentNotices: () => request<ParentNotice[]>("/parent-app/notices"),
+  createParentNotice: (body: ParentNoticeBody) =>
+    request<ParentNotice>("/parent-app/notices", { method: "POST", body }),
+  updateParentNotice: (id: string, body: ParentNoticeBody) =>
+    request<ParentNotice>(`/parent-app/notices/${id}`, { method: "PATCH", body }),
+  publishParentNotice: (id: string) =>
+    request<ParentNotice>(`/parent-app/notices/${id}/publish`, { method: "POST", body: {} }),
+  withdrawParentNotice: (id: string) =>
+    request<ParentNotice>(`/parent-app/notices/${id}/withdraw`, { method: "POST", body: {} }),
+  deleteParentNotice: (id: string) =>
+    request<void>(`/parent-app/notices/${id}`, { method: "DELETE" }),
+  parentConversations: () => request<ParentConversationRow[]>("/parent-app/conversations"),
+  parentConversation: (studentId: string, guardianId: string) =>
+    request<ParentConversation>(`/parent-app/conversations/${studentId}/${guardianId}`),
+  sendParentMessage: (studentId: string, guardianId: string, body: string) =>
+    request<ParentMessage>(`/parent-app/conversations/${studentId}/${guardianId}/messages`, {
+      method: "POST",
+      body: { body },
+    }),
+  markParentConversationRead: (studentId: string, guardianId: string) =>
+    request<unknown>(`/parent-app/conversations/${studentId}/${guardianId}/read`, {
+      method: "POST",
+      body: {},
+    }),
 };

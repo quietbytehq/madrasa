@@ -3627,3 +3627,103 @@ export interface NexusEscrowView {
   deposited_at: string | null;
   releases: NexusKeyRelease[];
 }
+
+// ---- Parent app, the school's side (docs/spec.md §17) ----
+
+/** Mirrors `Status` in `crates/api/src/routes/parent_app.rs`. */
+export interface ParentAppStatus {
+  /** The school is joined to a hub; without one the parent app does nothing. */
+  joined: boolean;
+  hub_name: string | null;
+  /** Messages from parents the caller has not read (class teachers; 0 for others). */
+  unread: number;
+}
+
+/** A guardian's access to the parent app, as the school sees it. */
+export interface GuardianAccessRow {
+  guardian_id: string;
+  /** `active`: the guardian has an account. `code`: a code is waiting to be used. */
+  state: "active" | "code";
+  /** The last digits of the phone number the guardian signs in with. */
+  phone_hint: string | null;
+  since: string | null;
+  last_login_at: string | null;
+  code_expires_at: string | null;
+  guardian_name: string;
+  children: string[];
+}
+
+/** A one-time access code, shown once. */
+export interface ParentAccessCode {
+  code: string;
+  expires_at: string;
+  guardian_name: string;
+  hub_url: string;
+  hub_name: string | null;
+}
+
+export interface ParentNotice {
+  id: string;
+  school_id: string;
+  title: string;
+  body: string;
+  /** Classes the notice is for; empty means the whole school. */
+  class_ids: string[];
+  /** Null while it is a draft or after it was withdrawn. */
+  published_at: string | null;
+  expires_on: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ParentNoticeBody {
+  title: string;
+  body: string;
+  class_ids: string[];
+  expires_on: string | null;
+  /** On create: publish at once instead of saving a draft. */
+  publish?: boolean;
+}
+
+export interface ParentMessage {
+  id: string;
+  student_id: string;
+  guardian_id: string;
+  sender: "guardian" | "staff";
+  sender_user_id: string | null;
+  sender_name: string;
+  body: string;
+  sent_at: string;
+}
+
+export interface ParentConversationRow {
+  student_id: string;
+  student_name: string;
+  guardian_id: string;
+  guardian_name: string;
+  section_id: string | null;
+  class_name: string | null;
+  section_name: string | null;
+  messages: number;
+  last_at: string;
+  last_sender: "guardian" | "staff";
+  last_preview: string;
+  /** Messages from the guardian that staff have not read. */
+  unread: number;
+  /** The caller is the class teacher and may answer. */
+  can_reply: boolean;
+}
+
+export interface ParentConversation {
+  student_id: string;
+  student_name: string;
+  guardian_id: string;
+  guardian_name: string;
+  class_name: string | null;
+  section_name: string | null;
+  teacher_name: string | null;
+  can_reply: boolean;
+  unread: number;
+  messages: ParentMessage[];
+}

@@ -28,6 +28,7 @@ type JsonBody<T> = Result<Json<T>, axum::extract::rejection::JsonRejection>;
 
 pub fn router() -> Router<AppState> {
     Router::new()
+        .route("/parent-app/status", get(status))
         .route("/parent-app/notices", get(list_notices).post(create_notice))
         .route(
             "/parent-app/notices/{id}",
@@ -54,6 +55,67 @@ pub fn router() -> Router<AppState> {
             "/parent-app/conversations/{student_id}/{guardian_id}/read",
             post(mark_read),
         )
+}
+
+/// Mirrored by `ParentAppStatus` in the UI.
+#[derive(Debug, Serialize)]
+pub struct Status {
+    /// The school is joined to a hub, so the parent app can work.
+    pub joined: bool,
+    pub hub_name: Option<String>,
+    /// Messages from guardians the caller has not read, in the sections the caller is
+    /// class teacher of. `0` for anyone else.
+    pub unread: i64,
+}
+
+/// What the app's sidebar needs to know: is there a Parent app area to show (the school is
+/// joined to a hub), and how many messages wait for the caller. For anyone who holds one
+/// of the parent app permissions; never an error for a school that has not joined.
+async fn status(State(state): State<AppState>, user: CurrentUser) -> ApiResult<Json<Status>> {
+    let may = [
+        Permission::ParentsManage,
+        Permission::NoticesManage,
+        Permission::MessagesReply,
+        Permission::MessagesViewAll,
+    ]
+    .into_iter()
+    .any(|p| user.can(p));
+    if !may {
+        return Err(ApiError::forbidden());
+    }
+    let nothing = Status {
+        joined: false,
+        hub_name: None,
+        unread: 0,
+    };
+    if !state.edition().enables(Feature::NexusLink) {
+        return Ok(Json(nothing));
+    }
+    let mut c = state.pool.acquire().await?;
+    let Some(link) = nexus_link::get(&mut c, user.user.school_id)
+        .await?
+        .filter(|link| link.is_active())
+    else {
+        return Ok(Json(nothing));
+    };
+    let mut unread = 0;
+    if user.can(Permission::MessagesReply) {
+        if let Some(me) = staff::find_by_user(&mut c, user.user.id).await? {
+            let sections = parent_app::sections_as_class_teacher(&mut c, me.id).await?;
+            if !sections.is_empty() {
+                unread = parent_app::conversations(&mut c, user.user.school_id, Some(&sections))
+                    .await?
+                    .iter()
+                    .map(|r| r.unread)
+                    .sum();
+            }
+        }
+    }
+    Ok(Json(Status {
+        joined: true,
+        hub_name: Some(link.hub_name),
+        unread,
+    }))
 }
 
 /// The parent app works through the hub: without a hub there is nobody to read a notice
