@@ -16,13 +16,19 @@ Before tagging:
 
 1. `cargo test --workspace`, `pnpm --dir apps/desktop test`, lint and type checks are green
    (CI enforces this).
-2. Run `scripts/set-version.sh X.Y.Z` (the numeric part of the tag) and commit: it sets the
-   workspace `Cargo.toml`, `package.json`, `apps/desktop/package.json` and
-   `apps/desktop/src-tauri/tauri.conf.json` together, and a unit test fails if they ever
-   differ. The Release workflow refuses a tag whose numeric part does not match `Cargo.toml`,
-   and passes the full tag (`0.1.3-alpha`) into the build as `MADRASA_RELEASE`, which is what
-   `/health`, `/system/features` and Help → About report. Builds without the variable report
-   the plain Cargo version.
+2. Run `scripts/set-version.sh X.Y.Z` (the numeric part of the tag) and commit **all five
+   files it changes**: the workspace `Cargo.toml`, `Cargo.lock`, `package.json`,
+   `apps/desktop/package.json` and `apps/desktop/src-tauri/tauri.conf.json`. A unit test
+   fails if the version files ever differ. `Cargo.lock` matters as much as the others: the
+   Nexus hub image is built with `cargo build --locked`, which refuses a lock file that
+   still names the old version (this is what broke the v0.4.0-alpha image). The script
+   stops with an error if it cannot update the lock file; `scripts/check-lockfile.sh`
+   checks it at any time.
+   The Release workflow refuses a tag whose numeric part does not match `Cargo.toml` or
+   whose `Cargo.lock` is out of date (its *Preflight* job, before anything is built), and
+   passes the full tag (`0.1.3-alpha`) into the builds as `MADRASA_RELEASE`, which is what
+   `/health`, `/system/features` and Help → About report. Builds without the variable
+   report the plain Cargo version.
 3. Update `docs/PROGRESS.md` with what the build contains and what to test by hand.
 
 The Linux bundles are built on `ubuntu-22.04` so they run on Debian 12 and 13 and on Ubuntu
@@ -34,7 +40,12 @@ that. Code signing is tracked for a later milestone.
 
 ## Pre-releases for testers (`vX.Y.Z-alpha`, `-beta`)
 
-1. Merge what the build should contain into `main`; CI must be green there.
+1. Merge what the build should contain into `main` **through a pull request, the version
+   bump included**, and wait until CI is green on `main` before tagging. CI builds the
+   Nexus hub image on every pull request and every push, the same way the Release workflow
+   does, so a tag on a green commit will build. (v0.4.0-alpha was tagged a minute after a
+   version bump pushed straight to `main`; CI on that commit failed in the image job, but
+   the tag was already out.)
 2. Write the notes in `docs/releases/<tag>.md` and update `TESTING.md` (the tester guide:
    install steps, sample data, tasks to try, how to report).
 3. Tag `main` and push the tag; the Release workflow builds the installers and creates a
@@ -47,6 +58,11 @@ that. Code signing is tracked for a later milestone.
 
 4. On the draft release: paste the notes from `docs/releases/<tag>.md`, attach `TESTING.md`
    and the sample spreadsheets from `docs/testing/`, keep "pre-release" ticked, publish.
+
+A tagged release also publishes the Nexus hub image to GitHub Container Registry as
+`ghcr.io/quietbytehq/madrasa-nexus:<tag without v>` and `:latest`. If only the image job
+fails, fix the cause, bump the version and tag again; do not move a tag that has been
+pushed.
 
 Tags and releases must be created by a person with push rights; the Claude Code cloud
 session cannot create tags or releases (its GitHub proxy refuses those API paths), it can

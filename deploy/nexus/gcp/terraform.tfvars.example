@@ -4,7 +4,7 @@ project_id = "my-project-id"
 region     = "asia-south1"
 
 # A release of the hub image (ghcr.io/quietbytehq/madrasa-nexus).
-image_tag = "0.4.0"
+image_tag = "0.4.1-alpha"
 
 # Optional. Your own domain, once it is mapped to the Cloud Run service.
 # public_url = "https://nexus.example.org"
