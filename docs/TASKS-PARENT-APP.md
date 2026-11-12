@@ -91,15 +91,15 @@ attachments, messages to anyone but the class teacher, SMS or email, self-regist
 
 ## Stage 3 — Hub: what a parent can see
 
-- [ ] Move the report card calculation from the school API into `madrasa_db` (one piece of
+- [x] Move the report card calculation from the school API into `madrasa_db` (one piece of
       code for the school and the hub); the school's report card tests keep passing
-- [ ] `/parent/children` and, for one child: attendance by month with a summary; results
+- [x] `/parent/children` and, for one child: attendance by month with a summary; results
       (approved marks sheets only) and the report card; fees (vouchers with lines, paid,
       due, receipts); notices for the child's class; the conversation with the class
       teacher (read, send, mark read)
-- [ ] Every response says when the school last synced
-- [ ] Cross-origin access for the app (bearer tokens only, no cookies)
-- [ ] Tests: each figure is compared with the school's own database; unapproved marks are
+- [x] Every response says when the school last synced
+- [x] Cross-origin access for the app (bearer tokens only, no cookies)
+- [x] Tests: each figure is compared with the school's own database; unapproved marks are
       never shown; the three isolation cases on every endpoint; a parent's message reaches
       the school at its next sync and the teacher's answer comes back
 

@@ -10,9 +10,8 @@ use madrasa_core::exams::Formula;
 use madrasa_core::permissions::Permission;
 use madrasa_db::exams as repo;
 use madrasa_db::exams::Term;
-use madrasa_db::models::AssessmentType;
 use rust_decimal::Decimal;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::auth::CurrentUser;
@@ -182,49 +181,7 @@ async fn put_term_weights(
     ))
 }
 
-/// Mirrored by `ExamStructure` in the UI: the year's terms with their components in order,
-/// plus components without a term (years from before terms, until they are migrated).
-#[derive(Debug, Serialize)]
-pub struct Structure {
-    pub terms: Vec<TermWithComponents>,
-    pub unassigned: Vec<AssessmentType>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct TermWithComponents {
-    #[serde(flatten)]
-    pub term: Term,
-    pub components: Vec<AssessmentType>,
-}
-
-pub(crate) async fn structure_of(
-    c: &mut sqlx::PgConnection,
-    academic_year_id: Uuid,
-) -> ApiResult<Structure> {
-    let terms = repo::list_terms(c, academic_year_id).await?;
-    let all = repo::list_assessments(c, academic_year_id).await?;
-    let mut out = Vec::new();
-    for t in terms {
-        let components = all
-            .iter()
-            .filter(|a| a.term_id == Some(t.id))
-            .cloned()
-            .collect();
-        out.push(TermWithComponents {
-            term: t,
-            components,
-        });
-    }
-    let unassigned = all
-        .iter()
-        .filter(|a| a.term_id.is_none())
-        .cloned()
-        .collect();
-    Ok(Structure {
-        terms: out,
-        unassigned,
-    })
-}
+pub use madrasa_db::results::{structure_of, Structure, TermWithComponents};
 
 async fn structure(
     State(state): State<AppState>,

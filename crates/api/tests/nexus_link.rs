@@ -1270,3 +1270,588 @@ async fn a_school_gives_a_guardian_an_access_code_and_ends_access_again() {
     app.finish().await;
     hub.finish().await;
 }
+
+/// Parent app stage 3: what a parent sees in the app is what the school's own screens say.
+/// A school with attendance, marks, fees, a notice and a class teacher joins a hub; a
+/// guardian activates access; then every figure the hub gives the parent is compared with
+/// the school's own API. Marks the principal has not approved are not shown, and once they
+/// are approved the parent's report card is the school's, field for field.
+#[tokio::test]
+async fn a_parent_sees_the_schools_own_figures_and_only_approved_marks() {
+    let (app, hub) = start!();
+    let admin = app.setup("KHI-PD").await;
+    let hub_admin = hub.setup().await;
+    let ok = |(s, b): (StatusCode, Value), what: &str| {
+        assert!(s.is_success(), "{what}: {s} {b}");
+        b
+    };
+    let one = |sql: &'static str| {
+        let pool = app.db.pool.clone();
+        async move {
+            sqlx::query_scalar::<_, Uuid>(sql)
+                .fetch_one(&pool)
+                .await
+                .unwrap()
+        }
+    };
+    let year = one("SELECT id FROM academic_years").await;
+    let class = one("SELECT id FROM classes").await;
+    let section = one("SELECT id FROM sections").await;
+    let ali = app.student_id("Ali Khan").await;
+    let sara = app.student_id("Sara Noor").await;
+
+    // ---- the school's records ------------------------------------------------------------------
+    let eng = ok(
+        app.post(
+            "/subjects",
+            &admin,
+            json!({ "name": "English", "code": "ENG" }),
+        )
+        .await,
+        "subject",
+    );
+    let mth = ok(
+        app.post(
+            "/subjects",
+            &admin,
+            json!({ "name": "Mathematics", "code": "MTH" }),
+        )
+        .await,
+        "subject",
+    );
+    ok(
+        app.call(
+            Method::PUT,
+            &format!("/classes/{class}/subjects"),
+            Some(&admin),
+            Some(json!({ "subject_ids": [eng["id"], mth["id"]] })),
+        )
+        .await,
+        "class subjects",
+    );
+    let staff = ok(
+        app.post("/staff", &admin, json!({ "full_name": "Sana Malik" }))
+            .await,
+        "staff",
+    );
+    ok(
+        app.post(
+            &format!("/staff/{}/login", staff["id"].as_str().unwrap()),
+            &admin,
+            json!({ "username": "sana", "password": "teacher-password-1", "role": "teacher" }),
+        )
+        .await,
+        "teacher login",
+    );
+    ok(
+        app.call(
+            Method::PATCH,
+            &format!("/sections/{section}"),
+            Some(&admin),
+            Some(json!({ "class_teacher_id": staff["id"] })),
+        )
+        .await,
+        "class teacher",
+    );
+    let teacher = app.login("sana", "teacher-password-1").await;
+    ok(
+        app.post(
+            &format!("/students/{ali}/guardians"),
+            &admin,
+            json!({ "full_name": "Imran Khan", "relationship": "father", "phone": "0300-1111111", "is_primary": true }),
+        )
+        .await,
+        "guardian",
+    );
+    let imran = one("SELECT id FROM guardians WHERE full_name = 'Imran Khan'").await;
+
+    // Attendance: absent, late, present, and a day of leave the month after.
+    for (date, entries) in [
+        (
+            "2026-04-06",
+            json!([{ "student_id": ali, "status": "absent", "note": "sick" }]),
+        ),
+        (
+            "2026-04-07",
+            json!([{ "student_id": ali, "status": "late" }]),
+        ),
+        ("2026-04-08", json!([])),
+        (
+            "2026-05-04",
+            json!([{ "student_id": ali, "status": "leave" }]),
+        ),
+    ] {
+        ok(
+            app.call(
+                Method::PUT,
+                "/attendance/sheet",
+                Some(&admin),
+                Some(json!({ "section_id": section, "date": date, "entries": entries })),
+            )
+            .await,
+            "attendance",
+        );
+    }
+
+    // Marks: English approved, Mathematics entered but not approved.
+    let list = ok(
+        app.post(
+            "/exams/assessments/defaults",
+            &admin,
+            json!({ "academic_year_id": year }),
+        )
+        .await,
+        "assessments",
+    );
+    let test1 = list[0]["id"].clone();
+    ok(
+        app.call(
+            Method::PUT,
+            "/exams/max-marks",
+            Some(&admin),
+            Some(json!({ "assessment_id": test1, "class_id": class, "lines": [
+                { "subject_id": eng["id"], "max_marks": "50" }, { "subject_id": mth["id"], "max_marks": "50" }] })),
+        )
+        .await,
+        "max marks",
+    );
+    let mut sheets = Vec::new();
+    for (subject, a, s) in [(&eng, "45", "30"), (&mth, "37.5", "25.5")] {
+        let v = ok(
+            app.call(
+                Method::PUT,
+                "/exams/sheet",
+                Some(&admin),
+                Some(json!({ "assessment_id": test1, "section_id": section, "subject_id": subject["id"], "marks": [
+                    { "student_id": ali, "obtained": a }, { "student_id": sara, "obtained": s }] })),
+            )
+            .await,
+            "marks",
+        );
+        sheets.push(v["sheet"]["id"].as_str().unwrap().to_string());
+    }
+    for step in ["submit", "approve"] {
+        ok(
+            app.post(
+                &format!("/exams/sheets/{}/{step}", sheets[0]),
+                &admin,
+                json!({}),
+            )
+            .await,
+            step,
+        );
+    }
+
+    // Fees: two months billed (the first is carried into the second), part of it paid.
+    let tuition = ok(
+        app.post(
+            "/fees/heads",
+            &admin,
+            json!({ "name": "Tuition", "code": "TUI" }),
+        )
+        .await,
+        "fee head",
+    );
+    ok(
+        app.call(
+            Method::PUT,
+            "/fees/structure",
+            Some(&admin),
+            Some(json!({ "academic_year_id": year, "class_id": class, "lines": [{ "fee_head_id": tuition["id"], "amount": "2500" }] })),
+        )
+        .await,
+        "fee structure",
+    );
+    for month in ["2026-04-01", "2026-05-01"] {
+        ok(
+            app.post("/fees/vouchers/generate", &admin, json!({ "month": month }))
+                .await,
+            "vouchers",
+        );
+    }
+    let ledger_path = format!("/fees/students/{ali}/ledger");
+    let ledger = ok(app.get(&ledger_path, &admin).await, "ledger");
+    let latest = ledger["vouchers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|v| v["billing_month"] == "2026-05-01")
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    ok(
+        app.post(
+            &format!("/fees/vouchers/{latest}/payments"),
+            &admin,
+            json!({ "amount": "1000", "method": "cash" }),
+        )
+        .await,
+        "payment",
+    );
+
+    // ---- join, a notice, access for the guardian ----------------------------------------------
+    let code = hub.invite(&hub_admin).await;
+    ok(
+        app.post(
+            "/nexus/link/join",
+            &admin,
+            json!({ "hub_url": hub.url, "join_code": code }),
+        )
+        .await,
+        "join",
+    );
+    ok(
+        app.post(
+            "/parent-app/notices",
+            &admin,
+            json!({ "title": "Sports day", "body": "Friday. Bring water.", "publish": true }),
+        )
+        .await,
+        "notice",
+    );
+    let issued = ok(
+        app.post(
+            &format!("/parent-app/access/{imran}/code"),
+            &admin,
+            json!({}),
+        )
+        .await,
+        "access code",
+    );
+    let (s, session) = hub
+        .call(
+            reqwest::Method::POST,
+            "/parent/activate",
+            None,
+            Some(json!({ "code": issued["code"], "phone": "0300-1111111", "password": "parent-password-1" })),
+        )
+        .await;
+    assert_eq!(s, 200, "{session}");
+    let parent = session["token"].as_str().unwrap().to_string();
+    let sync = || async {
+        let (s, st) = app.post("/nexus/link/sync", &admin, json!({})).await;
+        assert_eq!(s, StatusCode::OK, "{st}");
+    };
+    sync().await;
+    let seen = |path: String| {
+        let (hub, parent) = (&hub, parent.clone());
+        async move {
+            let (s, b) = hub
+                .call(reqwest::Method::GET, &path, Some(&parent), None)
+                .await;
+            assert_eq!(s, 200, "{path}: {b}");
+            b
+        }
+    };
+
+    let kids = seen("/parent/children".into()).await;
+    assert_eq!(kids["children"].as_array().unwrap().len(), 1, "{kids}");
+    assert_eq!(
+        (
+            kids["children"][0]["full_name"].as_str(),
+            kids["children"][0]["class_name"].as_str(),
+            kids["children"][0]["section_name"].as_str(),
+            kids["children"][0]["roll_no"].as_i64()
+        ),
+        (Some("Ali Khan"), Some("5"), Some("A"), Some(1))
+    );
+    let school_ref = kids["children"][0]["school_ref"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let child = format!("/parent/children/{school_ref}/{ali}");
+
+    // ---- attendance ----------------------------------------------------------------------------
+    let theirs = seen(format!("{child}/attendance?month=2026-04")).await;
+    let ours = ok(
+        app.get(
+            &format!("/attendance/students/{ali}?from=2026-04-01&to=2026-04-30"),
+            &admin,
+        )
+        .await,
+        "school attendance",
+    );
+    for key in ["present", "absent", "late", "leave"] {
+        assert_eq!(theirs["summary"][key], ours["summary"][key], "April {key}");
+    }
+    assert_eq!(theirs["summary"]["percent"], ours["percent"]);
+    assert_eq!(
+        (
+            theirs["summary"]["present"].as_i64(),
+            theirs["summary"]["absent"].as_i64(),
+            theirs["summary"]["late"].as_i64()
+        ),
+        (Some(1), Some(1), Some(1))
+    );
+    let mut school_days: Vec<(String, String)> = ours["days"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| {
+            (
+                d["date"].as_str().unwrap().into(),
+                d["status"].as_str().unwrap().into(),
+            )
+        })
+        .collect();
+    school_days.sort();
+    let app_days: Vec<(String, String)> = theirs["days"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| {
+            (
+                d["date"].as_str().unwrap().into(),
+                d["status"].as_str().unwrap().into(),
+            )
+        })
+        .collect();
+    assert_eq!(app_days, school_days, "the same days, oldest first");
+    assert!(
+        !theirs.to_string().contains("sick"),
+        "the teacher's note on an absence is not sent to the app"
+    );
+    let whole_year = ok(
+        app.get(
+            &format!("/attendance/students/{ali}?from=2026-04-01&to=2027-03-31"),
+            &admin,
+        )
+        .await,
+        "school attendance, year",
+    );
+    for key in ["present", "absent", "late", "leave"] {
+        assert_eq!(
+            theirs["year"]["summary"][key], whole_year["summary"][key],
+            "year {key}"
+        );
+    }
+    assert_eq!(theirs["year"]["summary"]["percent"], whole_year["percent"]);
+    assert_eq!(theirs["year"]["summary"]["leave"], 1);
+    let overview = seen(child.clone()).await;
+    assert_eq!(overview["attendance"]["percent"], whole_year["percent"]);
+    assert_eq!(overview["class_teacher"], "Sana Malik");
+
+    // ---- fees ----------------------------------------------------------------------------------
+    let ledger = ok(app.get(&ledger_path, &admin).await, "ledger");
+    let fees = seen(format!("{child}/fees")).await;
+    assert_eq!(fees["balance"], ledger["totals"]["balance"], "{fees}");
+    // April with its late fee carried (2,750) + May (2,500) + May's late fee (250) − 1,000 paid.
+    assert_eq!(fees["balance"], "4500.00");
+    assert_eq!(overview["balance"], ledger["totals"]["balance"]);
+    assert_eq!(
+        (
+            fees["currency"].as_str(),
+            overview["open_vouchers"].as_i64()
+        ),
+        (Some("PKR"), Some(1))
+    );
+    let school_vouchers = ledger["vouchers"].as_array().unwrap();
+    let app_vouchers = fees["vouchers"].as_array().unwrap();
+    assert_eq!(app_vouchers.len(), school_vouchers.len());
+    for (mine, school) in app_vouchers.iter().zip(school_vouchers) {
+        for key in [
+            "id",
+            "voucher_no",
+            "billing_month",
+            "issue_date",
+            "due_date",
+            "gross",
+            "sibling_discount",
+            "concession_discount",
+            "net_monthly",
+            "arrears",
+            "total_due",
+            "late_fee",
+            "net_paid",
+            "status",
+        ] {
+            assert_eq!(mine[key], school[key], "voucher {key}: {mine} / {school}");
+        }
+        if mine["status"] == "carried" {
+            // Its amount is in the next voucher's arrears; the app does not show it twice.
+            assert_eq!(mine["balance"], "0", "{mine}");
+        } else {
+            assert_eq!(mine["balance"], school["balance"], "{mine} / {school}");
+        }
+        assert!(
+            mine["total_due"].is_string(),
+            "money is decimal text, never a float"
+        );
+        assert!(!mine["lines"].as_array().unwrap().is_empty(), "{mine}");
+    }
+    let paid = app_vouchers
+        .iter()
+        .find(|v| v["billing_month"] == "2026-05-01")
+        .unwrap();
+    assert_eq!(
+        (
+            paid["status"].as_str(),
+            paid["arrears"].as_str(),
+            paid["late_fee"].as_str(),
+            paid["net_paid"].as_str(),
+            paid["balance"].as_str(),
+            paid["lines"][0]["description"].as_str()
+        ),
+        (
+            Some("partial"),
+            Some("2750.00"),
+            Some("250.00"),
+            Some("1000.00"),
+            Some("4500.00"),
+            Some("Tuition")
+        )
+    );
+    assert_eq!(app_vouchers[1]["status"], "carried");
+    let school_receipts = ledger["receipts"].as_array().unwrap();
+    let app_receipts = fees["receipts"].as_array().unwrap();
+    assert_eq!((app_receipts.len(), school_receipts.len()), (1, 1));
+    for key in ["id", "receipt_no", "paid_on", "amount", "method"] {
+        assert_eq!(
+            app_receipts[0][key], school_receipts[0][key],
+            "receipt {key}"
+        );
+    }
+    assert_eq!(app_receipts[0]["voucher_no"], paid["voucher_no"]);
+    assert!(app_receipts[0].get("received_by").is_none());
+
+    // ---- results: approved marks only ----------------------------------------------------------
+    let card_path = format!("/exams/results/student/{ali}");
+    let school_card = ok(app.get(&card_path, &admin).await, "school card");
+    let results = seen(format!("{child}/results")).await;
+    let card = &results["card"];
+    let cell = |card: &Value, subject: &str| {
+        card["subjects"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|s| s["subject_name"] == subject)
+            .unwrap_or_else(|| panic!("{subject} missing: {card}"))["cells"][0]
+            .clone()
+    };
+    // The school sees both subjects, and which is approved.
+    assert_eq!(cell(&school_card, "Mathematics")["obtained"], "37.50");
+    assert_eq!(cell(&school_card, "Mathematics")["approved"], false);
+    // The parent sees English exactly as the school does, and nothing of Mathematics.
+    assert_eq!(cell(card, "English"), cell(&school_card, "English"));
+    assert_eq!(cell(card, "English")["obtained"], "45.00");
+    let maths = cell(card, "Mathematics");
+    assert!(
+        maths["obtained"].is_null() && maths["max_marks"].is_null() && maths["percent"].is_null(),
+        "unapproved marks are not shown: {maths}"
+    );
+    assert_eq!(
+        card["totals"][0]["total"], "45.00",
+        "the total counts approved marks only"
+    );
+    assert_eq!(card["totals"][0]["max"], "50.00");
+    assert!(
+        card["totals"][0]["position"].is_null(),
+        "no position until every sheet is approved"
+    );
+    assert!(!results.to_string().contains("37.50"), "{results}");
+    assert_ne!(card, &school_card);
+
+    // Once the principal approves Mathematics, the parent's card is the school's card.
+    for step in ["submit", "approve"] {
+        ok(
+            app.post(
+                &format!("/exams/sheets/{}/{step}", sheets[1]),
+                &admin,
+                json!({}),
+            )
+            .await,
+            step,
+        );
+    }
+    let results = seen(format!("{child}/results")).await;
+    assert!(
+        cell(&results["card"], "Mathematics")["obtained"].is_null(),
+        "not before the school syncs"
+    );
+    sync().await;
+    let school_card = ok(app.get(&card_path, &admin).await, "school card");
+    let results = seen(format!("{child}/results")).await;
+    assert_eq!(
+        results["card"], school_card,
+        "the same report card, field for field"
+    );
+    assert_eq!(results["card"]["totals"][0]["total"], "82.50");
+    assert_eq!(results["card"]["totals"][0]["position"], 1);
+    assert!(results["synced_at"].is_string());
+
+    // ---- notices and messages ------------------------------------------------------------------
+    let notices = seen(format!("{child}/notices")).await;
+    assert_eq!(
+        (
+            notices["notices"][0]["title"].as_str(),
+            notices["notices"][0]["whole_school"].as_bool()
+        ),
+        (Some("Sports day"), Some(true)),
+        "{notices}"
+    );
+    let (s, sent) = hub
+        .call(
+            reqwest::Method::POST,
+            &format!("{child}/messages"),
+            Some(&parent),
+            Some(json!({ "body": "Ali has a fever today." })),
+        )
+        .await;
+    assert_eq!(s, 201, "{sent}");
+    sync().await;
+    let list = ok(
+        app.get("/parent-app/conversations", &teacher).await,
+        "conversations",
+    );
+    assert_eq!(
+        (
+            list[0]["guardian_name"].as_str(),
+            list[0]["last_preview"].as_str(),
+            list[0]["unread"].as_i64()
+        ),
+        (Some("Imran Khan"), Some("Ali has a fever today."), Some(1)),
+        "{list}"
+    );
+    ok(
+        app.post(
+            &format!("/parent-app/conversations/{ali}/{imran}/messages"),
+            &teacher,
+            json!({ "body": "Thank you. I hope he is better soon." }),
+        )
+        .await,
+        "reply",
+    );
+    sync().await;
+    let thread = seen(format!("{child}/messages")).await;
+    let last = &thread["messages"][1];
+    assert_eq!(
+        (
+            last["sender"].as_str(),
+            last["sender_name"].as_str(),
+            last["body"].as_str(),
+            thread["unread"].as_i64()
+        ),
+        (
+            Some("staff"),
+            Some("Sana Malik"),
+            Some("Thank you. I hope he is better soon."),
+            Some(1)
+        ),
+        "{thread}"
+    );
+
+    // Another child of the same school stays out of reach.
+    let (s, _) = hub
+        .call(
+            reqwest::Method::GET,
+            &format!("/parent/children/{school_ref}/{sara}/results"),
+            Some(&parent),
+            None,
+        )
+        .await;
+    assert_eq!(s, 404);
+
+    hub.finish().await;
+    app.finish().await;
+}

@@ -32,18 +32,21 @@ use crate::tenants::{self, HubSchool};
 use crate::{store, HubError, HubResult, HubState};
 
 pub fn router() -> Router<HubState> {
-    Router::new()
-        // For the school.
-        .route("/sync/parents", get(access_list))
-        .route("/sync/parents/codes", post(issue_code))
-        .route("/sync/parents/{guardian_id}", delete(end_access))
-        // For the parent.
+    // For the parent, in the app (which calls from another origin; see `app_cors`).
+    let app = Router::new()
         .route("/parent/activate/check", post(check_code))
         .route("/parent/activate", post(activate))
         .route("/parent/login", post(login))
         .route("/parent/logout", post(logout))
         .route("/parent/me", get(me))
         .route("/parent/password", post(change_password))
+        .layer(super::parent_data::app_cors());
+    Router::new()
+        // For the school.
+        .route("/sync/parents", get(access_list))
+        .route("/sync/parents/codes", post(issue_code))
+        .route("/sync/parents/{guardian_id}", delete(end_access))
+        .merge(app)
 }
 
 /// The signed-in parent. Extracting it fails with `401` without a live parent session.

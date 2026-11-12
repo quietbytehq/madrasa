@@ -103,6 +103,7 @@ impl From<madrasa_db::DbError> for HubError {
         match err {
             DbError::Conflict(msg) => HubError::conflict(sentence(&msg)),
             DbError::NotFound(what) => HubError::not_found(&what),
+            DbError::Invalid(msg) => HubError::validation(msg),
             DbError::Sqlx(e) => e.into(),
             DbError::Migrate(e) => {
                 tracing::error!(error = %e, "hub migration error");

@@ -27,6 +27,7 @@ pub mod nexus_link;
 pub mod parent_app;
 pub mod report_definitions;
 pub mod reports;
+pub mod results;
 pub mod ro;
 pub mod roles;
 pub mod rollover;
@@ -60,6 +61,9 @@ pub enum DbError {
     Conflict(String),
     #[error("{0}")]
     NotFound(String),
+    /// The request cannot be carried out as asked (a rule of the data, not a clash).
+    #[error("{0}")]
+    Invalid(String),
 }
 
 pub type DbResult<T> = Result<T, DbError>;

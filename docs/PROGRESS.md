@@ -1449,6 +1449,49 @@ depend on each other and were built together)
   code); 1 end-to-end test over real HTTP from the school's API through a hub.
 - Left: stages 3 to 7. A signed-in parent cannot see anything yet (stage 3).
 
+### 2026-11-12 — Stage 3: What a parent can see at the hub (branch `dev/parent-3-data`)
+- Done, one calculation for school and hub: the result sheet and report card code moved
+  from the school API (`crates/api/src/routes/exams.rs`, `exam_terms.rs`) into
+  `madrasa_db::results`. The school API re-exports it; its answers are unchanged (the
+  existing exam, report card, PDF, Excel, read-only API and allocation tests pass as they
+  were). New `build_approved_report_card`: the same calculation over approved sheets only,
+  with a position in class only when every sheet of the assessment is approved. New
+  `DbError::Invalid` (a 400 in both servers) for the two formula errors that used to be
+  raised in the API layer.
+- Done, hub (`crates/nexus/src/routes/parent_data.rs`): `/parent/children` and, for one
+  child, overview, attendance by month with month and year summaries, results (the
+  approved-only report card), fees (vouchers with lines, receipts, balance), notices for
+  the child's class, and the conversation with the class teacher (read, send, mark read).
+  Every answer carries the school's last sync time. Spec §17.3.
+- Done, scoping: one function (`open`) stands in front of every child route. It checks the
+  account's live link to a guardian record of that school, then, in a transaction that sees
+  only that school's schema, that the guardian record belongs to the student. Any failure
+  is the same `404`.
+- Done, messages from the app: written into the hub's copy of the school from the
+  guardian's side (audit entry without the text), limited to 20 an hour for one child,
+  refused when the class has no class teacher. They reach the school at its next sync.
+- Done, cross-origin access for the app on `/parent/…` only: any origin, `Authorization`
+  and `Content-Type` headers, no credentials.
+- Decision: a voucher carried into a later one shows balance 0 in the app (the school's
+  ledger screen shows the carried amount on both); the total owed is the same.
+- Decision: the teacher's note on an attendance day, who received a payment, payment
+  references and school login ids are not sent to the app.
+- Tested: `crates/nexus/tests/parent_data.rs` (2 tests): a parent's own child answers on
+  every route; another family's child, a child at another school, own child named under
+  another school, unknown ids, a guardian removed from the student, access ended by the
+  school and a school that left all give the identical `404` on all nine routes; a refused
+  message is not stored; head office, school and made-up tokens get `401`; cross-origin
+  headers are present on parent routes and absent on console and sync routes; notices
+  respect draft, expiry and class; a message goes app → hub → school and the answer comes
+  back; read marks; the hourly limit. `crates/api/tests/nexus_link.rs` (+1, now 6): a real
+  school API and a live hub; attendance (month, year, days), fees (balance, every voucher
+  figure, receipts) and the overview are compared with the school's own API answers; an
+  unapproved Mathematics sheet is not shown and does not count, and after approval and a
+  sync the parent's report card equals the school's field for field; a teacher's reply
+  through the school API reaches the app. Hub unit test for month bounds.
+- Left: stages 4 to 7 (school desktop screens, the app itself, the APK in CI, demo data
+  and the hand-test script).
+
 ## Summary for the owner — Nexus alpha
 
 The Nexus alpha was built as one design pull request and nine stage pull requests, each
