@@ -2240,3 +2240,55 @@ School API (`/api/v1`):
 - The audit log records that a message was sent and by which side, never its text.
 - Saving a notice or a message wakes the sync timer, so it leaves within seconds instead of
   at the next five-minute round.
+
+### 17.2 Parent accounts and access codes (stage 2)
+
+Hub migration 4 (hub schema; no school data):
+
+| Table | Holds |
+| --- | --- |
+| `hub_parents` | An account: `phone` (the account name: digits, a leading `+` kept), `full_name` (the guardian's name when it was opened), `password_hash` (Argon2id), lockout counters, `last_login_at` |
+| `hub_parent_links` | An account's access to one guardian record: `parent_id`, `hub_school_id`, `guardian_id`, `linked_at`, `ended_at`, `ended_reason` (`school`, `replaced`, `left`, `removed`, `purged`). One live link for each guardian record |
+| `hub_parent_access_codes` | A one-time code: `hub_school_id`, `guardian_id`, `guardian_name`, `code_hash` (SHA-256), `expires_at` (14 days), `used_at`, `used_by`, `revoked_at` |
+| `hub_parent_sessions` | `parent_id`, `token_hash`, `expires_at` (30 days after last use), `revoked_at` |
+
+An **access code** is 12 characters in three groups (`ABCD-EFGH-JKMN`, Crockford base32).
+Capitals, spaces and dashes do not matter; `O` reads as `0`, `I` and `L` as `1`. It is
+shown once to the school; the hub keeps its hash. A newer code for the same guardian
+replaces an unused older one.
+
+Hub endpoints for **the school** (its sync token):
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| POST | `/sync/parents/codes` | `{ guardian_id }` → `{ code, expires_at, guardian_name }`. `404 guardian_unknown` when the hub's copy has no such guardian, or the guardian has no student |
+| GET | `/sync/parents` | `[{ guardian_id, state: active \| code, phone_hint, since, last_login_at, code_expires_at }]`; the phone number is shown as its last four digits only |
+| DELETE | `/sync/parents/{guardian_id}` | Ends the guardian's link and unused codes → `{ ended }` |
+
+Hub endpoints for **the parent**:
+
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| POST | `/parent/activate/check` | the code | `{ code }` → `{ guardian_name, school_name, children[], existing_phone_hint }`, so the app can show whose code it is |
+| POST | `/parent/activate` | the code | `{ code, phone, password }` → a session. No account has the phone: a new account. The account already holds this guardian's link: the password is replaced (a forgotten password). Another account has it: that account's password must be given (`401 account_exists` otherwise) and the school is added to it. A refusal does not spend the code |
+| POST | `/parent/login` | none | `{ phone, password }` → `{ token, expires_at, parent }`; `423` after five failures, for fifteen minutes |
+| POST | `/parent/logout` | parent session | Ends this session |
+| GET | `/parent/me` | parent session | `{ parent, hub_name, links }` |
+| POST | `/parent/password` | parent session | `{ current, new }`; every phone is signed out and this one gets a new session |
+
+- A parent session, a head office session and a school's sync token are three separate
+  kinds of token: none opens another's routes (`401`).
+- A newer code activated with a different phone number moves the guardian's link to the
+  new account (a replaced phone). A link also ends when the school ends it and when the
+  school leaves, is removed or is purged.
+- The hub audit log records codes issued, activations (with their outcome) and access
+  ended, by guardian id; never a code, password, token or phone number.
+
+School API (`/api/v1`, permission `parents.manage`, joined schools only):
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/parent-app/access` | The hub's list with the guardian's name and children added |
+| POST | `/parent-app/access/{guardian_id}/code` | Syncs anything not sent yet, then asks the hub → `{ code, expires_at, guardian_name, hub_url, hub_name }`, to print on a slip. Shown once |
+| DELETE | `/parent-app/access/{guardian_id}` | End access → `{ ended }` |
+

@@ -1430,6 +1430,25 @@ depend on each other and were built together)
   text, records queued for the hub).
 - Left: stages 2 to 7. No screen yet (stage 4), no parent accounts yet (stage 2).
 
+### 2026-11-12 — Stage 2: Parent accounts and access codes (branch `dev/parent-2-accounts`)
+- Done: parent accounts at the hub (phone number and password), one-time access codes that
+  a school asks for and hands to a guardian, and the links from an account to guardian
+  records. A parent can check whose code it is, activate it, sign in and out and change the
+  password. The school can see who has access and end it. Spec §17.2.
+- One code, three outcomes, by the phone number the parent gives: a new account; a school
+  added to an existing account (its password is needed); or a new password, when the
+  guardian already has that account. The last is how a forgotten password is handled: the
+  school issues a new code. There is no SMS or email.
+- Safety: codes, passwords and tokens are stored as hashes only; five wrong passwords lock
+  an account for fifteen minutes; a parent session opens nothing in the head office console
+  or the school sync API and the reverse; the logs carry no code, password, token or phone
+  number; the school sees only the last four digits of the phone number.
+- Tested: 2 more unit tests (access code format and forgiving input, phone numbers); 2 hub
+  database tests (everything above, including two schools on one account, a replaced
+  phone, an expired code, a school leaving, and lockout with the school lifting it by a new
+  code); 1 end-to-end test over real HTTP from the school's API through a hub.
+- Left: stages 3 to 7. A signed-in parent cannot see anything yet (stage 3).
+
 ## Summary for the owner — Nexus alpha
 
 The Nexus alpha was built as one design pull request and nine stage pull requests, each

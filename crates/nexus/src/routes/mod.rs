@@ -5,6 +5,7 @@ pub mod auth;
 pub mod corrections;
 pub mod escrow;
 pub mod health;
+pub mod parents;
 pub mod reports;
 pub mod schools;
 pub mod setup;

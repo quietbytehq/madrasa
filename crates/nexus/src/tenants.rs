@@ -330,6 +330,8 @@ pub async fn end(
     // A school that is no longer joined could not be told about a release: its sealed
     // backup key is erased now, not kept with the archive.
     crate::escrow::end_deposit(&mut tx, hlc, actor, school.id, status).await?;
+    // Its parents can no longer see anything of it.
+    crate::parents::end_for_school(&mut tx, hlc, school.id, status).await?;
     let after = get(&mut tx, school.id)
         .await?
         .ok_or_else(|| anyhow::anyhow!("school vanished"))?;
@@ -374,6 +376,7 @@ pub async fn purge(
     .execute(&mut *tx)
     .await?;
     crate::escrow::end_deposit(&mut tx, hlc, actor, school.id, "purged").await?;
+    crate::parents::end_for_school(&mut tx, hlc, school.id, "purged").await?;
     let after = get(&mut tx, school.id)
         .await?
         .ok_or_else(|| anyhow::anyhow!("school vanished"))?;

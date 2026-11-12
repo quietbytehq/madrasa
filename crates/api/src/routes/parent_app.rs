@@ -35,6 +35,12 @@ pub fn router() -> Router<AppState> {
         )
         .route("/parent-app/notices/{id}/publish", post(publish_notice))
         .route("/parent-app/notices/{id}/withdraw", post(withdraw_notice))
+        .route("/parent-app/access", get(access_list))
+        .route("/parent-app/access/{guardian_id}/code", post(access_code))
+        .route(
+            "/parent-app/access/{guardian_id}",
+            axum::routing::delete(access_end),
+        )
         .route("/parent-app/conversations", get(list_conversations))
         .route(
             "/parent-app/conversations/{student_id}/{guardian_id}",
@@ -66,6 +72,101 @@ pub(crate) async fn require_joined(state: &AppState, user: &CurrentUser) -> ApiR
         ));
     }
     Ok(())
+}
+
+// ---- access to the parent app ---------------------------------------------------------------
+
+/// A guardian's access, with the names the school knows them by.
+#[derive(Debug, Serialize)]
+pub struct AccessRow {
+    #[serde(flatten)]
+    pub access: madrasa_core::parent_app::GuardianAccess,
+    pub guardian_name: String,
+    pub children: Vec<String>,
+}
+
+async fn access_gate(state: &AppState, user: &CurrentUser) -> ApiResult<()> {
+    user.require(Permission::ParentsManage)?;
+    require_joined(state, user).await
+}
+
+/// Guardians who have access to the parent app, or a code waiting to be used.
+async fn access_list(
+    State(state): State<AppState>,
+    user: CurrentUser,
+) -> ApiResult<Json<Vec<AccessRow>>> {
+    access_gate(&state, &user).await?;
+    let hub = crate::nexus_link::parent_access(&state).await?;
+    let ids: Vec<Uuid> = hub.iter().map(|a| a.guardian_id).collect();
+    let mut c = state.pool.acquire().await?;
+    let names: Vec<(Uuid, String, Vec<String>)> = sqlx::query_as(
+        "SELECT g.id, g.full_name,
+                COALESCE(array_agg(s.full_name ORDER BY s.full_name) FILTER (WHERE s.id IS NOT NULL), '{}')
+         FROM guardians g
+         LEFT JOIN student_guardians sg ON sg.guardian_id = g.id AND sg.deleted_at IS NULL
+         LEFT JOIN students s ON s.id = sg.student_id AND s.deleted_at IS NULL
+         WHERE g.school_id = $1 AND g.id = ANY($2)
+         GROUP BY g.id, g.full_name",
+    )
+    .bind(user.user.school_id)
+    .bind(&ids)
+    .fetch_all(&mut *c)
+    .await?;
+    let mut rows: Vec<AccessRow> = hub
+        .into_iter()
+        .map(|access| {
+            let known = names.iter().find(|(id, _, _)| *id == access.guardian_id);
+            AccessRow {
+                guardian_name: known.map(|(_, n, _)| n.clone()).unwrap_or_default(),
+                children: known.map(|(_, _, c)| c.clone()).unwrap_or_default(),
+                access,
+            }
+        })
+        .collect();
+    rows.sort_by(|a, b| a.guardian_name.cmp(&b.guardian_name));
+    Ok(Json(rows))
+}
+
+/// A one-time access code for a guardian, to hand over on a slip. Shown once.
+async fn access_code(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    Path(guardian_id): Path<Uuid>,
+) -> ApiResult<Json<crate::nexus_link::ParentCode>> {
+    access_gate(&state, &user).await?;
+    let mut c = state.pool.acquire().await?;
+    let has_child: bool = sqlx::query_scalar(
+        "SELECT EXISTS (SELECT 1 FROM student_guardians sg
+                        JOIN guardians g ON g.id = sg.guardian_id AND g.deleted_at IS NULL
+                        JOIN students s ON s.id = sg.student_id AND s.deleted_at IS NULL
+                        WHERE sg.guardian_id = $1 AND sg.school_id = $2 AND sg.deleted_at IS NULL)",
+    )
+    .bind(guardian_id)
+    .bind(user.user.school_id)
+    .fetch_one(&mut *c)
+    .await?;
+    drop(c);
+    if !has_child {
+        return Err(ApiError::not_found("A guardian with a student"));
+    }
+    Ok(Json(
+        crate::nexus_link::parent_access_code(&state, user.actor(), guardian_id).await?,
+    ))
+}
+
+#[derive(Debug, Serialize)]
+pub struct AccessEnded {
+    pub ended: bool,
+}
+
+async fn access_end(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    Path(guardian_id): Path<Uuid>,
+) -> ApiResult<Json<AccessEnded>> {
+    access_gate(&state, &user).await?;
+    let ended = crate::nexus_link::parent_access_end(&state, user.actor(), guardian_id).await?;
+    Ok(Json(AccessEnded { ended }))
 }
 
 // ---- notices --------------------------------------------------------------------------------
