@@ -1080,3 +1080,193 @@ async fn a_backup_key_left_with_head_office_is_released_and_opens_a_real_backup(
     app.finish().await;
     hub.finish().await;
 }
+
+/// Parent app stage 2, end to end: the school gives a guardian an access code through its
+/// hub, the parent activates it at the hub, the school sees that access is open and ends it.
+#[tokio::test]
+async fn a_school_gives_a_guardian_an_access_code_and_ends_access_again() {
+    let (app, hub) = start!();
+    let admin = app.setup("KHI-PA").await;
+    let hub_admin = hub.setup().await;
+    let ali = app.student_id("Ali Khan").await;
+    let (s, b) = app
+        .post(
+            &format!("/students/{ali}/guardians"),
+            &admin,
+            json!({ "full_name": "Imran Khan", "relationship": "father", "phone": "0300-1111111", "is_primary": true }),
+        )
+        .await;
+    assert!(s.is_success(), "{b}");
+    let imran: Uuid = sqlx::query_scalar("SELECT id FROM guardians WHERE full_name = 'Imran Khan'")
+        .fetch_one(&app.db.pool)
+        .await
+        .unwrap();
+
+    // Not joined yet: there is no hub to ask.
+    let (s, e) = app
+        .post(
+            &format!("/parent-app/access/{imran}/code"),
+            &admin,
+            json!({}),
+        )
+        .await;
+    assert_eq!(
+        (s, e["error"]["code"].as_str()),
+        (StatusCode::CONFLICT, Some("not_joined")),
+        "{e}"
+    );
+
+    let code = hub.invite(&hub_admin).await;
+    let (s, b) = app
+        .post(
+            "/nexus/link/join",
+            &admin,
+            json!({ "hub_url": hub.url, "join_code": code }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+
+    // Only someone who manages parent access; a teacher does not.
+    let (_, staff) = app
+        .post("/staff", &admin, json!({ "full_name": "Sana Malik" }))
+        .await;
+    let (s, b) = app
+        .post(
+            &format!("/staff/{}/login", staff["id"].as_str().unwrap()),
+            &admin,
+            json!({ "username": "sana", "password": "teacher-password-1", "role": "teacher" }),
+        )
+        .await;
+    assert!(s.is_success(), "{b}");
+    let teacher = app.login("sana", "teacher-password-1").await;
+    let (s, _) = app.get("/parent-app/access", &teacher).await;
+    assert_eq!(s, StatusCode::FORBIDDEN);
+    let (s, _) = app
+        .post(
+            &format!("/parent-app/access/{imran}/code"),
+            &teacher,
+            json!({}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::FORBIDDEN);
+
+    // Nothing has been uploaded yet: asking for a code syncs first, so the hub knows the
+    // guardian by the time it is asked.
+    let (_, st) = app.get("/nexus/link", &admin).await;
+    assert!(st["pending"].as_i64().unwrap() > 0);
+    let (s, issued) = app
+        .post(
+            &format!("/parent-app/access/{imran}/code"),
+            &admin,
+            json!({}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{issued}");
+    let access_code = issued["code"].as_str().unwrap().to_string();
+    assert_eq!(
+        (
+            issued["guardian_name"].as_str(),
+            issued["hub_url"].as_str(),
+            issued["hub_name"].as_str()
+        ),
+        (
+            Some("Imran Khan"),
+            Some(hub.url.as_str()),
+            Some("Gulshan Education Network")
+        )
+    );
+    let (s, _) = app
+        .post(
+            &format!("/parent-app/access/{}/code", Uuid::now_v7()),
+            &admin,
+            json!({}),
+        )
+        .await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+    let (s, list) = app.get("/parent-app/access", &admin).await;
+    assert_eq!(s, StatusCode::OK, "{list}");
+    assert_eq!(
+        (
+            list[0]["guardian_name"].as_str(),
+            list[0]["children"].clone(),
+            list[0]["state"].as_str()
+        ),
+        (Some("Imran Khan"), json!(["Ali Khan"]), Some("code"))
+    );
+
+    // The parent, in the app: checks the code, then activates it.
+    let (s, check) = hub
+        .call(
+            reqwest::Method::POST,
+            "/parent/activate/check",
+            None,
+            Some(json!({ "code": access_code })),
+        )
+        .await;
+    assert_eq!(s, 200, "{check}");
+    assert_eq!(
+        (
+            check["guardian_name"].as_str(),
+            check["school_name"].as_str(),
+            check["children"].clone()
+        ),
+        (
+            Some("Imran Khan"),
+            Some("Gulshan High"),
+            json!(["Ali Khan"])
+        )
+    );
+    let (s, session) = hub
+        .call(reqwest::Method::POST, "/parent/activate", None, Some(json!({ "code": access_code, "phone": "0300-1234567", "password": "parent-password-1" })))
+        .await;
+    assert_eq!(s, 200, "{session}");
+    let parent = session["token"].as_str().unwrap().to_string();
+    let (_, me) = hub
+        .call(reqwest::Method::GET, "/parent/me", Some(&parent), None)
+        .await;
+    assert_eq!(
+        (me["links"].as_i64(), me["hub_name"].as_str()),
+        (Some(1), Some("Gulshan Education Network"))
+    );
+
+    // The school sees it, with only a hint of the phone number.
+    let (_, list) = app.get("/parent-app/access", &admin).await;
+    assert_eq!(
+        (list[0]["state"].as_str(), list[0]["phone_hint"].as_str()),
+        (Some("active"), Some("•••• 4567"))
+    );
+    // The school's own log has the code being issued, not the code.
+    let (_, audit) = app.get("/audit?limit=200", &admin).await;
+    assert!(!audit.to_string().contains(&access_code));
+    let entries = audit["items"]
+        .as_array()
+        .or_else(|| audit.as_array())
+        .unwrap();
+    assert!(entries
+        .iter()
+        .any(|e| e["entity"] == "parent_access" && e["action"] == "create"));
+
+    // The school ends access: the parent's account no longer reaches anything here.
+    let (s, ended) = app
+        .call(
+            Method::DELETE,
+            &format!("/parent-app/access/{imran}"),
+            Some(&admin),
+            None,
+        )
+        .await;
+    assert_eq!(
+        (s, ended["ended"].as_bool()),
+        (StatusCode::OK, Some(true)),
+        "{ended}"
+    );
+    let (_, me) = hub
+        .call(reqwest::Method::GET, "/parent/me", Some(&parent), None)
+        .await;
+    assert_eq!(me["links"], 0);
+    let (_, list) = app.get("/parent-app/access", &admin).await;
+    assert_eq!(list, json!([]));
+
+    app.finish().await;
+    hub.finish().await;
+}

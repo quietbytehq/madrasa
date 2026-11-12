@@ -69,19 +69,25 @@ attachments, messages to anyone but the class teacher, SMS or email, self-regist
 
 ## Stage 2 — Hub: parent accounts and access codes
 
-- [ ] Hub migration: `hub_parents` (phone, password hash, lockout), `hub_parent_links`
-      (account, hub school, guardian id), `hub_parent_access_codes` (hash, expiry, used),
-      `hub_parent_sessions`
-- [ ] For the school (sync token): issue an access code for a guardian, list which
-      guardians have access, end a link. School API and its permission `parents.manage`
-- [ ] For the parent: activate with a code (new account, or add to an existing one, or
-      set a new password), sign in, sign out, who am I. Lockout after repeated failures.
-      Parent sessions open nothing in the console and nothing in the school sync API
-- [ ] Links end when the school ends them, when the guardian record is removed, and when
-      the school leaves or is removed from the hub; purging a school deletes them
-- [ ] Tests: a code works once and expires; wrong code and wrong password lock; two
-      schools on one account; a console session or sync token is refused on parent routes
-      and the reverse; hub audit entries without secrets
+- [x] Hub migration 4: `hub_parents` (phone, password hash, lockout), `hub_parent_links`
+      (account, hub school, guardian id; one live link for each guardian record),
+      `hub_parent_access_codes` (hash, expiry, used), `hub_parent_sessions`
+- [x] For the school (sync token): issue an access code for a guardian, list which
+      guardians have access, end a guardian's access. School API with permission
+      `parents.manage`; asking for a code syncs first, so the hub knows the guardian
+- [x] For the parent: check a code (whose it is), activate it (new account, add a school
+      to an existing account with its password, or set a new password when the guardian
+      already has that account), sign in, sign out, who am I, change password. Lockout
+      after five failures. Parent sessions open nothing in the console and nothing in the
+      school sync API, and the reverse
+- [x] Links end when the school ends them, when a newer code moves the guardian to another
+      account, and when the school leaves, is removed or is purged (a removed guardian is
+      checked at each request, stage 3)
+- [x] Tests: a code works once and expires; a refusal does not spend it; wrong passwords
+      lock; two schools on one account; another family's code cannot be attached without
+      the password; the three kinds of token on each other's routes; hub and school audit
+      entries without codes, passwords, tokens or phone numbers; end to end from a school's
+      API through a real hub
 
 ## Stage 3 — Hub: what a parent can see
 

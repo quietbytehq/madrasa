@@ -10,6 +10,7 @@ pub mod config;
 pub mod demo;
 pub mod error;
 pub mod escrow;
+pub mod parents;
 pub mod permissions;
 pub mod reports;
 pub mod routes;
@@ -61,6 +62,7 @@ pub fn router(state: HubState) -> Router {
         .merge(routes::reports::router())
         .merge(routes::escrow::router())
         .merge(routes::corrections::router())
+        .merge(routes::parents::router())
         .merge(routes::sync::router())
         .fallback(no_such_api)
         .with_state(state);

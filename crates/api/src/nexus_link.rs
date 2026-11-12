@@ -9,6 +9,7 @@ use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 use madrasa_core::escrow::{self, DepositRequest, EscrowStatus, ReleaseInfo, SeenRequest};
+use madrasa_core::parent_app::{AccessCode, AccessCodeRequest, GuardianAccess};
 use madrasa_core::sync::{
     hub_url, AckRequest, AckResponse, JoinRequest, JoinResponse, LeaveRequest, Origin, Parked,
     PullRequest, PullResponse, PushRequest, PushResponse,
@@ -591,6 +592,113 @@ async fn note_releases(
     .await
     .map_err(|e| e.to_string())?;
     Ok(new.len())
+}
+
+// ---- parent app access (docs/adr/0006-parent-app.md) -------------------------------------------
+
+/// An access code as the school shows it once, with what the parent types it into.
+#[derive(Debug, Clone, Serialize)]
+pub struct ParentCode {
+    pub code: String,
+    pub expires_at: DateTime<Utc>,
+    pub guardian_name: String,
+    /// The address the parent enters in the app.
+    pub hub_url: String,
+    pub hub_name: String,
+}
+
+/// Which guardians have access to the parent app, or a code waiting. Asked of the hub.
+pub async fn parent_access(state: &AppState) -> ApiResult<Vec<GuardianAccess>> {
+    let school = school_id(state).await?;
+    let (link, token) = escrow_link(state, school).await?;
+    let http = http().map_err(refused)?;
+    send(
+        http.get(format!("{}{HUB_API}/sync/parents", link.hub_url)),
+        Some(&token),
+    )
+    .await
+    .map_err(refused)
+}
+
+/// Ask the hub for a one-time access code for a guardian. The hub must know the guardian,
+/// so anything not sent yet is synced first.
+pub async fn parent_access_code(
+    state: &AppState,
+    actor: Actor,
+    guardian_id: Uuid,
+) -> ApiResult<ParentCode> {
+    let school = school_id(state).await?;
+    let (link, token) = escrow_link(state, school).await?;
+    if status(state).await?.pending > 0 {
+        sync_now(state, actor).await?;
+    }
+    let http = http().map_err(refused)?;
+    let issued: AccessCode = send(
+        http.post(format!("{}{HUB_API}/sync/parents/codes", link.hub_url))
+            .json(&AccessCodeRequest { guardian_id }),
+        Some(&token),
+    )
+    .await
+    .map_err(refused)?;
+    // The school's log says a code was issued and for whom, never the code.
+    let mut conn = state.pool.acquire().await?;
+    audit::record(
+        &mut conn,
+        &state.hlc,
+        actor,
+        audit::Action::Create,
+        "parent_access",
+        Some(guardian_id),
+        None,
+        Some(serde_json::json!({ "guardian": issued.guardian_name, "expires_at": issued.expires_at })),
+    )
+    .await?;
+    Ok(ParentCode {
+        code: issued.code,
+        expires_at: issued.expires_at,
+        guardian_name: issued.guardian_name,
+        hub_url: link.hub_url,
+        hub_name: link.hub_name,
+    })
+}
+
+/// End a guardian's access to the parent app. Returns whether there was anything to end.
+pub async fn parent_access_end(
+    state: &AppState,
+    actor: Actor,
+    guardian_id: Uuid,
+) -> ApiResult<bool> {
+    #[derive(serde::Deserialize)]
+    struct Ended {
+        ended: bool,
+    }
+    let school = school_id(state).await?;
+    let (link, token) = escrow_link(state, school).await?;
+    let http = http().map_err(refused)?;
+    let answer: Ended = send(
+        http.delete(format!(
+            "{}{HUB_API}/sync/parents/{guardian_id}",
+            link.hub_url
+        )),
+        Some(&token),
+    )
+    .await
+    .map_err(refused)?;
+    if answer.ended {
+        let mut conn = state.pool.acquire().await?;
+        audit::record(
+            &mut conn,
+            &state.hlc,
+            actor,
+            audit::Action::Delete,
+            "parent_access",
+            Some(guardian_id),
+            None,
+            None,
+        )
+        .await?;
+    }
+    Ok(answer.ended)
 }
 
 /// At start: make sure change capture matches the link. A joined school gets the trigger on
