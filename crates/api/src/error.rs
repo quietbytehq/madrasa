@@ -142,6 +142,7 @@ impl From<madrasa_db::DbError> for ApiError {
         match err {
             DbError::Conflict(msg) => ApiError::conflict(sentence(&msg)),
             DbError::NotFound(what) => ApiError::not_found(&what),
+            DbError::Invalid(msg) => ApiError::validation(msg),
             DbError::Sqlx(e) => {
                 tracing::error!(error = %e, "database error");
                 ApiError::internal()
