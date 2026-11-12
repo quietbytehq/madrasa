@@ -123,7 +123,7 @@ token, once, which is useless after setup.
 The release workflow builds the image (hub and web console) and publishes it to GitHub
 Container Registry when a release is tagged:
 
-- `ghcr.io/quietbytehq/madrasa-nexus:<version>` (for example `:0.4.0`)
+- `ghcr.io/quietbytehq/madrasa-nexus:<version>` (the tag without its `v`, for example `:0.4.1-alpha`)
 - `ghcr.io/quietbytehq/madrasa-nexus:latest`
 
 Two things to know before the first cloud deployment:

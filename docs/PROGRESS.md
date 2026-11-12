@@ -1362,6 +1362,39 @@ depend on each other and were built together)
   session that has one. No product code changed.
 - Left: nothing in docs/TASKS-NEXUS.md. See the summary below for what is not proven.
 
+### 2026-11-12 — v0.4.1: the release image build (branch `dev/v0.4.1-nexus-image`)
+- What happened: the v0.4.0-alpha Release run built the desktop installers but failed in
+  the Nexus hub image job. The version bump to 0.4.0 changed `Cargo.toml` and the package
+  files but not `Cargo.lock`, which still named 0.3.1; the image is built with
+  `cargo build --locked`, which refuses that. CI on `main` failed in its own image job on
+  the same commit, for the same reason, but the tag had been pushed a minute after the
+  bump, which had not gone through a pull request. The desktop builds and the Rust jobs do
+  not use `--locked`, so they passed.
+- Fixed: `Cargo.lock` is in step again (only this workspace's six entries changed) and the
+  version is 0.4.1.
+- So that it cannot recur quietly:
+  - `scripts/set-version.sh` now updates `Cargo.lock` itself and stops with an error if it
+    cannot; before, a failure to do so was swallowed.
+  - `scripts/check-lockfile.sh` compares the two files and then asks cargo. CI runs it in
+    the Rust job (a named step, before the long builds) and, in its quick form, at the top
+    of the image job. The Release workflow has a new *Preflight* job that checks the tag
+    against the version and runs the same check; the installers and the image wait for it.
+  - CI's image job already ran on every pull request and push; it now also passes a release
+    name into the build, as the Release workflow does, and the smoke test checks that the
+    hub reports it.
+- `docker/build-push-action` v6 → v7, `docker/login-action` v3 → v4,
+  `docker/setup-buildx-action` v3 → v4: the versions that run on Node 24 (checked in each
+  action's `action.yml`).
+- Docs: `docs/RELEASING.md` (bump through a pull request, commit `Cargo.lock`, tag only a
+  green commit), TESTING.md and the deployment examples name 0.4.1.
+- Tested: the failure was reproduced locally (`cargo metadata --locked` refuses the old lock
+  file with the same message as the Release log) and passes after the fix; the check
+  script fails on the old state and passes on the new; the version script was run for
+  0.4.1 and refuses `0.4.1-alpha`. The image build itself and the new workflow steps are
+  proven by CI on this pull request. **The Release workflow's own changes (Preflight, the
+  new action versions in the publishing job) run only on a tag or a manual run, so they are
+  not exercised by this pull request.**
+
 ## Summary for the owner — Nexus alpha
 
 The Nexus alpha was built as one design pull request and nine stage pull requests, each

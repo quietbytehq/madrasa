@@ -15,8 +15,34 @@ env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
+  preflight:
+    # Seconds of checking before an hour of building: the tag must match the version, and
+    # Cargo.lock must match Cargo.toml (the hub image builds with `--locked`; v0.4.0-alpha
+    # failed there because the version bump had not included Cargo.lock). Nothing is built
+    # or published when this fails.
+    name: Preflight (version and Cargo.lock)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - name: The tag matches Cargo.toml
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          release="${GITHUB_REF_NAME#v}"
+          numeric="${release%%-*}"
+          cargo_version=$(grep -m1 '^version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+          if [ "$numeric" != "$cargo_version" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match Cargo.toml version $cargo_version; run scripts/set-version.sh $numeric first" >&2
+            exit 1
+          fi
+      - name: Cargo.lock is up to date
+        run: scripts/check-lockfile.sh
+
   build:
     name: Build (${{ matrix.os }})
+    needs: [preflight]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -103,6 +129,7 @@ jobs:
     # GitHub Container Registry as ghcr.io/quietbytehq/madrasa-nexus:<version> and :latest;
     # a manual run only builds it.
     name: Nexus hub image
+    needs: [preflight]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -122,16 +149,16 @@ jobs:
             echo "release=" >> "$GITHUB_OUTPUT"
             echo "tags=$name:manual" >> "$GITHUB_OUTPUT"
           fi
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
       - name: Log in to GitHub Container Registry
         if: github.event_name == 'push'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build (and publish on a tagged release)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: deploy/nexus/Dockerfile

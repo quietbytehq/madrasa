@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Smoke test for a running Madrasa Nexus hub: health, the web console, first-run setup, login.
 #
-#   scripts/nexus-smoke.sh http://127.0.0.1:4780 <setup token>
+#   scripts/nexus-smoke.sh http://127.0.0.1:4780 <setup token> [expected version]
 #
 # Used by CI against the Compose stack. It creates a throwaway administrator, so run it only
 # against a hub you are about to discard.
@@ -19,6 +19,12 @@ health=$(curl -fsS "$base/health")
 say "health: $health"
 [ "$(printf '%s' "$health" | field "['status']")" = "ok" ]
 [ "$(printf '%s' "$health" | field "['database']")" = "ok" ]
+# The release name given to the image build must be the version the hub reports.
+expected="${3:-}"
+if [ -n "$expected" ]; then
+  got=$(printf '%s' "$health" | field "['version']")
+  [ "$got" = "$expected" ] || { say "expected version $expected, the hub reports $got"; exit 1; }
+fi
 
 # The image serves the web console: the page, the script it names, and any console address
 # (the browser routes those). The API is not shadowed by it.

@@ -61,6 +61,10 @@ jobs:
         with:
           path: ~/.theseus/postgresql
           key: theseus-postgresql-${{ runner.os }}-${{ hashFiles('.cargo/config.toml') }}
+      # The jobs below build without `--locked`, so they pass with a stale Cargo.lock; the
+      # hub image does not. Say so here, by name.
+      - name: Cargo.lock is up to date
+        run: scripts/check-lockfile.sh
       - run: cargo fmt --all -- --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Clippy (embedded PostgreSQL feature)
@@ -94,20 +98,30 @@ jobs:
         run: cargo build -p madrasa-api --features embedded-postgres --bin madrasa-server
 
   nexus-image:
-    # The hub's container: the real Dockerfile is built, the Compose stack is started and a
-    # hub is set up and logged into over HTTP.
+    # The hub's container, on every pull request and every push: the real Dockerfile is
+    # built the way the Release workflow builds it (same file, `--locked`, a release name
+    # passed in), the Compose stack is started and a hub is set up and logged into over
+    # HTTP. A change that would break the release image fails here first.
     name: Nexus hub image (build, Compose smoke test)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: docker/setup-buildx-action@v3
+      # Seconds instead of minutes, and a plain message, for the commonest way to break
+      # the image: a version bump that left Cargo.lock behind.
+      - name: Cargo.lock matches the version
+        run: scripts/check-lockfile.sh --quick
+      - uses: docker/setup-buildx-action@v4
       - name: Build the hub image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: deploy/nexus/Dockerfile
           tags: madrasa-nexus:ci
           load: true
+          # The Release workflow passes the tag here; CI passes a stand-in so the same
+          # build path is exercised.
+          build-args: |
+            MADRASA_RELEASE=0.0.0-ci
           cache-from: type=gha,scope=nexus-image
           cache-to: type=gha,scope=nexus-image,mode=max
       - name: The image runs as a non-root user
@@ -121,7 +135,7 @@ jobs:
           NEXUS_SETUP_TOKEN: ci-only-setup-token
         run: docker compose up -d --no-build --wait --wait-timeout 180
       - name: Smoke test (health, console, setup, login)
-        run: scripts/nexus-smoke.sh http://127.0.0.1:4780 ci-only-setup-token
+        run: scripts/nexus-smoke.sh http://127.0.0.1:4780 ci-only-setup-token 0.0.0-ci
       - name: Compose logs
         if: always()
         working-directory: deploy/nexus
