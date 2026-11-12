@@ -19,6 +19,8 @@ apps/desktop/src-tauri/binaries
 # The parent app's Android project is generated (`tauri android init`), in CI too.
 apps/parent/src-tauri/gen
 apps/parent/src-tauri/target
+# Android packages built locally (scripts/build-parent-apk.sh)
+/dist-apk
 
 # Editors / OS
 .vscode/*

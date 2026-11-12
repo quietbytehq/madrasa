@@ -124,6 +124,80 @@ jobs:
           prerelease: true
           args: --bundles ${{ matrix.bundles }}
 
+  parent-apk:
+    # The parent app for Android (apps/parent), built by the same scripts as in CI. With the
+    # four ANDROID_* secrets set it is signed with the release key; without them, with a
+    # throwaway test key, and the file name and SIGNING.txt say so (docs/RELEASING.md).
+    name: Parent app (Android APK)
+    needs: [preflight]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: android
+      - run: pnpm install --frozen-lockfile
+      - name: Name of the file
+        id: apk
+        shell: bash
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            echo "name=madrasa-parent-${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=madrasa-parent-manual" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build the APK
+        run: scripts/build-parent-apk.sh
+      - name: Sign it
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          APK_NAME: ${{ steps.apk.outputs.name }}
+        run: |
+          scripts/sign-apk.sh dist-apk/madrasa-parent-unsigned.apk dist-apk "$APK_NAME"
+          rm dist-apk/madrasa-parent-unsigned.apk
+          mv dist-apk/SIGNING.txt "dist-apk/$APK_NAME-SIGNING.txt"
+      - name: Upload the APK
+        uses: actions/upload-artifact@v5
+        with:
+          name: madrasa-parent-apk
+          path: dist-apk/*
+          if-no-files-found: error
+
+  attach-parent-apk:
+    # The desktop build creates the draft release; this adds the parent app to it.
+    name: Attach the parent app to the release
+    if: github.event_name == 'push'
+    needs: [build, parent-apk]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: madrasa-parent-apk
+          path: dist-apk
+      - name: Attach to the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$GITHUB_REF_NAME" dist-apk/* --clobber --repo "$GITHUB_REPOSITORY"
+
   nexus-image:
     # The Madrasa Nexus hub image (hub and web console). A tagged release publishes it to
     # GitHub Container Registry as ghcr.io/quietbytehq/madrasa-nexus:<version> and :latest;

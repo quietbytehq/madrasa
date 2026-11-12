@@ -166,7 +166,7 @@ fn apply_zone(profile: &SchoolProfile) {
 mod tests {
     use super::*;
 
-    /// The three version files must agree; the Release workflow checks the tag against them.
+    /// The version files must agree; the Release workflow checks the tag against them.
     #[test]
     fn package_json_and_tauri_conf_match_the_cargo_version() {
         let cargo = env!("CARGO_PKG_VERSION");
@@ -181,6 +181,20 @@ mod tests {
         assert_eq!(package["version"], cargo, "apps/desktop/package.json");
         assert_eq!(tauri["version"], cargo, "tauri.conf.json");
         assert_eq!(root["version"], cargo, "package.json");
+        // The parent app (apps/parent) is versioned with everything else.
+        for (name, text) in [
+            (
+                "apps/parent/package.json",
+                include_str!("../../../apps/parent/package.json"),
+            ),
+            (
+                "apps/parent/src-tauri/tauri.conf.json",
+                include_str!("../../../apps/parent/src-tauri/tauri.conf.json"),
+            ),
+        ] {
+            let file: serde_json::Value = serde_json::from_str(text).unwrap();
+            assert_eq!(file["version"], cargo, "{name}");
+        }
         assert!(VERSION.starts_with(cargo) || option_env!("MADRASA_RELEASE").is_some());
     }
 }
