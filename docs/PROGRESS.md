@@ -1557,6 +1557,39 @@ depend on each other and were built together)
   Android" is untested (see the summary at the end of the parent app work).
 - Left: stages 6 and 7.
 
+### 2026-11-12 — Stage 6: The Android package (branch `dev/parent-6-android`)
+- Done: `scripts/build-parent-apk.sh` (generates the Android project, applies Madrasa's
+  launcher icon, builds one APK for 64-bit and 32-bit ARM) and `scripts/sign-apk.sh`
+  (aligns, signs, verifies, writes `SIGNING.txt`). Spec §17.6.
+- Done, CI: a new job *Parent app (Android APK)* on every pull request and push runs both
+  scripts, signs with a throwaway test key and keeps the package as the artifact
+  `madrasa-parent-apk`. A further step runs the signing script's release-key path with a
+  keystore made on the spot.
+- Done, Release workflow: the same two scripts; signs with the release key when the four
+  `ANDROID_*` secrets are set, otherwise with a throwaway key (the file is then named
+  `…-testkey.apk` and `SIGNING.txt` and a notice say so); attaches the package and its
+  `SIGNING.txt` to the draft release after the desktop builds have created it.
+- Done: `docs/RELEASING.md` has a section on the parent app: why the signing key matters,
+  how to make it, the four secrets, how to check a release, and what is not done (Google
+  Play, iOS). The version unit test covers the parent app's version files.
+- Checked in CI (run 43278875924, on this branch before the pull request): the Android
+  project was generated, the launcher icons were made from Madrasa's icon, the Rust code
+  was cross-compiled for both ARM targets, Gradle built a 13.9 MB universal APK, it was
+  signed with a test key and verified, and the release-key path produced a verified
+  package with the stand-in key. The job passed at the first attempt; the hub image (whose
+  build now has to cope with a new workspace member and package) and the front-end job
+  passed too.
+- **Not checked, and it cannot be from here:** nobody has installed the package on a phone
+  or an emulator. The build machine has no Android SDK and no device; CI builds and signs
+  but does not start the app. So these are still unknown: whether it installs and opens,
+  the keyboard over the forms, the back button, Urdu rendering in the phone's WebView, and
+  whether a phone reaches a hub over HTTPS (Android refuses plain `http://`, so a hub on a
+  LAN address will not work with the package).
+- **Not checked:** signing with a real release key (no secrets exist yet; the path was run
+  with a stand-in key), and attaching to a release (no tag was pushed; the attach job runs
+  only on a tag).
+- Left: stage 7.
+
 ## Summary for the owner — Nexus alpha
 
 The Nexus alpha was built as one design pull request and nine stage pull requests, each
