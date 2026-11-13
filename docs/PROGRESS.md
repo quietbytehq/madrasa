@@ -1613,6 +1613,45 @@ depend on each other and were built together)
   both front ends' lint, format, type and test steps.
 - Left: nothing in `docs/TASKS-PARENT-APP.md`. What needs a person is in the summary below.
 
+## Working offline
+
+Goal: no school loses work because the network or the school server dropped (ADR 0009,
+spec §18, user guide §19 in English and Urdu, TESTING.md tasks 60 to 66).
+
+- **LAN client outbox** (`crates/api/src/outbox.rs`, in the client's loopback proxy): screens
+  keep showing their last copy while the server is away; changes are queued (AES-256-GCM on
+  disk) and sent in order on reconnect; "X waiting" in the top bar; changes that need the
+  server there and then (sign-in, backup, imports, settings) are refused plainly.
+- **Never twice**: an `Idempotency-Key` on every change from the first attempt, honoured by a
+  new server middleware (`idempotency_keys`, migration 0030); repeats get the first answer.
+- **Provisional receipts**: `P-<PC>-<n>` printed at once, kept on the real receipt
+  (`fee_receipts.provisional_no`), real number shown afterwards; overpayments flagged.
+- **Conflicts** by the sync rules: field-level merge (server's value wins a clash, yours
+  listed), attendance later-mark-stands on the server (a teacher's queued sheet never
+  overrides saved marks), receipts both stand. All shown in the badge's panel.
+- **Connection badge** on every screen (desktop and parent app): Connected / Reconnecting /
+  Offline, waiting count, things to read, head office sync when joined.
+- **Encrypted drafts** for every form (Web Crypto AES-GCM, non-extractable key in
+  IndexedDB), offered back after a crash or restart; never passwords.
+
+**Tested:** `crates/api/tests/offline.rs` against the real API over TLS and the real proxy:
+unplug the server mid-entry, queue a new student (Save pressed twice), an edit, two payments
+(one pressed twice) and an attendance sheet while another PC changes the same records;
+restart the client still offline (queue and cache intact and unreadable on disk); reconnect
+and check exact counts (3 students, 3 receipts with 2 provisional, 1 sheet), no duplicates,
+the field merge, attendance merge, overpaid notice, the replay of a key, a reused key
+refused. Also: a teacher's queued sheet never overrides saved marks; a change queued under an
+expired session waits for the same person, not another. Unit tests for the merge, sealing
+and restart of the outbox, the idempotency hash, queued-time parsing, overwritten headers,
+the outbox folder name. UI: 9 new desktop tests (badge states, panel lists, Urdu labels,
+queued error and toast, provisional receipt print before and after, drafts encrypted,
+restored after a restart, never passwords, cleared on save) and 2 parent app tests. Full Rust
+workspace, lint, format, type checks and builds.
+
+**Not tested here:** a real cable pulled on a real school network (tests stop and start the
+server process on one machine); WebView2 and WebKitGTK storage of the drafts key (tests use
+an in-memory key; where IndexedDB or Web Crypto is missing, drafts are not kept at all).
+
 ## Summary for the owner — Parent app alpha
 
 The parent app alpha was built as one design pull request and seven stage pull requests,
