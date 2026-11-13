@@ -2099,6 +2099,8 @@ export const ur: Translation = {
   "directory.enabled": "لاگ ان کے لیے اسکول کی ڈائریکٹری استعمال کریں",
   "directory.url": "سرور کا پتہ",
   "directory.urlHint": "ldaps://server:636 (TLS لازمی ہے)",
+  "directory.caHint":
+    "کنکشن TLS استعمال کرتا ہے، اس لیے جس PC پر مدرسہ سرور چلتا ہے اسے اس سرٹیفکیٹ اتھارٹی (CA) پر اعتماد ہونا چاہیے جس نے ڈائریکٹری کا سرٹیفکیٹ جاری کیا۔ ادارے یا اسکول کی اپنی CA ہو تو اس کا سرٹیفکیٹ اسی PC پر انسٹال کریں (Windows: کمپیوٹر کی Trusted Root Certification Authorities؛ Linux: /usr/local/share/ca-certificates، پھر update-ca-certificates) اور مدرسہ دوبارہ شروع کریں۔ کنکشن جانچیں بتاتا ہے کہ سرٹیفکیٹ قابل اعتماد نہیں یا اس کی مدت ختم ہو چکی ہے۔",
   "directory.bindDn": "بائنڈ اکاؤنٹ DN",
   "directory.bindPassword": "بائنڈ اکاؤنٹ کا پاس ورڈ",
   "directory.bindPasswordKept": "محفوظ ہے۔ برقرار رکھنے کے لیے خالی چھوڑیں۔",

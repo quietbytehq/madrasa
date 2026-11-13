@@ -3494,6 +3494,10 @@ export interface DirectoryTestResult {
   message: string;
   user: DirectoryUser | null;
   role: string | null;
+  /** The technical text behind a refusal (for example why the TLS certificate was refused). */
+  details?: string | null;
+  /** `certificate_untrusted`, `certificate_expired`, … when the certificate was the problem. */
+  problem?: string | null;
 }
 
 /** Mirrors `AuthOptions` (GET /auth/options, no token needed). */

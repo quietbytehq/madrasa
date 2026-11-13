@@ -2120,6 +2120,8 @@ export const en = {
   "directory.enabled": "Use the school directory for logins",
   "directory.url": "Server URL",
   "directory.urlHint": "ldaps://server:636 (TLS is required)",
+  "directory.caHint":
+    "The connection uses TLS, so the PC that runs the Madrasa server must trust the certificate authority (CA) that issued the directory's certificate. With a company or school CA, install its certificate on that PC (Windows: Trusted Root Certification Authorities of the computer; Linux: /usr/local/share/ca-certificates, then update-ca-certificates) and restart Madrasa. Test connection says when the certificate is not trusted or has expired.",
   "directory.bindDn": "Bind account DN",
   "directory.bindPassword": "Bind account password",
   "directory.bindPasswordKept": "Stored. Leave empty to keep it.",

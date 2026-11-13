@@ -350,6 +350,21 @@ timetable and the substitutions.
    refuse them.
 3. **Test connection**, optionally with a username, before saving: the message says whether
    the bind account worked, who was found and the role they would get.
+   - **The certificate.** The connection always uses TLS (`ldaps://`), and the PC that runs
+     the Madrasa server (the single PC, or the server PC on a network) checks the directory's
+     certificate against its own list of trusted certificate authorities. A directory whose
+     certificate comes from the organisation's own CA (usual for Active Directory) is refused
+     until that CA is trusted on that PC:
+     - **Windows:** open the CA's certificate file → *Install Certificate* → *Local Machine* →
+       *Place all certificates in the following store* → *Trusted Root Certification
+       Authorities*.
+     - **Linux:** copy the CA's certificate (PEM, ending in `.crt`) to
+       `/usr/local/share/ca-certificates/` and run `sudo update-ca-certificates`.
+     - Then **restart Madrasa** (the list is read when it starts) and test again.
+   - Test connection says plainly when the certificate is **not trusted**, has **expired**,
+     is **not valid yet** (check the PC's clock) or was issued for **another name** (enter the
+     server's full DNS name, not its IP address), with the technical reason underneath for
+     whoever runs the directory.
 4. **Logging in**: staff type their directory username and password on the normal login
    screen (the hint you set appears under the form). Their account appears in Settings →
    Users with a "Directory" badge the first time they log in; the role follows the groups on
