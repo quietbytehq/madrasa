@@ -3632,6 +3632,7 @@ checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
 name = "madrasa-api"
 version = "0.4.2"
 dependencies = [
+ "aes-gcm",
  "anyhow",
  "async-trait",
  "axum",
@@ -3652,6 +3653,7 @@ dependencies = [
  "madrasa-demo-data",
  "madrasa-nexus",
  "postgresql_embedded",
+ "rand 0.8.8",
  "rcgen",
  "reqwest",
  "rust_decimal",

@@ -1,7 +1,7 @@
 //! Fees: setup (heads, structure, policy), concessions, vouchers, payments, ledger, reports.
 
 use axum::extract::{Path, Query, State};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use chrono::{Datelike, NaiveDate};
@@ -18,6 +18,7 @@ use uuid::Uuid;
 
 use crate::auth::CurrentUser;
 use crate::clock::today;
+use crate::offline::{self, Queued};
 use crate::{ApiError, ApiResult, AppState};
 
 pub fn router() -> Router<AppState> {
@@ -698,6 +699,10 @@ pub struct PaymentBody {
     pub reference: Option<String>,
     pub note: Option<String>,
     pub paid_on: Option<NaiveDate>,
+    /// Only on a payment taken offline on a LAN client (ADR 0009): the number on the
+    /// provisional receipt it printed.
+    #[serde(default)]
+    pub provisional_no: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -710,10 +715,22 @@ async fn pay(
     State(state): State<AppState>,
     user: CurrentUser,
     Path(id): Path<Uuid>,
+    queued: Queued,
     body: JsonBody<PaymentBody>,
-) -> ApiResult<(StatusCode, Json<PaymentResponse>)> {
+) -> ApiResult<(StatusCode, HeaderMap, Json<PaymentResponse>)> {
     user.require(Permission::FeesManage)?;
     let Json(b) = body?;
+    let provisional = b
+        .provisional_no
+        .as_deref()
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .map(str::to_string);
+    if provisional.is_some() && queued.0.is_none() {
+        return Err(ApiError::validation(
+            "A provisional receipt number comes only with a payment taken while offline.",
+        ));
+    }
     let method: PaymentMethod = b.method.parse().map_err(|_| {
         ApiError::validation("Payment method must be cash, bank, online, one_bill or kuickpay.")
     })?;
@@ -740,26 +757,48 @@ async fn pay(
     let mut tx = state.pool.begin().await?;
     load_voucher(&mut tx, &user, id).await?;
     let policy = fees::policy(&mut tx, user.user.school_id).await?;
-    let (receipt, voucher) = fees::record_payment(
-        &mut tx,
-        &state.hlc,
-        user.actor(),
-        &policy,
-        fees::NewPayment {
-            voucher_id: id,
-            amount: b.amount,
-            method,
-            reference: b.reference,
-            note: b.note,
-            paid_on,
-            received_by: user.user.id,
-        },
-    )
-    .await?;
+    let payment = fees::NewPayment {
+        voucher_id: id,
+        amount: b.amount,
+        method,
+        reference: b.reference,
+        note: b.note,
+        paid_on,
+        received_by: user.user.id,
+    };
+    let (receipt, voucher) = match provisional {
+        Some(provisional_no) => {
+            fees::record_offline_payment(
+                &mut tx,
+                &state.hlc,
+                user.actor(),
+                &policy,
+                payment,
+                fees::OfflinePayment { provisional_no },
+            )
+            .await?
+        }
+        None => fees::record_payment(&mut tx, &state.hlc, user.actor(), &policy, payment).await?,
+    };
     let detail = voucher_detail(&mut tx, voucher).await?;
     tx.commit().await?;
+    // Taken offline while someone else was paying the same voucher: both receipts stand
+    // (money was received twice); say so, for the accountant to refund or carry forward.
+    let mut notices = Vec::new();
+    if detail.balance < Decimal::ZERO {
+        notices.push(offline::Notice {
+            code: "overpaid".into(),
+            detail: serde_json::json!({
+                "voucher_no": detail.voucher.voucher_no,
+                "receipt_no": receipt.receipt_no,
+                "provisional_no": receipt.provisional_no,
+                "overpaid_by": (-detail.balance).to_string(),
+            }),
+        });
+    }
     Ok((
         StatusCode::CREATED,
+        offline::headers(&[], &notices),
         Json(PaymentResponse {
             receipt,
             voucher: detail,
