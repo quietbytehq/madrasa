@@ -321,7 +321,10 @@ mod tests {
     fn each_server_has_its_own_outbox_folder() {
         let a = outbox_folder("AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD");
         assert_eq!(a, "abcdef0123456789abcdef0123456789");
-        assert_ne!(a, outbox_folder("AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:88:AB:CD"));
+        assert_ne!(
+            a,
+            outbox_folder("AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:88:AB:CD")
+        );
         assert!(!outbox_folder("../../etc:passwd").contains('/'));
     }
 }
