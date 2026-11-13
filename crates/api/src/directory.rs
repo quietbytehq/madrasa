@@ -356,7 +356,10 @@ mod tests {
             }
         }
         let untrusted = connect_error("invalid peer certificate: UnknownIssuer").to_string();
-        assert!(untrusted.contains("not trusted by the Madrasa server PC"), "{untrusted}");
+        assert!(
+            untrusted.contains("not trusted by the Madrasa server PC"),
+            "{untrusted}"
+        );
         assert!(untrusted.contains("restart Madrasa"), "{untrusted}");
         assert!(connect_error("invalid peer certificate: Expired")
             .to_string()

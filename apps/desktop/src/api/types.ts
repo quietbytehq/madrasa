@@ -189,6 +189,7 @@ export interface LocaleLists {
 
 export interface ApiErrorBody {
   error: { code: string; message: string };
+  details?: unknown;
 }
 
 // ---- M1 stage 1 ---------------------------------------------------------------------------

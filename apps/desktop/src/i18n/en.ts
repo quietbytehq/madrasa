@@ -394,6 +394,11 @@ export const en = {
   "staff.login.created": "Login created.",
   "staff.login.saved": "Login updated.",
   "staff.login.resetDone": "Password changed.",
+  "staff.login.changeRole.title": "Change this login's role?",
+  "staff.login.changeRole.body":
+    "{name} already has a login: {username}. Its role would change from {from} to {to}, which changes what this person can see and do.",
+  "staff.login.changeRole.yes": "Change the role",
+  "staff.login.changeRole.no": "Keep it as it is",
   "staff.login.role.principal": "Principal",
   "staff.login.role.admin": "Administrator",
   "staff.login.role.accountant": "Accountant",

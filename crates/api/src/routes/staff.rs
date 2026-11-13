@@ -427,10 +427,24 @@ pub(crate) async fn create_login_for(
     validate_password(&b.password).map_err(|e| ApiError::validation(format!("Password: {e}.")))?;
     let password_hash = hash_password(&b.password)?;
     let sid = user.user.school_id;
-    if member.user_id.is_some() {
-        return Err(ApiError::validation(
-            "This staff member already has a login. Change its role or reset the password instead.",
-        ));
+    if let Some(existing) = member.user_id {
+        // Never change an existing login from here: say which one it is, so the screen can
+        // ask whether its role should change instead.
+        let account = madrasa_db::users::get(&mut *tx, existing).await?;
+        let role = roles::codes_for_user(&mut *tx, existing)
+            .await?
+            .into_iter()
+            .next();
+        let mut e = ApiError::new(
+            axum::http::StatusCode::CONFLICT,
+            "login_exists",
+            format!(
+                "{} already has a login: {}. Change this login's role or reset its password instead.",
+                member.full_name, account.username
+            ),
+        );
+        e.details = Some(serde_json::json!({ "username": account.username, "role": role }));
+        return Err(e);
     }
     if madrasa_db::users::find_by_username(&mut *tx, sid, &username)
         .await?

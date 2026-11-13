@@ -7,6 +7,8 @@ export class ApiError extends Error {
     public readonly status: number,
     public readonly code: string,
     message: string,
+    /** Structured detail some refusals carry (for example the login that already exists). */
+    public readonly details: unknown = null,
   ) {
     super(message);
     this.name = "ApiError";
@@ -111,6 +113,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       response.status,
       body?.error?.code ?? "unknown",
       body?.error?.message ?? response.statusText,
+      body?.details ?? null,
     );
   }
   return payload as T;

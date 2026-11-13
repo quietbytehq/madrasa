@@ -381,6 +381,11 @@ export const ur: Translation = {
   "staff.login.created": "لاگ ان بن گیا۔",
   "staff.login.saved": "لاگ ان محفوظ ہو گیا۔",
   "staff.login.resetDone": "پاس ورڈ بدل گیا۔",
+  "staff.login.changeRole.title": "اس لاگ اِن کا کردار بدلیں؟",
+  "staff.login.changeRole.body":
+    "{name} کا لاگ اِن پہلے سے موجود ہے: {username}۔ اس کا کردار {from} سے {to} ہو جائے گا، جس سے یہ شخص جو دیکھ اور کر سکتا ہے وہ بدل جائے گا۔",
+  "staff.login.changeRole.yes": "کردار بدلیں",
+  "staff.login.changeRole.no": "جیسا ہے رہنے دیں",
   "staff.login.role.principal": "پرنسپل",
   "staff.login.role.admin": "منتظم",
   "staff.login.role.accountant": "اکاؤنٹنٹ",
