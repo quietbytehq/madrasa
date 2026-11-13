@@ -272,6 +272,25 @@ jobs:
           need=$(objdump -T target/release/madrasa-desktop | grep -o 'GLIBC_[0-9.]*' | sed 's/GLIBC_//' | sort -V | tail -1)
           echo "madrasa-desktop needs glibc $need"
           dpkg --compare-versions "$need" le 2.35
+      # The .deb must bring what it needs: on a clean system, apt installs it together with
+      # the libraries it declares (WebKitGTK and the rest), and the program then finds every
+      # library it links. Not tried on this runner, which has them installed for the build.
+      - name: The .deb installs with its dependencies on clean systems (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          dir="$PWD/target/release/bundle/deb"
+          deb=$(ls "$dir"/*.deb)
+          echo "Depends: $(dpkg-deb -f "$deb" Depends)"
+          for image in debian:12 ubuntu:22.04 ubuntu:24.04; do
+            docker run --rm -v "$dir:/deb:ro" "$image" bash -ec '
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update -qq
+              apt-get install -y -qq --no-install-recommends /deb/*.deb > /dev/null
+              if ldd /usr/bin/madrasa-desktop | grep "not found"; then exit 1; fi
+              . /etc/os-release
+              echo "installed with its dependencies on $PRETTY_NAME"'
+          done
       - name: Upload installers
         uses: actions/upload-artifact@v5
         with:
