@@ -4,8 +4,11 @@
  * the access slip) and kept, with the session token, in the app's own storage.
  */
 import type { ReportCard } from "@/api/types";
+import { OFFLINE_EVENTS } from "@/api/client";
 
 const PREFIX = "/api/nexus/v1";
+/** The hub answered a call. */
+export const REACHED = "madrasa:reached";
 const HUB_KEY = "madrasa.parent.hub";
 const TOKEN_KEY = "madrasa.parent.session";
 
@@ -99,6 +102,23 @@ interface CallOptions {
   auth?: boolean;
 }
 
+/** Tell the connection badge (and form drafts) how the last call went (ADR 0009). */
+function emit(name: string) {
+  if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent(name));
+}
+
+/** Does the hub answer? For the connection badge. */
+export async function pingHub(): Promise<boolean> {
+  const hub = getHubUrl();
+  if (!hub) return true;
+  try {
+    const res = await fetch(`${hub}${PREFIX}/health`, { credentials: "omit", cache: "no-store" });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 async function call<T>(path: string, options: CallOptions = {}): Promise<T> {
   const hub = options.hub ?? getHubUrl();
   if (!hub) throw new OfflineError("no hub address");
@@ -116,8 +136,10 @@ async function call<T>(path: string, options: CallOptions = {}): Promise<T> {
       credentials: "omit",
     });
   } catch (err) {
+    emit(OFFLINE_EVENTS.unreachable);
     throw new OfflineError(err);
   }
+  emit(REACHED);
   const text = await response.text().catch(() => "");
   let payload: unknown;
   try {
@@ -133,6 +155,7 @@ async function call<T>(path: string, options: CallOptions = {}): Promise<T> {
     if (response.status === 401 && code === "unauthenticated" && token) onSignedOut?.();
     throw new HubError(response.status, code, error?.message ?? "");
   }
+  if ((options.method ?? "GET") !== "GET") emit(OFFLINE_EVENTS.saved);
   return payload as T;
 }
 

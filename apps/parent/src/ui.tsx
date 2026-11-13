@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { HubBadge } from "@parent/connection";
 import { ArrowLeft, CloudOff, RefreshCw, TriangleAlert } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
@@ -83,6 +84,7 @@ export function Screen({
             <h1 className="truncate text-base font-semibold text-navy">{title}</h1>
             {subtitle && <div className="truncate text-xs text-muted">{subtitle}</div>}
           </div>
+          <HubBadge />
           {actions}
         </div>
       </header>

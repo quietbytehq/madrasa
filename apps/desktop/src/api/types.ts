@@ -536,6 +536,8 @@ export interface FeeReceipt {
   reversal_reason: string | null;
   received_by: string;
   created_at: string;
+  /** The provisional number it was printed with when taken offline (ADR 0009). */
+  provisional_no?: string | null;
 }
 
 export interface SchoolHeader {
@@ -3726,4 +3728,96 @@ export interface ParentConversation {
   can_reply: boolean;
   unread: number;
   messages: ParentMessage[];
+}
+
+// ---- working offline (ADR 0009) -----------------------------------------------------------
+
+/** Mirrors `Provisional` in crates/api/src/outbox.rs. */
+export interface ProvisionalReceipt {
+  provisional_no: string;
+  voucher_id: string;
+  voucher: VoucherDetail | null;
+  amount: string;
+  method: PaymentMethod;
+  reference: string | null;
+  note: string | null;
+  paid_on: string;
+  taken_at: string;
+  receipt_no: string | null;
+  receipt_id: string | null;
+}
+
+/** The `queued` answer of the LAN proxy for a change kept on this PC. */
+export interface QueuedInfo {
+  id: string;
+  queued_at: string;
+  waiting: number;
+  provisional: ProvisionalReceipt | null;
+}
+
+export type OutboxLink = "connected" | "reconnecting" | "offline";
+
+export interface OutboxItem {
+  id: string;
+  method: string;
+  path: string;
+  queued_at: string;
+  provisional_no: string | null;
+  attempts: number;
+  last_error: string | null;
+}
+
+export interface OutboxFailed {
+  id: string;
+  method: string;
+  path: string;
+  queued_at: string;
+  failed_at: string;
+  status: number;
+  code: string;
+  message: string;
+  provisional_no: string | null;
+}
+
+export interface OutboxOverwritten {
+  id: string;
+  item_id: string;
+  path: string;
+  at: string;
+  label: string;
+  field: string;
+  yours: unknown;
+  kept: unknown;
+}
+
+export interface OutboxNotice {
+  id: string;
+  item_id: string;
+  at: string;
+  code: string;
+  detail: Record<string, unknown>;
+}
+
+export interface OutboxSent {
+  item_id: string;
+  method: string;
+  path: string;
+  queued_at: string;
+  sent_at: string;
+  provisional_no: string | null;
+  receipt_no: string | null;
+}
+
+/** Mirrors `Status` in crates/api/src/outbox.rs. */
+export interface OutboxStatus {
+  link: OutboxLink;
+  since: string;
+  last_contact: string | null;
+  waiting: number;
+  needs_sign_in: boolean;
+  items: OutboxItem[];
+  failed: OutboxFailed[];
+  overwritten: OutboxOverwritten[];
+  notices: OutboxNotice[];
+  sent: OutboxSent[];
 }

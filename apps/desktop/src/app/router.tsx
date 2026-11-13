@@ -12,7 +12,11 @@ import { NoAccess } from "@/pages/NoAccess";
 import { FeesPage } from "@/pages/fees/FeesPage";
 import { ReportsPage } from "@/pages/reports/ReportsPage";
 import { CustomReportBuilder } from "@/pages/reports/CustomReportBuilder";
-import { ReceiptPrintPage, VoucherPrintPage } from "@/pages/fees/PrintPages";
+import {
+  ProvisionalReceiptPage,
+  ReceiptPrintPage,
+  VoucherPrintPage,
+} from "@/pages/fees/PrintPages";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { StaffPage } from "@/pages/staff/StaffPage";
 import { StudentFormPage } from "@/pages/students/StudentForm";
@@ -152,6 +156,14 @@ export function AppRoutes({ login, setup }: AppRoutesProps) {
               element={
                 <RequirePermission permission="fees.read">
                   <ReceiptPrintPage />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/fees/receipts/provisional/:number/print"
+              element={
+                <RequirePermission permission="fees.manage">
+                  <ProvisionalReceiptPage />
                 </RequirePermission>
               }
             />
