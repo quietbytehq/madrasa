@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { api } from "@/api/endpoints";
 import type { NexusLinkStatus, NexusOverwrite } from "@/api/types";
@@ -15,6 +15,9 @@ import { errorMessage, useAsync } from "@/lib/useAsync";
 import { announceParentAppChange } from "@/app/parentApp";
 import { showValue } from "@/lib/showValue";
 import { NexusEscrow } from "./NexusEscrow";
+
+/** How often a joined school's card looks at the sync state again. */
+const REFRESH_MS = 60 * 1000;
 
 const REASONS: Record<string, TranslationKey> = {
   head_office_wins: "nexus.reason.head_office_wins",
@@ -40,6 +43,21 @@ export function NexusCard({ canManageBackups = false }: { canManageBackups?: boo
 
   const when = (value: string | null) =>
     value ? formatDate(value, { dateStyle: "medium", timeStyle: "short" }) : t("nexus.never");
+
+  // The school also syncs by itself every few minutes: look again now and then, so the
+  // card (and the backup key part, which hears of a release at a sync) does not go stale.
+  const joined = link.data?.linked ?? false;
+  const setLink = link.setData;
+  useEffect(() => {
+    if (!joined) return;
+    const timer = setInterval(() => {
+      api.nexusLink().then(
+        (next) => setLink(next),
+        () => {},
+      );
+    }, REFRESH_MS);
+    return () => clearInterval(timer);
+  }, [joined, setLink]);
 
   const loadLog = async () => {
     try {
@@ -311,7 +329,7 @@ export function NexusCard({ canManageBackups = false }: { canManageBackups?: boo
           )}
         </div>
 
-        <NexusEscrow canManageBackups={canManageBackups} />
+        <NexusEscrow canManageBackups={canManageBackups} syncedAt={d.last_sync_at} />
       </div>
 
       <Dialog

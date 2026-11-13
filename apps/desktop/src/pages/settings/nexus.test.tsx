@@ -366,4 +366,43 @@ describe("NexusCard", () => {
       "head office set its old copy aside",
     );
   });
+  it("asks again about the backup key after each sync, so a release by head office shows", async () => {
+    vi.mocked(api.nexusLink).mockResolvedValue({ ...linked, in_step: true });
+    vi.mocked(api.nexusEscrow).mockResolvedValue({
+      ...noEscrow,
+      available: true,
+      deposited: true,
+      current: true,
+      deposited_at: "2026-11-01T10:00:00Z",
+    });
+    vi.mocked(api.nexusSync).mockResolvedValue({
+      ...linked,
+      in_step: true,
+      last_sync_at: "2026-11-13T10:05:00Z",
+    });
+    renderWithProviders(<NexusCard canManageBackups />);
+    expect(await screen.findByTestId("nexus-escrow-state")).toHaveTextContent("head office");
+    expect(api.nexusEscrow).toHaveBeenCalledTimes(1);
+    // Head office releases the key; the school hears of it at its next sync.
+    vi.mocked(api.nexusEscrow).mockResolvedValue({
+      ...noEscrow,
+      available: true,
+      deposited: true,
+      current: true,
+      deposited_at: "2026-11-01T10:00:00Z",
+      releases: [
+        {
+          id: "r1",
+          released_at: "2026-11-13T10:00:00Z",
+          released_by: "Head Office",
+          reason: "Backup password lost",
+          key_id: "k",
+          seen: true,
+        },
+      ],
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Sync now" }));
+    await waitFor(() => expect(api.nexusEscrow).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText(/by Head Office: Backup password lost/)).toBeInTheDocument();
+  });
 });

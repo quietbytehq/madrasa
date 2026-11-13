@@ -351,8 +351,8 @@ Madrasa installs to act as schools (the demo school of section 3 is fine).
 
 ### Start a hub
 
-No hub image has been published yet, so build it from the checkout (about ten minutes the
-first time):
+The hub image is published with every release (`ghcr.io/quietbytehq/madrasa-nexus`, tagged
+with the release, for example `:0.4.3-alpha`, and `:latest`). Compose pulls it:
 
 ```bash
 cd deploy/nexus
@@ -363,10 +363,11 @@ cp .env.example .env
 ```
 
 Edit `.env` and set `NEXUS_DB_PASSWORD` (letters and digits) and `NEXUS_SETUP_TOKEN` (any
-long text you choose). Then:
+long text you choose), and `NEXUS_IMAGE=ghcr.io/quietbytehq/madrasa-nexus:0.4.3-alpha` so
+the hub is the same version as your Madrasa. Then:
 
 ```bash
-docker compose build nexus
+docker compose pull nexus
 ```
 
 To look around with made-up schools first, fill the empty hub with the demo network (three
