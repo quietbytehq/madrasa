@@ -13,7 +13,7 @@ env:
 jobs:
   frontend:
     name: Frontend (lint, types, tests, build)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v5
@@ -34,7 +34,7 @@ jobs:
 
   rust-linux:
     name: Rust (Linux, with PostgreSQL)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:16
@@ -105,7 +105,7 @@ jobs:
     # passed in), the Compose stack is started and a hub is set up and logged into over
     # HTTP. A change that would break the release image fails here first.
     name: Nexus hub image (build, Compose smoke test)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
       # Seconds instead of minutes, and a plain message, for the commonest way to break
@@ -150,7 +150,7 @@ jobs:
     # The Azure and Google Cloud templates for the hub are checked for errors here. They are
     # not deployed: no cloud account is used by CI.
     name: Cloud templates (Bicep build, Terraform validate)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
       - name: Azure template builds
@@ -162,7 +162,7 @@ jobs:
           # A throwaway value: the example file reads the password from the environment.
           NEXUS_DB_PASSWORD: ciOnlyNotARealPassword1234
         run: az bicep build-params --file deploy/nexus/azure/main.example.bicepparam --outfile "$RUNNER_TEMP/nexus-azure.parameters.json"
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v4
       - name: Google Cloud module validates
         working-directory: deploy/nexus/gcp
         run: |
@@ -177,7 +177,7 @@ jobs:
     # key is used by the Release workflow only. The last step proves that the release-key
     # path of the signing script works, with a key made on the spot.
     name: Parent app (Android APK)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v5
@@ -218,7 +218,7 @@ jobs:
           grep -q "Signed with: the release key" "$RUNNER_TEMP/release-path/SIGNING.txt"
           rm -rf "$RUNNER_TEMP/stand-in.p12" "$RUNNER_TEMP/release-path"
       - name: Upload the APK
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: madrasa-parent-apk
           path: |
@@ -292,7 +292,7 @@ jobs:
               echo "installed with its dependencies on $PRETTY_NAME"'
           done
       - name: Upload installers
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: madrasa-${{ matrix.os }}
           if-no-files-found: error
