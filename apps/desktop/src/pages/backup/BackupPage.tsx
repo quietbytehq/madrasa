@@ -204,11 +204,13 @@ export function BackupPage() {
         <RestoreDialog
           preview={preview}
           onClose={() => setPreview(null)}
-          onRestored={(rows, date) => {
+          onRestored={(rows, date, network) => {
             setPreview(null);
             toast.push({
               kind: "success",
-              title: t("backup.restore.done", { rows, date: formatDate(date) }),
+              title: network
+                ? t("backup.restore.doneNetwork", { rows, date: formatDate(date), network })
+                : t("backup.restore.done", { rows, date: formatDate(date) }),
             });
             void logout();
           }}
@@ -449,13 +451,15 @@ function RestoreDialog({
 }: {
   preview: RestorePreview;
   onClose: () => void;
-  onRestored: (rows: number, date: string) => void;
+  onRestored: (rows: number, date: string, network: string | null) => void;
   onError: (e: unknown) => void;
 }) {
   const { t, formatDate } = useI18n();
   const [mode, setMode] = useState<SecretMode>("password");
   const [secret, setSecret] = useState("");
   const [busy, setBusy] = useState(false);
+  const network = preview.network ?? null;
+  const [understood, setUnderstood] = useState(false);
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
@@ -465,8 +469,9 @@ function RestoreDialog({
         password: mode === "password" ? secret : undefined,
         recovery_key: mode === "recovery" ? secret : undefined,
         released_key: mode === "released" ? secret : undefined,
+        confirm_network: network ? understood : undefined,
       });
-      onRestored(r.rows, r.meta.created_at);
+      onRestored(r.rows, r.meta.created_at, r.network ?? null);
     } catch (err) {
       onError(err);
     } finally {
@@ -481,6 +486,15 @@ function RestoreDialog({
       >
         {t("backup.restore.warning")}
       </p>
+      {network && (
+        <div
+          data-testid="restore-network"
+          className="mb-3 rounded border border-warning/60 bg-warning-bg px-3 py-2 text-sm text-text"
+        >
+          <p className="font-semibold">{t("backup.restore.network.warning")}</p>
+          <p className="mt-1 text-xs">{t("backup.restore.network.how", { network })}</p>
+        </div>
+      )}
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
         <dt className="text-muted">{t("backup.restore.backupDate")}</dt>
         <dd>{formatDate(preview.meta.created_at)}</dd>
@@ -541,11 +555,28 @@ function RestoreDialog({
               </button>
             ))}
           </div>
+          {network && (
+            <label className="flex items-start gap-2 text-sm text-text">
+              <input
+                type="checkbox"
+                checked={understood}
+                onChange={(e) => setUnderstood(e.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-blue"
+                data-testid="restore-network-confirm"
+              />
+              {t("backup.restore.network.confirm", { network })}
+            </label>
+          )}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={onClose}>
               {t("action.cancel")}
             </Button>
-            <Button type="submit" variant="danger" loading={busy} disabled={!secret}>
+            <Button
+              type="submit"
+              variant="danger"
+              loading={busy}
+              disabled={!secret || (!!network && !understood)}
+            >
               {t("backup.restore.confirm")}
             </Button>
           </div>

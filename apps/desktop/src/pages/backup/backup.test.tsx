@@ -141,6 +141,9 @@ describe("BackupPage", () => {
     expect(students).toHaveTextContent("1200");
     expect(students).toHaveTextContent("1201");
     expect(within(dialog).getByRole("alert")).toHaveTextContent("replaces everything");
+    // Not joined to a school network: no network warning, nothing more to confirm.
+    expect(within(dialog).queryByTestId("restore-network")).not.toBeInTheDocument();
+    expect(within(dialog).queryByTestId("restore-network-confirm")).not.toBeInTheDocument();
     const confirm = within(dialog).getByRole("button", { name: "Restore now" });
     expect(confirm).toBeDisabled();
     await userEvent.type(within(dialog).getByLabelText("Backup password"), "backup-password-1");
@@ -154,6 +157,48 @@ describe("BackupPage", () => {
     );
     expect(await screen.findByText(/Restored 5000 records/)).toBeInTheDocument();
     expect(api.logout).toHaveBeenCalled();
+  });
+
+  it("warns, and asks for a confirmation, when the school is joined to a network", async () => {
+    vi.mocked(api.previewRestore).mockResolvedValue({
+      ...preview,
+      network: "Gulshan Education Network",
+    });
+    vi.mocked(api.restoreBackup).mockResolvedValue({
+      tables: 36,
+      rows: 5000,
+      meta: preview.meta,
+      relogin: true,
+      network: "Gulshan Education Network",
+    });
+    render();
+    await userEvent.click(await screen.findByRole("button", { name: "Restore" }));
+    const dialog = await screen.findByRole("dialog");
+    const warning = within(dialog).getByTestId("restore-network");
+    expect(warning).toHaveTextContent(
+      "This school is joined to a network. Restoring an older backup will make your data differ from head office's copy. Madrasa will ask head office to reset its copy.",
+    );
+    expect(warning).toHaveTextContent("Gulshan Education Network");
+    await userEvent.type(within(dialog).getByLabelText("Backup password"), "backup-password-1");
+    const confirm = within(dialog).getByRole("button", { name: "Restore now" });
+    expect(confirm).toBeDisabled();
+    await userEvent.click(within(dialog).getByTestId("restore-network-confirm"));
+    expect(confirm).toBeEnabled();
+    await userEvent.click(confirm);
+    await waitFor(() =>
+      expect(api.restoreBackup).toHaveBeenCalledWith({
+        path: preview.path,
+        password: "backup-password-1",
+        recovery_key: undefined,
+        released_key: undefined,
+        confirm_network: true,
+      }),
+    );
+    expect(
+      await screen.findByText(
+        /Head office \(Gulshan Education Network\) will be asked to reset its copy/,
+      ),
+    ).toBeInTheDocument();
   });
 
   it("refuses to offer a restore when the schema differs and supports the recovery key", async () => {

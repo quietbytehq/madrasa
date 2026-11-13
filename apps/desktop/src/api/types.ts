@@ -1174,6 +1174,8 @@ export interface RestorePreview {
   meta: BackupMeta;
   schema_matches: boolean;
   current_counts: Record<string, number>;
+  /** The school is joined to this school network now: restoring needs a confirmation. */
+  network?: string | null;
 }
 
 export interface RestoreResult {
@@ -1181,6 +1183,8 @@ export interface RestoreResult {
   rows: number;
   meta: BackupMeta;
   relogin: boolean;
+  /** Head office of this network will be asked to reset its copy at the next sync. */
+  network?: string | null;
 }
 
 /** Mirrors `BackupStatus` in the API. */
@@ -3584,7 +3588,22 @@ export interface NexusLinkStatus {
   ended: NexusEnded | null;
   pending: number;
   parked: NexusParked[];
+  /** Records this school sent that head office could not store yet (as of the last sync). */
+  parked_at_hub: NexusParked[];
   overwrites: number;
+  /** A backup was restored while joined, and whether head office has reset its copy. */
+  restored: NexusRestored | null;
+  /** Nothing waiting, nothing parked on either side, the last sync worked. */
+  in_step: boolean;
+}
+
+/** Mirrors `Restored` in `crates/db/src/nexus_link.rs`. */
+export interface NexusRestored {
+  at: string;
+  backup_created_at: string | null;
+  /** When head office set its old copy aside and started afresh; null until then. */
+  hub_reset_at: string | null;
+  archive: string | null;
 }
 
 /** One entry of the overwrite log: a value that sync replaced or refused. */

@@ -136,6 +136,30 @@ list is in `docs/permissions.md`.
 - Changing the backup password applies to new backups only; old files open with the password
   that was in use when they were made, or with the recovery key.
 
+### Restoring while joined to a school network
+
+A backup is a picture of the school on the day it was made. When the school has joined a
+school network (Settings → School network), head office holds a copy that has moved on since
+then: restoring an older backup makes the two differ.
+
+- The restore window then says so: *This school is joined to a network. Restoring an older
+  backup will make your data differ from head office's copy. Madrasa will ask head office to
+  reset its copy.* Tick the box to confirm before **Restore now** works.
+- The school stays joined, with its present link to head office (not the one in the backup).
+- At the next sync (within minutes, or press **Sync now**) Madrasa tells head office first.
+  Head office sets its old copy aside, keeps it as an archive, and starts a fresh copy from
+  this school's records; then everything is sent again. Nothing is sent before head office
+  has answered. Both sides write it in their audit log.
+- Settings → School network shows "Not in step yet" and the restore until head office has
+  answered, then "In step" once nothing is waiting on either side.
+- Lost on purpose: what head office changed after the backup was made (corrections, parents'
+  messages the school had not received yet). It stays in head office's archive.
+- **If it does not work** (head office's hub is older than Madrasa 0.4.3 and says so, or the
+  card keeps showing records waiting at head office): leave the network (Settings → School
+  network → **Leave the network**), ask head office for a new join code, and join again. The
+  school keeps all its records; head office keeps the old copy as a left school and starts a
+  new one from what the school holds now.
+
 - **Teacher allocation**: Teachers → **Teacher allocation** shows a grid with sections down
   and subjects across; pick the teacher of each subject and the class teacher of each
   section. Each change is saved at once, and the teaching load of every teacher is listed

@@ -30,7 +30,10 @@ const unlinked: NexusLinkStatus = {
   ended: null,
   pending: 0,
   parked: [],
+  parked_at_hub: [],
   overwrites: 0,
+  restored: null,
+  in_step: false,
 };
 
 const linked: NexusLinkStatus = {
@@ -72,7 +75,7 @@ describe("NexusCard", () => {
   it("joins with the hub address and join code, then starts the first upload", async () => {
     vi.mocked(api.nexusLink).mockResolvedValue(unlinked);
     vi.mocked(api.nexusJoin).mockResolvedValue({ ...linked, last_sync_at: null, pending: 250 });
-    vi.mocked(api.nexusSync).mockResolvedValue({ ...linked, pending: 0 });
+    vi.mocked(api.nexusSync).mockResolvedValue({ ...linked, pending: 0, in_step: true });
     renderWithProviders(<NexusCard />);
     const join = await screen.findByRole("button", { name: "Join the network" });
     expect(join).toBeDisabled();
@@ -92,7 +95,7 @@ describe("NexusCard", () => {
     );
     await waitFor(() => expect(api.nexusSync).toHaveBeenCalledTimes(1));
     expect(await screen.findByText("Gulshan Education Network")).toBeInTheDocument();
-    expect(screen.getByTestId("nexus-state")).toHaveTextContent("Joined");
+    expect(screen.getByTestId("nexus-state")).toHaveTextContent("In step");
     expect(screen.getByTestId("nexus-pending")).toHaveTextContent("0");
   });
 
@@ -120,7 +123,12 @@ describe("NexusCard", () => {
       overwrites: 1,
     });
     vi.mocked(api.nexusOverwrites).mockResolvedValue([overwrite]);
-    vi.mocked(api.nexusSync).mockResolvedValue({ ...linked, pending: 0, overwrites: 1 });
+    vi.mocked(api.nexusSync).mockResolvedValue({
+      ...linked,
+      pending: 0,
+      overwrites: 1,
+      in_step: true,
+    });
     renderWithProviders(<NexusCard />);
     expect(await screen.findByTestId("nexus-state")).toHaveTextContent("Needs attention");
     expect(screen.getByRole("alert")).toHaveTextContent("The hub could not be reached.");
@@ -139,7 +147,7 @@ describe("NexusCard", () => {
     // Sync now refreshes the state.
     await userEvent.click(screen.getByRole("button", { name: "Sync now" }));
     await waitFor(() => expect(api.nexusSync).toHaveBeenCalled());
-    await waitFor(() => expect(screen.getByTestId("nexus-state")).toHaveTextContent("Joined"));
+    await waitFor(() => expect(screen.getByTestId("nexus-state")).toHaveTextContent("In step"));
     expect(screen.getByTestId("nexus-pending")).toHaveTextContent("0");
   });
 
@@ -288,5 +296,74 @@ describe("NexusCard", () => {
     expect(showValue(12)).toBe("12");
     expect(showValue({ amount: "-500.00" })).toBe('{"amount":"-500.00"}');
     expect(showValue({ note: "x".repeat(200) }).length).toBe(78);
+  });
+  it("says in step only when nothing waits on either side, and counts records parked at head office", async () => {
+    vi.mocked(api.nexusLink).mockResolvedValue({ ...linked, pending: 0, in_step: true });
+    const { unmount } = renderWithProviders(<NexusCard />);
+    expect(await screen.findByTestId("nexus-in-step")).toHaveTextContent(
+      "In step with head office",
+    );
+    expect(screen.getByTestId("nexus-state")).toHaveTextContent("In step");
+    unmount();
+
+    vi.mocked(api.nexusLink).mockResolvedValue({
+      ...linked,
+      pending: 0,
+      in_step: false,
+      parked_at_hub: [
+        { table: "students", id: "s9", reason: "Another student already has number 2026-0003." },
+      ],
+    });
+    vi.mocked(api.nexusSync).mockResolvedValue({
+      ...linked,
+      pending: 0,
+      in_step: false,
+      parked_at_hub: [
+        { table: "students", id: "s9", reason: "Another student already has number 2026-0003." },
+      ],
+    });
+    renderWithProviders(<NexusCard />);
+    expect(await screen.findByTestId("nexus-parked-at-hub")).toHaveTextContent("1");
+    const detail = screen.getByTestId("nexus-parked-at-hub-detail");
+    expect(detail).toHaveTextContent("1 record(s) from this school are waiting at head office");
+    expect(detail).toHaveTextContent("Another student already has number 2026-0003.");
+    expect(screen.getByTestId("nexus-in-step")).not.toHaveTextContent("In step with head office");
+    expect(screen.getByTestId("nexus-state")).toHaveTextContent("Not in step yet");
+    await userEvent.click(screen.getByRole("button", { name: "Sync now" }));
+    expect(await screen.findByText(/not everything is in step/)).toBeInTheDocument();
+    expect(screen.queryByText(/nothing is waiting on either side/)).not.toBeInTheDocument();
+  });
+
+  it("says when head office will be, and has been, asked to reset its copy after a restore", async () => {
+    vi.mocked(api.nexusLink).mockResolvedValue({
+      ...linked,
+      in_step: false,
+      restored: {
+        at: "2026-11-13T08:00:00Z",
+        backup_created_at: "2026-11-01T02:00:00Z",
+        hub_reset_at: null,
+        archive: null,
+      },
+    });
+    const { unmount } = renderWithProviders(<NexusCard />);
+    expect(await screen.findByTestId("nexus-restored")).toHaveTextContent(
+      "At the next sync head office will be asked to set its copy aside",
+    );
+    unmount();
+    vi.mocked(api.nexusLink).mockResolvedValue({
+      ...linked,
+      pending: 0,
+      in_step: true,
+      restored: {
+        at: "2026-11-13T08:00:00Z",
+        backup_created_at: "2026-11-01T02:00:00Z",
+        hub_reset_at: "2026-11-13T08:05:00Z",
+        archive: "a_0123",
+      },
+    });
+    renderWithProviders(<NexusCard />);
+    expect(await screen.findByTestId("nexus-restored")).toHaveTextContent(
+      "head office set its old copy aside",
+    );
   });
 });

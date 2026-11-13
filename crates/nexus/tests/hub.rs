@@ -457,6 +457,7 @@ async fn hub_tables_live_in_their_own_schema() {
             "hub_parent_links",
             "hub_parent_sessions",
             "hub_parents",
+            "hub_school_archives",
             "hub_schools",
             "hub_sessions",
             "hub_settings",

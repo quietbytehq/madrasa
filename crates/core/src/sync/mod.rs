@@ -13,7 +13,8 @@ pub use merge::{decide_field, plan_update, FieldDecision, LocalRow, LocalStamp, 
 pub use policy::{policy, Mode, TablePolicy, META_FIELDS, TABLES};
 pub use wire::{
     AckRequest, AckResponse, ApplyReport, Change, JoinRequest, JoinResponse, LeaveRequest, Origin,
-    Overwrite, Parked, PullRequest, PullResponse, PushRequest, PushResponse,
+    Overwrite, Parked, PullRequest, PullResponse, PushRequest, PushResponse, RestoredRequest,
+    RestoredResponse,
 };
 
 /// Rows per request. Small enough for a slow school uplink, large enough that a first
