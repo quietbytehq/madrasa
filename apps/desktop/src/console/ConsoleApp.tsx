@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BrowserRouter } from "react-router-dom";
 import { ToastProvider } from "@/components/ui/Toast";
-import { Spinner } from "@/components/ui/Spinner";
+import { BrandSplash } from "@/components/brand/Brand";
 import { Button } from "@/components/ui/Button";
 import { I18nProvider, useI18n } from "@/i18n";
 import { ThemeProvider } from "@/theme";
@@ -76,8 +76,8 @@ export function Gate() {
 
   if (stage.at === "loading")
     return (
-      <div className="flex h-screen items-center justify-center">
-        <Spinner />
+      <div className="h-screen">
+        <BrandSplash />
       </div>
     );
   if (stage.at === "unreachable")

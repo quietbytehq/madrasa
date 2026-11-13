@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { BrandMark } from "@/components/brand/Brand";
 import type { FormEvent } from "react";
 import { Check, Printer } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -249,12 +250,7 @@ export function Setup() {
     <main className="flex h-full items-start justify-center overflow-auto bg-bg p-6">
       <div className="w-full max-w-2xl">
         <div className="mb-4 flex items-center gap-2 print:hidden">
-          <div
-            aria-hidden
-            className="flex h-8 w-8 items-center justify-center rounded bg-navy text-sm font-bold text-white"
-          >
-            M
-          </div>
+          <BrandMark className="h-8 w-8" />
           <div>
             <h1 className="text-base font-semibold text-navy">{t("setup.title")}</h1>
             <p className="text-xs text-muted">{t("setup.intro")}</p>

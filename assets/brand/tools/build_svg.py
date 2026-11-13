@@ -177,7 +177,7 @@ def text_path(font: TTFont, text: str, size: float, x: float, baseline: float, f
     if "kern" in font:
         for table in font["kern"].kernTables:
             kern.update(table.kernTable)
-    pen = SVGPathPen(gs)
+    pen = SVGPathPen(gs, ntos=lambda v: f"{v:.1f}".rstrip("0").rstrip("."))
     cursor = 0.0
     prev = None
     for ch in text:

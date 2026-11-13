@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { api } from "@/api/endpoints";
-import { Spinner } from "@/components/ui/Spinner";
+import { BrandSplash } from "@/components/brand/Brand";
 
 /**
  * On start, asks the API whether first-run setup is still needed and routes to /setup if so.
@@ -49,11 +49,7 @@ export function SetupGate({ children, skip }: { children: ReactNode; skip?: bool
   }, [skip]);
 
   if (needsSetup === null) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Spinner size="lg" />
-      </div>
-    );
+    return <BrandSplash />;
   }
   if (needsSetup && location.pathname !== "/setup") return <Navigate to="/setup" replace />;
   if (!needsSetup && !completedHere && location.pathname === "/setup")

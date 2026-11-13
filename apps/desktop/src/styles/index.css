@@ -4,6 +4,7 @@
 @import "@fontsource/inter/700.css";
 @import "@fontsource/noto-nastaliq-urdu/400.css";
 @import "@fontsource/noto-nastaliq-urdu/700.css";
+@import "@fontsource/merriweather/900.css";
 @import "./tokens.css";
 
 @tailwind base;

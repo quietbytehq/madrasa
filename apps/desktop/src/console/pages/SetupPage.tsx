@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { BrandMark } from "@/components/brand/Brand";
 import type { FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -58,9 +59,12 @@ export function SetupPage({ onDone }: { onDone: () => void }) {
     <main className="flex min-h-screen items-center justify-center bg-bg p-4">
       <div className="w-full max-w-xl">
         <div className="mb-3 flex items-end justify-between gap-2">
-          <div>
-            <h1 className="text-lg font-semibold text-navy">{t("hub.setup.title")}</h1>
-            <p className="text-xs text-muted">{t("hub.setup.intro")}</p>
+          <div className="flex items-center gap-2">
+            <BrandMark className="h-9 w-9" />
+            <div>
+              <h1 className="text-lg font-semibold text-navy">{t("hub.setup.title")}</h1>
+              <p className="text-xs text-muted">{t("hub.setup.intro")}</p>
+            </div>
           </div>
           <LanguageSwitch />
         </div>

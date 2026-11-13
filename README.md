@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/madrasa-logo-dark.svg">
+    <img src="assets/brand/madrasa-logo.svg" alt="Madrasa: School Information System" width="440">
+  </picture>
+</p>
+
 # Madrasa
 
 **Madrasa** is a free, open-source desktop School Information System (SIS) for schools

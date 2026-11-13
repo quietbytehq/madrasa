@@ -16,6 +16,7 @@ export default {
         card: token("card"),
         navy: token("navy"),
         blue: token("blue"),
+        gold: { DEFAULT: token("gold"), bg: token("gold-bg") },
         selection: token("selection"),
         success: { DEFAULT: token("success"), bg: token("success-bg") },
         warning: { DEFAULT: token("warning"), bg: token("warning-bg") },
@@ -30,6 +31,16 @@ export default {
       fontFamily: {
         sans: ["Inter", "ui-sans-serif", "system-ui", "Segoe UI", "Roboto", "sans-serif"],
         urdu: ["Noto Nastaliq Urdu", "Inter", "system-ui", "sans-serif"],
+        // The wordmark's serif (assets/brand): the product name, never body text. Urdu
+        // names fall through to Nastaliq.
+        display: [
+          "Merriweather",
+          "Noto Nastaliq Urdu",
+          "Georgia",
+          "Cambria",
+          "Times New Roman",
+          "serif",
+        ],
       },
       fontSize: {
         "2xs": ["0.6875rem", { lineHeight: "1rem" }],
@@ -41,8 +52,8 @@ export default {
         xl: "10px",
       },
       boxShadow: {
-        card: "0 1px 2px rgb(20 47 80 / 0.06), 0 1px 1px rgb(20 47 80 / 0.04)",
-        pop: "0 8px 24px rgb(20 47 80 / 0.14), 0 2px 6px rgb(20 47 80 / 0.08)",
+        card: "0 1px 2px rgb(11 37 87 / 0.06), 0 1px 1px rgb(11 37 87 / 0.04)",
+        pop: "0 8px 24px rgb(11 37 87 / 0.14), 0 2px 6px rgb(11 37 87 / 0.08)",
       },
       spacing: {
         topbar: "var(--topbar-height)",
