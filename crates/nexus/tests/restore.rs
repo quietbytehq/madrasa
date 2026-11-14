@@ -1,4 +1,4 @@
-//! v0.4.3: a school that restored a backup while joined tells the hub at its next sync. The
+//! v0.5.0: a school that restored a backup while joined tells the hub at its next sync. The
 //! hub sets its copy aside as an archive and starts a fresh one from the school record; the
 //! archive goes when the school is purged. Needs PostgreSQL via `MADRASA_TEST_DATABASE_URL`.
 

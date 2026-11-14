@@ -1893,7 +1893,7 @@ async fn school_counts(app: &App, tables: &[&str]) -> Vec<i64> {
     out
 }
 
-/// v0.4.3: restoring an older backup while joined. Before, the school said "in step" while
+/// v0.5.0: restoring an older backup while joined. Before, the school said "in step" while
 /// head office held records the school no longer had, and the restored school issued the
 /// same student numbers again, so new records waited at the hub for ever. Now the restore
 /// asks for a confirmation, head office sets its copy aside at the next sync and starts a

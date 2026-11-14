@@ -45,7 +45,7 @@ state it wants to be in.
   records only head office had.
 - Head office loses, from its live copy, what it changed after the backup was made. That is
   the meaning of restoring a backup; the archive keeps it.
-- A hub older than 0.4.3 does not know `/sync/restored`: the school then says so and does not
+- A hub older than 0.5.0 does not know `/sync/restored`: the school then says so and does not
   sync. The fallback is to leave the network and join again with a new join code, which also
   starts a fresh copy.
 - The parent app keeps working through the switch; for a moment, while the fresh copy is being

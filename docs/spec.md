@@ -2206,7 +2206,7 @@ without that folder serves the API only.
   added as text; it is never parsed into a floating-point number.
 
 
-### 16.9 Restoring a backup while joined (v0.4.3)
+### 16.9 Restoring a backup while joined (v0.5.0)
 
 Design: ADR 0007.
 

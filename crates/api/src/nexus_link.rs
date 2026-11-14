@@ -479,7 +479,7 @@ async fn tell_hub_restored(
             // A hub from before this version does not know the call.
             TransportError::Refused { code, .. } if code == "not_found" => TransportError::Refused {
                 code,
-                message: "Head office's hub must be updated to Madrasa 0.4.3 or later before this school can sync after restoring a backup. Ask head office to update it, or leave the network and join again with a new join code.".into(),
+                message: "Head office's hub must be updated to Madrasa 0.5.0 or later before this school can sync after restoring a backup. Ask head office to update it, or leave the network and join again with a new join code.".into(),
             },
             other => other,
         })?;

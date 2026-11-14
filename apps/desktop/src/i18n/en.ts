@@ -2629,7 +2629,7 @@ export const en = {
   "parent.error.tooMany":
     "You have sent many messages in the last hour. Please wait a while before writing again.",
   "parent.error.signedOut": "You have been signed out. Please sign in again.",
-  // v0.4.3: restore while joined
+  // v0.5.0: restore while joined
   "backup.restore.network.warning":
     "This school is joined to a network. Restoring an older backup will make your data differ from head office's copy. Madrasa will ask head office to reset its copy.",
   "backup.restore.network.how":

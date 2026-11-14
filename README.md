@@ -37,7 +37,7 @@ Install it with `apt`, which also installs the libraries it needs (WebKitGTK 4.1
 when they are missing:
 
 ```bash
-sudo apt install ./Madrasa_0.4.3_amd64.deb
+sudo apt install ./Madrasa_0.5.0_amd64.deb
 ```
 
 Note the `./`: without it apt looks for a package of that name online. `dpkg -i` does not

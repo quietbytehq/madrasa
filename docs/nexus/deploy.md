@@ -45,7 +45,7 @@ docker compose --profile https up -d
 
 Compose pulls the published image, `ghcr.io/quietbytehq/madrasa-nexus:latest` (see
 "The image" below). To pin a version, set `NEXUS_IMAGE` in `.env`, for example
-`NEXUS_IMAGE=ghcr.io/quietbytehq/madrasa-nexus:0.4.3-alpha`.
+`NEXUS_IMAGE=ghcr.io/quietbytehq/madrasa-nexus:0.5.0-alpha`.
 
 Only if you are changing the hub's code yourself, build the image from this checkout instead:
 
@@ -127,17 +127,17 @@ token, once, which is useless after setup.
 Every release publishes the image (hub and web console) to GitHub Container Registry.
 Release tags always end in `-alpha` for now, and the image is tagged the same way:
 
-- `ghcr.io/quietbytehq/madrasa-nexus:<version>-alpha`, for example `:0.4.3-alpha`
+- `ghcr.io/quietbytehq/madrasa-nexus:<version>-alpha`, for example `:0.5.0-alpha`
   (the release tag without its `v`)
 - `ghcr.io/quietbytehq/madrasa-nexus:latest`, the newest release
 
 ```bash
-docker pull ghcr.io/quietbytehq/madrasa-nexus:0.4.3-alpha
+docker pull ghcr.io/quietbytehq/madrasa-nexus:0.5.0-alpha
 ```
 
 Deploy a version tag, not `latest`, so that an upgrade is something you decide. The hub's
-version must be the same as, or newer than, the schools' (a school on 0.4.3 that restored a
-backup needs a 0.4.3 hub, for example).
+version must be the same as, or newer than, the schools' (a school on 0.5.0 that restored a
+backup needs a 0.5.0 hub, for example).
 
 If a pull is refused with "denied" or "unauthorized", the package is not public: an owner of
 the repository sets its visibility to public under GitHub → Packages → madrasa-nexus →

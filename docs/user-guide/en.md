@@ -154,7 +154,7 @@ then: restoring an older backup makes the two differ.
   answered, then "In step" once nothing is waiting on either side.
 - Lost on purpose: what head office changed after the backup was made (corrections, parents'
   messages the school had not received yet). It stays in head office's archive.
-- **If it does not work** (head office's hub is older than Madrasa 0.4.3 and says so, or the
+- **If it does not work** (head office's hub is older than Madrasa 0.5.0 and says so, or the
   card keeps showing records waiting at head office): leave the network (Settings → School
   network → **Leave the network**), ask head office for a new join code, and join again. The
   school keeps all its records; head office keeps the old copy as a left school and starts a
