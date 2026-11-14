@@ -7,7 +7,7 @@ use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use serde::Serialize;
 
-use super::pdf::{compile, lit};
+use super::pdf::{compile, lit, mark};
 use super::text::tr;
 use super::{format_date, money, Lang};
 use crate::ApiError;
@@ -174,7 +174,7 @@ fn copy(d: &VoucherDoc, lang: Lang, which: &str) -> String {
     .join("\n");
     format!(
         "block(stroke: 0.5pt + black, inset: 10pt, width: 100%)[\
-#grid(columns: (1fr, auto), [#text(size: 12pt, weight: \"bold\")[#{school}]\\\n#text(size: 8pt, fill: luma(90))[#{city} · #{code}]], \
+#grid(columns: (auto, 1fr, auto), column-gutter: 6pt, [#{mark}], [#text(size: 12pt, weight: \"bold\")[#{school}]\\\n#text(size: 8pt, fill: luma(90))[#{city} · #{code}]], \
 [#align(end)[#text(size: 8pt, weight: \"bold\")[#upper({which})]\\\n#text(font: \"Inter\")[#{voucher_no}]]])\
 #line(length: 100%, stroke: 0.4pt + luma(170))\
 #grid(columns: (auto, 1fr), column-gutter: 8pt, row-gutter: 2pt, {details})\
@@ -184,6 +184,7 @@ fn copy(d: &VoucherDoc, lang: Lang, which: &str) -> String {
 #v(6pt)#block(stroke: (dash: \"dashed\", thickness: 0.5pt, paint: luma(120)), inset: 6pt, width: 100%)[\
 #text(size: 7.5pt, weight: \"bold\")[#upper({ref_label})]\\\n#text(font: \"Inter\", size: 11pt)[#{reference}]\\\n#text(size: 7.5pt, fill: luma(90))[#{ref_note}]\
 #v(8pt)#grid(columns: (1fr, 1fr), [#text(size: 7.5pt)[#{received_by}: \\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_]], [#align(end)[#text(size: 7.5pt)[#{signature}: \\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_]]])]]",
+        mark = mark("0.85cm"),
         school = lit(&d.school_name),
         city = lit(&d.school_city),
         code = lit(&d.school_code),

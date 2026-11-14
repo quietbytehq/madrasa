@@ -22,6 +22,17 @@ const FONT_FILES: &[&[u8]] = &[
     include_bytes!("../../fonts/NotoNastaliqUrdu-Bold.ttf"),
 ];
 
+/// Madrasa's emblem (assets/brand/madrasa-mark.svg) for the header of vouchers, report
+/// cards and offer letters: markup reads it as `image("/madrasa-mark.svg")`. The blue-page
+/// version, made for white paper; printouts are always light.
+const MARK_SVG: &[u8] = include_bytes!("../../../../assets/brand/madrasa-mark.svg");
+const MARK_PATH: &str = "madrasa-mark.svg";
+
+/// The emblem at `height`, as typst markup.
+pub fn mark(height: &str) -> String {
+    format!("image(\"/{MARK_PATH}\", height: {height}, alt: \"Madrasa\")")
+}
+
 struct Fonts {
     book: LazyHash<FontBook>,
     fonts: Vec<Font>,
@@ -40,6 +51,13 @@ static FONTS: LazyLock<Fonts> = LazyLock::new(|| {
         book: LazyHash::new(book),
         fonts,
     }
+});
+
+static MARK_ID: LazyLock<FileId> = LazyLock::new(|| {
+    FileId::new(RootedPath::new(
+        VirtualRoot::Project,
+        VirtualPath::new(MARK_PATH).expect("static path"),
+    ))
 });
 
 static LIBRARY: LazyLock<LazyHash<Library>> = LazyLock::new(|| LazyHash::new(Library::default()));
@@ -71,8 +89,12 @@ impl World for ReportWorld {
             Err(FileError::NotFound("report.typ".into()))
         }
     }
-    fn file(&self, _id: FileId) -> FileResult<Bytes> {
-        Err(FileError::NotFound("report.typ".into()))
+    fn file(&self, id: FileId) -> FileResult<Bytes> {
+        if id == *MARK_ID {
+            Ok(Bytes::new(MARK_SVG))
+        } else {
+            Err(FileError::NotFound(MARK_PATH.into()))
+        }
     }
     fn font(&self, index: usize) -> Option<Font> {
         FONTS.fonts.get(index).cloned()
@@ -275,7 +297,8 @@ pub fn cards_source(report: &Report) -> String {
             s.push_str("#pagebreak()\n");
         }
         s.push_str(&format!(
-            "#align(center)[#text(size: 15pt, weight: \"bold\")[#{school}]\n#linebreak()#text(size: 9pt, fill: luma(80))[#{city}]\n#v(2pt)#text(size: 12pt, weight: \"bold\")[#{title} · #{year}]]\n#v(6pt)\n",
+            "#place(top + start, dy: -2pt)[#{mark}]\n#align(center)[#text(size: 15pt, weight: \"bold\")[#{school}]\n#linebreak()#text(size: 9pt, fill: luma(80))[#{city}]\n#v(2pt)#text(size: 12pt, weight: \"bold\")[#{title} · #{year}]]\n#v(6pt)\n",
+            mark = mark("1.35cm"),
             school = lit(&c.school.name),
             city = lit(&c.school.city),
             title = lit(tr(lang, "card.title")),
@@ -563,6 +586,14 @@ mod tests {
     }
 
     #[test]
+    fn the_madrasa_emblem_is_embedded_and_nothing_else_is_readable() {
+        let pdf = compile(&format!("#{}", mark("1cm"))).expect("the emblem typesets");
+        assert!(pdf.starts_with(b"%PDF"));
+        // An image other than the emblem is not found: the world serves no other file.
+        assert!(compile("#image(\"/etc/passwd\")").is_err());
+    }
+
+    #[test]
     fn data_is_never_markup_and_long_reports_paginate() {
         let r = sample(Lang::En);
         let src = source(&r);
@@ -648,6 +679,8 @@ mod tests {
             ];
             assert_eq!(page_count(&r).unwrap(), 3, "{lang:?}");
             assert!(render(&r).unwrap().starts_with(b"%PDF"));
+            // Each card's header carries the Madrasa emblem.
+            assert_eq!(cards_source(&r).matches(&mark("1.35cm")).count(), 3);
         }
         let mut empty = Report::new(
             "exams.report_cards",

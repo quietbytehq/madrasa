@@ -13,6 +13,7 @@ import { formatMoney, monthLabel } from "@/lib/money";
 import { useMoney } from "@/lib/useMoney";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 import { methodLabel } from "./common";
+import { BrandMark } from "@/components/brand/Brand";
 
 /**
  * Print toolbar. With `onPdf` the Print button fetches the PDF typeset by the server (the
@@ -100,10 +101,13 @@ function VoucherCopy({ v, copy }: { v: VoucherDetail; copy: string }) {
   return (
     <section className="rounded border border-border bg-card p-4 text-sm text-text print:rounded-none print:border-black">
       <header className="mb-2 flex items-start justify-between border-b border-border pb-2">
-        <div>
-          <div className="text-base font-bold text-navy">{v.school.name}</div>
-          <div className="text-xs text-muted">
-            {v.school.city} · {v.school.code}
+        <div className="flex items-start gap-2">
+          <BrandMark className="h-9 w-9" />
+          <div>
+            <div className="text-base font-bold text-navy">{v.school.name}</div>
+            <div className="text-xs text-muted">
+              {v.school.city} · {v.school.code}
+            </div>
           </div>
         </div>
         <div className="text-end text-xs">
@@ -192,10 +196,13 @@ export function ReceiptPrintPage() {
       <PrintToolbar title={`${t("fees.print.receipt")} ${d.receipt_no}`} />
       <section className="print-area mx-auto max-w-lg rounded border border-border bg-card p-4 text-sm text-text print:rounded-none print:border-black">
         <header className="mb-2 flex items-start justify-between border-b border-border pb-2">
-          <div>
-            <div className="text-base font-bold text-navy">{d.school.name}</div>
-            <div className="text-xs text-muted">
-              {d.school.city} · {d.school.code}
+          <div className="flex items-start gap-2">
+            <BrandMark className="h-9 w-9" />
+            <div>
+              <div className="text-base font-bold text-navy">{d.school.name}</div>
+              <div className="text-xs text-muted">
+                {d.school.city} · {d.school.code}
+              </div>
             </div>
           </div>
           <div className="text-end text-xs">

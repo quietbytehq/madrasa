@@ -35,17 +35,13 @@ import { ParentAppPage } from "@/pages/parentapp/ParentAppPage";
 import { PARENT_APP_PERMISSIONS } from "@/app/parentApp";
 import { InventoryPage } from "@/pages/inventory/InventoryPage";
 import { TeacherAllocationPage } from "@/pages/staff/TeacherAllocationPage";
-import { Spinner } from "@/components/ui/Spinner";
+import { BrandSplash } from "@/components/brand/Brand";
 import { NAV_ITEMS } from "./navigation";
 import { useFeatures } from "./features";
 import { useSession } from "./session";
 
 function FullPageSpinner() {
-  return (
-    <div className="flex h-full items-center justify-center">
-      <Spinner size="lg" />
-    </div>
-  );
+  return <BrandSplash />;
 }
 
 /** Redirects anonymous users to /login, remembering where they wanted to go. */

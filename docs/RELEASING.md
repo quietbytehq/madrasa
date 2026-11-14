@@ -6,7 +6,7 @@ Installers are built by GitHub Actions (`.github/workflows/release.yml`):
   AppImage and the Windows NSIS installer with the bundled PostgreSQL, and creates a **draft
   pre-release** on GitHub with the files attached. Review the draft, edit the notes, publish.
 - **Manual build**: run the "Release" workflow from the Actions tab (`workflow_dispatch`).
-  It builds the same installers and uploads them as workflow artifacts (`madrasa-ubuntu-latest`,
+  It builds the same installers and uploads them as workflow artifacts (`madrasa-ubuntu-22.04`,
   `madrasa-windows-latest`) without creating a release.
 
 Every CI run on `main` and on `m1-*`/`dev/*` branches also builds the bundles and keeps them as
@@ -34,6 +34,12 @@ Before tagging:
 The Linux bundles are built on `ubuntu-22.04` so they run on Debian 12 and 13 and on Ubuntu
 22.04 or newer (glibc 2.35); CI fails if the binary ever needs a newer glibc. Building on a
 newer runner would silently raise that floor.
+The `.deb` declares the libraries the program links (WebKitGTK 4.1, GTK 3, libsoup 3,
+JavaScriptCore 4.1) and `libc6 (>= 2.35)` (`bundle.linux.deb.depends` in
+`apps/desktop/src-tauri/tauri.conf.json`); CI installs the built package with apt in clean
+Debian 12, Ubuntu 22.04 and Ubuntu 24.04 containers and fails if a library is missing. Every
+other job runs on `ubuntu-24.04`, pinned rather than `ubuntu-latest`, so a runner image
+change is a decision.
 
 Installers are **unsigned** for now; Windows SmartScreen and Linux package tools warn about
 that. Code signing is tracked for a later milestone.

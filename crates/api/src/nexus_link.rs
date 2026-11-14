@@ -12,9 +12,9 @@ use madrasa_core::escrow::{self, DepositRequest, EscrowStatus, ReleaseInfo, Seen
 use madrasa_core::parent_app::{AccessCode, AccessCodeRequest, GuardianAccess};
 use madrasa_core::sync::{
     hub_url, AckRequest, AckResponse, JoinRequest, JoinResponse, LeaveRequest, Origin, Parked,
-    PullRequest, PullResponse, PushRequest, PushResponse,
+    PullRequest, PullResponse, PushRequest, PushResponse, RestoredRequest, RestoredResponse,
 };
-use madrasa_db::nexus_link::{self, Ended, Link};
+use madrasa_db::nexus_link::{self, Ended, Link, Restored};
 use madrasa_db::sync::round::{self, RoundError, Transport, TransportError};
 use madrasa_db::{audit, schools, sync, Actor};
 use serde::de::DeserializeOwned;
@@ -52,8 +52,16 @@ pub struct LinkStatus {
     pub pending: i64,
     /// Records from head office waiting to be stored here, with the reason.
     pub parked: Vec<Parked>,
+    /// Records this school sent that head office could not store yet, with the reason (as
+    /// head office said at the last sync).
+    pub parked_at_hub: Vec<Parked>,
     /// Entries in the overwrite log.
     pub overwrites: i64,
+    /// A backup was restored while joined: when, and whether head office has reset its copy.
+    pub restored: Option<Restored>,
+    /// Everything is in step: nothing waits to be sent, nothing is parked on either side,
+    /// the last sync worked and no restore waits to be told. Only then may a screen say so.
+    pub in_step: bool,
 }
 
 // ---- talking to the hub -----------------------------------------------------------------------
@@ -200,6 +208,24 @@ pub async fn status(state: &AppState) -> ApiResult<LinkStatus> {
     let counts = sync::status(&mut conn).await?;
     let parked = sync::list_parked(&mut conn).await?;
     let active = link.as_ref().is_some_and(Link::is_active);
+    let parked_at_hub: Vec<Parked> = counts
+        .last_report
+        .as_ref()
+        .filter(|_| active)
+        .and_then(|r| r.get("parked_at_hub").cloned())
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default();
+    let restored = link
+        .as_ref()
+        .filter(|_| active)
+        .and_then(|l| l.restored.clone());
+    let in_step = active
+        && counts.last_sync_at.is_some()
+        && counts.last_error.is_none()
+        && counts.pending == 0
+        && parked.is_empty()
+        && parked_at_hub.is_empty()
+        && !restored.as_ref().is_some_and(Restored::waiting);
     Ok(LinkStatus {
         linked: active,
         hub_url: link.as_ref().map(|l| l.hub_url.clone()),
@@ -211,7 +237,10 @@ pub async fn status(state: &AppState) -> ApiResult<LinkStatus> {
         ended: link.and_then(|l| l.ended),
         pending: counts.pending,
         parked,
+        parked_at_hub,
         overwrites: counts.overwrites,
+        restored,
+        in_step,
     })
 }
 
@@ -270,6 +299,7 @@ pub async fn join(
             school_ref: joined.school_ref,
             joined_at: Utc::now(),
             ended: None,
+            restored: None,
         },
     )
     .await?;
@@ -376,9 +406,24 @@ pub async fn sync_now(state: &AppState, actor: Actor) -> ApiResult<LinkStatus> {
             })?;
         (link, token)
     };
-    let outcome = match HubClient::new(&link.hub_url, &token) {
-        Ok(client) => round::run(&state.pool, &state.hlc, state.version, &client).await,
-        Err(e) => Err(RoundError::Transport(e)),
+    // After a restore: head office must set its copy aside before anything is sent, or the
+    // school's older records would be merged into a copy that holds newer ones.
+    let outcome = match link.restored.as_ref().filter(|r| r.waiting()) {
+        Some(restored) => tell_hub_restored(state, school, &link, restored, &token)
+            .await
+            .map(|_| ()),
+        None => Ok(()),
+    };
+    let link = {
+        let mut conn = state.pool.acquire().await?;
+        nexus_link::get(&mut conn, school).await?.unwrap_or(link)
+    };
+    let outcome = match outcome {
+        Ok(()) => match HubClient::new(&link.hub_url, &token) {
+            Ok(client) => round::run(&state.pool, &state.hlc, state.version, &client).await,
+            Err(e) => Err(RoundError::Transport(e)),
+        },
+        Err(e) => Err(e),
     };
     // How the round went is local bookkeeping: writing it as a setting would be audited, and
     // the audit row would itself be a record to send at the next sync.
@@ -405,6 +450,67 @@ pub async fn sync_now(state: &AppState, actor: Actor) -> ApiResult<LinkStatus> {
     }
     drop(conn);
     status(state).await
+}
+
+/// Tell head office that this school restored a backup. Head office sets its copy aside (it
+/// keeps it as an archive) and starts a fresh one from the school record; the records the
+/// restore queued are then sent into it. Both sides write it in their audit log.
+async fn tell_hub_restored(
+    state: &AppState,
+    school: Uuid,
+    link: &Link,
+    restored: &Restored,
+    token: &str,
+) -> Result<RestoredResponse, RoundError> {
+    let request = {
+        let mut conn = state.pool.acquire().await?;
+        RestoredRequest {
+            school: sync::school_record(&mut conn, school).await?,
+            app_version: state.version.to_string(),
+            schema_version: sync::schema_version(&mut conn).await?,
+            backup_created_at: restored.backup_created_at,
+            restored_at: restored.at,
+        }
+    };
+    let http = http()?;
+    let answer: RestoredResponse = post(&http, &link.hub_url, "/sync/restored", Some(token), &request)
+        .await
+        .map_err(|e| match e {
+            // A hub from before this version does not know the call.
+            TransportError::Refused { code, .. } if code == "not_found" => TransportError::Refused {
+                code,
+                message: "Head office's hub must be updated to Madrasa 0.4.3 or later before this school can sync after restoring a backup. Ask head office to update it, or leave the network and join again with a new join code.".into(),
+            },
+            other => other,
+        })?;
+    let mut tx = state.pool.begin().await?;
+    let mut after = nexus_link::get(&mut tx, school)
+        .await?
+        .unwrap_or_else(|| link.clone());
+    after.restored = Some(Restored {
+        hub_reset_at: Some(answer.rebaselined_at),
+        archive: Some(answer.archive.clone()),
+        ..restored.clone()
+    });
+    let actor = Actor::system_for(school);
+    nexus_link::set(&mut tx, &state.hlc, actor, school, &after).await?;
+    audit::record(
+        &mut tx,
+        &state.hlc,
+        actor,
+        audit::Action::Update,
+        "nexus_link",
+        None,
+        None,
+        Some(serde_json::json!({
+            "hub_reset": true, "network": link.hub_name, "archive": answer.archive,
+            "backup_created_at": restored.backup_created_at, "restored_at": restored.at,
+        })),
+    )
+    .await?;
+    tx.commit().await?;
+    tracing::info!("head office set its copy aside after the restore and started afresh");
+    Ok(answer)
 }
 
 // ---- backup key escrow ------------------------------------------------------------------------

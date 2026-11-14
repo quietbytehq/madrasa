@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/endpoints";
+import { ApiError } from "@/api/client";
 import type { Assignment, Gender, LoginRole, Section, Staff, Subject } from "@/api/types";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -408,7 +409,38 @@ export function LoginSection({ staff, onChanged }: { staff: Staff; onChanged: ()
   const [resetting, setResetting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** A role change waiting for "yes": the login and the role it would get. */
+  const [changing, setChanging] = useState<{
+    username: string;
+    from: string | null;
+    to: LoginRole;
+  } | null>(null);
   const isSelf = staff.user_id !== null && staff.user_id === user?.id;
+
+  const createLogin = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.createStaffLogin(staff.id, { username, password, role });
+      toast.push({ kind: "success", title: t("staff.login.created") });
+      setCreating(false);
+      setPassword("");
+      onChanged();
+    } catch (err) {
+      // A login was made meanwhile (elsewhere, or by directory login): never change it from
+      // here without asking. Show it and offer to change its role.
+      if (err instanceof ApiError && err.code === "login_exists") {
+        const d = (err.details ?? {}) as { username?: string; role?: string | null };
+        setCreating(false);
+        setPassword("");
+        setChanging({ username: d.username ?? "", from: d.role ?? null, to: role });
+      } else {
+        setError(errorMessage(err, t("app.error.generic")));
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const run = async (work: () => Promise<unknown>, done: string) => {
     setBusy(true);
@@ -478,16 +510,7 @@ export function LoginSection({ staff, onChanged }: { staff: Staff; onChanged: ()
                 />
               </div>
               <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  loading={busy}
-                  onClick={() =>
-                    void run(
-                      () => api.createStaffLogin(staff.id, { username, password, role }),
-                      t("staff.login.created"),
-                    )
-                  }
-                >
+                <Button size="sm" loading={busy} onClick={() => void createLogin()}>
                   {t("staff.login.create")}
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => setCreating(false)}>
@@ -511,11 +534,9 @@ export function LoginSection({ staff, onChanged }: { staff: Staff; onChanged: ()
               value={role}
               onChange={(e) => {
                 const next = e.target.value as LoginRole;
-                setRole(next);
-                void run(
-                  () => api.updateStaffLogin(staff.id, { role: next }),
-                  t("staff.login.saved"),
-                );
+                if (next === role) return;
+                // Ask first: a role decides what this person may see and change.
+                setChanging({ username: staff.username ?? "", from: role, to: next });
               }}
               options={roleOptions}
               disabled={!manage || busy}
@@ -579,6 +600,56 @@ export function LoginSection({ staff, onChanged }: { staff: Staff; onChanged: ()
         <p role="alert" className="mt-2 text-sm text-danger">
           {error}
         </p>
+      )}
+      {changing && (
+        <div
+          role="alertdialog"
+          aria-labelledby="change-role-title"
+          className="mt-2 rounded border border-warning/60 bg-warning-bg p-2 text-sm text-text"
+          data-testid="change-role"
+        >
+          <p id="change-role-title" className="font-semibold">
+            {t("staff.login.changeRole.title")}
+          </p>
+          <p className="mt-1 text-xs">
+            {t("staff.login.changeRole.body", {
+              name: staff.full_name,
+              username: changing.username,
+              from: changing.from ? t(`staff.login.role.${changing.from as LoginRole}`) : "—",
+              to: t(`staff.login.role.${changing.to}`),
+            })}
+          </p>
+          <div className="mt-2 flex gap-2">
+            <Button
+              size="sm"
+              loading={busy}
+              onClick={() => {
+                const to = changing.to;
+                setChanging(null);
+                setRole(to);
+                void run(
+                  () => api.updateStaffLogin(staff.id, { role: to }),
+                  t("staff.login.saved"),
+                );
+              }}
+              data-testid="change-role-yes"
+            >
+              {t("staff.login.changeRole.yes")}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setChanging(null);
+                // The screen may have been opened before the login existed: show it now.
+                onChanged();
+              }}
+              data-testid="change-role-no"
+            >
+              {t("staff.login.changeRole.no")}
+            </Button>
+          </div>
+        </div>
       )}
     </fieldset>
   );

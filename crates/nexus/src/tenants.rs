@@ -46,8 +46,17 @@ pub fn schema_for(id: Uuid) -> String {
 
 /// Only names this module made are ever put into SQL text.
 pub fn is_schema_name(name: &str) -> bool {
+    named(name, "t_")
+}
+
+/// An archive of a school's copy that head office set aside: `a_` and 32 hex digits.
+pub fn is_archive_name(name: &str) -> bool {
+    named(name, "a_")
+}
+
+fn named(name: &str, prefix: &str) -> bool {
     name.len() == 34
-        && name.starts_with("t_")
+        && name.starts_with(prefix)
         && name[2..]
             .bytes()
             .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
@@ -350,6 +359,147 @@ pub async fn end(
     Ok(after)
 }
 
+/// What setting a school's copy aside did.
+#[derive(Debug, Clone)]
+pub struct Rebaselined {
+    /// The archive schema now holding the old copy.
+    pub archive: String,
+    pub at: chrono::DateTime<chrono::Utc>,
+}
+
+/// A school restored a backup while joined (ADR 0007). Its records are now older
+/// than head office's copy, so that copy is set aside as an archive and a fresh one is
+/// started from the school record, exactly as when the school joined; the school then sends
+/// every record again into it. Nothing in the fresh copy can clash with what the school
+/// holds, because it is made from nothing else.
+///
+/// The old copy is renamed, not changed: what head office held, including corrections and
+/// parents' messages the school had not received yet, stays readable there until the school
+/// is purged.
+pub async fn rebaseline(
+    pool: &PgPool,
+    hlc: &Hlc,
+    school: &HubSchool,
+    record: &Change,
+    backup_created_at: Option<chrono::DateTime<chrono::Utc>>,
+    restored_at: chrono::DateTime<chrono::Utc>,
+) -> anyhow::Result<Rebaselined> {
+    anyhow::ensure!(
+        is_schema_name(&school.schema_name),
+        "this school has no data schema"
+    );
+    anyhow::ensure!(
+        record.table == "schools" && record.fields.is_none() && record.id == school.school_id,
+        "the school record does not belong to this school"
+    );
+    let archive_id = new_id();
+    let archive = format!("a_{}", archive_id.simple());
+
+    // 1. Set the old copy aside: capture off, then renamed.
+    let mut t = begin(pool, school).await?;
+    sync::disable(&mut t).await?;
+    t.commit().await?;
+    let mut tx = pool.begin().await?;
+    sqlx::query(AssertSqlSafe(format!(
+        "ALTER SCHEMA \"{}\" RENAME TO \"{archive}\"",
+        school.schema_name
+    )))
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query(
+        "INSERT INTO hub_school_archives (id, hub_school_id, schema_name, reason, backup_created_at,
+                                          restored_at, hlc)
+         VALUES ($1, $2, $3, 'restored', $4, $5, $6)",
+    )
+    .bind(archive_id)
+    .bind(school.id)
+    .bind(&archive)
+    .bind(backup_created_at)
+    .bind(restored_at)
+    .bind(hlc.now().to_string())
+    .execute(&mut *tx)
+    .await?;
+    tx.commit().await?;
+
+    // 2. A fresh copy under the school's own schema name, from its school record.
+    let built: anyhow::Result<()> = async {
+        migrate_schema(pool, &school.schema_name, true).await?;
+        let mut t = begin(pool, school).await?;
+        sync::adopt_school(&mut t, record, Origin::HeadOffice).await?;
+        t.commit().await?;
+        Ok(())
+    }
+    .await;
+    if let Err(e) = built {
+        // Put the old copy back as it was, so the school can try again.
+        tracing::error!(error = %e, "starting a fresh copy after a restore failed");
+        let undo: anyhow::Result<()> = async {
+            let mut tx = pool.begin().await?;
+            sqlx::query(AssertSqlSafe(format!(
+                "DROP SCHEMA IF EXISTS \"{}\" CASCADE",
+                school.schema_name
+            )))
+            .execute(&mut *tx)
+            .await?;
+            sqlx::query(AssertSqlSafe(format!(
+                "ALTER SCHEMA \"{archive}\" RENAME TO \"{}\"",
+                school.schema_name
+            )))
+            .execute(&mut *tx)
+            .await?;
+            sqlx::query("DELETE FROM hub_school_archives WHERE id = $1")
+                .bind(archive_id)
+                .execute(&mut *tx)
+                .await?;
+            tx.commit().await?;
+            let mut t = begin(pool, school).await?;
+            sync::enable(&mut t, school.school_id, Origin::HeadOffice).await?;
+            t.commit().await?;
+            Ok(())
+        }
+        .await;
+        if let Err(undo) = undo {
+            tracing::error!(error = %undo, "putting the old copy back failed");
+        }
+        return Err(e);
+    }
+
+    // 3. Logged at head office; the school logs it on its side when it hears back.
+    let at = chrono::Utc::now();
+    let mut tx = pool.begin().await?;
+    crate::store::audit(
+        &mut tx,
+        hlc,
+        None,
+        "school_restored",
+        "hub_school",
+        Some(school.id),
+        None,
+        Some(serde_json::json!({
+            "archive": archive, "backup_created_at": backup_created_at, "restored_at": restored_at,
+            "note": "the school restored a backup; head office's copy was set aside and started afresh",
+        })),
+    )
+    .await?;
+    touch(&mut tx, hlc, school.id, None, None).await?;
+    tx.commit().await?;
+    Ok(Rebaselined { archive, at })
+}
+
+/// Archives of a school's earlier copies that still exist.
+pub async fn archives(
+    conn: &mut PgConnection,
+    hub_school_id: Uuid,
+) -> Result<Vec<String>, sqlx::Error> {
+    sqlx::query_scalar(
+        "SELECT schema_name FROM hub_school_archives
+         WHERE hub_school_id = $1 AND dropped_at IS NULL AND deleted_at IS NULL ORDER BY created_at",
+    )
+    .bind(hub_school_id)
+    .fetch_all(conn)
+    .await
+}
+
 /// Delete a school's data for good: drop its schema. Nothing of another school is touched.
 pub async fn purge(
     pool: &PgPool,
@@ -363,6 +513,25 @@ pub async fn purge(
         "DROP SCHEMA IF EXISTS \"{}\" CASCADE",
         school.schema_name
     )))
+    .execute(&mut *tx)
+    .await?;
+    // Copies set aside after a restore go too.
+    for archive in archives(&mut tx, school.id).await? {
+        if is_archive_name(&archive) {
+            sqlx::query(AssertSqlSafe(format!(
+                "DROP SCHEMA IF EXISTS \"{archive}\" CASCADE"
+            )))
+            .execute(&mut *tx)
+            .await?;
+        }
+    }
+    sqlx::query(
+        "UPDATE hub_school_archives SET dropped_at = now(), updated_at = now(), updated_by = $2, hlc = $3
+         WHERE hub_school_id = $1 AND dropped_at IS NULL",
+    )
+    .bind(school.id)
+    .bind(actor)
+    .bind(hlc.now().to_string())
     .execute(&mut *tx)
     .await?;
     sqlx::query(

@@ -22,6 +22,30 @@ pub struct Ended {
     pub reason: String,
 }
 
+/// A backup was restored while the school was joined. Until head office has been told, the
+/// school sends nothing: its records are now older than head office's copy, and merging
+/// them into that copy would leave the two different (ADR 0007).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Restored {
+    pub at: DateTime<Utc>,
+    /// When the restored backup was made.
+    #[serde(default)]
+    pub backup_created_at: Option<DateTime<Utc>>,
+    /// When head office set its old copy aside and started a fresh one. `None` until then.
+    #[serde(default)]
+    pub hub_reset_at: Option<DateTime<Utc>>,
+    /// Head office's name for the copy it set aside.
+    #[serde(default)]
+    pub archive: Option<String>,
+}
+
+impl Restored {
+    /// Head office has not been told yet.
+    pub fn waiting(&self) -> bool {
+        self.hub_reset_at.is_none()
+    }
+}
+
 /// Everything about the link except the token.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Link {
@@ -33,6 +57,9 @@ pub struct Link {
     /// Set when the school is no longer joined; kept so the screen can say what happened.
     #[serde(default)]
     pub ended: Option<Ended>,
+    /// The last restore of a backup while joined, and whether head office has been told.
+    #[serde(default)]
+    pub restored: Option<Restored>,
 }
 
 impl Link {

@@ -394,6 +394,11 @@ export const en = {
   "staff.login.created": "Login created.",
   "staff.login.saved": "Login updated.",
   "staff.login.resetDone": "Password changed.",
+  "staff.login.changeRole.title": "Change this login's role?",
+  "staff.login.changeRole.body":
+    "{name} already has a login: {username}. Its role would change from {from} to {to}, which changes what this person can see and do.",
+  "staff.login.changeRole.yes": "Change the role",
+  "staff.login.changeRole.no": "Keep it as it is",
   "staff.login.role.principal": "Principal",
   "staff.login.role.admin": "Administrator",
   "staff.login.role.accountant": "Accountant",
@@ -1293,10 +1298,9 @@ export const en = {
   "nexus.lastSync": "Last sync",
   "nexus.never": "Not yet",
   "nexus.pending": "Changes waiting to be sent",
-  "nexus.state.joined": "Joined",
   "nexus.state.problem": "Needs attention",
   "nexus.syncNow": "Sync now",
-  "nexus.synced": "In step with the hub.",
+  "nexus.synced": "In step with head office: nothing is waiting on either side.",
   "nexus.parked": "{count} record(s) from head office could not be stored here yet",
   "nexus.leave": "Leave the network",
   "nexus.leave.title": "Leave {hub}?",
@@ -2121,6 +2125,8 @@ export const en = {
   "directory.enabled": "Use the school directory for logins",
   "directory.url": "Server URL",
   "directory.urlHint": "ldaps://server:636 (TLS is required)",
+  "directory.caHint":
+    "The connection uses TLS, so the PC that runs the Madrasa server must trust the certificate authority (CA) that issued the directory's certificate. With a company or school CA, install its certificate on that PC (Windows: Trusted Root Certification Authorities of the computer; Linux: /usr/local/share/ca-certificates, then update-ca-certificates) and restart Madrasa. Test connection says when the certificate is not trusted or has expired.",
   "directory.bindDn": "Bind account DN",
   "directory.bindPassword": "Bind account password",
   "directory.bindPasswordKept": "Stored. Leave empty to keep it.",
@@ -2623,6 +2629,33 @@ export const en = {
   "parent.error.tooMany":
     "You have sent many messages in the last hour. Please wait a while before writing again.",
   "parent.error.signedOut": "You have been signed out. Please sign in again.",
+  // v0.4.3: restore while joined
+  "backup.restore.network.warning":
+    "This school is joined to a network. Restoring an older backup will make your data differ from head office's copy. Madrasa will ask head office to reset its copy.",
+  "backup.restore.network.how":
+    "At the next sync, head office ({network}) sets its copy aside, keeps it as an archive, and starts afresh from this school's records. This school stays joined. Records head office changed since this backup are not brought back.",
+  "backup.restore.network.confirm":
+    "I understand: head office's copy at {network} will be reset at the next sync.",
+  "backup.restore.doneNetwork":
+    "Restored {rows} records from the backup of {date}. Head office ({network}) will be asked to reset its copy at the next sync. Please log in again.",
+  "nexus.syncedNotInStep":
+    "The sync ran, but not everything is in step with head office yet. See the details on this page.",
+  "nexus.state.inStep": "In step",
+  "nexus.state.notInStep": "Not in step yet",
+  "nexus.inStep": "In step with head office: nothing is waiting on either side.",
+  "nexus.notInStep":
+    "Not in step with head office yet: something is waiting to be sent or could not be stored. See below.",
+  "nexus.notSyncedYet": "Not synced yet.",
+  "nexus.parkedAtHub.label": "Waiting at head office",
+  "nexus.parkedAtHub":
+    "{count} record(s) from this school are waiting at head office and are not in its copy yet",
+  "nexus.parkedAtHub.why":
+    "Head office could not store them, usually because they clash with something its copy already holds (for example the same student number). They are tried again at every sync. If they stay, ask head office: it sees them under Schools.",
+  "nexus.restored.waiting":
+    "A backup was restored on {date}. At the next sync head office will be asked to set its copy aside and start afresh from this school's records. Nothing is sent before that.",
+  "nexus.restored.done":
+    "After a restore, head office set its old copy aside on {date} (kept as an archive) and started afresh from this school's records.",
+
   "offline.queued":
     "Saved on this PC. The school server cannot be reached; this change will be sent as soon as it is back ({count} waiting).",
   "offline.queued.receipt":

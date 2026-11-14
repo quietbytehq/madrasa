@@ -381,6 +381,11 @@ export const ur: Translation = {
   "staff.login.created": "لاگ ان بن گیا۔",
   "staff.login.saved": "لاگ ان محفوظ ہو گیا۔",
   "staff.login.resetDone": "پاس ورڈ بدل گیا۔",
+  "staff.login.changeRole.title": "اس لاگ اِن کا کردار بدلیں؟",
+  "staff.login.changeRole.body":
+    "{name} کا لاگ اِن پہلے سے موجود ہے: {username}۔ اس کا کردار {from} سے {to} ہو جائے گا، جس سے یہ شخص جو دیکھ اور کر سکتا ہے وہ بدل جائے گا۔",
+  "staff.login.changeRole.yes": "کردار بدلیں",
+  "staff.login.changeRole.no": "جیسا ہے رہنے دیں",
   "staff.login.role.principal": "پرنسپل",
   "staff.login.role.admin": "منتظم",
   "staff.login.role.accountant": "اکاؤنٹنٹ",
@@ -1273,10 +1278,9 @@ export const ur: Translation = {
   "nexus.lastSync": "آخری ہم آہنگی",
   "nexus.never": "ابھی نہیں",
   "nexus.pending": "بھیجے جانے کی منتظر تبدیلیاں",
-  "nexus.state.joined": "شامل",
   "nexus.state.problem": "توجہ درکار",
   "nexus.syncNow": "ابھی ہم آہنگ کریں",
-  "nexus.synced": "حب کے ساتھ ہم آہنگ۔",
+  "nexus.synced": "ہیڈ آفس کے ساتھ برابر: دونوں طرف کچھ زیر التوا نہیں۔",
   "nexus.parked": "ہیڈ آفس کے {count} ریکارڈ ابھی یہاں محفوظ نہیں ہو سکے",
   "nexus.leave": "نیٹ ورک چھوڑیں",
   "nexus.leave.title": "{hub} چھوڑیں؟",
@@ -2100,6 +2104,8 @@ export const ur: Translation = {
   "directory.enabled": "لاگ ان کے لیے اسکول کی ڈائریکٹری استعمال کریں",
   "directory.url": "سرور کا پتہ",
   "directory.urlHint": "ldaps://server:636 (TLS لازمی ہے)",
+  "directory.caHint":
+    "کنکشن TLS استعمال کرتا ہے، اس لیے جس PC پر مدرسہ سرور چلتا ہے اسے اس سرٹیفکیٹ اتھارٹی (CA) پر اعتماد ہونا چاہیے جس نے ڈائریکٹری کا سرٹیفکیٹ جاری کیا۔ ادارے یا اسکول کی اپنی CA ہو تو اس کا سرٹیفکیٹ اسی PC پر انسٹال کریں (Windows: کمپیوٹر کی Trusted Root Certification Authorities؛ Linux: /usr/local/share/ca-certificates، پھر update-ca-certificates) اور مدرسہ دوبارہ شروع کریں۔ کنکشن جانچیں بتاتا ہے کہ سرٹیفکیٹ قابل اعتماد نہیں یا اس کی مدت ختم ہو چکی ہے۔",
   "directory.bindDn": "بائنڈ اکاؤنٹ DN",
   "directory.bindPassword": "بائنڈ اکاؤنٹ کا پاس ورڈ",
   "directory.bindPasswordKept": "محفوظ ہے۔ برقرار رکھنے کے لیے خالی چھوڑیں۔",
@@ -2599,6 +2605,33 @@ export const ur: Translation = {
   "parent.error.tooMany":
     "آپ نے پچھلے ایک گھنٹے میں بہت سے پیغامات بھیجے ہیں۔ دوبارہ لکھنے سے پہلے کچھ دیر انتظار کریں۔",
   "parent.error.signedOut": "آپ لاگ آؤٹ ہو گئے ہیں۔ دوبارہ لاگ اِن کریں۔",
+  // v0.4.3: restore while joined
+  "backup.restore.network.warning":
+    "یہ اسکول ایک نیٹ ورک میں شامل ہے۔ پرانا بیک اپ بحال کرنے سے آپ کا ڈیٹا ہیڈ آفس کی کاپی سے مختلف ہو جائے گا۔ مدرسہ ہیڈ آفس سے اس کی کاپی دوبارہ ترتیب دینے کو کہے گا۔",
+  "backup.restore.network.how":
+    "اگلی ہم آہنگی پر ہیڈ آفس ({network}) اپنی کاپی الگ کر کے محفوظ (آرکائیو) کر لیتا ہے اور اس اسکول کے ریکارڈ سے نئے سرے سے شروع کرتا ہے۔ یہ اسکول نیٹ ورک میں شامل رہتا ہے۔ اس بیک اپ کے بعد ہیڈ آفس کی تبدیلیاں واپس نہیں آتیں۔",
+  "backup.restore.network.confirm":
+    "میں سمجھتا/سمجھتی ہوں: {network} پر ہیڈ آفس کی کاپی اگلی ہم آہنگی پر دوبارہ ترتیب دی جائے گی۔",
+  "backup.restore.doneNetwork":
+    "{date} کے بیک اپ سے {rows} ریکارڈ بحال ہو گئے۔ اگلی ہم آہنگی پر ہیڈ آفس ({network}) سے اس کی کاپی دوبارہ ترتیب دینے کو کہا جائے گا۔ براہ کرم دوبارہ لاگ اِن کریں۔",
+  "nexus.syncedNotInStep":
+    "ہم آہنگی ہو گئی، مگر ابھی سب کچھ ہیڈ آفس کے ساتھ برابر نہیں۔ تفصیل اسی صفحے پر دیکھیں۔",
+  "nexus.state.inStep": "برابر",
+  "nexus.state.notInStep": "ابھی برابر نہیں",
+  "nexus.inStep": "ہیڈ آفس کے ساتھ برابر: دونوں طرف کچھ زیر التوا نہیں۔",
+  "nexus.notInStep":
+    "ابھی ہیڈ آفس کے ساتھ برابر نہیں: کچھ بھیجا جانا باقی ہے یا محفوظ نہیں ہو سکا۔ نیچے دیکھیں۔",
+  "nexus.notSyncedYet": "ابھی ہم آہنگی نہیں ہوئی۔",
+  "nexus.parkedAtHub.label": "ہیڈ آفس پر منتظر",
+  "nexus.parkedAtHub":
+    "اس اسکول کے {count} ریکارڈ ہیڈ آفس پر منتظر ہیں اور ابھی اس کی کاپی میں شامل نہیں",
+  "nexus.parkedAtHub.why":
+    "ہیڈ آفس انہیں محفوظ نہیں کر سکا، عموماً اس لیے کہ وہ اس کی کاپی میں پہلے سے موجود کسی چیز سے ٹکراتے ہیں (مثلاً وہی طالب علم نمبر)۔ ہر ہم آہنگی پر انہیں دوبارہ آزمایا جاتا ہے۔ اگر یہ برقرار رہیں تو ہیڈ آفس سے پوچھیں: وہ انہیں اسکولز کے تحت دیکھ سکتا ہے۔",
+  "nexus.restored.waiting":
+    "{date} کو ایک بیک اپ بحال کیا گیا۔ اگلی ہم آہنگی پر ہیڈ آفس سے کہا جائے گا کہ اپنی کاپی الگ کر کے اس اسکول کے ریکارڈ سے نئے سرے سے شروع کرے۔ اس سے پہلے کچھ نہیں بھیجا جاتا۔",
+  "nexus.restored.done":
+    "بحالی کے بعد ہیڈ آفس نے {date} کو اپنی پرانی کاپی الگ کر کے محفوظ کر لی (آرکائیو) اور اس اسکول کے ریکارڈ سے نئے سرے سے شروع کیا۔",
+
   "offline.queued":
     "اس کمپیوٹر پر محفوظ ہو گیا۔ اسکول سرور سے رابطہ نہیں ہو رہا؛ یہ تبدیلی سرور واپس آتے ہی بھیج دی جائے گی ({count} منتظر)۔",
   "offline.queued.receipt":

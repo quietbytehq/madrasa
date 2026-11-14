@@ -1613,10 +1613,113 @@ depend on each other and were built together)
   both front ends' lint, format, type and test steps.
 - Left: nothing in `docs/TASKS-PARENT-APP.md`. What needs a person is in the summary below.
 
+## v0.4.3-alpha
+
+### 2026-11-13 — Fixes after v0.4.2-alpha (branch `claude/kind-franklin-ac2vjh`)
+
+1. **Restoring an older backup while joined to a hub (serious).** Cause: a backup holds the
+   hub link and the record of what was already sent, so after a restore the school believed
+   everything was sent while head office still held every record made after the backup, and
+   the restored student-number counter issued those numbers again, so new records were
+   parked at the hub for ever. Fix (ADR 0007, spec §16.9):
+   - The restore asks for a confirmation while joined, with the warning *This school is
+     joined to a network. Restoring an older backup will make your data differ from head
+     office's copy. Madrasa will ask head office to reset its copy.* (`409
+     restore_while_joined` without it). Not joined: no warning, nothing to confirm. A backup
+     of another school is refused while joined.
+   - The restore keeps the hub link and key as they were just before it, clears the sync
+     queues, queues every record and marks the link restored, all in the restore's own
+     transaction.
+   - The next sync tells the hub first (`POST /sync/restored`) and sends nothing until it
+     answers. The hub renames the school's copy to an archive (`a_<id>`, hub migration 5,
+     `hub_school_archives`), starts a fresh copy from the school record and logs
+     `school_restored`; the school logs the answer. The school then sends everything again.
+     Purging the school drops its archives.
+   - The Nexus card counts records parked at head office and explains them, and says *In
+     step* only when nothing waits to be sent, nothing is parked on either side, the last
+     sync worked and no restore waits to be told.
+   - User guide (EN, UR): restoring while joined, and leave and join again as the fallback.
+2. **Hub image docs.** The image is published with every release (v0.4.1-alpha and
+   v0.4.2-alpha were): `docs/nexus/deploy.md`, TESTING.md, the Compose example and the cloud
+   examples now pull `ghcr.io/quietbytehq/madrasa-nexus:<version>-alpha` or `:latest`.
+3. **Backup key card** reloads after each sync (a release by head office is learned at a
+   sync); the Nexus card re-reads its status every minute while joined, so automatic syncs
+   show too. Deposit and withdraw already showed the hub's answer at once.
+4. **Directory login certificates.** Test connection tells an untrusted, expired, not yet
+   valid or wrongly named certificate apart from an unreachable server, with the TLS reason
+   underneath. The screen and the user guide say the Madrasa server PC must trust the
+   directory's CA (the LDAP client reads that PC's certificate store when Madrasa starts).
+5. **Create login when a login exists.** The API names the existing login (`409
+   login_exists` with its username and role) and changes nothing; the staff screen shows it
+   and asks "Change this login's role?". Changing a role from the staff screen asks too.
+6. **The .deb.** The released 0.4.2 package already declared `libwebkit2gtk-4.1-0` and
+   `libgtk-3-0`; the failure seen is `dpkg -i`, which does not fetch dependencies (or a system
+   too old to have WebKitGTK 4.1). The package now also declares libsoup 3, JavaScriptCore 4.1
+   and `libc6 (>= 2.35)` (everything the binary links; the bundled PostgreSQL carries its own
+   libraries and needs only libc). CI installs the built package with apt in clean Debian 12,
+   Ubuntu 22.04 and Ubuntu 24.04 containers and fails if any library is missing. README and
+   TESTING.md say `sudo apt install ./….deb` (and `sudo apt -f install` after `dpkg -i`).
+7. **README**: status, download table, current editions, Nexus, the parent app.
+8. **CI**: `upload-artifact@v6`, `download-artifact@v7`, `setup-terraform@v4` (Node 24);
+   `ubuntu-latest` pinned to `ubuntu-24.04` (desktop builds stay on 22.04 for the glibc floor).
+9. **Version 0.4.3** with `scripts/set-version.sh`; TESTING.md tasks 60 to 65.
+
+- Tested: new end-to-end test (school API and a live hub): join, sync, back up, add two
+  students, sync, restore the backup (refused without the confirmation), sync → every synced
+  table holds the same number of the school's rows on both sides, nothing parked, the old
+  copy is in the archive, both logs have it, and two new students with the same numbers as
+  the lost ones reach the hub. A school that is not joined restores with no warning. Hub test
+  for the re-baseline (only the school itself, with its own record; fresh copy; archive
+  kept; other schools untouched; purge drops the archive). Unit tests for the certificate
+  messages. API test for `login_exists`. Screen tests: restore warning only when joined;
+  card says in step only when nothing is parked; restore notice; the key card reloads after a
+  sync; certificate message and details; role change asks first. The existing escrow restore
+  test now confirms the network.
+- Not tested by me: the clean-container `.deb` install runs only in CI (no container engine
+  here); a real directory with an untrusted or expired certificate (the messages are matched
+  on the TLS library's texts, which are unit-tested, not on a live server); the restore on a
+  real Windows or Linux install by a person (TESTING.md task 60).
+- Decision taken: after a restore while joined, the school's data wins; what head office
+  changed after the backup (corrections, parents' messages not yet received) leaves the live
+  copy and stays in the archive. Rows that belong to no school (instance-wide settings in the
+  audit log) are never sent to a hub, by design, and the test counts the school's rows.
+
+## Brand identity
+
+The brand sheet (`assets/brand/Madrasa_Brand_Identity_Showcase.png`) applied across the
+product, without layout or feature changes (ADR 0008, spec §8.1).
+
+- **Source files.** `assets/brand/tools/build_svg.py` draws the emblem and outlines the
+  wordmark: `madrasa-icon.svg` (the app icon, source of every icon size), `madrasa-mark.svg`
+  (the emblem), `madrasa-logo(-dark).svg` and `madrasa-logo-vertical(-dark).svg`.
+- **Icons.** `assets/brand/generate-icons.sh` writes the desktop icon sets of both apps
+  (Windows `.ico`, Linux PNGs, `.icns`, Store logos) and the parent app's Android launcher
+  icons (legacy, round, adaptive; every density) from `madrasa-icon.svg`.
+  `scripts/build-parent-apk.sh` copies the Android ones into the generated project.
+- **Tokens.** Navy `#0B2557`, blue `#0757BA`, a new `gold` (`#F5B13B`), re-tinted selection,
+  text and border; a dark palette in the brand's night blue. `font-display` (Merriweather
+  Black, bundled) for the product name. One set for the desktop app, the parent app and the
+  Nexus console.
+- **Logo in the product.** The emblem replaces the "M" square at the same size in the sidebar
+  header, desktop login and first-run screens, the console's header, login and setup, and the
+  parent app. The startup screen shows the vertical logo (static HTML first, then the app's
+  own while it starts). Vouchers, report cards and offer letters (server PDFs) and the voucher,
+  receipt and report card print views carry the emblem. README has the logo as its header.
+
+**Tested:** `cargo fmt`, clippy (`-D warnings`) on the API, the PDF unit tests (the emblem is
+embedded; no other file can be read by the typesetter) and the API tests that produce PDFs
+(fees, exams, admissions, alpha2, reports, international, polish); desktop 229 and parent 37
+vitest tests (two new for the brand components), lint, format and type checks, the desktop,
+console and parent builds. Every main screen of the three apps photographed before and after
+with Playwright in light and dark against the demo school and demo network (in the PR).
+
+**Not tested here:** the Windows installer and the APK on a phone with the new icons (CI builds
+both); how launchers other than a circle mask crop the adaptive icon.
+
 ## Working offline
 
 Goal: no school loses work because the network or the school server dropped (ADR 0009,
-spec §18, user guide §19 in English and Urdu, TESTING.md tasks 60 to 66).
+spec §18, user guide §19 in English and Urdu, TESTING.md tasks 66 to 72).
 
 - **LAN client outbox** (`crates/api/src/outbox.rs`, in the client's loopback proxy): screens
   keep showing their last copy while the server is away; changes are queued (AES-256-GCM on
