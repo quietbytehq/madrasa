@@ -3756,6 +3756,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "madrasa-manual"
+version = "0.4.2"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "typst",
+ "typst-layout",
+ "typst-pdf",
+]
+
+[[package]]
 name = "madrasa-nexus"
 version = "0.4.2"
 dependencies = [

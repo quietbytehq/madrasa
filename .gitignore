@@ -21,6 +21,7 @@ apps/parent/src-tauri/gen
 apps/parent/src-tauri/target
 # Android packages built locally (scripts/build-parent-apk.sh)
 /dist-apk
+/dist-manual
 
 # Editors / OS
 .vscode/*

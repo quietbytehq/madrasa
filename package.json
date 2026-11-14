@@ -16,5 +16,8 @@
     "format:check": "pnpm -r format:check",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
   }
 }
