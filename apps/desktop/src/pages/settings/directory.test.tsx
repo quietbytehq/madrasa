@@ -98,6 +98,46 @@ describe("DirectoryCard", () => {
       expect(api.testDirectory).toHaveBeenCalledWith(expect.objectContaining({ username: "zara" })),
     );
     expect(await screen.findByTestId("test-result")).toHaveTextContent("Zara Qureshi");
+    expect(screen.queryByTestId("test-details")).not.toBeInTheDocument();
+  });
+
+  it("says plainly when the directory's certificate is not trusted or has expired", async () => {
+    vi.mocked(api.directorySettings).mockResolvedValue({
+      ...settings,
+      enabled: true,
+      url: "ldaps://dc1.school.local",
+      has_bind_password: true,
+    });
+    vi.mocked(api.testDirectory).mockResolvedValue({
+      bind_ok: false,
+      message:
+        "The directory's certificate is not trusted by the Madrasa server PC: it was issued by a certificate authority (CA) this PC does not know.",
+      user: null,
+      role: null,
+      details: "invalid peer certificate: UnknownIssuer",
+      problem: "certificate_untrusted",
+    });
+    renderWithProviders(
+      <FeaturesProvider
+        initial={{ edition: "standard", features: ["dashboard", "settings", "directory_login"] }}
+      >
+        <SessionProvider initial={{ user: admin, permissions: ["settings.manage"] }}>
+          <DirectoryCard />
+        </SessionProvider>
+      </FeaturesProvider>,
+      { route: "/settings" },
+    );
+    // The screen says up front that the server PC must trust the directory's CA.
+    expect(await screen.findByTestId("directory-ca-hint")).toHaveTextContent(
+      "must trust the certificate authority (CA)",
+    );
+    await userEvent.click(screen.getByTestId("test-directory"));
+    const result = await screen.findByTestId("test-result");
+    expect(result).toHaveTextContent("not trusted by the Madrasa server PC");
+    expect(result).toHaveClass("text-danger");
+    expect(screen.getByTestId("test-details")).toHaveTextContent(
+      "invalid peer certificate: UnknownIssuer",
+    );
   });
 });
 

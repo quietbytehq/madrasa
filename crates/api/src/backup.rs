@@ -4,9 +4,11 @@
 use chrono::{DateTime, Local, NaiveTime, Utc};
 use madrasa_core::backup::{self as keys, archive, BackupKeySet};
 use madrasa_core::escrow;
+use madrasa_core::sync::Origin;
 use madrasa_db::models::BackupRun;
-use madrasa_db::{audit, backup as repo, schools, settings, Actor};
+use madrasa_db::{audit, backup as repo, nexus_link, schools, settings, sync, Actor};
 use serde::{Deserialize, Serialize};
+use sqlx::Connection;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use uuid::Uuid;
@@ -432,6 +434,8 @@ pub struct RestorePreview {
     /// The backup was made with the schema this version runs.
     pub schema_matches: bool,
     pub current_counts: std::collections::BTreeMap<String, i64>,
+    /// The school is joined to this school network now: restoring needs a confirmation.
+    pub network: Option<String>,
 }
 
 fn read_file(path: &str) -> Result<Vec<u8>, ApiError> {
@@ -467,14 +471,32 @@ pub async fn preview(state: &AppState, path: &str) -> Result<RestorePreview, Api
     let (meta, _) = archive::read_meta(&bytes).map_err(archive_error)?;
     let mut c = state.pool.acquire().await?;
     let current = repo::migration_versions(&mut c).await?;
+    let network = joined_network(&mut c).await?.map(|(_, link)| link.hub_name);
     Ok(RestorePreview {
         path: path.to_string(),
         size: bytes.len() as u64,
         schema_matches: current == meta.migrations,
         meta,
         current_counts: repo::record_counts(&mut c).await?,
+        network,
     })
 }
+
+/// The school and its hub link, when it is joined to a school network now.
+async fn joined_network(
+    conn: &mut sqlx::PgConnection,
+) -> Result<Option<(Uuid, nexus_link::Link)>, ApiError> {
+    let Some(school) = schools::current(&mut *conn).await? else {
+        return Ok(None);
+    };
+    Ok(nexus_link::get(conn, school.id)
+        .await?
+        .filter(nexus_link::Link::is_active)
+        .map(|link| (school.id, link)))
+}
+
+/// Said before a restore while joined, and returned by the API when it was not confirmed.
+pub const RESTORE_WHILE_JOINED: &str = "This school is joined to a network. Restoring an older backup will make your data differ from head office's copy. Madrasa will ask head office to reset its copy.";
 
 /// Mirrored by `RestoreResult` in the UI.
 #[derive(Debug, Serialize)]
@@ -484,6 +506,9 @@ pub struct RestoreResult {
     pub meta: archive::BackupMeta,
     /// Sessions were restored from the backup too; everyone must log in again.
     pub relogin: bool,
+    /// The school is joined to a network: head office will be asked to reset its copy at the
+    /// next sync. Its name.
+    pub network: Option<String>,
 }
 
 pub async fn restore(
@@ -491,7 +516,20 @@ pub async fn restore(
     actor: Actor,
     path: &str,
     secret: &Secret,
+    network_confirmed: bool,
 ) -> Result<RestoreResult, ApiError> {
+    // No sync round may run while the records are being replaced.
+    let _sync = state.nexus_sync.lock().await;
+    {
+        let mut c = state.pool.acquire().await?;
+        if joined_network(&mut c).await?.is_some() && !network_confirmed {
+            return Err(ApiError::new(
+                axum::http::StatusCode::CONFLICT,
+                "restore_while_joined",
+                RESTORE_WHILE_JOINED,
+            ));
+        }
+    }
     let bytes = read_file(path)?;
     let (_, set) = archive::read_meta(&bytes).map_err(archive_error)?;
     let dek = match secret.unlock(&set) {
@@ -515,9 +553,28 @@ pub async fn restore(
     let mut c = state.pool.acquire().await?;
     let current = repo::migration_versions(&mut c).await?;
     repo::check_schema(&current, &meta.migrations)?;
-    let report = repo::restore(&mut c, &dump).await?;
+    let mut tx = c.begin().await?;
+    // The link to a hub as it is now, with its key in clear (it is sealed again after the
+    // restore, with whatever instance key the restored records hold).
+    let before = match joined_network(&mut tx).await? {
+        Some((school, link)) => {
+            let token = nexus_link::token(&mut tx, &state.hlc, school).await?;
+            Some((school, link, token))
+        }
+        None => None,
+    };
+    if let Some((school, link, _)) = &before {
+        if meta.school_id != *school {
+            return Err(ApiError::conflict(format!(
+                "This backup is of another school ({}). This school is joined to {}; leave the network before restoring another school's backup.",
+                meta.school_name, link.hub_name
+            )));
+        }
+    }
+    let report = repo::restore_in(&mut tx, &dump).await?;
+    let network = relink_after_restore(state, &mut tx, actor, before, meta.created_at).await?;
     audit::record(
-        &mut c,
+        &mut tx,
         &state.hlc,
         actor,
         audit::Action::Restore,
@@ -526,18 +583,100 @@ pub async fn restore(
         None,
         Some(serde_json::json!({
             "file": path, "backup_created_at": meta.created_at, "school": meta.school_name,
-            "tables": report.tables, "rows": report.rows,
+            "tables": report.tables, "rows": report.rows, "network": network,
         })),
     )
     .await?;
+    tx.commit().await?;
     drop(c);
     let _ = state.reload_edition().await;
+    if network.is_some() {
+        // Tell head office as soon as possible.
+        state.wake_nexus_sync();
+    }
     Ok(RestoreResult {
         tables: report.tables,
         rows: report.rows,
         meta,
         relogin: true,
+        network,
     })
+}
+
+/// After the records were replaced: what about the school's hub?
+///
+/// A backup holds the hub link and the record of what was already sent as they were when
+/// it was made. Taken as they are, the school would believe everything was sent while head
+/// office holds records the school no longer has, and new records would clash with them
+/// (the same student numbers, issued again) and wait at the hub for ever.
+///
+/// So: the link as it was just before the restore wins (or the backup's, on an install that
+/// was not joined but whose backup was); what was waiting to be sent or applied is
+/// forgotten; every record is queued to be sent again; and the link is marked restored, so
+/// that the next sync first asks head office to set its copy aside and start afresh. Not
+/// joined either way: sync is switched off. Returns the network's name when joined.
+async fn relink_after_restore(
+    state: &AppState,
+    tx: &mut sqlx::PgConnection,
+    actor: Actor,
+    before: Option<(Uuid, nexus_link::Link, Option<String>)>,
+    backup_created_at: DateTime<Utc>,
+) -> Result<Option<String>, ApiError> {
+    let Some(school) = schools::current(&mut *tx).await? else {
+        return Ok(None);
+    };
+    let chosen = match before {
+        Some((_, link, token)) => Some((link, token)),
+        None => match nexus_link::get(&mut *tx, school.id)
+            .await?
+            .filter(nexus_link::Link::is_active)
+        {
+            Some(link) => {
+                let token = nexus_link::token(&mut *tx, &state.hlc, school.id).await?;
+                Some((link, token))
+            }
+            None => None,
+        },
+    };
+    let Some((mut link, token)) = chosen else {
+        if sync::state(&mut *tx).await?.is_some_and(|s| s.enabled)
+            || sync::triggers_installed(&mut *tx).await? > 0
+        {
+            sync::disable(&mut *tx).await?;
+        }
+        return Ok(None);
+    };
+    sync::disable(&mut *tx).await?;
+    sync::enable(&mut *tx, school.id, Origin::School).await?;
+    nexus_link::set_token(&mut *tx, &state.hlc, actor, school.id, token.as_deref()).await?;
+    link.restored = Some(nexus_link::Restored {
+        at: Utc::now(),
+        backup_created_at: Some(backup_created_at),
+        hub_reset_at: None,
+        archive: None,
+    });
+    nexus_link::set(&mut *tx, &state.hlc, actor, school.id, &link).await?;
+    let queued = sync::queue_snapshot(&mut *tx).await?;
+    audit::record(
+        &mut *tx,
+        &state.hlc,
+        actor,
+        audit::Action::Update,
+        "nexus_link",
+        None,
+        None,
+        Some(serde_json::json!({
+            "restored": true, "network": link.hub_name, "backup_created_at": backup_created_at,
+            "queued": queued,
+            "note": "head office will be asked to set its copy aside and start afresh at the next sync",
+        })),
+    )
+    .await?;
+    tracing::info!(
+        queued,
+        "restored while joined; head office will be asked to reset its copy"
+    );
+    Ok(Some(link.hub_name))
 }
 
 // ---- status and scheduler -----------------------------------------------------------------

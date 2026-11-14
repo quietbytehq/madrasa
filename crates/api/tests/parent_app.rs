@@ -301,6 +301,7 @@ async fn notices_and_conversations_follow_roles_the_class_teacher_rule_and_need_
                 school_ref: Uuid::now_v7(),
                 joined_at: chrono::Utc::now(),
                 ended: None,
+                restored: None,
             },
         )
         .await

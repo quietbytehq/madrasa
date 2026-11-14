@@ -2205,6 +2205,35 @@ without that folder serves the API only.
 - Money in reports is shown digit for digit as the hub sent it, with thousands separators
   added as text; it is never parsed into a floating-point number.
 
+
+### 16.9 Restoring a backup while joined (v0.4.3)
+
+Design: ADR 0007.
+
+- **At the school.** `POST /backup/preview` returns `network` (the network's name) when the
+  school is joined. `POST /backup/restore` then needs `confirm_network: true`; without it the
+  answer is `409 restore_while_joined` with the message *This school is joined to a network.
+  Restoring an older backup will make your data differ from head office's copy. Madrasa will
+  ask head office to reset its copy.* A backup of another school is refused while joined.
+- The restore keeps the hub link and key as they were just before it (or the backup's, when
+  the install was not joined), clears the sync queues, queues every record and marks the link
+  `restored: { at, backup_created_at, hub_reset_at: null }`. `RestoreResult.network` names the
+  network. A school neither joined nor restoring a joined backup has sync switched off.
+- **First sync after the restore.** Before anything else the school calls
+  `POST /sync/restored` with `{ school, app_version, schema_version, backup_created_at,
+  restored_at }` (`school`: its school record, as when joining). Nothing is pushed until the
+  hub answers `{ archive, rebaselined_at }`; the school then sets `hub_reset_at` and
+  `archive`, logs it (`nexus_link`, `hub_reset`) and sends its records.
+- **At the hub.** The school's schema is renamed to `a_<32 hex>` and recorded in
+  `hub_school_archives` (hub migration 5); a fresh schema under the school's own name is
+  created from the school record with capture on as head office; the hub log gets
+  `school_restored`. Only the school itself can call it, with its own record (`400`
+  otherwise). Purging the school drops its archives too.
+- **Status.** `GET /nexus/link` adds `parked_at_hub` (records head office could not store, as
+  of the last sync), `restored`, and `in_step`: true only when nothing waits to be sent,
+  nothing is parked on either side, the last sync worked and no restore waits to be told. The
+  card says "In step" only then, counts the records waiting at head office and explains them.
+
 ## 17. Parent app (alpha)
 
 The design is `docs/adr/0006-parent-app.md`; the stages are in `docs/TASKS-PARENT-APP.md`.

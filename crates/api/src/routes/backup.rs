@@ -122,6 +122,10 @@ pub struct RestoreRequest {
     /// A key released by head office (Madrasa Nexus key escrow).
     #[serde(default)]
     pub released_key: Option<String>,
+    /// The school is joined to a network and the person confirmed that head office will be
+    /// asked to reset its copy. Needed only while joined.
+    #[serde(default)]
+    pub confirm_network: bool,
 }
 
 async fn restore(
@@ -137,7 +141,14 @@ async fn restore(
         released_key: req.released_key,
     };
     Ok(Json(
-        backup::restore(&state, user.actor(), &req.path, &secret).await?,
+        backup::restore(
+            &state,
+            user.actor(),
+            &req.path,
+            &secret,
+            req.confirm_network,
+        )
+        .await?,
     ))
 }
 
