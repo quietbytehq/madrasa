@@ -12,7 +12,7 @@ use madrasa_db::directory as repo;
 use serde::{Deserialize, Serialize};
 
 use crate::auth::CurrentUser;
-use crate::directory::DirectoryError;
+use crate::directory::{CertificateProblem, DirectoryError};
 use crate::{ApiError, ApiResult, AppState};
 
 pub fn router() -> Router<AppState> {
@@ -127,6 +127,40 @@ pub struct DirectoryTestResult {
     pub user: Option<DirectoryUser>,
     /// The role the user would get from the mapping.
     pub role: Option<String>,
+    /// The technical text behind a refusal (for example the TLS library's reason for refusing
+    /// the directory's certificate), for whoever looks after the directory.
+    pub details: Option<String>,
+    /// `certificate_untrusted`, `certificate_expired`, `certificate_not_yet_valid`,
+    /// `certificate_wrong_name` or `certificate_refused` when the certificate was the problem.
+    pub problem: Option<String>,
+}
+
+/// A failed test, said plainly, with the technical text kept apart.
+fn refusal(e: DirectoryError) -> DirectoryTestResult {
+    let (details, problem) = match &e {
+        DirectoryError::Certificate { problem, detail } => (
+            Some(detail.clone()),
+            Some(
+                match problem {
+                    CertificateProblem::Untrusted => "certificate_untrusted",
+                    CertificateProblem::Expired => "certificate_expired",
+                    CertificateProblem::NotYetValid => "certificate_not_yet_valid",
+                    CertificateProblem::WrongName => "certificate_wrong_name",
+                    CertificateProblem::Other => "certificate_refused",
+                }
+                .to_string(),
+            ),
+        ),
+        _ => (None, None),
+    };
+    DirectoryTestResult {
+        bind_ok: false,
+        message: e.to_string(),
+        user: None,
+        role: None,
+        details,
+        problem,
+    }
 }
 
 async fn test(
@@ -156,15 +190,10 @@ async fn test(
             message: "Connected and the bind account was accepted.".into(),
             user: None,
             role: None,
+            details: None,
+            problem: None,
         },
-        Err(e) => {
-            return Ok(Json(DirectoryTestResult {
-                bind_ok: false,
-                message: e.to_string(),
-                user: None,
-                role: None,
-            }))
-        }
+        Err(e) => return Ok(Json(refusal(e))),
     };
     if let Some(name) = body
         .username
@@ -189,8 +218,7 @@ async fn test(
                     format!("Connected, but no user matches \"{name}\" under the user base DN.");
             }
             Err(e) => {
-                out.bind_ok = false;
-                out.message = e.to_string();
+                out = refusal(e);
             }
         }
     }

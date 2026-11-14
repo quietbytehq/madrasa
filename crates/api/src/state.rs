@@ -71,6 +71,9 @@ impl AppState {
         let profile = profile_from(schools::current(&mut conn).await?);
         drop(conn);
         apply_zone(&profile);
+        if let Err(e) = crate::offline::idempotency::prune(&pool).await {
+            tracing::warn!(error = %e, "could not drop old idempotency keys");
+        }
         Ok(Self {
             pool,
             hlc: Arc::new(Hlc::new(node)),

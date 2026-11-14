@@ -43,7 +43,11 @@ must point at this machine, and ports 80 and 443 must be open):
 docker compose --profile https up -d
 ```
 
-To build the image from this checkout instead of pulling a release:
+Compose pulls the published image, `ghcr.io/quietbytehq/madrasa-nexus:latest` (see
+"The image" below). To pin a version, set `NEXUS_IMAGE` in `.env`, for example
+`NEXUS_IMAGE=ghcr.io/quietbytehq/madrasa-nexus:0.4.3-alpha`.
+
+Only if you are changing the hub's code yourself, build the image from this checkout instead:
 
 ```bash
 docker compose build nexus
@@ -120,21 +124,24 @@ token, once, which is useless after setup.
 
 ## The image
 
-The release workflow builds the image (hub and web console) and publishes it to GitHub
-Container Registry when a release is tagged:
+Every release publishes the image (hub and web console) to GitHub Container Registry.
+Release tags always end in `-alpha` for now, and the image is tagged the same way:
 
-- `ghcr.io/quietbytehq/madrasa-nexus:<version>` (the tag without its `v`, for example `:0.4.1-alpha`)
-- `ghcr.io/quietbytehq/madrasa-nexus:latest`
+- `ghcr.io/quietbytehq/madrasa-nexus:<version>-alpha`, for example `:0.4.3-alpha`
+  (the release tag without its `v`)
+- `ghcr.io/quietbytehq/madrasa-nexus:latest`, the newest release
 
-Two things to know before the first cloud deployment:
+```bash
+docker pull ghcr.io/quietbytehq/madrasa-nexus:0.4.3-alpha
+```
 
-- **No image has been published yet.** The first one appears with the next tagged release.
-  Until then, build it from a checkout (`docker compose build nexus`).
-- **GitHub makes a new package private.** After the first publish, an owner of the
-  repository must set the package's visibility to public (GitHub → Packages →
-  madrasa-nexus → Package settings), or Azure and Google Cloud cannot pull it.
+Deploy a version tag, not `latest`, so that an upgrade is something you decide. The hub's
+version must be the same as, or newer than, the schools' (a school on 0.4.3 that restored a
+backup needs a 0.4.3 hub, for example).
 
-Deploy a version tag, not `latest`, so that an upgrade is something you decide.
+If a pull is refused with "denied" or "unauthorized", the package is not public: an owner of
+the repository sets its visibility to public under GitHub → Packages → madrasa-nexus →
+Package settings.
 
 ## Azure (Container Apps and PostgreSQL Flexible Server)
 

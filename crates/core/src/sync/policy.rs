@@ -201,6 +201,8 @@ pub const TABLES: &[TablePolicy] = &[
     fields("hostel_register"),
     fields("hostel_rooms"),
     fields("hostels"),
+    // Answers kept so a repeated request is applied once (ADR 0009): this server's own.
+    skip("idempotency_keys"),
     // The staged rows of an import are working data of the wizard; the batch itself is
     // synced because imported results refer to it.
     skip("import_batch_rows"),
@@ -349,6 +351,7 @@ mod tests {
             "api_key_calls",
             "backup_runs",
             "school_sequences",
+            "idempotency_keys",
         ] {
             assert!(!policy(t).unwrap().is_synced(), "{t} must not sync");
         }

@@ -8,7 +8,7 @@ use madrasa_db::models::{AcademicYear, School};
 use rust_decimal::Decimal;
 use sqlx::PgConnection;
 
-use super::pdf::{compile, lit};
+use super::pdf::{compile, lit, mark};
 use super::text::tr;
 use super::{format_date, money, Column, Context, Group, Lang, Params, Report};
 use crate::ApiError;
@@ -219,7 +219,7 @@ pub fn offer_letter(
         .replace("{school}", school.name.trim());
     let markup = format!(
         "#set page(paper: \"a4\", margin: (x: 2.2cm, y: 2.2cm))\n#set text(font: {font}, size: {size}, lang: \"{lang_code}\", dir: {dir})\n#set par(leading: 0.8em, justify: false)\n\
-         #align(center)[#text(size: 16pt, weight: \"bold\")[#{school}]]\n#align(center)[#text(size: 9pt, fill: luma(90))[#{city}]]\n#v(1.2em)\n\
+         #place(top + start, dy: -0.4cm)[#{mark}]\n#align(center)[#text(size: 16pt, weight: \"bold\")[#{school}]]\n#align(center)[#text(size: 9pt, fill: luma(90))[#{city}]]\n#v(1.2em)\n\
          #grid(columns: (1fr, auto), [#{ref_label} #{application_no}], [#{date_label} #{date}])\n#v(1.5em)\n\
          #text(size: 13pt, weight: \"bold\")[#{title}]\n#v(0.8em)\n\
          #{greeting} #{guardian},\n#v(0.6em)\n#{body}\n#v(0.6em)\n#{fee_line}\n#{expires}\n#v(0.8em)\n#{closing}\n#v(3em)\n\
@@ -228,6 +228,7 @@ pub fn offer_letter(
         size = size,
         lang_code = if lang == Lang::Ur { "ur" } else { "en" },
         dir = dir,
+        mark = mark("1.5cm"),
         school = lit(&school.name),
         city = lit(&school.city),
         ref_label = lit(tr(lang, "adm.letter.ref")),

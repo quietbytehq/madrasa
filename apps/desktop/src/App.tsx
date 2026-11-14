@@ -3,7 +3,9 @@ import { I18nProvider } from "@/i18n";
 import { ThemeProvider } from "@/theme";
 import { ToastProvider } from "@/components/ui/Toast";
 import { FeaturesProvider } from "@/app/features";
-import { SessionProvider } from "@/app/session";
+import { SessionProvider, useSession } from "@/app/session";
+import { ConnectionProvider } from "@/app/connection";
+import { FormDrafts } from "@/components/drafts/FormDrafts";
 import { AppRoutes } from "@/app/router";
 import { Login } from "@/pages/Login";
 import { SetupGate } from "@/app/SetupGate";
@@ -19,9 +21,12 @@ export default function App() {
             <ModeGate>
               <FeaturesProvider>
                 <SessionProvider>
-                  <SetupGate>
-                    <AppRoutes login={<Login />} setup={<Setup />} />
-                  </SetupGate>
+                  <ConnectionProvider>
+                    <SetupGate>
+                      <AppRoutes login={<Login />} setup={<Setup />} />
+                    </SetupGate>
+                    <Drafts />
+                  </ConnectionProvider>
                 </SessionProvider>
               </FeaturesProvider>
             </ModeGate>
@@ -30,4 +35,10 @@ export default function App() {
       </ThemeProvider>
     </BrowserRouter>
   );
+}
+
+/** Autosave of every form, for the signed-in user (ADR 0009). */
+function Drafts() {
+  const { user } = useSession();
+  return <FormDrafts user={user?.id ?? null} />;
 }

@@ -14,6 +14,8 @@ pub mod imports;
 pub mod lan;
 pub mod late_fees;
 pub mod nexus_link;
+pub mod offline;
+pub mod outbox;
 pub mod reports;
 pub mod ro;
 pub mod routes;
@@ -71,6 +73,11 @@ pub fn router(state: AppState) -> Router {
         .merge(routes::imports::router())
         .merge(routes::export::router())
         .merge(routes::reports::router())
+        // A change sent twice (queued offline on a LAN client, ADR 0009) is applied once.
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            offline::idempotency::layer,
+        ))
         .with_state(state.clone());
 
     // The UI is served from a different origin in `vite dev` (http://localhost:1420) and from

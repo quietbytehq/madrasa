@@ -303,10 +303,37 @@ async fn admin_creates_disables_and_resets_staff_logins_with_roles_enforced() {
         .post(
             &format!("/staff/{staff_id}/login"),
             &admin,
-            json!({ "username": "sana2", "password": "teacher-password-1", "role": "teacher" }),
+            json!({ "username": "sana2", "password": "teacher-password-1", "role": "admin" }),
         )
         .await;
-    assert_eq!(s, StatusCode::BAD_REQUEST, "already has a login: {e}");
+    // A second "Create login" changes nothing: it names the login that exists, so the
+    // screen can ask whether to change its role instead.
+    assert_eq!(
+        (s, e["error"]["code"].as_str(), &e["details"]),
+        (
+            StatusCode::CONFLICT,
+            Some("login_exists"),
+            &json!({ "username": "sana", "role": "teacher" })
+        ),
+        "{e}"
+    );
+    assert!(e["error"]["message"]
+        .as_str()
+        .unwrap()
+        .contains("already has a login: sana"));
+    let (_, list) = app.get("/staff", &admin).await;
+    let row = list["items"]
+        .as_array()
+        .or_else(|| list.as_array())
+        .unwrap()
+        .iter()
+        .find(|r| r["id"] == json!(staff_id))
+        .unwrap()
+        .clone();
+    assert_eq!(
+        (row["username"].as_str(), &row["roles"]),
+        (Some("sana"), &json!(["teacher"]))
+    );
 
     // The teacher can enter marks for the assigned subject but not touch fees or settings.
     let teacher = app.login("sana", "teacher-password-1").await;

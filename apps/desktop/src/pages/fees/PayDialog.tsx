@@ -2,6 +2,8 @@ import { todayIso } from "@/lib/dates";
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { api } from "@/api/endpoints";
+import { QueuedError } from "@/api/client";
+import { useNavigate } from "react-router-dom";
 import type { PaymentMethod, ReceiptDetail, VoucherDetail } from "@/api/types";
 import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
@@ -25,6 +27,7 @@ export function PayDialog({
 }) {
   const { t } = useI18n();
   const money = useMoney();
+  const navigate = useNavigate();
   const [amount, setAmount] = useState(voucher.balance);
   const [method, setMethod] = useState<PaymentMethod>("cash");
   const [reference, setReference] = useState("");
@@ -58,6 +61,15 @@ export function PayDialog({
       });
       onPaid(res.receipt, res.voucher);
     } catch (err) {
+      // Taken while the school server is out of reach: print the provisional receipt now
+      // (ADR 0009); the real number replaces it when the server has the payment.
+      if (err instanceof QueuedError && err.queued.provisional) {
+        onClose();
+        navigate(
+          `/fees/receipts/provisional/${encodeURIComponent(err.queued.provisional.provisional_no)}/print`,
+        );
+        return;
+      }
       setError(errorMessage(err, t("app.error.generic")));
     } finally {
       setBusy(false);

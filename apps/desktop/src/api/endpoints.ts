@@ -585,6 +585,8 @@ export const api = {
     password?: string;
     recovery_key?: string;
     released_key?: string;
+    /** Needed while joined to a school network. */
+    confirm_network?: boolean;
   }) => request<RestoreResult>("/backup/restore", { method: "POST", body }),
   changeBackupPassword: (body: {
     current_password?: string;

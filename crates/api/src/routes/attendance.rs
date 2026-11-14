@@ -3,10 +3,10 @@
 //! summary. Teachers are limited to their own sections (`CurrentUser::section_scope`).
 
 use axum::extract::{Path, Query, State};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use chrono::{Datelike, Duration, NaiveDate};
+use chrono::{DateTime, Datelike, Duration, NaiveDate, Utc};
 use madrasa_core::attendance::{self, AttendanceStatus, AttendanceSummary, DayKind, StaffStatus};
 use madrasa_core::permissions::Permission;
 use madrasa_db::models::{
@@ -14,10 +14,12 @@ use madrasa_db::models::{
 };
 use madrasa_db::{academics, attendance as repo, students, users};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::auth::CurrentUser;
 use crate::clock::today;
+use crate::offline::{self, Queued};
 use crate::{ApiError, ApiResult, AppState};
 
 pub fn router() -> Router<AppState> {
@@ -296,8 +298,9 @@ pub struct SaveSheetRequest {
 async fn put_sheet(
     State(state): State<AppState>,
     user: CurrentUser,
+    queued: Queued,
     body: JsonBody<SaveSheetRequest>,
-) -> ApiResult<Json<SheetView>> {
+) -> ApiResult<(HeaderMap, Json<SheetView>)> {
     user.require(Permission::AttendanceManage)?;
     let Json(req) = body?;
     if req.date > today() {
@@ -315,14 +318,75 @@ async fn put_sheet(
     }
     let mut tx = state.pool.begin().await?;
     let section = load_section(&mut tx, &user, req.section_id).await?;
-    let already = repo::sheet(&mut tx, section.id, req.date).await?.is_some();
+    let existing = repo::sheet(&mut tx, section.id, req.date).await?;
     let correcting = user.can(Permission::AttendanceCorrect);
-    if already && !correcting {
-        return Err(ApiError::new(
+    let already_submitted = || {
+        ApiError::new(
             StatusCode::FORBIDDEN,
             "already_submitted",
             "Attendance for this day is already submitted. Ask an administrator to correct it.",
-        ));
+        )
+    };
+    let mut overwritten = Vec::new();
+    match (queued.0, &existing) {
+        // Marked offline on a LAN client while someone else saved this sheet: the later mark
+        // stands, per student, as in sync (ADR 0005, ADR 0009); the others are reported.
+        (Some(at), Some(sheet)) => {
+            let theirs = current_marks(&mut tx, sheet.id).await?;
+            if !correcting {
+                // Without the right to correct, a queued sheet never changes saved marks:
+                // refused if the sheet was there before the marks were made (as online), and
+                // otherwise the later sheet stands as a whole.
+                if sheet.created_at <= at {
+                    return Err(already_submitted());
+                }
+                let ours = ours_by_student(&entries);
+                for student in all_students(&ours, &theirs) {
+                    let (mine, my_note) = ours
+                        .get(&student)
+                        .cloned()
+                        .unwrap_or((AttendanceStatus::Present, None));
+                    let (kept, _, _) = theirs.get(&student).cloned().unwrap_or((
+                        AttendanceStatus::Present,
+                        None,
+                        sheet.updated_at,
+                    ));
+                    if kept != mine {
+                        overwritten.push((student, mine, my_note, kept));
+                    }
+                }
+                let labels = mark_labels(&mut tx, &overwritten, req.date).await?;
+                let view = sheet_view(&mut tx, &user, section, req.date).await?;
+                tx.commit().await?;
+                return Ok((offline::headers(&labels, &[]), Json(view)));
+            }
+            let ours = ours_by_student(&entries);
+            let mut merged = Vec::new();
+            for student in all_students(&ours, &theirs) {
+                let (our_status, our_note) = ours
+                    .get(&student)
+                    .cloned()
+                    .unwrap_or((AttendanceStatus::Present, None));
+                let (their_status, their_note, their_at) = theirs
+                    .get(&student)
+                    .cloned()
+                    .unwrap_or((AttendanceStatus::Present, None, sheet.updated_at));
+                let (status, note) = if our_status != their_status && their_at > at {
+                    overwritten.push((student, our_status, our_note, their_status));
+                    (their_status, their_note)
+                } else {
+                    (our_status, our_note)
+                };
+                merged.push(repo::EntryInput {
+                    student_id: student,
+                    status,
+                    note,
+                });
+            }
+            entries = merged;
+        }
+        (_, Some(_)) if !correcting => return Err(already_submitted()),
+        _ => {}
     }
     repo::save_sheet(
         &mut tx,
@@ -338,9 +402,81 @@ async fn put_sheet(
         correcting,
     )
     .await?;
+    let labels = mark_labels(&mut tx, &overwritten, req.date).await?;
     let view = sheet_view(&mut tx, &user, section, req.date).await?;
     tx.commit().await?;
-    Ok(Json(view))
+    Ok((offline::headers(&labels, &[]), Json(view)))
+}
+
+type Mark = (AttendanceStatus, Option<String>);
+
+fn ours_by_student(entries: &[repo::EntryInput]) -> HashMap<Uuid, Mark> {
+    entries
+        .iter()
+        .map(|e| (e.student_id, (e.status, e.note.clone())))
+        .collect()
+}
+
+fn all_students<A, B>(ours: &HashMap<Uuid, A>, theirs: &HashMap<Uuid, B>) -> Vec<Uuid> {
+    let mut students: Vec<Uuid> = ours.keys().chain(theirs.keys()).copied().collect();
+    students.sort();
+    students.dedup();
+    students
+}
+
+/// The marks saved on a sheet, with when each was last changed.
+async fn current_marks(
+    c: &mut sqlx::PgConnection,
+    sheet_id: Uuid,
+) -> ApiResult<HashMap<Uuid, (AttendanceStatus, Option<String>, DateTime<Utc>)>> {
+    let rows: Vec<(Uuid, String, Option<String>, DateTime<Utc>)> = sqlx::query_as(
+        "SELECT student_id, status, note, updated_at FROM attendance_entries
+          WHERE sheet_id = $1 AND deleted_at IS NULL",
+    )
+    .bind(sheet_id)
+    .fetch_all(&mut *c)
+    .await?;
+    let mut out = HashMap::new();
+    for (student, status, note, at) in rows {
+        out.insert(student, (parse_status(&status)?, note, at));
+    }
+    Ok(out)
+}
+
+/// What a queued sheet lost, worded for people.
+async fn mark_labels(
+    c: &mut sqlx::PgConnection,
+    lost: &[(Uuid, AttendanceStatus, Option<String>, AttendanceStatus)],
+    date: NaiveDate,
+) -> ApiResult<Vec<offline::Overwritten>> {
+    if lost.is_empty() {
+        return Ok(Vec::new());
+    }
+    let ids: Vec<Uuid> = lost.iter().map(|l| l.0).collect();
+    let names: HashMap<Uuid, String> = sqlx::query_as::<_, (Uuid, String)>(
+        "SELECT id, full_name FROM students WHERE id = ANY($1)",
+    )
+    .bind(&ids)
+    .fetch_all(&mut *c)
+    .await?
+    .into_iter()
+    .collect();
+    Ok(lost
+        .iter()
+        .map(|(student, ours, _, kept)| offline::Overwritten {
+            label: format!(
+                "Attendance of {} on {}",
+                names
+                    .get(student)
+                    .map(String::as_str)
+                    .unwrap_or("a student"),
+                date.format("%d-%m-%Y")
+            ),
+            field: "status".into(),
+            yours: serde_json::json!(ours.as_str()),
+            kept: serde_json::json!(kept.as_str()),
+        })
+        .collect())
 }
 
 /// Mirrored by `SheetHistoryEntry` in the UI.

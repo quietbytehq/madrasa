@@ -12,7 +12,11 @@ import { NoAccess } from "@/pages/NoAccess";
 import { FeesPage } from "@/pages/fees/FeesPage";
 import { ReportsPage } from "@/pages/reports/ReportsPage";
 import { CustomReportBuilder } from "@/pages/reports/CustomReportBuilder";
-import { ReceiptPrintPage, VoucherPrintPage } from "@/pages/fees/PrintPages";
+import {
+  ProvisionalReceiptPage,
+  ReceiptPrintPage,
+  VoucherPrintPage,
+} from "@/pages/fees/PrintPages";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { StaffPage } from "@/pages/staff/StaffPage";
 import { StudentFormPage } from "@/pages/students/StudentForm";
@@ -31,17 +35,13 @@ import { ParentAppPage } from "@/pages/parentapp/ParentAppPage";
 import { PARENT_APP_PERMISSIONS } from "@/app/parentApp";
 import { InventoryPage } from "@/pages/inventory/InventoryPage";
 import { TeacherAllocationPage } from "@/pages/staff/TeacherAllocationPage";
-import { Spinner } from "@/components/ui/Spinner";
+import { BrandSplash } from "@/components/brand/Brand";
 import { NAV_ITEMS } from "./navigation";
 import { useFeatures } from "./features";
 import { useSession } from "./session";
 
 function FullPageSpinner() {
-  return (
-    <div className="flex h-full items-center justify-center">
-      <Spinner size="lg" />
-    </div>
-  );
+  return <BrandSplash />;
 }
 
 /** Redirects anonymous users to /login, remembering where they wanted to go. */
@@ -152,6 +152,14 @@ export function AppRoutes({ login, setup }: AppRoutesProps) {
               element={
                 <RequirePermission permission="fees.read">
                   <ReceiptPrintPage />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/fees/receipts/provisional/:number/print"
+              element={
+                <RequirePermission permission="fees.manage">
+                  <ProvisionalReceiptPage />
                 </RequirePermission>
               }
             />

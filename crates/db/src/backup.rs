@@ -210,9 +210,17 @@ pub fn check_schema(current: &[i64], backup: &[i64]) -> DbResult<()> {
 
 /// Replace every table's contents with the dump, in one transaction.
 pub async fn restore(conn: &mut PgConnection, container: &[u8]) -> DbResult<RestoreReport> {
-    let tables = parse(container)?;
     let mut tx = conn.begin().await?;
-    let existing = table_order(&mut tx).await?;
+    let report = restore_in(&mut tx, container).await?;
+    tx.commit().await?;
+    Ok(report)
+}
+
+/// [`restore`] inside a transaction the caller holds, so that what must happen with the
+/// restore (keeping a school's link to its Nexus hub) commits or fails together with it.
+pub async fn restore_in(tx: &mut PgConnection, container: &[u8]) -> DbResult<RestoreReport> {
+    let tables = parse(container)?;
+    let existing = table_order(&mut *tx).await?;
     for t in &tables {
         if !existing.contains(&t.name) {
             return Err(DbError::Conflict(format!(
@@ -220,7 +228,7 @@ pub async fn restore(conn: &mut PgConnection, container: &[u8]) -> DbResult<Rest
                 t.name
             )));
         }
-        let cols = columns(&mut tx, &t.name).await?;
+        let cols = columns(&mut *tx, &t.name).await?;
         if t.cols != cols {
             return Err(DbError::Conflict(format!(
                 "the columns of {} differ from this version",
@@ -272,7 +280,6 @@ pub async fn restore(conn: &mut PgConnection, container: &[u8]) -> DbResult<Rest
     )
     .execute(&mut *tx)
     .await?;
-    tx.commit().await?;
     Ok(RestoreReport {
         tables: tables.len(),
         rows,

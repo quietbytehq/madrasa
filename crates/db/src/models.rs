@@ -450,6 +450,10 @@ pub struct FeeReceipt {
     pub received_by: Uuid,
     pub created_at: DateTime<Utc>,
     pub hlc: String,
+    /// The provisional number it was printed with when taken on a LAN client while the
+    /// server was out of reach (ADR 0009); `None` for receipts taken online.
+    #[sqlx(default)]
+    pub provisional_no: Option<String>,
 }
 
 /// Voucher list row with student and class names.

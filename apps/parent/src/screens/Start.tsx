@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { BrandMark } from "@/components/brand/Brand";
 import type { FormEvent, ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useI18n } from "@/i18n";
-import { hubApi, normalizeHubUrl } from "@parent/api";
+import { getHubUrl, hubApi, normalizeHubUrl } from "@parent/api";
+import { HubBadge } from "@parent/connection";
 import type { CodeCheck } from "@parent/api";
 import { LanguageSwitch } from "@parent/LanguageSwitch";
 import { useSession } from "@parent/session";
@@ -17,18 +19,18 @@ function StartFrame({ children }: { children: ReactNode }) {
     <div className="safe-top safe-bottom mx-auto flex min-h-full w-full max-w-md flex-col bg-bg px-4 py-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div
-            aria-hidden
-            className="flex h-9 w-9 items-center justify-center rounded bg-navy text-sm font-bold text-white"
-          >
-            M
-          </div>
+          <BrandMark className="h-9 w-9" />
           <div className="leading-tight">
-            <div className="text-base font-semibold text-navy">{t("parent.app.name")}</div>
+            <div className="font-display text-base font-black text-navy">
+              {t("parent.app.name")}
+            </div>
             <div className="text-xs text-muted">{t("parent.app.tagline")}</div>
           </div>
         </div>
-        <LanguageSwitch />
+        <div className="flex items-center gap-2">
+          {getHubUrl() && <HubBadge />}
+          <LanguageSwitch />
+        </div>
       </div>
       <div className="mt-6 flex flex-1 flex-col">{children}</div>
     </div>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { BrandMark } from "@/components/brand/Brand";
 import type { FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "@/api/endpoints";
@@ -52,12 +53,7 @@ export function Login() {
     <main className="flex h-full items-center justify-center bg-bg p-4">
       <Card className="w-full max-w-sm">
         <div className="mb-4 flex items-center gap-2">
-          <div
-            aria-hidden
-            className="flex h-8 w-8 items-center justify-center rounded bg-navy text-sm font-bold text-white"
-          >
-            M
-          </div>
+          <BrandMark className="h-8 w-8" />
           <div>
             <h1 className="text-base font-semibold text-navy">{t("login.title")}</h1>
             <p className="text-xs text-muted">{t("app.tagline")}</p>

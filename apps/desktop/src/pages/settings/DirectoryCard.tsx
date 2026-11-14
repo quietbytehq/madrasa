@@ -101,6 +101,9 @@ export function DirectoryCard() {
         </label>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {field("url", t("directory.url"), t("directory.urlHint"))}
+          <p className="text-xs text-muted md:col-span-2" data-testid="directory-ca-hint">
+            {t("directory.caHint")}
+          </p>
           {field("bind_dn", t("directory.bindDn"))}
           <Input
             label={t("directory.bindPassword")}
@@ -200,6 +203,15 @@ export function DirectoryCard() {
               data-testid="test-result"
             >
               {result.message}
+              {result.details && (
+                <span
+                  className="mt-1 block break-all font-mono text-xs text-muted"
+                  dir="ltr"
+                  data-testid="test-details"
+                >
+                  {result.details}
+                </span>
+              )}
             </p>
           )}
         </div>

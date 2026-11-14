@@ -1634,25 +1634,35 @@ confirm when there are several.
 ### 8.1 Theme (v1)
 
 Light, compact, information-dense. No hero banners. Tokens are CSS variables (light and dark)
-exposed through Tailwind:
+exposed through Tailwind (`apps/desktop/src/styles/tokens.css`, `tailwind.config.ts`; the
+parent app and the Nexus console use the same ones). Colours follow the brand
+(`assets/brand`, ADR 0008): night-blue navy, royal blue and the emblem's gold.
 
-| Token | Light |
-| --- | --- |
-| `--bg` | `#F7F9FC` |
-| `--card` | `#FFFFFF` |
-| `--navy` | `#142F50` |
-| `--blue` | `#2864C5` |
-| `--selection` | `#E8F1FF` |
-| `--success` / `--success-bg` | `#19835A` / `#DDF3E8` |
-| `--warning` / `--warning-bg` | `#D99A27` / `#FFF0D5` |
-| `--lavender` | `#E8E1FA` |
-| `--text` | `#172B4D` |
-| `--muted` | `#64748B` |
-| `--border` | `#DFE7F1` |
+| Token | Light | Dark |
+| --- | --- | --- |
+| `--bg` | `#F7F9FC` | `#0A1428` |
+| `--card` | `#FFFFFF` | `#111D35` |
+| `--navy` | `#0B2557` | `#CFDBF0` (navy as text on dark) |
+| `--blue` | `#0757BA` | `#5B9BF0` |
+| `--gold` / `--gold-bg` | `#F5B13B` / `#FFF4DC` | `#F7BE55` / `#3A2E12` |
+| `--selection` | `#E6EFFC` | `#1A3260` |
+| `--success` / `--success-bg` | `#19835A` / `#DDF3E8` | `#48BE88` / `#14382A` |
+| `--warning` / `--warning-bg` | `#D99A27` / `#FFF0D5` | `#EAB448` / `#403014` |
+| `--lavender` | `#E8E1FA` | `#383060` |
+| `--text` | `#15264A` | `#E3EAF6` |
+| `--muted` | `#64748B` | `#94A3BD` |
+| `--border` | `#DEE6F2` | `#24365A` |
 
-Font: Inter (Latin), Noto Nastaliq Urdu (Urdu), both bundled. Thin borders, subtle shadows,
-restrained radii. Dark mode via the same tokens (follow OS, user override). Printouts are
-always light.
+Fonts: Inter (Latin), Noto Nastaliq Urdu (Urdu), both bundled; `font-display` is the
+wordmark's serif (Merriweather Black, bundled), used only for the product name. Thin borders,
+subtle shadows, restrained radii. Dark mode via the same tokens (follow OS, user override).
+Printouts are always light.
+
+Brand (`assets/brand`): the emblem (`madrasa-mark.svg`) stands where the product is named:
+the sidebar header, login and first-run screens, the startup screen (`madrasa-logo-vertical`),
+the Nexus console, the parent app, and the header of printed vouchers, receipts, report cards
+and offer letters. Every app icon (Windows, Linux, Android) is generated from
+`madrasa-icon.svg` by `assets/brand/generate-icons.sh`.
 
 ### 8.2 Layout
 
@@ -2195,6 +2205,35 @@ without that folder serves the API only.
 - Money in reports is shown digit for digit as the hub sent it, with thousands separators
   added as text; it is never parsed into a floating-point number.
 
+
+### 16.9 Restoring a backup while joined (v0.4.3)
+
+Design: ADR 0007.
+
+- **At the school.** `POST /backup/preview` returns `network` (the network's name) when the
+  school is joined. `POST /backup/restore` then needs `confirm_network: true`; without it the
+  answer is `409 restore_while_joined` with the message *This school is joined to a network.
+  Restoring an older backup will make your data differ from head office's copy. Madrasa will
+  ask head office to reset its copy.* A backup of another school is refused while joined.
+- The restore keeps the hub link and key as they were just before it (or the backup's, when
+  the install was not joined), clears the sync queues, queues every record and marks the link
+  `restored: { at, backup_created_at, hub_reset_at: null }`. `RestoreResult.network` names the
+  network. A school neither joined nor restoring a joined backup has sync switched off.
+- **First sync after the restore.** Before anything else the school calls
+  `POST /sync/restored` with `{ school, app_version, schema_version, backup_created_at,
+  restored_at }` (`school`: its school record, as when joining). Nothing is pushed until the
+  hub answers `{ archive, rebaselined_at }`; the school then sets `hub_reset_at` and
+  `archive`, logs it (`nexus_link`, `hub_reset`) and sends its records.
+- **At the hub.** The school's schema is renamed to `a_<32 hex>` and recorded in
+  `hub_school_archives` (hub migration 5); a fresh schema under the school's own name is
+  created from the school record with capture on as head office; the hub log gets
+  `school_restored`. Only the school itself can call it, with its own record (`400`
+  otherwise). Purging the school drops its archives too.
+- **Status.** `GET /nexus/link` adds `parked_at_hub` (records head office could not store, as
+  of the last sync), `restored`, and `in_step`: true only when nothing waits to be sent,
+  nothing is parked on either side, the last sync worked and no restore waits to be told. The
+  card says "In step" only then, counts the records waiting at head office and explains them.
+
 ## 17. Parent app (alpha)
 
 The design is `docs/adr/0006-parent-app.md`; the stages are in `docs/TASKS-PARENT-APP.md`.
@@ -2416,7 +2455,9 @@ only to development builds (`devCsp`), so that live reload works.
 ### 17.6 The Android package (stage 6)
 
 - `scripts/build-parent-apk.sh` generates the Android project (`tauri android init`; it is
-  not kept in the repository), gives it Madrasa's launcher icon and builds one package
+  not kept in the repository), copies in Madrasa's launcher icons (legacy, round and adaptive,
+  in `apps/parent/src-tauri/icons/android`, generated from `assets/brand/madrasa-icon.svg`)
+  and builds one package
   (APK) for 64-bit and 32-bit ARM phones, Android 7.0 (API 24) or newer.
   `scripts/sign-apk.sh` aligns and signs it and writes `SIGNING.txt`, which names the file,
   the kind of key and the certificate's SHA-256.
@@ -2453,3 +2494,87 @@ only to development builds (`devCsp`), so that live reload works.
   for fourteen days, and a new code replaces an unused older one). Codes are issued this
   way only for schools the demo network made: marked demo in their own records and without
   a sync key. A real school's guardians get their codes from the school.
+
+## 18. Working offline (ADR 0009)
+
+Goal: no school loses work because the network or the server dropped.
+
+### 18.1 The LAN client's outbox
+
+In client mode the desktop app reaches the school server through its loopback proxy
+(`crates/api/src/lan.rs`). The proxy now carries an outbox (`crates/api/src/outbox.rs`), in
+`<data dir>/outbox/<server fingerprint>/`, one folder per server:
+
+- **Reads.** Every JSON answer to a `GET` (up to 4 MB) is kept per user. While the server is
+  out of reach the last copy is served with `X-Madrasa-Offline: cached`.
+- **Changes.** A `POST`, `PUT`, `PATCH` or `DELETE` the server cannot take is queued and
+  answered `202 { "queued": { id, queued_at, waiting, provisional } }`. Never queued (answered
+  `503 server_unreachable`): `/auth/`, `/setup`, `/backup`, `/imports`, `/system`, `/edition`,
+  `/nexus`, `/directory`, `/api-keys`, and bodies over 1 MB. While anything waits, new changes
+  join the end of the line. The same change queued twice (same user, method, path and body;
+  for payments, the same payment) is kept once.
+- **Sending.** A background task checks `/api/v1/health` every 10 s (every second while not
+  connected) and sends what waits in order, each with `Idempotency-Key: <item id>` and
+  `X-Madrasa-Queued-At: <when it was made>`. 2xx: done. 401: wait for the same user to sign in
+  again (the proxy learns which user a token belongs to from `/auth/login` and `/auth/me`),
+  never another. 5xx, 429 and `idempotency_in_progress`: try again later. Other 4xx: listed
+  as refused, with the server's message, and the line moves on.
+- **Link state.** `connected`; `reconnecting` from the first failure; `offline` after 15 s
+  without an answer.
+- **Local endpoints** (never forwarded): `GET /__madrasa/outbox/status`, `POST /retry`,
+  `POST /dismiss { kind: failed|overwritten|notices, id? }`, `GET /receipts/{provisional no}`.
+  CORS preflights are answered by the proxy so changes can be made while the server is away.
+- **At rest.** Queue, cache and book are sealed with AES-256-GCM under `outbox.key` (32 random
+  bytes, owner-only on Linux) in the same folder.
+
+### 18.2 Exactly once: `Idempotency-Key`
+
+`crates/api/src/offline/idempotency.rs`, a middleware on every `/api/v1` route. A mutating
+request with the header (a UUID) from a signed-in user claims the key in `idempotency_keys`
+(migration 0030), runs to the end in its own task (a dropped connection cannot cut it short),
+and its answer is kept. A repeat gets the kept answer with `Idempotent-Replay: true`. The same
+key with a different method, path, body or user: `422 idempotency_key_reused`. Still running:
+`409 idempotency_in_progress`; running for over ten minutes (server stopped mid-way):
+`409 idempotency_unknown`. 5xx answers are forgotten so the change can be retried. Keys older
+than 30 days are dropped at start-up. The proxy puts a key on every change from the first
+attempt, so a change whose answer was lost is queued under the same key.
+
+### 18.3 Provisional receipts
+
+A fee payment queued offline gets `P-<four letters naming the PC>-<n>` at once; the proxy
+adds it, and the payment date, to the request. The server accepts `provisional_no` only with
+`X-Madrasa-Queued-At`, stores it on the receipt (`fee_receipts.provisional_no`, unique per
+school), and records the payment even if the voucher was paid meanwhile (receipts are
+append-only, as in sync): the response then carries `X-Madrasa-Notice: overpaid`. The UI
+prints a provisional receipt page from the outbox (`/fees/receipts/provisional/:no/print`);
+once sent, it and the outbox status show the real number, and the real receipt shows the
+number it replaced.
+
+### 18.4 Conflicts
+
+The sync rules of §16 (ADR 0005), with the school server in head office's place:
+
+- **Field-level** (any `PUT`/`PATCH`): the queued edit keeps the record as the user saw it
+  (the cached `GET` of the same path). Before sending, the proxy reads the record again:
+  fields changed only on this PC are sent, fields changed only on the server are kept, and a
+  field changed on both keeps the server's value; the lost value is listed.
+- **Attendance** (`PUT /attendance/sheet` with `X-Madrasa-Queued-At`, on the server): per
+  student, the later mark stands (entry `updated_at` against the queued time). Without the
+  right to correct, a queued sheet never changes saved marks: refused (`already_submitted`)
+  if the sheet was there before the marks were made, else the saved sheet stands. Losing
+  marks come back in `X-Madrasa-Overwritten`.
+- **Append-only** (receipts): both stand.
+
+Everything overwritten is shown in the connection panel until the user clears it.
+
+### 18.5 Connection badge and drafts
+
+- The top bar of every screen shows Connected / Reconnecting / Offline, the number of
+  changes waiting, a count of things to read, and (users with `settings.manage`, school
+  joined) head office's sync. In standalone and server mode it follows `/api/v1/health`.
+  The parent app shows the hub's reachability on every screen.
+- Every `<form>` autosaves to an encrypted draft (`apps/desktop/src/lib/drafts.ts`,
+  `FormDrafts`): AES-GCM through Web Crypto with a non-extractable key in IndexedDB, nothing
+  kept where those are missing. Keyed by user, page and form shape; passwords, file inputs
+  and `data-no-draft` fields never kept; offered back when the form is opened again; removed
+  when the change reaches the server or the outbox.

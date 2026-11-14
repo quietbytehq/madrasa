@@ -136,6 +136,30 @@ list is in `docs/permissions.md`.
 - Changing the backup password applies to new backups only; old files open with the password
   that was in use when they were made, or with the recovery key.
 
+### Restoring while joined to a school network
+
+A backup is a picture of the school on the day it was made. When the school has joined a
+school network (Settings → School network), head office holds a copy that has moved on since
+then: restoring an older backup makes the two differ.
+
+- The restore window then says so: *This school is joined to a network. Restoring an older
+  backup will make your data differ from head office's copy. Madrasa will ask head office to
+  reset its copy.* Tick the box to confirm before **Restore now** works.
+- The school stays joined, with its present link to head office (not the one in the backup).
+- At the next sync (within minutes, or press **Sync now**) Madrasa tells head office first.
+  Head office sets its old copy aside, keeps it as an archive, and starts a fresh copy from
+  this school's records; then everything is sent again. Nothing is sent before head office
+  has answered. Both sides write it in their audit log.
+- Settings → School network shows "Not in step yet" and the restore until head office has
+  answered, then "In step" once nothing is waiting on either side.
+- Lost on purpose: what head office changed after the backup was made (corrections, parents'
+  messages the school had not received yet). It stays in head office's archive.
+- **If it does not work** (head office's hub is older than Madrasa 0.4.3 and says so, or the
+  card keeps showing records waiting at head office): leave the network (Settings → School
+  network → **Leave the network**), ask head office for a new join code, and join again. The
+  school keeps all its records; head office keeps the old copy as a left school and starts a
+  new one from what the school holds now.
+
 - **Teacher allocation**: Teachers → **Teacher allocation** shows a grid with sections down
   and subjects across; pick the teacher of each subject and the class teacher of each
   section. Each change is saved at once, and the teaching load of every teacher is listed
@@ -326,6 +350,21 @@ timetable and the substitutions.
    refuse them.
 3. **Test connection**, optionally with a username, before saving: the message says whether
    the bind account worked, who was found and the role they would get.
+   - **The certificate.** The connection always uses TLS (`ldaps://`), and the PC that runs
+     the Madrasa server (the single PC, or the server PC on a network) checks the directory's
+     certificate against its own list of trusted certificate authorities. A directory whose
+     certificate comes from the organisation's own CA (usual for Active Directory) is refused
+     until that CA is trusted on that PC:
+     - **Windows:** open the CA's certificate file → *Install Certificate* → *Local Machine* →
+       *Place all certificates in the following store* → *Trusted Root Certification
+       Authorities*.
+     - **Linux:** copy the CA's certificate (PEM, ending in `.crt`) to
+       `/usr/local/share/ca-certificates/` and run `sudo update-ca-certificates`.
+     - Then **restart Madrasa** (the list is read when it starts) and test again.
+   - Test connection says plainly when the certificate is **not trusted**, has **expired**,
+     is **not valid yet** (check the PC's clock) or was issued for **another name** (enter the
+     server's full DNS name, not its IP address), with the technical reason underneath for
+     whoever runs the directory.
 4. **Logging in**: staff type their directory username and password on the normal login
    screen (the hint you set appears under the form). Their account appears in Settings →
    Users with a "Directory" badge the first time they log in; the role follows the groups on
@@ -372,3 +411,89 @@ something to do there.
 - **What parents see.** Only their own children. Only results from marks sheets that have
   been approved. Fees as on the school's vouchers; nothing is paid in the app. What they
   see is as fresh as the school's last sync, and the app says when that was.
+
+## 19. Working offline
+
+Madrasa is built so that no school loses work when the network or the school server drops.
+
+### The connection badge
+
+At the top of every screen, next to the bell:
+
+- **Connected** (green): the school server answers; changes are saved there at once.
+- **Reconnecting…** (amber): it stopped answering a moment ago; Madrasa keeps trying.
+- **Offline** (red): it has not answered for 15 seconds or more.
+- **3 waiting**: changes made on this PC that the server has not received yet.
+- A red number: something to read (a change the server refused, a value overwritten, a
+  payment to check).
+- **Head office: in step / 4 to send / needs attention / not reached**: when the school is
+  joined to a school network and you may see the network settings.
+
+Click the badge for the details: what is waiting, what happened to it, your drafts, and a
+**Try now** button.
+
+### On a PC connected to the school server
+
+When the server or the network goes down:
+
+- **Keep working.** Screens show what they last showed (a copy kept on this PC).
+- **Saving keeps the change on this PC**, encrypted, and says "Saved on this PC". The badge
+  counts it. Changes are sent on their own, in the order you made them, as soon as the server
+  answers, even if Madrasa was closed and opened again or the PC restarted in between.
+- **Nothing is applied twice.** Pressing Save again, or a connection that drops half way,
+  never makes a second student, receipt or mark.
+- **Some things need the server there and then**: signing in, backups and restores, imports,
+  setup and network settings. Madrasa says so instead of keeping them.
+- **If your sign-in ends while the server is away**, the badge says **Sign in again**. The
+  waiting changes go when you sign in again as the same person; they are never sent under
+  anyone else's name.
+
+Do not uninstall Madrasa or delete its data folder while the badge shows changes waiting.
+Before replacing a PC, connect it to the server until the badge shows nothing waiting.
+
+### Fee receipts taken offline
+
+Record the payment as usual. Madrasa prints a **provisional receipt** at once, numbered like
+`P-K7QM-0001` and clearly marked **Provisional receipt — not yet confirmed by the school
+server**. Give it to the parent.
+
+When the server is back, the payment gets its real receipt number (for example
+`R2026-000123`). The badge's panel shows which provisional number became which, the
+provisional receipt page shows the real number, and the real receipt says "Replaces
+provisional receipt P-K7QM-0001", so either number finds it.
+
+If someone paid the same voucher on another PC meanwhile, both receipts stand (the money was
+received twice) and the panel asks you to refund or carry forward the overpayment.
+
+### When two PCs changed the same thing
+
+The same rules as head office sync:
+
+- **Different fields of the same record**: both changes are kept.
+- **The same field on both PCs**: the value saved on the server stands. Yours is listed under
+  **Overwritten on arrival** with both values, so nothing disappears silently.
+- **Attendance**: marks are merged student by student; where both PCs marked the same
+  student, the later mark stands. A sheet a teacher marked offline never changes marks
+  someone else has already saved; the differences are listed.
+- **A change the server refuses** (for example, the student was withdrawn meanwhile) is
+  listed under **Not accepted by the server** with the reason. Check it and enter it again if
+  it is still needed.
+
+### Drafts
+
+Every form saves what you type as a draft, encrypted, on this PC (on every PC, the server
+included). If Madrasa or the PC stops suddenly, or a window is closed by mistake, open the
+same form again: Madrasa offers **Restore**. Drafts belong to the person who typed them,
+passwords are never kept, and a draft disappears once its change is saved. The badge's panel
+lists your drafts.
+
+### On the server PC, or a single PC
+
+There is no network to lose. The badge shows whether Madrasa's own service answers; if it
+does not, close and open Madrasa, and your drafts come back.
+
+### Parent app
+
+The badge at the top of every screen shows whether the school network can be reached.
+Offline, the app shows what it last loaded, and a message you were writing is kept as a draft
+on the phone.

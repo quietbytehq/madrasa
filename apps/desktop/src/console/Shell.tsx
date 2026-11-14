@@ -7,6 +7,7 @@ import {
   ScrollText,
   Users,
 } from "lucide-react";
+import { BrandMark } from "@/components/brand/Brand";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { useI18n } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
@@ -88,12 +89,7 @@ export function Shell() {
         className="flex w-sidebar shrink-0 flex-col border-e border-border bg-sidebar"
       >
         <div className="flex h-topbar items-center gap-2 border-b border-border px-3">
-          <div
-            aria-hidden
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-navy text-xs font-bold text-white"
-          >
-            N
-          </div>
+          <BrandMark className="h-7 w-7" />
           <div className="min-w-0 leading-tight">
             <div
               className="nav-label truncate text-sm font-semibold text-navy"

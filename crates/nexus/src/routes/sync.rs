@@ -10,7 +10,7 @@ use madrasa_core::escrow::{DepositRequest, EscrowStatus, SeenRequest};
 use madrasa_core::session_token;
 use madrasa_core::sync::{
     check_versions, AckRequest, AckResponse, JoinRequest, JoinResponse, LeaveRequest, PullRequest,
-    PullResponse, PushRequest, PushResponse, BATCH_SIZE,
+    PullResponse, PushRequest, PushResponse, RestoredRequest, RestoredResponse, BATCH_SIZE,
 };
 use madrasa_db::sync;
 use serde::Serialize;
@@ -33,6 +33,7 @@ pub fn router() -> Router<HubState> {
         .route("/sync/pull", post(pull))
         .route("/sync/ack", post(ack))
         .route("/sync/leave", post(leave))
+        .route("/sync/restored", post(restored))
         .route(
             "/sync/escrow",
             get(escrow_status)
@@ -253,6 +254,40 @@ async fn ack(
     tx.commit().await?;
     Ok(Json(AckResponse {
         stored_overwrites: stored,
+    }))
+}
+
+/// The school restored a backup while joined: head office sets its copy aside and starts a
+/// fresh one from the school record. The school then sends every record again.
+async fn restored(
+    State(state): State<HubState>,
+    SyncSchool(school): SyncSchool,
+    body: JsonBody<RestoredRequest>,
+) -> HubResult<Json<RestoredResponse>> {
+    let Json(req) = body?;
+    version_refusal(req.schema_version)?;
+    if req.school.table != "schools"
+        || req.school.fields.is_some()
+        || req.school.id != school.school_id
+    {
+        return Err(HubError::validation(
+            "A restored school sends its own school record.",
+        ));
+    }
+    let done = tenants::rebaseline(
+        &state.pool,
+        &state.hlc,
+        &school,
+        &req.school,
+        req.backup_created_at,
+        req.restored_at,
+    )
+    .await
+    .map_err(internal)?;
+    tracing::info!(school = %school.code, "a school restored a backup; its copy was started afresh");
+    Ok(Json(RestoredResponse {
+        archive: done.archive,
+        rebaselined_at: done.at,
     }))
 }
 

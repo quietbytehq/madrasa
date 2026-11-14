@@ -1,7 +1,8 @@
 import { Printer } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { api } from "@/api/endpoints";
-import type { ReceiptDetail, VoucherDetail } from "@/api/types";
+import { provisionalReceipt } from "@/api/client";
+import type { ProvisionalReceipt, ReceiptDetail, VoucherDetail } from "@/api/types";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Spinner } from "@/components/ui/Spinner";
@@ -12,6 +13,7 @@ import { formatMoney, monthLabel } from "@/lib/money";
 import { useMoney } from "@/lib/useMoney";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 import { methodLabel } from "./common";
+import { BrandMark } from "@/components/brand/Brand";
 
 /**
  * Print toolbar. With `onPdf` the Print button fetches the PDF typeset by the server (the
@@ -99,10 +101,13 @@ function VoucherCopy({ v, copy }: { v: VoucherDetail; copy: string }) {
   return (
     <section className="rounded border border-border bg-card p-4 text-sm text-text print:rounded-none print:border-black">
       <header className="mb-2 flex items-start justify-between border-b border-border pb-2">
-        <div>
-          <div className="text-base font-bold text-navy">{v.school.name}</div>
-          <div className="text-xs text-muted">
-            {v.school.city} · {v.school.code}
+        <div className="flex items-start gap-2">
+          <BrandMark className="h-9 w-9" />
+          <div>
+            <div className="text-base font-bold text-navy">{v.school.name}</div>
+            <div className="text-xs text-muted">
+              {v.school.city} · {v.school.code}
+            </div>
           </div>
         </div>
         <div className="text-end text-xs">
@@ -191,10 +196,13 @@ export function ReceiptPrintPage() {
       <PrintToolbar title={`${t("fees.print.receipt")} ${d.receipt_no}`} />
       <section className="print-area mx-auto max-w-lg rounded border border-border bg-card p-4 text-sm text-text print:rounded-none print:border-black">
         <header className="mb-2 flex items-start justify-between border-b border-border pb-2">
-          <div>
-            <div className="text-base font-bold text-navy">{d.school.name}</div>
-            <div className="text-xs text-muted">
-              {d.school.city} · {d.school.code}
+          <div className="flex items-start gap-2">
+            <BrandMark className="h-9 w-9" />
+            <div>
+              <div className="text-base font-bold text-navy">{d.school.name}</div>
+              <div className="text-xs text-muted">
+                {d.school.city} · {d.school.code}
+              </div>
             </div>
           </div>
           <div className="text-end text-xs">
@@ -257,8 +265,104 @@ export function ReceiptPrintPage() {
             {t("fees.reversed")}: {d.reversed_by.receipt_no}
           </p>
         )}
+        {d.provisional_no && (
+          <p className="mt-2 text-xs text-muted" data-testid="replaces-provisional">
+            {t("fees.provisional.replaces", { number: d.provisional_no })}
+          </p>
+        )}
         <div className="mt-6 flex justify-between text-xs text-muted print:mt-10">
           <span>{t("fees.print.signature")}: ____________</span>
+          <span>{t("fees.print.signature")}: ____________</span>
+        </div>
+      </section>
+    </>
+  );
+}
+
+/**
+ * A receipt taken while the school server was out of reach (LAN client, ADR 0009): printed at
+ * once with its provisional number, marked clearly; once the server has it, the page shows the
+ * real number that replaced it.
+ */
+export function ProvisionalReceiptPage() {
+  const { number = "" } = useParams();
+  const { t, formatDate } = useI18n();
+  const r = useAsync(() => provisionalReceipt(number), [number]);
+  if (r.loading && !r.data)
+    return (
+      <div className="flex justify-center py-10">
+        <Spinner size="lg" />
+      </div>
+    );
+  if (r.error || !r.data) return <EmptyState title={t("fees.provisional.notFound")} />;
+  const p: ProvisionalReceipt = r.data;
+  const v = p.voucher;
+  return (
+    <>
+      <PrintToolbar title={`${t("fees.provisional.title")} ${p.provisional_no}`} />
+      <section
+        className="print-area mx-auto max-w-lg rounded border-2 border-dashed border-warning bg-card p-4 text-sm text-text print:rounded-none print:border-black"
+        data-testid="provisional-receipt"
+      >
+        <p className="mb-2 rounded bg-warning-bg px-2 py-1.5 text-center text-sm font-bold uppercase tracking-wide text-text print:border print:border-black">
+          {t("fees.provisional.banner")}
+        </p>
+        <header className="mb-2 flex items-start justify-between border-b border-border pb-2">
+          <div className="flex items-start gap-2">
+            <div>
+              <div className="text-base font-bold text-navy">{v?.school.name ?? ""}</div>
+              <div className="text-xs text-muted">
+                {v ? `${v.school.city} · ${v.school.code}` : ""}
+              </div>
+            </div>
+          </div>
+          <div className="text-end text-xs">
+            <div className="font-semibold uppercase">{t("fees.provisional.title")}</div>
+            <div className="font-mono" data-testid="provisional-number">
+              {p.provisional_no}
+            </div>
+            <div>{formatDate(p.paid_on)}</div>
+          </div>
+        </header>
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs">
+          {v && (
+            <>
+              <dt className="text-muted">{t("students.fullName")}</dt>
+              <dd className="font-medium">{v.student_name}</dd>
+              <dt className="text-muted">{t("students.fatherName")}</dt>
+              <dd>{v.father_name}</dd>
+              <dt className="text-muted">{t("students.number")}</dt>
+              <dd className="font-mono">{v.student_number}</dd>
+              <dt className="text-muted">{t("fees.voucherNo")}</dt>
+              <dd className="font-mono">
+                {v.voucher_no} · {monthLabel(v.billing_month)}
+              </dd>
+            </>
+          )}
+          <dt className="text-muted">{t("fees.pay.method")}</dt>
+          <dd>
+            {methodLabel(t, p.method)}
+            {p.reference ? ` · ${p.reference}` : ""}
+          </dd>
+          {p.note && (
+            <>
+              <dt className="text-muted">{t("fees.pay.note")}</dt>
+              <dd>{p.note}</dd>
+            </>
+          )}
+        </dl>
+        <div className="mt-3 flex items-baseline justify-between border-t border-border pt-2">
+          <span className="text-xs uppercase text-muted">{t("fees.print.amountInWords")}</span>
+          <span className="text-xl font-bold tabular-nums text-navy">
+            {v?.school.currency ?? ""} {formatMoney(p.amount)}
+          </span>
+        </div>
+        <p className="mt-3 text-xs" data-testid="provisional-status">
+          {p.receipt_no
+            ? t("fees.provisional.replacedBy", { number: p.receipt_no })
+            : t("fees.provisional.pending")}
+        </p>
+        <div className="mt-6 flex justify-between text-xs text-muted print:mt-10">
           <span>{t("fees.print.signature")}: ____________</span>
         </div>
       </section>

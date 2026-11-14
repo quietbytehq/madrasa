@@ -31,10 +31,13 @@ Lite is built first. Write Lite so Standard and Nexus plug in later without rewr
 
 ## Design (v1 theme)
 Light, compact, information-dense desktop UI. No hero banners.
-- Colors: bg #F7F9FC, card #FFFFFF, navy #142F50, blue #2864C5, selection #E8F1FF,
-  success #19835A/#DDF3E8, warning #D99A27/#FFF0D5, lavender #E8E1FA,
-  text #172B4D, muted #64748B, border #DFE7F1.
-- Font: Inter, system sans fallback. Thin borders, subtle shadows, restrained radii.
+- Colors (brand, assets/brand): bg #F7F9FC, card #FFFFFF, navy #0B2557, blue #0757BA,
+  gold #F5B13B, selection #E6EFFC, success #19835A/#DDF3E8, warning #D99A27/#FFF0D5,
+  lavender #E8E1FA, text #15264A, muted #64748B, border #DEE6F2. Dark values: docs/spec.md §8.1.
+- Font: Inter, system sans fallback; Merriweather Black (`font-display`) only for the product
+  name. Thin borders, subtle shadows, restrained radii.
+- Logo and icons: assets/brand. Edit assets/brand/tools/build_svg.py, not the SVGs; regenerate
+  icons with assets/brand/generate-icons.sh.
 - Layout: light blue-grey sidebar (modules), 56–64px top bar (search Ctrl+K, campus, notifications, help, user), main workspace.
 - Must work at 1366×768 and 1920×1080. Visible focus states, keyboard navigation.
 - Dark mode via tokens (follow OS, user override). Printouts always light.

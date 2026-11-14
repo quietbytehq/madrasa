@@ -5,9 +5,50 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
     <title>Madrasa Parent</title>
+    <link rel="icon" type="image/svg+xml" href="../../assets/brand/madrasa-mark.svg" />
+    <style>
+      /* The startup screen, before the app's own styles load. */
+      html,
+      body,
+      #root {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        background: #f7f9fc;
+      }
+      .boot-splash {
+        display: flex;
+        height: 100%;
+        align-items: center;
+        justify-content: center;
+        padding-bottom: 56px;
+        box-sizing: border-box;
+      }
+      .boot-splash img {
+        height: 128px;
+        width: auto;
+      }
+      @media (prefers-color-scheme: dark) {
+        body {
+          background: #0a1428;
+        }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Shown until the app starts; the same as the in-app startup screen. -->
+      <div class="boot-splash" aria-busy="true">
+        <picture>
+          <source
+            srcset="../../assets/brand/madrasa-logo-vertical-dark.svg"
+            media="(prefers-color-scheme: dark)"
+          />
+          <img src="../../assets/brand/madrasa-logo-vertical.svg" alt="Madrasa" />
+        </picture>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

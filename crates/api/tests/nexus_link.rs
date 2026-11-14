@@ -282,6 +282,25 @@ impl LiveHub {
         rows
     }
 
+    /// Row counts of these tables in the only school's copy.
+    async fn counts(&self, tables: &[&str]) -> Vec<i64> {
+        let mut conn = self.state.pool.acquire().await.unwrap();
+        let school = tenants::list(&mut conn).await.unwrap().remove(0);
+        drop(conn);
+        let mut tx = tenants::begin(&self.state.pool, &school).await.unwrap();
+        let mut out = Vec::new();
+        for t in tables {
+            let n: i64 =
+                sqlx::query_scalar(sqlx::AssertSqlSafe(format!("SELECT count(*) FROM \"{t}\"")))
+                    .fetch_one(&mut *tx)
+                    .await
+                    .unwrap();
+            out.push(n);
+        }
+        tx.commit().await.unwrap();
+        out
+    }
+
     /// Stop listening (the hub is "away"); the database stays.
     fn stop(&mut self) {
         if let Some(tx) = self.stop.take() {
@@ -990,7 +1009,7 @@ async fn a_backup_key_left_with_head_office_is_released_and_opens_a_real_backup(
             .post(
                 "/backup/restore",
                 &admin,
-                json!({ "path": path, "released_key": key }),
+                json!({ "path": path, "released_key": key, "confirm_network": true }),
             )
             .await;
         assert_eq!(
@@ -1003,7 +1022,7 @@ async fn a_backup_key_left_with_head_office_is_released_and_opens_a_real_backup(
         .post(
             "/backup/restore",
             &admin,
-            json!({ "path": path, "released_key": released_key.to_lowercase().replace('-', " ") }),
+            json!({ "path": path, "released_key": released_key.to_lowercase().replace('-', " "), "confirm_network": true }),
         )
         .await;
     assert_eq!(s, StatusCode::OK, "{r}");
@@ -1034,7 +1053,7 @@ async fn a_backup_key_left_with_head_office_is_released_and_opens_a_real_backup(
         .post(
             "/backup/restore",
             &admin,
-            json!({ "path": path, "password": "backup-password-1" }),
+            json!({ "path": path, "password": "backup-password-1", "confirm_network": true }),
         )
         .await;
     assert_eq!(
@@ -1852,6 +1871,309 @@ async fn a_parent_sees_the_schools_own_figures_and_only_approved_marks() {
         .await;
     assert_eq!(s, 404);
 
+    hub.finish().await;
+    app.finish().await;
+}
+
+/// Row counts of these tables in the school's own database: the school's records. Rows that
+/// belong to no school (instance-wide log entries such as an edition switch) are never sent
+/// to a hub, by design, so they are not counted.
+async fn school_counts(app: &App, tables: &[&str]) -> Vec<i64> {
+    let mut out = Vec::new();
+    for t in tables {
+        let owner = if *t == "schools" { "id" } else { "school_id" };
+        let n: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+            "SELECT count(*) FROM \"{t}\" WHERE {owner} IS NOT NULL"
+        )))
+        .fetch_one(&app.db.pool)
+        .await
+        .unwrap();
+        out.push(n);
+    }
+    out
+}
+
+/// v0.4.3: restoring an older backup while joined. Before, the school said "in step" while
+/// head office held records the school no longer had, and the restored school issued the
+/// same student numbers again, so new records waited at the hub for ever. Now the restore
+/// asks for a confirmation, head office sets its copy aside at the next sync and starts a
+/// fresh one from what the school holds, and both copies agree record for record.
+#[tokio::test]
+async fn restoring_an_older_backup_while_joined_resets_head_offices_copy() {
+    let (app, hub) = start!();
+    let admin = app.setup("KHI-RS").await;
+    let hub_admin = hub.setup().await;
+    let section: Uuid = sqlx::query_scalar("SELECT id FROM sections")
+        .fetch_one(&app.db.pool)
+        .await
+        .unwrap();
+    let add_student = |name: &'static str| {
+        let (app, admin) = (&app, admin.clone());
+        async move {
+            let (s, b) = app
+                .post(
+                    "/students",
+                    &admin,
+                    json!({ "full_name": name, "father_name": "Father", "date_of_birth": "2015-01-01",
+                            "gender": "male", "admission_date": "2026-04-01", "section_id": section }),
+                )
+                .await;
+            assert_eq!(s, StatusCode::CREATED, "{b}");
+            b["student_number"].as_str().unwrap().to_string()
+        }
+    };
+    let sync = || async {
+        let (s, st) = app.post("/nexus/link/sync", &admin, json!({})).await;
+        assert_eq!(s, StatusCode::OK, "{st}");
+        st
+    };
+    let dir = std::env::temp_dir().join(format!("madrasa-restore-test-{}", Uuid::new_v4()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let (s, b) = app
+        .call(
+            Method::PUT,
+            "/backup/settings",
+            Some(&admin),
+            Some(json!({ "enabled": false, "time": "02:00", "directory": dir.display().to_string(), "keep": 10 })),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    let backup = || async {
+        let (s, run) = app.post("/backup/run", &admin, json!({})).await;
+        assert_eq!(s, StatusCode::OK, "{run}");
+        run["file_path"].as_str().unwrap().to_string()
+    };
+
+    // ---- not joined: no warning, nothing to confirm -------------------------------------------
+    let before_joining = backup().await;
+    let (s, p) = app
+        .post("/backup/preview", &admin, json!({ "path": before_joining }))
+        .await;
+    assert_eq!((s, &p["network"]), (StatusCode::OK, &Value::Null), "{p}");
+    let (s, r) = app
+        .post(
+            "/backup/restore",
+            &admin,
+            json!({ "path": before_joining, "password": "backup-password-1" }),
+        )
+        .await;
+    assert_eq!(
+        s,
+        StatusCode::OK,
+        "a school that is not joined restores as before: {r}"
+    );
+    assert_eq!(r["network"], Value::Null);
+    let admin = app.login("ayesha", "admin-password-1").await;
+
+    // ---- join, sync, back up, add records, sync ------------------------------------------------
+    let code = hub.invite(&hub_admin).await;
+    let (s, b) = app
+        .post(
+            "/nexus/link/join",
+            &admin,
+            json!({ "hub_url": hub.url, "join_code": code }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{b}");
+    let st = sync().await;
+    assert_eq!(
+        (st["pending"].as_i64(), st["in_step"].as_bool()),
+        (Some(0), Some(true)),
+        "{st}"
+    );
+    let older = backup().await;
+    let bilal = add_student("Bilal Ahmed").await;
+    let hamza = add_student("Hamza Iqbal").await;
+    sync().await;
+    assert_eq!(
+        hub.in_school("SELECT full_name FROM students ORDER BY full_name")
+            .await,
+        ["Ali Khan", "Bilal Ahmed", "Hamza Iqbal", "Sara Noor"]
+    );
+
+    // ---- restoring while joined: a warning, and a confirmation is required -------------------
+    let (s, p) = app
+        .post("/backup/preview", &admin, json!({ "path": older }))
+        .await;
+    assert_eq!(
+        (s, p["network"].as_str()),
+        (StatusCode::OK, Some("Gulshan Education Network")),
+        "{p}"
+    );
+    let (s, e) = app
+        .post(
+            "/backup/restore",
+            &admin,
+            json!({ "path": older, "password": "backup-password-1" }),
+        )
+        .await;
+    assert_eq!(
+        (s, e["error"]["code"].as_str(), e["error"]["message"].as_str()),
+        (
+            StatusCode::CONFLICT,
+            Some("restore_while_joined"),
+            Some("This school is joined to a network. Restoring an older backup will make your data differ from head office's copy. Madrasa will ask head office to reset its copy.")
+        )
+    );
+    assert_eq!(
+        app.names().await.len(),
+        4,
+        "nothing was restored without the confirmation"
+    );
+    let (s, r) = app
+        .post(
+            "/backup/restore",
+            &admin,
+            json!({ "path": older, "password": "backup-password-1", "confirm_network": true }),
+        )
+        .await;
+    assert_eq!(
+        (s, r["network"].as_str()),
+        (StatusCode::OK, Some("Gulshan Education Network")),
+        "{r}"
+    );
+    let admin = app.login("ayesha", "admin-password-1").await;
+    assert_eq!(
+        app.names().await,
+        ["Ali Khan", "Sara Noor"],
+        "the older backup is back"
+    );
+
+    // Still joined, with the key it had; everything queued again; head office not told yet,
+    // so the screen does not say "in step".
+    let (_, st) = app.get("/nexus/link", &admin).await;
+    assert_eq!(st["linked"], true, "{st}");
+    assert!(st["pending"].as_i64().unwrap() > 0, "{st}");
+    assert!(st["restored"]["at"].is_string(), "{st}");
+    assert!(st["restored"]["hub_reset_at"].is_null(), "{st}");
+    assert_eq!(st["in_step"], false);
+
+    // ---- the next sync: head office sets its copy aside and starts afresh ---------------------
+    let st = sync().await;
+    assert!(st["last_error"].is_null(), "{st}");
+    assert!(st["restored"]["hub_reset_at"].is_string(), "{st}");
+    let archive = st["restored"]["archive"].as_str().unwrap().to_string();
+    assert!(archive.starts_with("a_"), "{archive}");
+    // The round wrote the school's own log entry about it; one more round sends that too.
+    let st = sync().await;
+    assert_eq!(
+        (
+            st["pending"].as_i64(),
+            st["parked"].as_array().map(Vec::len),
+            st["parked_at_hub"].as_array().map(Vec::len)
+        ),
+        (Some(0), Some(0), Some(0)),
+        "{st}"
+    );
+    assert_eq!(st["in_step"], true, "{st}");
+
+    // Record for record, every synced table holds the same number of rows on both sides.
+    let tables: Vec<&str> = madrasa_core::sync::TABLES
+        .iter()
+        .filter(|p| p.is_synced())
+        .map(|p| p.table)
+        .collect();
+    let unsent: Vec<String> = sqlx::query_scalar(
+        "SELECT action || ' ' || entity FROM audit_log WHERE school_id IS NULL ORDER BY at",
+    )
+    .fetch_all(&app.db.pool)
+    .await
+    .unwrap();
+    assert!(
+        unsent.iter().all(|a| a.ends_with(" setting")),
+        "only instance-wide settings are left out: {unsent:?}"
+    );
+    let here = school_counts(&app, &tables).await;
+    let there = hub.counts(&tables).await;
+    let differ: Vec<(&str, i64, i64)> = tables
+        .iter()
+        .zip(here.iter().zip(&there))
+        .filter(|(_, (a, b))| a != b)
+        .map(|(t, (a, b))| (*t, *a, *b))
+        .collect();
+    assert!(
+        differ.is_empty(),
+        "school and head office differ: {differ:?}"
+    );
+    assert_eq!(
+        hub.in_school("SELECT full_name FROM students ORDER BY full_name")
+            .await,
+        ["Ali Khan", "Sara Noor"]
+    );
+
+    // Head office kept its old copy as an archive and logged it.
+    let archived: Vec<(String, i64)> = sqlx::query_as(
+        "SELECT schema_name, (SELECT count(*) FROM hub_school_archives) FROM hub_school_archives",
+    )
+    .fetch_all(&hub.state.pool)
+    .await
+    .unwrap();
+    assert_eq!(archived, [(archive.clone(), 1)]);
+    let old_names: Vec<String> = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+        "SELECT full_name FROM \"{archive}\".students ORDER BY full_name"
+    )))
+    .fetch_all(&hub.state.pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        old_names,
+        ["Ali Khan", "Bilal Ahmed", "Hamza Iqbal", "Sara Noor"]
+    );
+    let logged: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM hub_audit_log WHERE action = 'school_restored'")
+            .fetch_one(&hub.state.pool)
+            .await
+            .unwrap();
+    assert_eq!(logged, 1);
+    // And the school logged both steps: the restore that kept the link, and head office's reset.
+    let school_log: Vec<String> = sqlx::query_scalar(
+        "SELECT new_value::text FROM audit_log WHERE entity = 'nexus_link' AND action = 'update' ORDER BY at, id",
+    )
+    .fetch_all(&app.db.pool)
+    .await
+    .unwrap();
+    assert!(
+        school_log.iter().any(|v| v.contains("\"restored\": true")),
+        "{school_log:?}"
+    );
+    assert!(
+        school_log.iter().any(|v| v.contains("\"hub_reset\": true")),
+        "{school_log:?}"
+    );
+
+    // ---- no clash: the restored school issues the same student numbers again --------------------
+    let again = add_student("Danish Malik").await;
+    assert_eq!(
+        again, bilal,
+        "the restored counter gives out the same number again"
+    );
+    let again2 = add_student("Eman Tariq").await;
+    assert_eq!(again2, hamza);
+    let st = sync().await;
+    let st = if st["pending"].as_i64() == Some(0) {
+        st
+    } else {
+        sync().await
+    };
+    assert_eq!(
+        (
+            st["pending"].as_i64(),
+            st["parked_at_hub"].as_array().map(Vec::len),
+            st["in_step"].as_bool()
+        ),
+        (Some(0), Some(0), Some(true)),
+        "{st}"
+    );
+    assert_eq!(
+        hub.in_school("SELECT full_name FROM students ORDER BY full_name")
+            .await,
+        ["Ali Khan", "Danish Malik", "Eman Tariq", "Sara Noor"]
+    );
+    let here = school_counts(&app, &tables).await;
+    let there = hub.counts(&tables).await;
+    assert_eq!(here, there, "{tables:?}");
+
+    std::fs::remove_dir_all(&dir).ok();
     hub.finish().await;
     app.finish().await;
 }

@@ -53,6 +53,7 @@ impl Lan {
             "127.0.0.1:0".parse().unwrap(),
             &tls,
             &identity.fingerprint,
+            None,
             async move {
                 let _ = s3.recv().await;
             },
@@ -171,6 +172,7 @@ async fn clients_pin_the_server_certificate_and_the_proxy_relays_errors() {
         "127.0.0.1:0".parse().unwrap(),
         "https://127.0.0.1:1",
         &lan.fingerprint,
+        None,
         std::future::pending(),
     )
     .await

@@ -15,10 +15,71 @@ pub enum DirectoryError {
     BindAccount(String),
     #[error("cannot reach the directory: {0}")]
     Connect(String),
+    /// The directory was reached but its TLS certificate was refused. The message says what
+    /// to do; `detail` is the TLS library's own text, for whoever looks after the directory.
+    #[error("{}", .problem.message())]
+    Certificate {
+        problem: CertificateProblem,
+        detail: String,
+    },
     #[error("no such user in the directory")]
     NotFound,
     #[error("the password is wrong")]
     BadPassword,
+}
+
+/// Why the directory's certificate was refused.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CertificateProblem {
+    /// Issued by an authority this PC does not trust (often the organisation's own CA).
+    Untrusted,
+    Expired,
+    /// Valid only from a later date: usually this PC's clock is wrong.
+    NotYetValid,
+    /// Issued for another name than the server address entered.
+    WrongName,
+    /// Any other reason the TLS library gave.
+    Other,
+}
+
+impl CertificateProblem {
+    pub fn message(self) -> &'static str {
+        match self {
+            CertificateProblem::Untrusted => "The directory's certificate is not trusted by the Madrasa server PC: it was issued by a certificate authority (CA) this PC does not know, often the organisation's own. Install that CA's certificate in the server PC's trusted root certificates (Windows: \"Trusted Root Certification Authorities\" of the computer; Linux: /usr/local/share/ca-certificates, then update-ca-certificates), restart Madrasa, and test again.",
+            CertificateProblem::Expired => "The directory's certificate has expired. Ask whoever runs the directory to renew it, then test again.",
+            CertificateProblem::NotYetValid => "The directory's certificate is not valid yet. Check the date and time of the Madrasa server PC.",
+            CertificateProblem::WrongName => "The directory's certificate was issued for another name than the server address entered. Enter the name the certificate was issued for (usually the server's full DNS name, not its IP address).",
+            CertificateProblem::Other => "The directory's certificate was refused. Ask whoever runs the directory to check it; the details are below.",
+        }
+    }
+}
+
+/// Classify a connection failure. TLS certificate problems get their own plain message;
+/// anything else is "cannot reach the directory". The texts matched are those of the TLS
+/// library (rustls) the LDAP client uses, in both its short and its detailed forms.
+pub fn connect_error(e: impl std::fmt::Display) -> DirectoryError {
+    let detail = e.to_string();
+    let text = detail.to_ascii_lowercase();
+    let problem = if text.contains("unknownissuer") || text.contains("unknown issuer") {
+        Some(CertificateProblem::Untrusted)
+    } else if text.contains("certificate expired")
+        || text.contains("certificate: expired")
+        || text.contains("certificateexpired")
+    {
+        Some(CertificateProblem::Expired)
+    } else if text.contains("not valid yet") || text.contains("notvalidyet") {
+        Some(CertificateProblem::NotYetValid)
+    } else if text.contains("not valid for name") || text.contains("notvalidforname") {
+        Some(CertificateProblem::WrongName)
+    } else if text.contains("invalid peer certificate") || text.contains("badcertificate") {
+        Some(CertificateProblem::Other)
+    } else {
+        None
+    };
+    match problem {
+        Some(problem) => DirectoryError::Certificate { problem, detail },
+        None => DirectoryError::Connect(detail),
+    }
 }
 
 #[async_trait]
@@ -62,7 +123,7 @@ impl LdapDirectory {
     async fn connect(url: &str) -> Result<ldap3::Ldap, DirectoryError> {
         let (conn, ldap) = ldap3::LdapConnAsync::with_settings(Self::settings(), url.trim())
             .await
-            .map_err(|e| DirectoryError::Connect(e.to_string()))?;
+            .map_err(connect_error)?;
         ldap3::drive!(conn);
         Ok(ldap)
     }
@@ -75,7 +136,7 @@ impl LdapDirectory {
         let mut ldap = Self::connect(&cfg.url).await?;
         ldap.simple_bind(cfg.bind_dn.trim(), bind_password)
             .await
-            .map_err(|e| DirectoryError::Connect(e.to_string()))?
+            .map_err(connect_error)?
             .success()
             .map_err(|e| DirectoryError::BindAccount(e.to_string()))?;
         let attrs = vec![
@@ -93,9 +154,9 @@ impl LdapDirectory {
                 attrs,
             )
             .await
-            .map_err(|e| DirectoryError::Connect(e.to_string()))?
+            .map_err(connect_error)?
             .success()
-            .map_err(|e| DirectoryError::Connect(e.to_string()))?;
+            .map_err(connect_error)?;
         let _ = ldap.unbind().await;
         let entry = rows
             .into_iter()
@@ -129,7 +190,7 @@ impl DirectoryClient for LdapDirectory {
         let r = ldap
             .simple_bind(cfg.bind_dn.trim(), bind_password)
             .await
-            .map_err(|e| DirectoryError::Connect(e.to_string()))?
+            .map_err(connect_error)?
             .success()
             .map(|_| ())
             .map_err(|e| DirectoryError::BindAccount(e.to_string()));
@@ -162,7 +223,7 @@ impl DirectoryClient for LdapDirectory {
         let r = ldap
             .simple_bind(&user.dn, password)
             .await
-            .map_err(|e| DirectoryError::Connect(e.to_string()))?
+            .map_err(connect_error)?
             .success()
             .map_err(|_| DirectoryError::BadPassword);
         let _ = ldap.unbind().await;
@@ -262,5 +323,53 @@ impl DirectoryClient for StubDirectory {
             return Err(DirectoryError::BadPassword);
         }
         Ok(u.user.clone())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn certificate_problems_get_their_own_plain_message() {
+        let cases = [
+            ("invalid peer certificate: UnknownIssuer", CertificateProblem::Untrusted),
+            (
+                "io error: invalid peer certificate: certificate expired: verification time 1763020800 (UNIX), but certificate is not valid after 1730000000 (33020800 seconds ago)",
+                CertificateProblem::Expired,
+            ),
+            ("invalid peer certificate: Expired", CertificateProblem::Expired),
+            ("invalid peer certificate: NotValidYet", CertificateProblem::NotYetValid),
+            (
+                "invalid peer certificate: certificate not valid for name \"10.0.0.5\"; certificate is only valid for dc1.school.local",
+                CertificateProblem::WrongName,
+            ),
+            ("invalid peer certificate: BadSignature", CertificateProblem::Other),
+        ];
+        for (text, want) in cases {
+            match connect_error(text) {
+                DirectoryError::Certificate { problem, detail } => {
+                    assert_eq!(problem, want, "{text}");
+                    assert_eq!(detail, text);
+                }
+                other => panic!("{text}: {other:?}"),
+            }
+        }
+        let untrusted = connect_error("invalid peer certificate: UnknownIssuer").to_string();
+        assert!(
+            untrusted.contains("not trusted by the Madrasa server PC"),
+            "{untrusted}"
+        );
+        assert!(untrusted.contains("restart Madrasa"), "{untrusted}");
+        assert!(connect_error("invalid peer certificate: Expired")
+            .to_string()
+            .contains("has expired"));
+    }
+
+    #[test]
+    fn other_failures_stay_connection_failures() {
+        for text in ["connection refused", "timed out", "dns error: no such host"] {
+            assert_eq!(connect_error(text), DirectoryError::Connect(text.into()));
+        }
     }
 }

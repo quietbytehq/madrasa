@@ -43,6 +43,8 @@ COPY apps/desktop/package.json apps/desktop/package.json
 COPY apps/parent/package.json apps/parent/package.json
 RUN pnpm install --frozen-lockfile
 COPY apps/desktop apps/desktop
+# The logo and app mark the console shows.
+COPY assets/brand assets/brand
 RUN pnpm build:console
 
 FROM debian:bookworm-slim
