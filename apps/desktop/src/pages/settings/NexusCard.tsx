@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { api } from "@/api/endpoints";
 import type { NexusLinkStatus, NexusOverwrite } from "@/api/types";
@@ -15,6 +15,9 @@ import { errorMessage, useAsync } from "@/lib/useAsync";
 import { announceParentAppChange } from "@/app/parentApp";
 import { showValue } from "@/lib/showValue";
 import { NexusEscrow } from "./NexusEscrow";
+
+/** How often a joined school's card looks at the sync state again. */
+const REFRESH_MS = 60 * 1000;
 
 const REASONS: Record<string, TranslationKey> = {
   head_office_wins: "nexus.reason.head_office_wins",
@@ -41,6 +44,21 @@ export function NexusCard({ canManageBackups = false }: { canManageBackups?: boo
   const when = (value: string | null) =>
     value ? formatDate(value, { dateStyle: "medium", timeStyle: "short" }) : t("nexus.never");
 
+  // The school also syncs by itself every few minutes: look again now and then, so the
+  // card (and the backup key part, which hears of a release at a sync) does not go stale.
+  const joined = link.data?.linked ?? false;
+  const setLink = link.setData;
+  useEffect(() => {
+    if (!joined) return;
+    const timer = setInterval(() => {
+      api.nexusLink().then(
+        (next) => setLink(next),
+        () => {},
+      );
+    }, REFRESH_MS);
+    return () => clearInterval(timer);
+  }, [joined, setLink]);
+
   const loadLog = async () => {
     try {
       setLog(await api.nexusOverwrites());
@@ -59,7 +77,9 @@ export function NexusCard({ canManageBackups = false }: { canManageBackups?: boo
         toast.push(
           next.last_error
             ? { kind: "error", title: next.last_error }
-            : { kind: "success", title: t("nexus.synced") },
+            : next.in_step
+              ? { kind: "success", title: t("nexus.synced") }
+              : { kind: "warning", title: t("nexus.syncedNotInStep") },
         );
       }
     } catch (err) {
@@ -168,8 +188,12 @@ export function NexusCard({ canManageBackups = false }: { canManageBackups?: boo
     <Card
       title={t("nexus.title")}
       actions={
-        <Badge tone={d.last_error ? "warning" : "success"} data-testid="nexus-state">
-          {d.last_error ? t("nexus.state.problem") : t("nexus.state.joined")}
+        <Badge tone={d.last_error || !d.in_step ? "warning" : "success"} data-testid="nexus-state">
+          {d.last_error
+            ? t("nexus.state.problem")
+            : d.in_step
+              ? t("nexus.state.inStep")
+              : t("nexus.state.notInStep")}
         </Badge>
       }
     >
@@ -187,7 +211,33 @@ export function NexusCard({ canManageBackups = false }: { canManageBackups?: boo
           <dd data-testid="nexus-last-sync">{when(d.last_sync_at)}</dd>
           <dt className="text-muted">{t("nexus.pending")}</dt>
           <dd data-testid="nexus-pending">{d.pending}</dd>
+          <dt className="text-muted">{t("nexus.parkedAtHub.label")}</dt>
+          <dd data-testid="nexus-parked-at-hub">{d.parked_at_hub.length}</dd>
         </dl>
+        <p
+          data-testid="nexus-in-step"
+          className={d.in_step ? "text-xs text-success" : "text-xs text-muted"}
+        >
+          {d.in_step
+            ? t("nexus.inStep")
+            : d.last_sync_at
+              ? t("nexus.notInStep")
+              : t("nexus.notSyncedYet")}
+        </p>
+        {d.restored && !d.restored.hub_reset_at && (
+          <p
+            role="status"
+            data-testid="nexus-restored"
+            className="rounded border border-warning/60 bg-warning-bg p-2 text-xs text-text"
+          >
+            {t("nexus.restored.waiting", { date: when(d.restored.at) })}
+          </p>
+        )}
+        {d.restored?.hub_reset_at && (
+          <p data-testid="nexus-restored" className="text-xs text-muted">
+            {t("nexus.restored.done", { date: when(d.restored.hub_reset_at) })}
+          </p>
+        )}
         {d.last_error && (
           <p
             role="alert"
@@ -195,6 +245,24 @@ export function NexusCard({ canManageBackups = false }: { canManageBackups?: boo
           >
             {d.last_error}
           </p>
+        )}
+        {d.parked_at_hub.length > 0 && (
+          <div
+            data-testid="nexus-parked-at-hub-detail"
+            className="rounded border border-warning/60 bg-warning-bg p-2 text-xs text-text"
+          >
+            <div className="font-semibold">
+              {t("nexus.parkedAtHub", { count: d.parked_at_hub.length })}
+            </div>
+            <p className="mt-1">{t("nexus.parkedAtHub.why")}</p>
+            <ul className="mt-1 list-disc ps-5">
+              {d.parked_at_hub.slice(0, 5).map((p) => (
+                <li key={`hub:${p.table}:${p.id}`}>
+                  <span dir="ltr">{p.table}</span>: {p.reason}
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
         {d.parked.length > 0 && (
           <div className="rounded border border-warning/60 bg-warning-bg p-2 text-xs text-text">
@@ -261,7 +329,7 @@ export function NexusCard({ canManageBackups = false }: { canManageBackups?: boo
           )}
         </div>
 
-        <NexusEscrow canManageBackups={canManageBackups} />
+        <NexusEscrow canManageBackups={canManageBackups} syncedAt={d.last_sync_at} />
       </div>
 
       <Dialog

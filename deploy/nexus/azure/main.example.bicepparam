@@ -8,7 +8,7 @@
 using './main.bicep'
 
 param name = 'madrasa-nexus'
-param image = 'ghcr.io/quietbytehq/madrasa-nexus:0.4.1-alpha'
+param image = 'ghcr.io/quietbytehq/madrasa-nexus:0.4.3-alpha'
 param dbAdminPassword = readEnvironmentVariable('NEXUS_DB_PASSWORD')
 // Optional. Empty: the hub prints a generated setup token once in its log.
 param setupToken = readEnvironmentVariable('NEXUS_SETUP_TOKEN', '')

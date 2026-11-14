@@ -249,6 +249,31 @@ pub struct AckResponse {
     pub stored_overwrites: Vec<Uuid>,
 }
 
+/// `POST /sync/restored`: the school restored a backup. What it now holds is older than
+/// head office's copy, so head office sets its copy aside (kept as an archive) and starts a
+/// fresh one from this school record; the school then sends every record again. Sent once,
+/// before anything else, at the first sync after the restore.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RestoredRequest {
+    /// The school's `schools` record as a whole-record change, as when joining.
+    pub school: Change,
+    pub app_version: String,
+    pub schema_version: i64,
+    /// When the restored backup was made.
+    #[serde(default)]
+    pub backup_created_at: Option<chrono::DateTime<chrono::Utc>>,
+    /// When the school restored it.
+    pub restored_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RestoredResponse {
+    /// Head office's name for the copy it set aside.
+    pub archive: String,
+    /// When head office started the fresh copy.
+    pub rebaselined_at: chrono::DateTime<chrono::Utc>,
+}
+
 /// `POST /sync/leave`: the school leaves the network.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct LeaveRequest {

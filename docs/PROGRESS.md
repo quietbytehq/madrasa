@@ -1613,6 +1613,77 @@ depend on each other and were built together)
   both front ends' lint, format, type and test steps.
 - Left: nothing in `docs/TASKS-PARENT-APP.md`. What needs a person is in the summary below.
 
+## v0.4.3-alpha
+
+### 2026-11-13 — Fixes after v0.4.2-alpha (branch `claude/kind-franklin-ac2vjh`)
+
+1. **Restoring an older backup while joined to a hub (serious).** Cause: a backup holds the
+   hub link and the record of what was already sent, so after a restore the school believed
+   everything was sent while head office still held every record made after the backup, and
+   the restored student-number counter issued those numbers again, so new records were
+   parked at the hub for ever. Fix (ADR 0007, spec §16.9):
+   - The restore asks for a confirmation while joined, with the warning *This school is
+     joined to a network. Restoring an older backup will make your data differ from head
+     office's copy. Madrasa will ask head office to reset its copy.* (`409
+     restore_while_joined` without it). Not joined: no warning, nothing to confirm. A backup
+     of another school is refused while joined.
+   - The restore keeps the hub link and key as they were just before it, clears the sync
+     queues, queues every record and marks the link restored, all in the restore's own
+     transaction.
+   - The next sync tells the hub first (`POST /sync/restored`) and sends nothing until it
+     answers. The hub renames the school's copy to an archive (`a_<id>`, hub migration 5,
+     `hub_school_archives`), starts a fresh copy from the school record and logs
+     `school_restored`; the school logs the answer. The school then sends everything again.
+     Purging the school drops its archives.
+   - The Nexus card counts records parked at head office and explains them, and says *In
+     step* only when nothing waits to be sent, nothing is parked on either side, the last
+     sync worked and no restore waits to be told.
+   - User guide (EN, UR): restoring while joined, and leave and join again as the fallback.
+2. **Hub image docs.** The image is published with every release (v0.4.1-alpha and
+   v0.4.2-alpha were): `docs/nexus/deploy.md`, TESTING.md, the Compose example and the cloud
+   examples now pull `ghcr.io/quietbytehq/madrasa-nexus:<version>-alpha` or `:latest`.
+3. **Backup key card** reloads after each sync (a release by head office is learned at a
+   sync); the Nexus card re-reads its status every minute while joined, so automatic syncs
+   show too. Deposit and withdraw already showed the hub's answer at once.
+4. **Directory login certificates.** Test connection tells an untrusted, expired, not yet
+   valid or wrongly named certificate apart from an unreachable server, with the TLS reason
+   underneath. The screen and the user guide say the Madrasa server PC must trust the
+   directory's CA (the LDAP client reads that PC's certificate store when Madrasa starts).
+5. **Create login when a login exists.** The API names the existing login (`409
+   login_exists` with its username and role) and changes nothing; the staff screen shows it
+   and asks "Change this login's role?". Changing a role from the staff screen asks too.
+6. **The .deb.** The released 0.4.2 package already declared `libwebkit2gtk-4.1-0` and
+   `libgtk-3-0`; the failure seen is `dpkg -i`, which does not fetch dependencies (or a system
+   too old to have WebKitGTK 4.1). The package now also declares libsoup 3, JavaScriptCore 4.1
+   and `libc6 (>= 2.35)` (everything the binary links; the bundled PostgreSQL carries its own
+   libraries and needs only libc). CI installs the built package with apt in clean Debian 12,
+   Ubuntu 22.04 and Ubuntu 24.04 containers and fails if any library is missing. README and
+   TESTING.md say `sudo apt install ./….deb` (and `sudo apt -f install` after `dpkg -i`).
+7. **README**: status, download table, current editions, Nexus, the parent app.
+8. **CI**: `upload-artifact@v6`, `download-artifact@v7`, `setup-terraform@v4` (Node 24);
+   `ubuntu-latest` pinned to `ubuntu-24.04` (desktop builds stay on 22.04 for the glibc floor).
+9. **Version 0.4.3** with `scripts/set-version.sh`; TESTING.md tasks 60 to 65.
+
+- Tested: new end-to-end test (school API and a live hub): join, sync, back up, add two
+  students, sync, restore the backup (refused without the confirmation), sync → every synced
+  table holds the same number of the school's rows on both sides, nothing parked, the old
+  copy is in the archive, both logs have it, and two new students with the same numbers as
+  the lost ones reach the hub. A school that is not joined restores with no warning. Hub test
+  for the re-baseline (only the school itself, with its own record; fresh copy; archive
+  kept; other schools untouched; purge drops the archive). Unit tests for the certificate
+  messages. API test for `login_exists`. Screen tests: restore warning only when joined;
+  card says in step only when nothing is parked; restore notice; the key card reloads after a
+  sync; certificate message and details; role change asks first. The existing escrow restore
+  test now confirms the network.
+- Not tested by me: the clean-container `.deb` install runs only in CI (no container engine
+  here); a real directory with an untrusted or expired certificate (the messages are matched
+  on the TLS library's texts, which are unit-tested, not on a live server); the restore on a
+  real Windows or Linux install by a person (TESTING.md task 60).
+- Decision taken: after a restore while joined, the school's data wins; what head office
+  changed after the backup (corrections, parents' messages not yet received) leaves the live
+  copy and stays in the archive. Rows that belong to no school (instance-wide settings in the
+  audit log) are never sent to a hub, by design, and the test counts the school's rows.
+
 ## Summary for the owner — Parent app alpha
 
 The parent app alpha was built as one design pull request and seven stage pull requests,

@@ -21,7 +21,7 @@ jobs:
     # failed there because the version bump had not included Cargo.lock). Nothing is built
     # or published when this fails.
     name: Preflight (version and Cargo.lock)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
@@ -105,7 +105,7 @@ jobs:
           dpkg --compare-versions "$need" le 2.35
       - name: Upload installers (manual run)
         if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: madrasa-${{ matrix.os }}
           path: |
@@ -130,7 +130,7 @@ jobs:
     # throwaway test key, and the file name and SIGNING.txt say so (docs/RELEASING.md).
     name: Parent app (Android APK)
     needs: [preflight]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
@@ -174,7 +174,7 @@ jobs:
           rm dist-apk/madrasa-parent-unsigned.apk
           mv dist-apk/SIGNING.txt "dist-apk/$APK_NAME-SIGNING.txt"
       - name: Upload the APK
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: madrasa-parent-apk
           path: dist-apk/*
@@ -185,11 +185,11 @@ jobs:
     name: Attach the parent app to the release
     if: github.event_name == 'push'
     needs: [build, parent-apk]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v7
         with:
           name: madrasa-parent-apk
           path: dist-apk
@@ -204,7 +204,7 @@ jobs:
     # a manual run only builds it.
     name: Nexus hub image
     needs: [preflight]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write

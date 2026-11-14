@@ -14,11 +14,21 @@ import { errorMessage, useAsync } from "@/lib/useAsync";
  * Settings → Nexus → the backup key and head office. A school may leave its backup key
  * with head office (sealed, so head office needs its own passphrase to open it), take it
  * back, and always sees when head office released it, by whom and why.
+ *
+ * A release by head office is learned at a sync, so the card asks again whenever the school
+ * has synced (`syncedAt` changes), as well as after a deposit or a withdrawal.
  */
-export function NexusEscrow({ canManageBackups }: { canManageBackups: boolean }) {
+export function NexusEscrow({
+  canManageBackups,
+  syncedAt = null,
+}: {
+  canManageBackups: boolean;
+  /** When the school last synced; the card reloads when it changes. */
+  syncedAt?: string | null;
+}) {
   const { t, formatDate } = useI18n();
   const toast = useToast();
-  const escrow = useAsync(() => api.nexusEscrow(), []);
+  const escrow = useAsync(() => api.nexusEscrow(), [syncedAt]);
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);

@@ -20,7 +20,7 @@ variable "name" {
 }
 
 variable "image_tag" {
-  description = "Release tag of the hub image (ghcr.io/quietbytehq/madrasa-nexus), for example 0.4.0. Avoid \"latest\": an upgrade should be a decision."
+  description = "Release tag of the hub image (ghcr.io/quietbytehq/madrasa-nexus), for example 0.4.3-alpha (release tags end in -alpha). Avoid \"latest\": an upgrade should be a decision."
   type        = string
 }
 

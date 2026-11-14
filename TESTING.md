@@ -1,4 +1,4 @@
-# Testing Madrasa v0.4.1-alpha (Lite, Standard and the Nexus hub)
+# Testing Madrasa v0.4.3-alpha (Lite, Standard, the Nexus hub and the parent app)
 
 Thank you for trying Madrasa. This is an early build for a small group of testers. It is
 not ready for a school's real records yet: use made-up data, expect rough edges, and tell us
@@ -15,9 +15,9 @@ Download the file for your computer from the release page (the "Assets" list):
 
 | Computer | File |
 | --- | --- |
-| Windows 10/11 (64-bit) | `Madrasa_0.4.1_x64-setup.exe` |
-| Debian 12/13, Ubuntu 22.04+, Linux Mint 21+ | `Madrasa_0.4.1_amd64.deb` |
-| Any other 64-bit Linux from 2022 or later | `Madrasa_0.4.1_amd64.AppImage` |
+| Windows 10/11 (64-bit) | `Madrasa_0.4.3_x64-setup.exe` |
+| Debian 12/13, Ubuntu 22.04+, Linux Mint 21+ | `Madrasa_0.4.3_amd64.deb` |
+| Any other 64-bit Linux from 2022 or later | `Madrasa_0.4.3_amd64.AppImage` |
 
 ### Windows
 
@@ -35,18 +35,22 @@ Download the file for your computer from the release page (the "Assets" list):
 Open a terminal in the folder with the downloaded file and run:
 
 ```bash
-sudo apt install ./Madrasa_0.4.1_amd64.deb
+sudo apt install ./Madrasa_0.4.3_amd64.deb
 ```
+
+apt also installs the libraries Madrasa needs (WebKitGTK 4.1 and GTK 3) if they are missing,
+so it needs an internet connection the first time. Keep the `./`. If you installed with
+`sudo dpkg -i` instead and it stopped with "dependency problems", run `sudo apt -f install`.
 
 Then start **Madrasa** from your applications menu, or run `madrasa` in a terminal.
 
 ### Linux (AppImage: any distribution)
 
 1. Right-click the `.AppImage` file → Properties → Permissions → tick **Allow executing
-   file as program** (or run `chmod +x Madrasa_0.4.1_amd64.AppImage`).
+   file as program** (or run `chmod +x Madrasa_0.4.3_amd64.AppImage`).
 2. Double-click the file. If nothing happens, open a terminal in that folder and run
-   `./Madrasa_0.4.1_amd64.AppImage`; if it complains about FUSE, run
-   `./Madrasa_0.4.1_amd64.AppImage --appimage-extract-and-run` instead.
+   `./Madrasa_0.4.3_amd64.AppImage`; if it complains about FUSE, run
+   `./Madrasa_0.4.3_amd64.AppImage --appimage-extract-and-run` instead.
 
 ### Where Madrasa keeps its files
 
@@ -278,7 +282,10 @@ load the demo school (section 3), log in as the principal, open Settings → Edi
     Settings → Directory login: enter the server, bind account, base DN and a group-to-role
     row, **Test connection** with a username, save with the switch on, then log in with that
     person's directory password. The account appears in Users with a *Directory* badge.
-    Wrong password five times locks it for 15 minutes like a local account.
+    Wrong password five times locks it for 15 minutes like a local account. The screen says
+    the server PC must trust the directory's certificate authority; if your directory uses
+    the organisation's own CA, try Test connection before installing it on the server PC (a
+    plain "not trusted" message), then after installing it and restarting Madrasa.
 37. **Read-only API.** Settings → API: the demo school has a key named *Demo portal*
     whose secret is documented in docs/PROGRESS.md (demo installs only). From another PC on
     the network run the `curl` examples on the card against the server address; create a
@@ -351,8 +358,8 @@ Madrasa installs to act as schools (the demo school of section 3 is fine).
 
 ### Start a hub
 
-No hub image has been published yet, so build it from the checkout (about ten minutes the
-first time):
+The hub image is published with every release (`ghcr.io/quietbytehq/madrasa-nexus`, tagged
+with the release, for example `:0.4.3-alpha`, and `:latest`). Compose pulls it:
 
 ```bash
 cd deploy/nexus
@@ -363,10 +370,11 @@ cp .env.example .env
 ```
 
 Edit `.env` and set `NEXUS_DB_PASSWORD` (letters and digits) and `NEXUS_SETUP_TOKEN` (any
-long text you choose). Then:
+long text you choose), and `NEXUS_IMAGE=ghcr.io/quietbytehq/madrasa-nexus:0.4.3-alpha` so
+the hub is the same version as your Madrasa. Then:
 
 ```bash
-docker compose build nexus
+docker compose pull nexus
 ```
 
 To look around with made-up schools first, fill the empty hub with the demo network (three
@@ -443,7 +451,7 @@ by automated tests only, because the console has no screens for entering them).
 
 ## 8. The parent app
 
-*New since v0.4.1-alpha: it needs a build from `main`, or the next release.*
+*Since v0.4.2-alpha. The APK on the release page is a test build (see "On a phone").*
 
 Parents use the **Madrasa Parent** app on a phone to see their own children's attendance,
 results, fees and the school's notices, and to write to the class teacher. The app talks to
@@ -543,7 +551,35 @@ looks on your phone.
 Also not in this build: notifications when a message or notice arrives (open the app to
 see), paying fees in the app, report cards as PDF, attachments, and an iPhone version.
 
-## 9. Report a problem
+## 9. New in v0.4.3-alpha
+
+60. **Restoring a backup while joined to a hub** (section 7 set up, the school joined and
+    synced). Back up now. Add two students and press *Sync now*: head office has them. Restore
+    the backup you just made. The restore window warns that the school is joined and that
+    head office will be asked to reset its copy, and **Restore now** stays greyed out until
+    you tick the box. Log in again: Settings → School network says *Not in step yet* and that
+    head office will be asked. Press *Sync now*: it then says head office set its old copy
+    aside, and after another *Sync now*, *In step*. In the console the school has exactly the
+    restored students. Add a new student (it gets the same number as one of the two you lost)
+    and sync: it reaches head office, nothing waits at head office.
+61. **Restoring when not joined.** On an install that never joined, restore a backup: there is
+    no network warning and nothing extra to tick.
+62. **Records waiting at head office.** If the School network card ever shows "record(s) from
+    this school are waiting at head office", it must not say *In step* at the same time. Tell
+    us what the reason says.
+63. **Backup key card.** With the key left with head office (task 45), release it in the
+    console, then press *Sync now* in the school without leaving Settings: the release appears
+    on the card at once.
+64. **Create login twice.** Teachers → open a staff member who has no login, but do not
+    create it yet. In Settings → Users create a login for the same person. Back in the first
+    window press *Create login*: Madrasa shows the login that already exists and asks
+    "Change this login's role?"; *Keep it as it is* changes nothing. Changing the role in the
+    Login account box also asks first.
+65. **Installing the .deb on a fresh system** (a spare Ubuntu or Debian PC, or a virtual
+    machine, where Madrasa was never installed): `sudo apt install ./Madrasa_0.4.3_amd64.deb`
+    installs WebKitGTK and the rest by itself.
+
+## 10. Report a problem
 
 Please report anything, including small things, at
 <https://github.com/quietbytehq/madrasa/issues/new>. If you do not have a GitHub account,
