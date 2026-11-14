@@ -3630,7 +3630,7 @@ checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
 
 [[package]]
 name = "madrasa-api"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3676,7 +3676,7 @@ dependencies = [
 
 [[package]]
 name = "madrasa-core"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "aes-gcm",
  "argon2",
@@ -3699,7 +3699,7 @@ dependencies = [
 
 [[package]]
 name = "madrasa-db"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -3719,7 +3719,7 @@ dependencies = [
 
 [[package]]
 name = "madrasa-demo-data"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3740,7 +3740,7 @@ dependencies = [
 
 [[package]]
 name = "madrasa-desktop"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "madrasa-api",
@@ -3757,7 +3757,7 @@ dependencies = [
 
 [[package]]
 name = "madrasa-nexus"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -3785,7 +3785,7 @@ dependencies = [
 
 [[package]]
 name = "madrasa-parent"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "tauri",
  "tauri-build",
