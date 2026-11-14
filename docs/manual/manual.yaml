@@ -56,7 +56,7 @@ parts:
         tasks:
           - title: {en: "The screen at a glance", ur: "اسکرین ایک نظر میں"}
             steps:
-              - text: {en: "The *sidebar* on the left lists the modules you may use; the *top bar* has the notifications, help and your name. The *Dashboard* shows today's attendance, the last backup, students, fees collected and defaulters.", ur: "دائیں جانب *سائیڈبار* میں وہ ماڈیول ہیں جو آپ استعمال کر سکتے ہیں؛ *اوپر کی پٹی* میں اطلاعات، مدد اور آپ کا نام ہے۔ *ڈیش بورڈ* آج کی حاضری، آخری بیک اپ، طلبہ، وصول شدہ فیس اور نادہندگان دکھاتا ہے۔"}
+              - text: {en: "The *sidebar* on the left lists the modules you may use; the *top bar* has the connection badge (*Connected*, *Reconnecting…* or *Offline*, with how many changes are waiting), the notifications, help and your name. The *Dashboard* shows today's attendance, the last backup, students, fees collected and defaulters.", ur: "دائیں جانب *سائیڈبار* میں وہ ماڈیول ہیں جو آپ استعمال کر سکتے ہیں؛ *اوپر کی پٹی* میں رابطے کا نشان (*منسلک*، *دوبارہ رابطہ ہو رہا ہے…* یا *آف لائن*، اور کتنی تبدیلیاں منتظر ہیں)، اطلاعات، مدد اور آپ کا نام ہے۔ *ڈیش بورڈ* آج کی حاضری، آخری بیک اپ، طلبہ، وصول شدہ فیس اور نادہندگان دکھاتا ہے۔"}
                 shot: overview-dashboard
               - text: {en: "Click your name (*User menu*) to switch between English and Urdu, choose a light or dark theme, or log out. Urdu turns the whole screen right to left.", ur: "انگریزی اور اردو میں تبدیلی، روشن یا تاریک انداز چننے یا لاگ آؤٹ کے لیے اپنے نام (*صارف مینو*) پر کلک کریں۔ اردو میں پوری اسکرین دائیں سے بائیں ہو جاتی ہے۔"}
                 shot: overview-usermenu

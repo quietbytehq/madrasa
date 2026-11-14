@@ -2605,7 +2605,7 @@ export const ur: Translation = {
   "parent.error.tooMany":
     "آپ نے پچھلے ایک گھنٹے میں بہت سے پیغامات بھیجے ہیں۔ دوبارہ لکھنے سے پہلے کچھ دیر انتظار کریں۔",
   "parent.error.signedOut": "آپ لاگ آؤٹ ہو گئے ہیں۔ دوبارہ لاگ اِن کریں۔",
-  // v0.4.3: restore while joined
+  // v0.5.0: restore while joined
   "backup.restore.network.warning":
     "یہ اسکول ایک نیٹ ورک میں شامل ہے۔ پرانا بیک اپ بحال کرنے سے آپ کا ڈیٹا ہیڈ آفس کی کاپی سے مختلف ہو جائے گا۔ مدرسہ ہیڈ آفس سے اس کی کاپی دوبارہ ترتیب دینے کو کہے گا۔",
   "backup.restore.network.how":

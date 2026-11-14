@@ -1613,7 +1613,7 @@ depend on each other and were built together)
   both front ends' lint, format, type and test steps.
 - Left: nothing in `docs/TASKS-PARENT-APP.md`. What needs a person is in the summary below.
 
-## v0.4.3-alpha
+## v0.5.0-alpha
 
 ### 2026-11-13 — Fixes after v0.4.2-alpha (branch `claude/kind-franklin-ac2vjh`)
 
@@ -1662,7 +1662,7 @@ depend on each other and were built together)
 7. **README**: status, download table, current editions, Nexus, the parent app.
 8. **CI**: `upload-artifact@v6`, `download-artifact@v7`, `setup-terraform@v4` (Node 24);
    `ubuntu-latest` pinned to `ubuntu-24.04` (desktop builds stay on 22.04 for the glibc floor).
-9. **Version 0.4.3** with `scripts/set-version.sh`; TESTING.md tasks 60 to 65.
+9. **Version 0.5.0** with `scripts/set-version.sh`; TESTING.md tasks 60 to 65.
 
 - Tested: new end-to-end test (school API and a live hub): join, sync, back up, add two
   students, sync, restore the backup (refused without the confirmation), sync → every synced
@@ -2136,5 +2136,5 @@ each from a clean `main` with CI green on Linux and Windows. What changed, in sh
   the Release workflow attaches them to the draft release (docs/RELEASING.md).
 - Tested: `cargo test -p madrasa-manual` (the WebP to JPEG step); both PDFs built from the
   committed screenshots; every page looked at in both languages.
-- Left: the screenshots show the screens as they are on `main`; after the brand and
-  offline pull requests are merged, run `scripts/manual-screenshots.sh` once and commit.
+- Left: nothing. (2026-11-14: after the brand and working-offline pull requests were merged,
+  every screenshot was made again, so the manual shows the brand and the connection badge.)

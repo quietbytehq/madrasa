@@ -18,7 +18,7 @@ param location string = resourceGroup().location
 @maxLength(20)
 param name string = 'madrasa-nexus'
 
-@description('The hub image with a release tag, for example ghcr.io/quietbytehq/madrasa-nexus:0.4.3-alpha (release tags end in -alpha). Avoid "latest": an upgrade should be a decision.')
+@description('The hub image with a release tag, for example ghcr.io/quietbytehq/madrasa-nexus:0.5.0-alpha (release tags end in -alpha). Avoid "latest": an upgrade should be a decision.')
 param image string
 
 @description('PostgreSQL administrator login.')

@@ -1,4 +1,4 @@
-# Testing Madrasa v0.4.3-alpha (Lite, Standard, the Nexus hub and the parent app)
+# Testing Madrasa v0.5.0-alpha (Lite, Standard, the Nexus hub and the parent app)
 
 Thank you for trying Madrasa. This is an early build for a small group of testers. It is
 not ready for a school's real records yet: use made-up data, expect rough edges, and tell us
@@ -15,9 +15,9 @@ Download the file for your computer from the release page (the "Assets" list):
 
 | Computer | File |
 | --- | --- |
-| Windows 10/11 (64-bit) | `Madrasa_0.4.3_x64-setup.exe` |
-| Debian 12/13, Ubuntu 22.04+, Linux Mint 21+ | `Madrasa_0.4.3_amd64.deb` |
-| Any other 64-bit Linux from 2022 or later | `Madrasa_0.4.3_amd64.AppImage` |
+| Windows 10/11 (64-bit) | `Madrasa_0.5.0_x64-setup.exe` |
+| Debian 12/13, Ubuntu 22.04+, Linux Mint 21+ | `Madrasa_0.5.0_amd64.deb` |
+| Any other 64-bit Linux from 2022 or later | `Madrasa_0.5.0_amd64.AppImage` |
 
 ### Windows
 
@@ -35,7 +35,7 @@ Download the file for your computer from the release page (the "Assets" list):
 Open a terminal in the folder with the downloaded file and run:
 
 ```bash
-sudo apt install ./Madrasa_0.4.3_amd64.deb
+sudo apt install ./Madrasa_0.5.0_amd64.deb
 ```
 
 apt also installs the libraries Madrasa needs (WebKitGTK 4.1 and GTK 3) if they are missing,
@@ -47,10 +47,10 @@ Then start **Madrasa** from your applications menu, or run `madrasa` in a termin
 ### Linux (AppImage: any distribution)
 
 1. Right-click the `.AppImage` file → Properties → Permissions → tick **Allow executing
-   file as program** (or run `chmod +x Madrasa_0.4.3_amd64.AppImage`).
+   file as program** (or run `chmod +x Madrasa_0.5.0_amd64.AppImage`).
 2. Double-click the file. If nothing happens, open a terminal in that folder and run
-   `./Madrasa_0.4.3_amd64.AppImage`; if it complains about FUSE, run
-   `./Madrasa_0.4.3_amd64.AppImage --appimage-extract-and-run` instead.
+   `./Madrasa_0.5.0_amd64.AppImage`; if it complains about FUSE, run
+   `./Madrasa_0.5.0_amd64.AppImage --appimage-extract-and-run` instead.
 
 ### Where Madrasa keeps its files
 
@@ -359,7 +359,7 @@ Madrasa installs to act as schools (the demo school of section 3 is fine).
 ### Start a hub
 
 The hub image is published with every release (`ghcr.io/quietbytehq/madrasa-nexus`, tagged
-with the release, for example `:0.4.3-alpha`, and `:latest`). Compose pulls it:
+with the release, for example `:0.5.0-alpha`, and `:latest`). Compose pulls it:
 
 ```bash
 cd deploy/nexus
@@ -370,7 +370,7 @@ cp .env.example .env
 ```
 
 Edit `.env` and set `NEXUS_DB_PASSWORD` (letters and digits) and `NEXUS_SETUP_TOKEN` (any
-long text you choose), and `NEXUS_IMAGE=ghcr.io/quietbytehq/madrasa-nexus:0.4.3-alpha` so
+long text you choose), and `NEXUS_IMAGE=ghcr.io/quietbytehq/madrasa-nexus:0.5.0-alpha` so
 the hub is the same version as your Madrasa. Then:
 
 ```bash
@@ -551,7 +551,7 @@ looks on your phone.
 Also not in this build: notifications when a message or notice arrives (open the app to
 see), paying fees in the app, report cards as PDF, attachments, and an iPhone version.
 
-## 9. New in v0.4.3-alpha
+## 9. New in v0.5.0-alpha
 
 60. **Restoring a backup while joined to a hub** (section 7 set up, the school joined and
     synced). Back up now. Add two students and press *Sync now*: head office has them. Restore
@@ -576,7 +576,7 @@ see), paying fees in the app, report cards as PDF, attachments, and an iPhone ve
     "Change this login's role?"; *Keep it as it is* changes nothing. Changing the role in the
     Login account box also asks first.
 65. **Installing the .deb on a fresh system** (a spare Ubuntu or Debian PC, or a virtual
-    machine, where Madrasa was never installed): `sudo apt install ./Madrasa_0.4.3_amd64.deb`
+    machine, where Madrasa was never installed): `sudo apt install ./Madrasa_0.5.0_amd64.deb`
     installs WebKitGTK and the rest by itself.
 
 ## 10. Working offline
