@@ -75,6 +75,30 @@ session cannot create tags or releases (its GitHub proxy refuses those API paths
 only run the manual build (Actions → Release → Run workflow) that uploads the installers as
 workflow artifacts.
 
+## The user manual (PDF)
+
+The Release workflow also builds the user manual and attaches it to the draft release:
+`Madrasa-User-Manual-EN.pdf` and `Madrasa-User-Manual-UR.pdf`. CI builds both on every pull
+request and keeps them as the artifact `madrasa-user-manual`. The manual's text is in
+`docs/manual/manual.yaml` (English and Urdu side by side) and its layout in
+`docs/manual/manual.typ`; `scripts/build-manual.sh` typesets both books with the Typst
+crates the API already uses, so nothing else needs installing.
+
+The screenshots are committed under `docs/manual/screenshots/{en,ur}`. When screens change,
+make them again before the release, from the demo school and the demo network, and commit
+the result:
+
+```bash
+MADRASA_MANUAL_DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres \
+  scripts/manual-screenshots.sh
+scripts/build-manual.sh
+```
+
+The first needs PostgreSQL (it creates and drops databases named `manual_*`), Rust, Node with
+`pnpm install` done, and Playwright's Chromium. A new step in the manual needs a screenshot
+of its own: add it to `docs/manual/tools/scenes.mjs` and name it in the step (`shot:`); the
+build stops on a step that has neither a screenshot nor `outside: true`.
+
 ## The parent app (Android)
 
 The Release workflow also builds the parent app (`apps/parent`) as an Android package and

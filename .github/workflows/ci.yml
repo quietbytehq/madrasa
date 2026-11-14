@@ -170,6 +170,26 @@ jobs:
           terraform validate
 
 
+  manual:
+    # The user manual (docs/manual): both PDFs from the screenshots in the repository. The
+    # screenshots themselves are made by scripts/manual-screenshots.sh, not here.
+    name: User manual (EN and UR PDF)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: manual
+      - name: Build both PDFs
+        run: scripts/build-manual.sh dist-manual
+      - name: Upload the manual
+        uses: actions/upload-artifact@v5
+        with:
+          name: madrasa-user-manual
+          path: dist-manual/*.pdf
+          if-no-files-found: error
+
   parent-apk:
     # The parent app for Android (apps/parent), on every pull request and every push. The
     # Release workflow runs the same two scripts, so a change that would break the release

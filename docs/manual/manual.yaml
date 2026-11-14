@@ -1,0 +1,703 @@
+# The Madrasa user manual: everything it says, in English and Urdu side by side.
+# Built into PDF by scripts/build-manual.sh (manual.typ lays it out). Each step names the
+# screenshot that shows it (`shot`): docs/manual/screenshots/<lang>/<shot>.webp, made by
+# scripts/manual-screenshots.sh from the demo school. A step that happens outside Madrasa
+# (running an installer) says `outside: true` instead. Text may use *bold* and `code`.
+
+words:
+  title: {en: "User manual", ur: "صارف کی رہنما کتاب"}
+  subtitle: {en: "School Information System · Lite, Standard, school server, Nexus and the parent app", ur: "اسکول انفارمیشن سسٹم · لائٹ، اسٹینڈرڈ، اسکول سرور، نیکسس اور والدین کی ایپ"}
+  version: {en: "Version", ur: "ورژن"}
+  footer: {en: "User manual", ur: "صارف کی رہنما کتاب"}
+  contents: {en: "Contents", ur: "فہرست"}
+  part: {en: "Part", ur: "حصہ"}
+  tip: {en: "Tip", ur: "مشورہ"}
+  warning: {en: "Careful", ur: "احتیاط"}
+  outside: {en: "Outside Madrasa", ur: "مدرسہ سے باہر"}
+  cover-note: {en: "Every screen in this manual is from the *demo school*, a made-up school that Madrasa can load for trying it out. No real student, staff member or parent appears in it.", ur: "اس کتاب کی ہر اسکرین *ڈیمو اسکول* کی ہے، ایک فرضی اسکول جسے مدرسہ آزمانے کے لیے لوڈ کر سکتا ہے۔ اس میں کوئی حقیقی طالب علم، استاد یا والدین شامل نہیں۔"}
+  ed-lite: {en: "Lite", ur: "لائٹ"}
+  ed-standard: {en: "Standard", ur: "اسٹینڈرڈ"}
+  ed-lan: {en: "School server", ur: "اسکول سرور"}
+  ed-nexus: {en: "Nexus", ur: "نیکسس"}
+  ed-parent: {en: "Parent app", ur: "والدین کی ایپ"}
+  ed-all: {en: "Every edition", ur: "ہر ایڈیشن"}
+
+parts:
+
+# ===================================================================================== PART 1
+  - title: {en: "Getting started", ur: "آغاز"}
+    intro: {en: "What Madrasa is, how to install it, and the first setup of your school.", ur: "مدرسہ کیا ہے، اسے کیسے انسٹال کریں، اور اپنے اسکول کی پہلی ترتیب۔"}
+    chapters:
+
+      - id: about
+        title: {en: "About Madrasa", ur: "مدرسہ کا تعارف"}
+        editions: [all]
+        intro:
+          en: |
+            Madrasa is a free school information system. It keeps your students, staff, attendance, fees, examinations and reports on the school's own computer, works without the internet, and speaks English and Urdu.
+
+            It comes in editions that build on each other:
+
+            - *Lite*: one school on one computer, or on a school server with other PCs connected to it. Students, attendance, fees, examinations, reports and backups.
+            - *Standard*: everything in Lite plus timetable, leave, admissions, library, transport, hostel, inventory, directory login and a read-only API. Switched on under *Settings → Edition*.
+            - *School server*: any edition can run on one PC (the server) while teachers and the office work from their own PCs on the school network.
+            - *Madrasa Nexus*: a head office hub that joins several schools into one network, with a web console for head office.
+            - *Parent app*: an Android app for parents of schools that have joined a network.
+          ur: |
+            مدرسہ ایک مفت اسکول انفارمیشن سسٹم ہے۔ یہ آپ کے طلبہ، عملہ، حاضری، فیس، امتحانات اور رپورٹس اسکول کے اپنے کمپیوٹر پر رکھتا ہے، انٹرنیٹ کے بغیر کام کرتا ہے، اور انگریزی اور اردو دونوں میں چلتا ہے۔
+
+            اس کے ایڈیشن ایک دوسرے پر بنتے ہیں:
+
+            - *لائٹ*: ایک اسکول ایک کمپیوٹر پر، یا اسکول سرور پر جس سے دوسرے کمپیوٹر جڑے ہوں۔ طلبہ، حاضری، فیس، امتحانات، رپورٹس اور بیک اپ۔
+            - *اسٹینڈرڈ*: لائٹ کی ہر چیز اور ساتھ میں ٹائم ٹیبل، رخصت، داخلے، لائبریری، ٹرانسپورٹ، ہاسٹل، اسٹور، ڈائریکٹری لاگ ان اور صرف پڑھنے والا API۔ *ترتیبات ← ایڈیشن* سے فعال ہوتا ہے۔
+            - *اسکول سرور*: کوئی بھی ایڈیشن ایک کمپیوٹر (سرور) پر چل سکتا ہے جبکہ اساتذہ اور دفتر اسکول نیٹ ورک پر اپنے کمپیوٹروں سے کام کرتے ہیں۔
+            - *مدرسہ نیکسس*: ہیڈ آفس کا مرکز جو کئی اسکولوں کو ایک نیٹ ورک میں جوڑتا ہے، اور ہیڈ آفس کے لیے ویب کنسول۔
+            - *والدین کی ایپ*: نیٹ ورک میں شامل اسکولوں کے والدین کے لیے اینڈرائیڈ ایپ۔
+        tasks:
+          - title: {en: "The screen at a glance", ur: "اسکرین ایک نظر میں"}
+            steps:
+              - text: {en: "The *sidebar* on the left lists the modules you may use; the *top bar* has the notifications, help and your name. The *Dashboard* shows today's attendance, the last backup, students, fees collected and defaulters.", ur: "دائیں جانب *سائیڈبار* میں وہ ماڈیول ہیں جو آپ استعمال کر سکتے ہیں؛ *اوپر کی پٹی* میں اطلاعات، مدد اور آپ کا نام ہے۔ *ڈیش بورڈ* آج کی حاضری، آخری بیک اپ، طلبہ، وصول شدہ فیس اور نادہندگان دکھاتا ہے۔"}
+                shot: overview-dashboard
+              - text: {en: "Click your name (*User menu*) to switch between English and Urdu, choose a light or dark theme, or log out. Urdu turns the whole screen right to left.", ur: "انگریزی اور اردو میں تبدیلی، روشن یا تاریک انداز چننے یا لاگ آؤٹ کے لیے اپنے نام (*صارف مینو*) پر کلک کریں۔ اردو میں پوری اسکرین دائیں سے بائیں ہو جاتی ہے۔"}
+                shot: overview-usermenu
+              - text: {en: "*Help* shows the version and edition you are running. Quote them when you ask for support.", ur: "*مدد* آپ کا ورژن اور ایڈیشن دکھاتی ہے۔ مدد مانگتے وقت یہی بتائیں۔"}
+                shot: overview-help
+
+      - id: install
+        title: {en: "Installing Madrasa", ur: "مدرسہ انسٹال کرنا"}
+        editions: [lite, standard, lan]
+        intro: {en: "Download the installer for your computer from the releases page of the Madrasa project (`github.com/quietbytehq/madrasa/releases`). Every release has a Windows installer and Linux packages.", ur: "اپنے کمپیوٹر کے لیے انسٹالر مدرسہ پروجیکٹ کے ریلیز صفحے (`github.com/quietbytehq/madrasa/releases`) سے ڈاؤن لوڈ کریں۔ ہر ریلیز میں ونڈوز انسٹالر اور لینکس پیکیج ہوتے ہیں۔"}
+        tasks:
+          - title: {en: "Install on Windows or Linux", ur: "ونڈوز یا لینکس پر انسٹال کریں"}
+            steps:
+              - text: {en: "*Windows*: run `Madrasa_…_x64-setup.exe` and follow the installer. *Linux (Debian, Ubuntu)*: install the `.deb` with `sudo apt install ./Madrasa_…_amd64.deb`, which also installs what Madrasa needs.", ur: "*ونڈوز*: `Madrasa_…_x64-setup.exe` چلائیں اور انسٹالر کی ہدایات پر عمل کریں۔ *لینکس (ڈیبین، اوبنٹو)*: `sudo apt install ./Madrasa_…_amd64.deb` سے `.deb` انسٹال کریں، جو مدرسہ کی ضرورت کی چیزیں بھی انسٹال کر دیتا ہے۔"}
+                outside: true
+              - text: {en: "Open Madrasa. The first screen asks how this PC will be used: *Just this PC*, *This PC is the school server* (other PCs connect to it), or *Connect to a school server*. For one computer, choose *Just this PC*. Part 4 explains the other two.", ur: "مدرسہ کھولیں۔ پہلی اسکرین پوچھتی ہے کہ یہ کمپیوٹر کیسے استعمال ہوگا: *صرف یہ کمپیوٹر*، *یہ کمپیوٹر اسکول کا سرور ہے* (دوسرے کمپیوٹر اس سے جڑتے ہیں)، یا *اسکول سرور سے جڑیں*۔ ایک کمپیوٹر کے لیے *صرف یہ کمپیوٹر* چنیں۔ باقی دو کی وضاحت حصہ 4 میں ہے۔"}
+                shot: install-mode
+                tip: {en: "Madrasa starts its own database on this PC; nothing else needs installing.", ur: "مدرسہ اس کمپیوٹر پر اپنا ڈیٹا بیس خود چلاتا ہے؛ کچھ اور انسٹال کرنے کی ضرورت نہیں۔"}
+
+      - id: setup
+        title: {en: "First setup of the school", ur: "اسکول کی پہلی ترتیب"}
+        editions: [lite, standard]
+        intro: {en: "The setup wizard runs once, the first time Madrasa starts with no school in it. Everything it asks can be changed later under *Settings*.", ur: "ترتیب کا مددگار صرف ایک بار چلتا ہے، جب مدرسہ پہلی بار بغیر کسی اسکول کے کھلتا ہے۔ جو کچھ یہ پوچھتا ہے وہ بعد میں *ترتیبات* میں بدلا جا سکتا ہے۔"}
+        tasks:
+          - title: {en: "Set up the school", ur: "اسکول ترتیب دیں"}
+            steps:
+              - text: {en: "Enter the school's name, a short *school code* (it also starts every student number) and the city, and choose the country. The country fills in the currency, time zone, weekend and how ID and phone numbers are checked. Click *Continue*.", ur: "اسکول کا نام، ایک مختصر *اسکول کوڈ* (ہر طالب علم نمبر اسی سے شروع ہوتا ہے) اور شہر لکھیں، اور ملک چنیں۔ ملک سے کرنسی، ٹائم زون، ہفتہ وار چھٹی اور شناختی و فون نمبر کی جانچ خود طے ہو جاتی ہے۔ *آگے بڑھیں* پر کلک کریں۔"}
+                shot: setup-school
+                tip: {en: "Just evaluating? *Load the demo school instead* fills Madrasa with the made-up school shown in this manual.", ur: "صرف جائزہ لے رہے ہیں؟ *اس کے بجائے ڈیمو اسکول لوڈ کریں* سے مدرسہ اسی فرضی اسکول سے بھر جاتا ہے جو اس کتاب میں دکھایا گیا ہے۔"}
+              - text: {en: "Check the month the academic year starts, the currency and the time zone, then *Continue*.", ur: "تعلیمی سال شروع ہونے کا مہینہ، کرنسی اور ٹائم زون دیکھ لیں، پھر *آگے بڑھیں*۔"}
+                shot: setup-year
+              - text: {en: "Create the administrator: full name, username and a password of at least 10 characters. This person can do everything, including creating the other logins.", ur: "منتظم بنائیں: پورا نام، صارف نام اور کم از کم 10 حروف کا پاس ورڈ۔ یہ شخص سب کچھ کر سکتا ہے، دوسروں کے لاگ ان بنانا بھی۔"}
+                shot: setup-admin
+              - text: {en: "Choose the *backup password*. Every backup is encrypted with it; without it (or the recovery key) a backup cannot be opened. Click *Finish*.", ur: "*بیک اپ پاس ورڈ* چنیں۔ ہر بیک اپ اسی سے خفیہ ہوتا ہے؛ اس کے (یا ریکوری کلید کے) بغیر بیک اپ نہیں کھل سکتا۔ *مکمل* پر کلک کریں۔"}
+                shot: setup-backup
+              - text: {en: "Madrasa shows the *recovery key* once. Print it or write it down and keep it somewhere safe, away from the computer. Tick *I have saved the recovery key in a safe place* and go to the login.", ur: "مدرسہ *ریکوری کلید* صرف ایک بار دکھاتا ہے۔ اسے پرنٹ کریں یا لکھ لیں اور کمپیوٹر سے دور کسی محفوظ جگہ رکھیں۔ *میں نے ریکوری کلید محفوظ جگہ رکھ لی ہے* پر نشان لگائیں اور لاگ ان پر جائیں۔"}
+                shot: setup-done
+                warning: {en: "If both the backup password and the recovery key are lost, the backups cannot be opened by anyone.", ur: "اگر بیک اپ پاس ورڈ اور ریکوری کلید دونوں گم ہو جائیں تو کوئی بھی بیک اپ نہیں کھول سکتا۔"}
+              - text: {en: "Log in with the administrator's username and password.", ur: "منتظم کے صارف نام اور پاس ورڈ سے لاگ ان کریں۔"}
+                shot: login
+
+      - id: settings
+        title: {en: "School settings and logins", ur: "اسکول کی ترتیبات اور لاگ ان"}
+        editions: [all]
+        intro: {en: "Open *Settings* in the sidebar. Only the principal and administrators see it.", ur: "سائیڈبار میں *ترتیبات* کھولیں۔ یہ صرف پرنسپل اور منتظمین کو نظر آتی ہیں۔"}
+        tasks:
+          - title: {en: "Check the school's details", ur: "اسکول کی تفصیلات دیکھیں"}
+            steps:
+              - text: {en: "*School profile* holds the name, city, country, currency and time zone from the setup. Change any of them and click *Save*.", ur: "*اسکول کی تفصیلات* میں ترتیب کے وقت دیا گیا نام، شہر، ملک، کرنسی اور ٹائم زون ہیں۔ کچھ بھی بدلیں اور *محفوظ کریں* پر کلک کریں۔"}
+                shot: settings-profile
+              - text: {en: "The *School* card sets the *student number prefix* and the *payment reference on vouchers*: the heading and the note printed under the reference, so parents know how to pay at the bank or online.", ur: "*اسکول* کارڈ میں *طالب علم نمبر کا سابقہ* اور *واؤچر پر ادائیگی کا حوالہ* طے ہوتا ہے: حوالے کے اوپر کی سرخی اور نیچے کا نوٹ، تاکہ والدین جانیں کہ بینک یا آن لائن کیسے ادائیگی کریں۔"}
+                shot: settings-school
+          - title: {en: "See who can log in", ur: "دیکھیں کون لاگ ان کر سکتا ہے"}
+            steps:
+              - text: {en: "*Users and logins* lists every login with the staff member, role, status and last login. Logins are created from the staff member's page (see *Staff and teachers*).", ur: "*صارفین اور لاگ ان* میں ہر لاگ ان، اس کا رکنِ عملہ، کردار، حیثیت اور آخری لاگ ان درج ہے۔ لاگ ان رکنِ عملہ کے صفحے سے بنتے ہیں (دیکھیں *عملہ اور اساتذہ*)۔"}
+                shot: settings-users
+                tip: {en: "Roles: *Principal* (everything, approves marks), *Administrator* (everything except approving marks), *Accountant* (fees), *Teacher* (attendance and marks of their own sections). Standard adds *Librarian* and *Store keeper*.", ur: "کردار: *پرنسپل* (سب کچھ، نمبر منظور کرتا ہے)، *منتظم* (نمبر منظور کرنے کے سوا سب کچھ)، *اکاؤنٹنٹ* (فیس)، *استاد* (اپنے سیکشنز کی حاضری اور نمبر)۔ اسٹینڈرڈ میں *لائبریرین* اور *اسٹور کیپر* بھی ہیں۔"}
+
+      - id: structure
+        title: {en: "Years, classes, sections and subjects", ur: "سال، جماعتیں، سیکشن اور مضامین"}
+        editions: [all]
+        intro: {en: "Before students are added, the school's structure is set up under *Settings*: the academic year, the classes with their sections, and the subjects each class studies.", ur: "طلبہ شامل کرنے سے پہلے اسکول کا ڈھانچہ *ترتیبات* میں بنتا ہے: تعلیمی سال، جماعتیں اور ان کے سیکشن، اور ہر جماعت کے مضامین۔"}
+        tasks:
+          - title: {en: "Add the academic year", ur: "تعلیمی سال شامل کریں"}
+            steps:
+              - text: {en: "*Academic years* lists the years with their dates; the current one is marked. A new school has the year the setup created.", ur: "*تعلیمی سال* میں سال اپنی تاریخوں کے ساتھ درج ہیں؛ موجودہ سال پر نشان ہے۔ نئے اسکول میں وہ سال ہوتا ہے جو ترتیب نے بنایا۔"}
+                shot: acad-years
+              - text: {en: "*New academic year* asks for the name and the first and last day. At the end of a year you do not add the next one by hand: the *rollover* does it (Part 7).", ur: "*نیا تعلیمی سال* نام، پہلا اور آخری دن پوچھتا ہے۔ سال کے آخر میں اگلا سال ہاتھ سے نہیں بنتا: یہ کام *سال کی منتقلی* کرتی ہے (حصہ 7)۔"}
+                shot: acad-year-new
+          - title: {en: "Classes and sections", ur: "جماعتیں اور سیکشن"}
+            steps:
+              - text: {en: "*Classes* lists the classes in order, from the youngest. The order matters: at the rollover every student moves up to the next class.", ur: "*جماعتیں* میں جماعتیں ترتیب سے درج ہیں، سب سے چھوٹی سے۔ ترتیب اہم ہے: سال کی منتقلی پر ہر طالب علم اگلی جماعت میں جاتا ہے۔"}
+                shot: acad-classes
+              - text: {en: "*Sections* lists each class's sections for the year with their class teacher.", ur: "*سیکشنز* میں اس سال ہر جماعت کے سیکشن اور ان کے کلاس ٹیچر درج ہیں۔"}
+                shot: acad-sections
+              - text: {en: "*New section*: choose the class, give the section a name (A, B, Blue…), a capacity and the class teacher.", ur: "*نیا سیکشن*: جماعت چنیں، سیکشن کا نام (A، B، نیلا…)، گنجائش اور کلاس ٹیچر دیں۔"}
+                shot: acad-section-new
+          - title: {en: "Subjects and subject groups", ur: "مضامین اور مضامین کے گروپ"}
+            steps:
+              - text: {en: "*Subjects* lists what each class studies. Tick *Elective* next to a subject that only some students take.", ur: "*مضامین* میں ہر جماعت کے مضامین درج ہیں۔ جو مضمون صرف کچھ طلبہ پڑھتے ہیں اس کے ساتھ *اختیاری* پر نشان لگائیں۔"}
+                shot: acad-subjects
+              - text: {en: "*Subject groups* bundle electives, for example Pre-Medical: Physics, Chemistry, Biology. Students are then given a group under *Students → Subject allocation*.", ur: "*مضامین کے گروپ* اختیاری مضامین کو جوڑتے ہیں، مثلاً پری میڈیکل: فزکس، کیمسٹری، بائیولوجی۔ پھر طلبہ کو *طلبہ ← مضامین کی تقسیم* میں گروپ دیا جاتا ہے۔"}
+                shot: acad-groups
+          - title: {en: "Consent types", ur: "رضامندی کی اقسام"}
+            steps:
+              - text: {en: "*Consent types* lists what the school asks guardians for (photos, trips, use of data): who gives it, which classes need it and whether it is renewed every year.", ur: "*رضامندی کی اقسام* میں وہ چیزیں ہیں جن کی اجازت اسکول سرپرستوں سے لیتا ہے (تصاویر، دورے، ڈیٹا کا استعمال): کون دیتا ہے، کن جماعتوں کو درکار ہے اور کیا ہر سال نئی لی جاتی ہے۔"}
+                shot: acad-consents
+
+      - id: staff
+        title: {en: "Staff and teachers", ur: "عملہ اور اساتذہ"}
+        editions: [all]
+        tasks:
+          - title: {en: "Add a staff member", ur: "عملے کا رکن شامل کریں"}
+            steps:
+              - text: {en: "Open *Teachers* in the sidebar. The list shows every staff member with their designation and phone; search by name or number.", ur: "سائیڈبار میں *اساتذہ* کھولیں۔ فہرست میں ہر رکنِ عملہ اپنے عہدے اور فون کے ساتھ ہے؛ نام یا نمبر سے تلاش کریں۔"}
+                shot: staff-list
+              - text: {en: "Click *Add staff member*, fill in the name, CNIC, phone, designation and joining date, and save.", ur: "*عملے کا رکن شامل کریں* پر کلک کریں، نام، شناختی کارڈ، فون، عہدہ اور تاریخِ شمولیت لکھیں اور محفوظ کریں۔"}
+                shot: staff-add
+          - title: {en: "Give a staff member a login", ur: "رکنِ عملہ کو لاگ ان دیں"}
+            steps:
+              - text: {en: "Open the staff member. In the *Login account* box click *Create login*, choose a username, a password of at least 10 characters and the role. The same box changes the role, switches the login off (*Can log in*) and resets a forgotten password (*Reset password*).", ur: "رکنِ عملہ کھولیں۔ *لاگ ان اکاؤنٹ* کے خانے میں *لاگ ان بنائیں* پر کلک کریں، صارف نام، کم از کم 10 حروف کا پاس ورڈ اور کردار چنیں۔ اسی خانے سے کردار بدلتا ہے، لاگ ان بند ہوتا ہے (*لاگ ان کر سکتا ہے*) اور بھولا ہوا پاس ورڈ بدلا جاتا ہے (*پاس ورڈ بدلیں*)۔"}
+                shot: staff-profile
+                tip: {en: "Only the principal and administrators can manage logins, and every change is kept in the audit log.", ur: "لاگ ان صرف پرنسپل اور منتظمین سنبھال سکتے ہیں، اور ہر تبدیلی آڈٹ لاگ میں محفوظ رہتی ہے۔"}
+          - title: {en: "Allocate teachers to sections and subjects", ur: "اساتذہ کو سیکشن اور مضامین دیں"}
+            steps:
+              - text: {en: "*Teachers → Teacher allocation* shows sections down and subjects across. Pick the teacher of each subject and the class teacher of each section; each change is saved at once. The teaching load of every teacher is listed under the grid. Teachers who log in see only their own sections.", ur: "*اساتذہ ← اساتذہ کی تقسیم* میں سیکشن نیچے کی طرف اور مضامین آڑے ہیں۔ ہر مضمون کا استاد اور ہر سیکشن کا کلاس ٹیچر چنیں؛ ہر تبدیلی فوراً محفوظ ہو جاتی ہے۔ ہر استاد کا تدریسی بوجھ جدول کے نیچے درج ہے۔ لاگ ان کرنے والے اساتذہ کو صرف اپنے سیکشن نظر آتے ہیں۔"}
+                shot: staff-allocation
+
+# ===================================================================================== PART 2
+  - title: {en: "Daily work", ur: "روزمرہ کا کام"}
+    intro: {en: "Students, attendance, fees, examinations, reports and backups: what every Madrasa school does, in every edition.", ur: "طلبہ، حاضری، فیس، امتحانات، رپورٹس اور بیک اپ: وہ کام جو ہر مدرسہ اسکول ہر ایڈیشن میں کرتا ہے۔"}
+    chapters:
+
+      - id: students
+        title: {en: "Students", ur: "طلبہ"}
+        editions: [all]
+        tasks:
+          - title: {en: "Find a student", ur: "طالب علم تلاش کریں"}
+            steps:
+              - text: {en: "Open *Students*. Filter by class, section and status, or search by name, student number or a guardian's phone. Every list can be exported to Excel or CSV.", ur: "*طلبہ* کھولیں۔ جماعت، سیکشن اور حیثیت سے چھانٹیں، یا نام، طالب علم نمبر یا سرپرست کے فون سے تلاش کریں۔ ہر فہرست ایکسل یا CSV میں برآمد کی جا سکتی ہے۔"}
+                shot: students-list
+          - title: {en: "Admit a new student", ur: "نیا طالب علم داخل کریں"}
+            steps:
+              - text: {en: "Click *Add student*. Fill in the name, father's name, date of birth, gender, B-Form or CNIC, address, admission date, class, section and roll number, and add one or more guardians. A guardian with the same phone or CNIC as an existing one is shared, so brothers and sisters are linked on their own.", ur: "*طالب علم شامل کریں* پر کلک کریں۔ نام، والد کا نام، تاریخِ پیدائش، جنس، ب فارم یا شناختی کارڈ، پتہ، تاریخِ داخلہ، جماعت، سیکشن اور رول نمبر لکھیں، اور ایک یا زیادہ سرپرست شامل کریں۔ جس سرپرست کا فون یا شناختی کارڈ پہلے سے موجود ہو وہ مشترک ہو جاتا ہے، اس لیے بہن بھائی خود بخود جڑ جاتے ہیں۔"}
+                shot: students-add
+                tip: {en: "Madrasa warns about a possible duplicate (the same B-Form, or the same name, date of birth and father's name) before it saves.", ur: "محفوظ کرنے سے پہلے مدرسہ ممکنہ دہرے اندراج (ایک ہی ب فارم، یا ایک ہی نام، تاریخِ پیدائش اور والد کا نام) سے خبردار کرتا ہے۔"}
+          - title: {en: "The student's profile", ur: "طالب علم کا پروفائل"}
+            steps:
+              - text: {en: "Click a student to open the profile: details, guardians, fees, attendance, results, subjects and consents, each on its own tab.", ur: "پروفائل کھولنے کے لیے طالب علم پر کلک کریں: تفصیلات، سرپرست، فیس، حاضری، نتائج، مضامین اور رضامندیاں، ہر ایک اپنے ٹیب پر۔"}
+                shot: students-profile
+              - text: {en: "The *Fees* tab shows every voucher and payment of the student, with what is still owed.", ur: "*فیس* ٹیب طالب علم کا ہر واؤچر اور ہر ادائیگی دکھاتا ہے، اور یہ بھی کہ ابھی کتنا باقی ہے۔"}
+                shot: students-profile-fees
+          - title: {en: "Withdraw a student", ur: "طالب علم کا اخراج"}
+            steps:
+              - text: {en: "On the profile click *Withdraw*, give the date and the reason and confirm. Records are never deleted: a withdrawn student still appears in reports and can be found under the status filter.", ur: "پروفائل پر *اخراج* پر کلک کریں، تاریخ اور وجہ دیں اور تصدیق کریں۔ ریکارڈ کبھی حذف نہیں ہوتا: خارج شدہ طالب علم رپورٹس میں موجود رہتا ہے اور حیثیت کے فلٹر سے مل جاتا ہے۔"}
+                shot: students-withdraw
+          - title: {en: "Subjects per student", ur: "ہر طالب علم کے مضامین"}
+            steps:
+              - text: {en: "*Students → Subject allocation*: pick the section, set each student's subject group or tick their electives, and *Save*. A student with no allocation takes every subject of the class. Marks entry, result sheets and report cards then show only each student's own subjects.", ur: "*طلبہ ← مضامین کی تقسیم*: سیکشن چنیں، ہر طالب علم کا گروپ طے کریں یا اختیاری مضامین پر نشان لگائیں، اور *محفوظ کریں*۔ جس طالب علم کی تقسیم نہ ہو وہ جماعت کے تمام مضامین پڑھتا ہے۔ نمبر درج کرنے، نتیجہ شیٹ اور رپورٹ کارڈ میں پھر ہر طالب علم کے اپنے مضامین ہی آتے ہیں۔"}
+                shot: students-subjects
+                tip: {en: "*Download Excel sheet* gives the section in a file; fill the Group or Electives column and import it back.", ur: "*ایکسل شیٹ ڈاؤن لوڈ کریں* سے سیکشن فائل میں ملتا ہے؛ گروپ یا اختیاری مضامین کا کالم بھریں اور واپس درآمد کریں۔"}
+          - title: {en: "Move students between sections", ur: "طلبہ کو سیکشن بدلوائیں"}
+            steps:
+              - text: {en: "*Students → Section moves*: pick a class, tick students and move them to another section, or click *Balance sections* to see a proposal that evens the sections out, then apply it. Attendance and marks already recorded stay with the student.", ur: "*طلبہ ← سیکشن کی منتقلی*: جماعت چنیں، طلبہ پر نشان لگائیں اور انہیں دوسرے سیکشن میں بھیجیں، یا *سیکشن متوازن کریں* پر کلک کر کے سیکشن برابر کرنے کی تجویز دیکھیں اور لاگو کریں۔ پہلے سے درج حاضری اور نمبر طالب علم کے ساتھ رہتے ہیں۔"}
+                shot: students-moves
+          - title: {en: "Record consents", ur: "رضامندیاں درج کریں"}
+            steps:
+              - text: {en: "*Students → Consents* shows one section at a time. Set each student's state (given, refused, withdrawn) and the guardian who gave it, then save. The profile's *Consents* tab keeps the history; *Reports* list the missing ones.", ur: "*طلبہ ← رضامندیاں* ایک وقت میں ایک سیکشن دکھاتا ہے۔ ہر طالب علم کی حالت (دی گئی، انکار، واپس لی گئی) اور دینے والا سرپرست درج کریں، پھر محفوظ کریں۔ پروفائل کا *رضامندیاں* ٹیب تاریخچہ رکھتا ہے؛ *رپورٹس* میں جو باقی ہیں ان کی فہرست ہے۔"}
+                shot: students-consents
+
+      - id: import
+        title: {en: "Importing from Excel", ur: "ایکسل سے درآمد"}
+        editions: [all]
+        intro: {en: "A school moving to Madrasa does not type its register in again: students with their guardians, staff, opening fee balances and admission enquiries come in from an Excel or CSV file.", ur: "مدرسہ پر آنے والا اسکول اپنا رجسٹر دوبارہ ٹائپ نہیں کرتا: طلبہ اور ان کے سرپرست، عملہ، فیس کے ابتدائی بقایا جات اور داخلے کے استفسارات ایکسل یا CSV فائل سے آ جاتے ہیں۔"}
+        tasks:
+          - title: {en: "Import students and guardians", ur: "طلبہ اور سرپرست درآمد کریں"}
+            steps:
+              - text: {en: "Open *Import* in the sidebar and choose what to import. *Import history* below lists every earlier import; each one can be undone with *Roll back*.", ur: "سائیڈبار میں *درآمد* کھولیں اور چنیں کہ کیا درآمد کرنا ہے۔ نیچے *درآمد کا تاریخچہ* میں ہر پچھلی درآمد درج ہے؛ ہر ایک *واپس کریں* سے منسوخ ہو سکتی ہے۔"}
+                shot: import-start
+              - text: {en: "*Download template* gives a file with the right columns. Fill it (or use your own sheet), choose the file, match its columns to Madrasa's fields, then *Check the file*. Fix the rows with problems, in the grid or in Excel, and import.", ur: "*ٹیمپلیٹ ڈاؤن لوڈ کریں* سے درست کالموں والی فائل ملتی ہے۔ اسے بھریں (یا اپنی شیٹ استعمال کریں)، فائل چنیں، اس کے کالم مدرسہ کے خانوں سے ملائیں، پھر *فائل جانچیں*۔ مسئلے والی قطاریں جدول میں یا ایکسل میں درست کریں، اور درآمد کریں۔"}
+                shot: import-students
+
+      - id: attendance
+        title: {en: "Attendance", ur: "حاضری"}
+        editions: [all]
+        tasks:
+          - title: {en: "Mark the day's attendance", ur: "دن کی حاضری لگائیں"}
+            steps:
+              - text: {en: "*Attendance → Mark*: choose the section and the date. Everyone is present unless you mark otherwise, so mark only the absent, late and on-leave students. The keyboard works too: ↑ ↓ to move, P, A, L or V to set, Enter for the next student.", ur: "*حاضری ← حاضری لگائیں*: سیکشن اور تاریخ چنیں۔ جب تک آپ نشان نہ لگائیں سب حاضر شمار ہوتے ہیں، اس لیے صرف غیر حاضر، تاخیر اور رخصت والے طلبہ پر نشان لگائیں۔ کی بورڈ بھی کام کرتا ہے: ↑ ↓ سے اوپر نیچے، P، A، L یا V سے حالت، Enter سے اگلا طالب علم۔"}
+                shot: att-mark
+              - text: {en: "Click *Submit attendance*. The sheet is submitted once; after that only an administrator can correct it, and every correction is kept in the *History*.", ur: "*حاضری جمع کریں* پر کلک کریں۔ شیٹ ایک ہی بار جمع ہوتی ہے؛ اس کے بعد صرف منتظم اسے درست کر سکتا ہے، اور ہر درستی *تاریخچہ* میں محفوظ رہتی ہے۔"}
+                shot: att-submitted
+          - title: {en: "Follow up absences", ur: "غیر حاضری کی پیروی"}
+            steps:
+              - text: {en: "*Absentees* lists everyone absent, late or on leave on a day, with the guardian's phone, for the calls home.", ur: "*غیر حاضر* میں کسی دن کے تمام غیر حاضر، تاخیر یا رخصت والے طلبہ سرپرست کے فون کے ساتھ درج ہیں، گھر فون کرنے کے لیے۔"}
+                shot: att-absentees
+              - text: {en: "*Monthly register* shows a section's month at a glance, one cell per day, with each student's percentage.", ur: "*ماہانہ رجسٹر* میں سیکشن کا پورا مہینہ ایک نظر میں ہے، ہر دن کا ایک خانہ، اور ہر طالب علم کا فیصد۔"}
+                shot: att-register
+          - title: {en: "Staff attendance", ur: "عملے کی حاضری"}
+            steps:
+              - text: {en: "*Staff*: present, absent, late or leave for each staff member, then *Save staff attendance*.", ur: "*عملہ*: ہر رکنِ عملہ کے لیے حاضر، غیر حاضر، تاخیر یا رخصت، پھر *عملے کی حاضری محفوظ کریں*۔"}
+                shot: att-staff
+          - title: {en: "Weekends and holidays", ur: "ہفتہ وار چھٹیاں اور تعطیلات"}
+            steps:
+              - text: {en: "*Calendar*: tick the weekly off days and *Add holiday* for closures. No attendance is taken on those days and they do not count against anyone.", ur: "*کیلنڈر*: ہفتہ وار چھٹی کے دنوں پر نشان لگائیں اور بندش کے لیے *تعطیل شامل کریں*۔ ان دنوں حاضری نہیں لی جاتی اور یہ کسی کے خلاف شمار نہیں ہوتے۔"}
+                shot: att-calendar
+
+      - id: fees
+        title: {en: "Fees", ur: "فیس"}
+        editions: [all]
+        intro: {en: "*Fees & Finance* is for the principal, administrators and the accountant. Amounts are never edited: a mistake is corrected by a reversal, and every money change is kept in the audit log.", ur: "*فیس و مالیات* پرنسپل، منتظمین اور اکاؤنٹنٹ کے لیے ہے۔ رقمیں کبھی تبدیل نہیں کی جاتیں: غلطی منسوخی کے اندراج سے درست ہوتی ہے، اور رقم کی ہر تبدیلی آڈٹ لاگ میں محفوظ رہتی ہے۔"}
+        tasks:
+          - title: {en: "Set up the fees", ur: "فیس ترتیب دیں"}
+            steps:
+              - text: {en: "*Setup*: the *Fee heads* (tuition, examination, transport, admission…), the *Fee structure* of each class for the year, the sibling discount, the late fee percent and the day vouchers fall due.", ur: "*ترتیب*: *فیس مدات* (ٹیوشن، امتحان، ٹرانسپورٹ، داخلہ…)، سال کے لیے ہر جماعت کا *فیس ڈھانچہ*، بہن بھائی کی رعایت، تاخیری فیس کا فیصد اور واؤچر کی آخری تاریخ کا دن۔"}
+                shot: fees-setup
+          - title: {en: "Make the month's vouchers", ur: "مہینے کے واؤچر بنائیں"}
+            steps:
+              - text: {en: "Once a month, *Generate vouchers* for the whole school or one class. Unpaid balances and late fees carry into the next voucher on their own, also across years.", ur: "مہینے میں ایک بار پورے اسکول یا ایک جماعت کے لیے *واؤچرز بنائیں*۔ غیر ادا شدہ بقایا اور تاخیری فیس خود اگلے واؤچر میں منتقل ہو جاتے ہیں، سال بدلنے پر بھی۔"}
+                shot: fees-generate
+              - text: {en: "*Vouchers* lists the month's vouchers with their state: unpaid, partly paid or paid.", ur: "*واؤچرز* میں مہینے کے واؤچر اپنی حالت کے ساتھ ہیں: غیر ادا شدہ، جزوی ادا شدہ یا ادا شدہ۔"}
+                shot: fees-vouchers
+              - text: {en: "Print the vouchers, a school copy and a parent copy on one page, in English or Urdu. *Save as PDF* in the print window makes a file to send.", ur: "واؤچر پرنٹ کریں، ایک صفحے پر اسکول کاپی اور والدین کاپی، انگریزی یا اردو میں۔ پرنٹ کی کھڑکی میں *PDF محفوظ کریں* سے بھیجنے کے لیے فائل بنتی ہے۔"}
+                shot: fees-voucher-print
+          - title: {en: "Collect a payment", ur: "ادائیگی وصول کریں"}
+            steps:
+              - text: {en: "*Collect*: find the student by name or number. Their open vouchers are listed with the amount due.", ur: "*وصولی*: نام یا نمبر سے طالب علم تلاش کریں۔ ان کے کھلے واؤچر واجب الادا رقم کے ساتھ درج ہو جاتے ہیں۔"}
+                shot: fees-collect
+              - text: {en: "Click *Record payment*: the amount (part payments are fine), the method (cash, bank, online, 1Bill, Kuickpay) and the reference number for anything but cash.", ur: "*ادائیگی درج کریں* پر کلک کریں: رقم (جزوی ادائیگی بھی ٹھیک ہے)، طریقہ (نقد، بینک، آن لائن، 1Bill، Kuickpay) اور نقد کے سوا ہر طریقے کا حوالہ نمبر۔"}
+                shot: fees-pay
+              - text: {en: "The receipt is issued with its number. Print it for the parent; it can be reprinted at any time.", ur: "رسید اپنے نمبر کے ساتھ جاری ہو جاتی ہے۔ اسے والدین کے لیے پرنٹ کریں؛ یہ کسی بھی وقت دوبارہ پرنٹ ہو سکتی ہے۔"}
+                shot: fees-receipt
+                warning: {en: "A receipt cannot be edited. A wrong payment is reversed (by the principal or an administrator, with a reason) and recorded again.", ur: "رسید میں تبدیلی نہیں ہو سکتی۔ غلط ادائیگی منسوخ کی جاتی ہے (پرنسپل یا منتظم، وجہ کے ساتھ) اور دوبارہ درج کی جاتی ہے۔"}
+          - title: {en: "Who owes what", ur: "کس کے ذمے کتنا ہے"}
+            steps:
+              - text: {en: "*Defaulters* lists who owes what and for how long, as of the date you choose, with the guardian's phone.", ur: "*نادہندگان* میں درج ہے کہ آپ کی چنی ہوئی تاریخ تک کس کے ذمے کتنا اور کب سے ہے، سرپرست کے فون کے ساتھ۔"}
+                shot: fees-defaulters
+              - text: {en: "*Daily collection* shows a day's takings by method: the figure to match against the cash box and the bank.", ur: "*روزانہ وصولی* کسی دن کی وصولی طریقے کے لحاظ سے دکھاتی ہے: یہی رقم نقدی کے ڈبے اور بینک سے ملائیں۔"}
+                shot: fees-daily
+                tip: {en: "Late fees are added on their own each day to vouchers still unpaid after their due day. A late fee can be waived with a reason; set the percent to 0 to switch late fees off.", ur: "تاخیری فیس روزانہ خود ان واؤچرز میں جمع ہو جاتی ہے جو آخری تاریخ کے بعد بھی ادا نہ ہوں۔ تاخیری فیس وجہ کے ساتھ معاف ہو سکتی ہے؛ اسے بند کرنے کے لیے فیصد 0 کر دیں۔"}
+
+      - id: exams
+        title: {en: "Examinations and report cards", ur: "امتحانات اور رپورٹ کارڈ"}
+        editions: [all]
+        tasks:
+          - title: {en: "Set up the year's examinations", ur: "سال کے امتحانات ترتیب دیں"}
+            steps:
+              - text: {en: "*Examinations → Setup*: the terms of the year with their weights, the assessment components of each term (for example two tests, mid-year and final, adding up to 100%), the maximum marks per subject and the *Grading scheme* with its pass mark.", ur: "*امتحانات ← ترتیبات*: سال کی ٹرم اور ان کا وزن، ہر ٹرم کے امتحانات (مثلاً دو ٹیسٹ، ششماہی اور سالانہ، کل 100%)، ہر مضمون کے کل نمبر، اور پاس نمبر کے ساتھ *گریڈنگ اسکیم*۔"}
+                shot: exams-setup
+          - title: {en: "Enter marks", ur: "نمبر درج کریں"}
+            steps:
+              - text: {en: "*Marks entry* lists the marks sheets: one per section, subject and assessment, with its state. A teacher sees only their own.", ur: "*نمبر درج کریں* میں نمبر شیٹس درج ہیں: ہر سیکشن، مضمون اور امتحان کی ایک، اپنی حالت کے ساتھ۔ استاد کو صرف اپنی شیٹس نظر آتی ہیں۔"}
+                shot: exams-marks
+              - text: {en: "Open a sheet, type the marks (or tick absent), save, and *Submit for approval*. The principal checks and *Approves*; an approved sheet is locked. Marks can also come from Excel: *Download Excel sheet*, fill in the marks, *Upload filled sheet*.", ur: "شیٹ کھولیں، نمبر لکھیں (یا غیر حاضر پر نشان لگائیں)، محفوظ کریں اور *منظوری کے لیے جمع کریں*۔ پرنسپل دیکھ کر *منظور کریں*؛ منظور شدہ شیٹ بند ہو جاتی ہے۔ نمبر ایکسل سے بھی آ سکتے ہیں: *ایکسل شیٹ ڈاؤن لوڈ کریں*، نمبر بھریں، *بھری ہوئی شیٹ اپ لوڈ کریں*۔"}
+                shot: exams-sheet
+          - title: {en: "Results and report cards", ur: "نتائج اور رپورٹ کارڈ"}
+            steps:
+              - text: {en: "*Results*: the section's result sheet with totals, percentages, grades, positions and an analysis by subject.", ur: "*نتائج*: سیکشن کی نتیجہ شیٹ، کل نمبر، فیصد، گریڈ، پوزیشن اور مضمون وار تجزیے کے ساتھ۔"}
+                shot: exams-results
+              - text: {en: "*Report cards*: print one student's card or *Print all report cards* for the section. A card shows every assessment, the term results, the year's result and the attendance.", ur: "*رپورٹ کارڈ*: ایک طالب علم کا کارڈ پرنٹ کریں یا سیکشن کے لیے *تمام رپورٹ کارڈ پرنٹ کریں*۔ کارڈ میں ہر امتحان، ٹرم کے نتائج، سال کا نتیجہ اور حاضری ہوتی ہے۔"}
+                shot: exams-cards
+          - title: {en: "Board examinations", ur: "بورڈ کے امتحانات"}
+            steps:
+              - text: {en: "*Boards* keeps the results of external boards (BISE, Federal Board, AKU-EB and others) next to the school's own: add the board and its exam, register the candidates, and import the board's result file when it is published.", ur: "*بورڈ* میں بیرونی بورڈز (بی آئی ایس ای، فیڈرل بورڈ، آغا خان بورڈ وغیرہ) کے نتائج اسکول کے اپنے نتائج کے ساتھ رہتے ہیں: بورڈ اور اس کا امتحان شامل کریں، امیدوار رجسٹر کریں، اور نتیجہ آنے پر بورڈ کی فائل درآمد کریں۔"}
+                shot: exams-boards
+
+      - id: reports
+        title: {en: "Reports", ur: "رپورٹس"}
+        editions: [all]
+        tasks:
+          - title: {en: "Run a report", ur: "رپورٹ چلائیں"}
+            steps:
+              - text: {en: "*Reports* lists the built-in reports by module: students, fees, attendance and examinations (and the Standard modules when they are on). Teachers see the attendance and examination reports of their own sections.", ur: "*رپورٹس* میں بنی بنائی رپورٹس ماڈیول وار درج ہیں: طلبہ، فیس، حاضری اور امتحانات (اور اسٹینڈرڈ کے ماڈیول جب فعال ہوں)۔ اساتذہ کو اپنے سیکشنز کی حاضری اور امتحان کی رپورٹس نظر آتی ہیں۔"}
+                shot: reports-list
+              - text: {en: "Pick one, set its options (year, class, section, month or dates) and click *Run report*. *Download PDF* and *Download Excel* make a file in the language the app is showing.", ur: "ایک رپورٹ چنیں، اس کے اختیارات (سال، جماعت، سیکشن، مہینہ یا تاریخیں) طے کریں اور *رپورٹ چلائیں* پر کلک کریں۔ *پی ڈی ایف ڈاؤن لوڈ کریں* اور *ایکسل ڈاؤن لوڈ کریں* سے فائل اسی زبان میں بنتی ہے جس میں ایپ چل رہی ہے۔"}
+                shot: reports-run
+          - title: {en: "Make your own report", ur: "اپنی رپورٹ بنائیں"}
+            steps:
+              - text: {en: "*New custom report*: choose the data (students, guardians, vouchers, receipts, balances, attendance, marks or staff), tick the columns, add filters, sort and group, preview and save. The principal and administrators can share a report with everyone who runs reports.", ur: "*نئی رپورٹ بنائیں*: ڈیٹا چنیں (طلبہ، سرپرست، واؤچر، رسیدیں، بقایا، حاضری، نمبر یا عملہ)، کالموں پر نشان لگائیں، فلٹر لگائیں، ترتیب اور گروپ بنائیں، دیکھیں اور محفوظ کریں۔ پرنسپل اور منتظمین رپورٹ سب رپورٹ چلانے والوں سے بانٹ سکتے ہیں۔"}
+                shot: reports-custom
+
+      - id: backup
+        title: {en: "Backups", ur: "بیک اپ"}
+        editions: [all]
+        intro: {en: "Madrasa backs up every night on its own. A backup on the same computer does not help if the computer is lost or stolen, so copy the newest backup file somewhere else regularly.", ur: "مدرسہ ہر رات خود بیک اپ لیتا ہے۔ اسی کمپیوٹر پر رکھا بیک اپ اس وقت کام نہیں آتا جب کمپیوٹر گم یا چوری ہو جائے، اس لیے تازہ ترین بیک اپ فائل باقاعدگی سے کہیں اور نقل کریں۔"}
+        tasks:
+          - title: {en: "Check and make backups", ur: "بیک اپ دیکھیں اور بنائیں"}
+            steps:
+              - text: {en: "*Backup* shows the last backup, the time of the nightly backup and the folder (a USB drive or a network folder is better than the same disk). *Back up now* makes one immediately. The dashboard warns when the last backup is older than two days.", ur: "*بیک اپ* آخری بیک اپ، رات کے بیک اپ کا وقت اور فولڈر دکھاتا ہے (یو ایس بی ڈرائیو یا نیٹ ورک فولڈر اسی ڈسک سے بہتر ہے)۔ *ابھی بیک اپ لیں* سے فوراً بیک اپ بنتا ہے۔ آخری بیک اپ دو دن سے پرانا ہو تو ڈیش بورڈ خبردار کرتا ہے۔"}
+                shot: backup-page
+          - title: {en: "Restore a backup", ur: "بیک اپ بحال کریں"}
+            steps:
+              - text: {en: "Pick a file from *Backup files*, or type its path under *Restore from another file*, and click *Check file*. Madrasa shows the backup's date, school and record counts next to today's. Enter the backup password (or the recovery key) and *Restore now*.", ur: "*بیک اپ فائلیں* سے فائل چنیں، یا *کسی اور فائل سے بحال کریں* میں اس کا پاتھ لکھیں، اور *فائل جانچیں* پر کلک کریں۔ مدرسہ بیک اپ کی تاریخ، اسکول اور ریکارڈ کی تعداد آج کی تعداد کے ساتھ دکھاتا ہے۔ بیک اپ پاس ورڈ (یا ریکوری کی) درج کریں اور *ابھی بحال کریں*۔"}
+                shot: backup-restore
+                warning: {en: "Restoring replaces everything with the backup, and everyone has to log in again. Changed or damaged files are refused.", ur: "بحالی سب کچھ بیک اپ سے بدل دیتی ہے، اور سب کو دوبارہ لاگ ان کرنا پڑتا ہے۔ تبدیل شدہ یا خراب فائلیں قبول نہیں ہوتیں۔"}
+
+# ===================================================================================== PART 3
+  - title: {en: "Standard edition", ur: "اسٹینڈرڈ ایڈیشن"}
+    intro: {en: "Timetable, leave, admissions, library, transport, hostel, inventory, directory login and a read-only API, for schools that need more than the daily work.", ur: "ٹائم ٹیبل، رخصت، داخلے، لائبریری، ٹرانسپورٹ، ہاسٹل، اسٹور، ڈائریکٹری لاگ ان اور صرف پڑھنے والا API، ان اسکولوں کے لیے جنہیں روزمرہ کے کام سے زیادہ درکار ہے۔"}
+    chapters:
+
+      - id: edition
+        title: {en: "Switching to Standard", ur: "اسٹینڈرڈ پر منتقلی"}
+        editions: [standard]
+        tasks:
+          - title: {en: "Switch the edition", ur: "ایڈیشن بدلیں"}
+            steps:
+              - text: {en: "*Settings → Edition* shows the current edition and what Standard adds. The principal or an administrator clicks *Switch edition*. Nothing is lost when switching either way: the new modules appear in the sidebar and their data stays when switching back.", ur: "*ترتیبات ← ایڈیشن* موجودہ ایڈیشن اور اسٹینڈرڈ میں شامل چیزیں دکھاتا ہے۔ پرنسپل یا منتظم *ایڈیشن بدلیں* پر کلک کرتا ہے۔ کسی بھی طرف بدلنے سے کچھ ضائع نہیں ہوتا: نئے ماڈیول سائیڈبار میں آ جاتے ہیں اور واپس آنے پر ان کا ڈیٹا محفوظ رہتا ہے۔"}
+                shot: edition-card
+          - title: {en: "Modules that are still coming", ur: "جو ماڈیول ابھی آنے ہیں"}
+            steps:
+              - text: {en: "*HR* and *Campuses* are in the sidebar but not built yet. They show *Coming soon* and do nothing.", ur: "*ایچ آر* اور *کیمپس* سائیڈبار میں ہیں مگر ابھی بنے نہیں۔ ان پر *جلد آ رہا ہے* لکھا ہے اور یہ کچھ نہیں کرتے۔"}
+                shot: hr-soon
+
+      - id: timetable
+        title: {en: "Timetable", ur: "ٹائم ٹیبل"}
+        editions: [standard]
+        intro: {en: "Madrasa builds the timetable from the teacher allocation. Office roles see every tab; teachers see the timetable and the substitutions, and their own week on the Dashboard.", ur: "مدرسہ ٹائم ٹیبل اساتذہ کی تقسیم سے بناتا ہے۔ دفتر والے تمام ٹیب دیکھتے ہیں؛ اساتذہ ٹائم ٹیبل اور متبادل اساتذہ، اور ڈیش بورڈ پر اپنا ہفتہ دیکھتے ہیں۔"}
+        tasks:
+          - title: {en: "Make the timetable", ur: "ٹائم ٹیبل بنائیں"}
+            steps:
+              - text: {en: "*Setup*: *Add morning shift* gives a usual school week (Monday to Thursday 7 periods, Friday 5, a break after period 3); adjust the days, period times and breaks. Add rooms if lessons need them, and the rules: the most periods per day and week, and when a teacher, section or room is not available.", ur: "*ترتیبات*: *صبح کی شفٹ شامل کریں* سے عام اسکولی ہفتہ بنتا ہے (پیر تا جمعرات 7 پیریڈ، جمعہ 5، تیسرے پیریڈ کے بعد وقفہ)؛ دن، پیریڈ کے اوقات اور وقفے حسبِ ضرورت بدلیں۔ ضرورت ہو تو کمرے شامل کریں، اور قواعد: روزانہ اور ہفتہ وار زیادہ سے زیادہ پیریڈ، اور کب کوئی استاد، سیکشن یا کمرہ دستیاب نہیں۔"}
+                shot: tt-setup
+              - text: {en: "*Lessons*: *Seed from allocations* makes one lesson per section and subject from the teacher allocation. Adjust the sessions per week, make double periods, add room pools or joint classes. The *Check* card says what would stop the generator; the *Load* card shows the periods used against the week.", ur: "*اسباق*: *تقسیم سے بنائیں* اساتذہ کی تقسیم سے ہر سیکشن اور مضمون کا ایک سبق بناتا ہے۔ ہفتہ وار سیشن بدلیں، دو پیریڈ والے سبق بنائیں، کمروں کا انتخاب یا مشترکہ جماعتیں شامل کریں۔ *جانچ* کارڈ بتاتا ہے کہ جنریٹر کو کیا روکے گا؛ *بوجھ* کارڈ ہفتے کے مقابلے میں استعمال شدہ پیریڈ دکھاتا ہے۔"}
+                shot: tt-lessons
+              - text: {en: "*Generate*: give it a name and a time limit (start with 60 seconds) and click *Generate*. The report lists anything left out, with the reason. *Publish* the timetable the school will run on.", ur: "*بنائیں*: نام اور وقت کی حد دیں (60 سیکنڈ سے شروع کریں) اور *بنائیں* پر کلک کریں۔ رپورٹ میں چھوڑے گئے سیشن وجہ کے ساتھ درج ہوتے ہیں۔ جس ٹائم ٹیبل پر اسکول چلے گا اسے *شائع کریں*۔"}
+                shot: tt-generate
+          - title: {en: "Look at and print the timetable", ur: "ٹائم ٹیبل دیکھیں اور پرنٹ کریں"}
+            steps:
+              - text: {en: "*Timetable* shows it by section, teacher or room, and prints it as a PDF in English or Urdu. The office can click a session to move it to a free slot, swap it or lock it in place.", ur: "*ٹائم ٹیبل* اسے سیکشن، استاد یا کمرے کے لحاظ سے دکھاتا ہے، اور انگریزی یا اردو میں PDF پرنٹ کرتا ہے۔ دفتر کسی سیشن پر کلک کر کے اسے خالی جگہ منتقل، تبادلہ یا جگہ پر مقفل کر سکتا ہے۔"}
+                shot: tt-view
+          - title: {en: "Cover for an absent teacher", ur: "غیر حاضر استاد کا متبادل"}
+            steps:
+              - text: {en: "*Substitutions*: *Record absence* for the teacher (whole days or some periods). Every session they would teach gets suggestions, same subject first and fewest covers so far first. Choose the cover or *No cover needed*, then *Print cover sheet*.", ur: "*متبادل اساتذہ*: استاد کی *غیر حاضری درج کریں* (پورے دن یا کچھ پیریڈ)۔ ان کے ہر سیشن کے لیے تجاویز آتی ہیں، پہلے وہی مضمون پڑھانے والے اور جنہوں نے اب تک کم متبادل کیے۔ متبادل چنیں یا *متبادل کی ضرورت نہیں*، پھر *متبادل کی فہرست پرنٹ کریں*۔"}
+                shot: tt-subs
+
+      - id: leave
+        title: {en: "Leave", ur: "رخصت"}
+        editions: [standard]
+        tasks:
+          - title: {en: "Set up the leave types", ur: "رخصت کی اقسام ترتیب دیں"}
+            steps:
+              - text: {en: "*Leave types*: annual, sick, casual… with the days per year, how many unused days carry into the next year, and whether a request needs approval. Name an extra approver if someone besides the principal and administrators decides leave.", ur: "*رخصت کی اقسام*: سالانہ، بیماری، اتفاقی… دن فی سال، کتنے غیر استعمال شدہ دن اگلے سال منتقل ہوں، اور کیا درخواست کو منظوری درکار ہے۔ اگر پرنسپل اور منتظمین کے علاوہ کوئی اور رخصت کا فیصلہ کرتا ہے تو اسے منظوری دینے والا مقرر کریں۔"}
+                shot: leave-types
+          - title: {en: "Staff leave", ur: "عملے کی رخصت"}
+            steps:
+              - text: {en: "*Staff leave* lists the requests with their state. A teacher requests their own leave; the principal, an administrator or the approver approves or rejects it. Approved leave is marked on the staff attendance, and weekends and holidays are not counted.", ur: "*عملے کی رخصت* میں درخواستیں اپنی حالت کے ساتھ درج ہیں۔ استاد اپنی رخصت کی درخواست دیتا ہے؛ پرنسپل، منتظم یا منظوری دینے والا اسے منظور یا مسترد کرتا ہے۔ منظور شدہ رخصت عملے کی حاضری پر لگ جاتی ہے، اور ہفتہ وار چھٹیاں اور تعطیلات شمار نہیں ہوتیں۔"}
+                shot: leave-staff
+              - text: {en: "The office uses *Record leave for a staff member*: the staff member, leave type, dates, a half day if needed and the reason. Requests beyond the days left, or overlapping another, are refused.", ur: "دفتر *رکنِ عملہ کی رخصت درج کریں* استعمال کرتا ہے: رکنِ عملہ، رخصت کی قسم، تاریخیں، ضرورت ہو تو آدھا دن، اور وجہ۔ باقی دنوں سے زیادہ یا کسی دوسری درخواست سے ٹکرانے والی درخواست قبول نہیں ہوتی۔"}
+                shot: leave-request
+              - text: {en: "*Balances*: what each staff member has per type this year: granted, used, pending and available. *Adjust balance* with a note; at the end of the year *Carry over* into the new one.", ur: "*بقایا*: اس سال ہر رکنِ عملہ کے پاس ہر قسم کی کتنی رخصت ہے: استحقاق، استعمال شدہ، زیرِ التوا اور دستیاب۔ نوٹ کے ساتھ *بقایا میں ترمیم* کریں؛ سال کے آخر میں نئے سال میں *منتقل کریں*۔"}
+                shot: leave-balances
+          - title: {en: "Student leave and the staff register", ur: "طلبہ کی رخصت اور عملے کا رجسٹر"}
+            steps:
+              - text: {en: "*Student leave*: the office records a guardian's note; the class teacher or the office approves it. Those days become leave on every attendance sheet of the range, also on sheets marked later.", ur: "*طلبہ کی رخصت*: دفتر سرپرست کی درخواست درج کرتا ہے؛ کلاس ٹیچر یا دفتر اسے منظور کرتا ہے۔ وہ دن اس مدت کی ہر حاضری شیٹ پر رخصت بن جاتے ہیں، بعد میں لگنے والی شیٹس پر بھی۔"}
+                shot: leave-students
+              - text: {en: "*Staff register*: the month at a glance, one cell per day, with late arrivals and their time.", ur: "*عملے کا رجسٹر*: پورا مہینہ ایک نظر میں، ہر دن کا ایک خانہ، تاخیر سے آنے والوں کے وقت کے ساتھ۔"}
+                shot: leave-register
+
+      - id: admissions
+        title: {en: "Admissions", ur: "داخلے"}
+        editions: [standard]
+        tasks:
+          - title: {en: "From enquiry to student", ur: "استفسار سے طالب علم تک"}
+            steps:
+              - text: {en: "*Stages*: the pipeline starts as Enquiry → Applied → Test scheduled → Interviewed → Offered → Admitted, with Rejected and Withdrawn. Rename, reorder, add or remove stages, and choose the fee head of the admission fee.", ur: "*مراحل*: پائپ لائن یوں شروع ہوتی ہے: استفسار ← درخواست ← ٹیسٹ طے ← انٹرویو ← پیشکش ← داخلہ، اور ساتھ میں مسترد اور واپس لی گئی۔ مراحل کا نام، ترتیب بدلیں، شامل کریں یا ہٹائیں، اور داخلہ فیس کی مد چنیں۔"}
+                shot: adm-stages
+              - text: {en: "*Pipeline* shows every application in its stage. Move applications along from here.", ur: "*پائپ لائن* میں ہر درخواست اپنے مرحلے میں نظر آتی ہے۔ درخواستیں یہیں سے آگے بڑھائیں۔"}
+                shot: adm-board
+              - text: {en: "*New application*: the applicant, the class applied for and the guardian's contact. A list of enquiries can also be imported from Excel (*Import → Admission enquiries*).", ur: "*نئی درخواست*: امیدوار، جس جماعت کے لیے درخواست ہے، اور سرپرست سے رابطہ۔ استفسارات کی فہرست ایکسل سے بھی درآمد ہو سکتی ہے (*درآمد ← داخلے کے استفسارات*)۔"}
+                shot: adm-new
+              - text: {en: "*Applications* lists them all; tick several to move them together.", ur: "*درخواستیں* میں سب درج ہیں؛ کئی پر نشان لگا کر انہیں ایک ساتھ آگے بڑھائیں۔"}
+                shot: adm-list
+              - text: {en: "Open an application to record the test marks, the interview notes and the offer, and print the offer letter. When the applicant is admitted, *Convert to student*: choose the section and roll number, and the student, guardian and admission fee voucher are made in one step.", ur: "درخواست کھول کر ٹیسٹ کے نمبر، انٹرویو کے نوٹ اور پیشکش درج کریں، اور پیشکش کا خط پرنٹ کریں۔ داخلہ ہو جائے تو *طالب علم بنائیں*: سیکشن اور رول نمبر چنیں، اور طالب علم، سرپرست اور داخلہ فیس کا واؤچر ایک ہی قدم میں بن جاتے ہیں۔"}
+                shot: adm-detail
+
+      - id: library
+        title: {en: "Library", ur: "لائبریری"}
+        editions: [standard]
+        tasks:
+          - title: {en: "Run the library", ur: "لائبریری چلائیں"}
+            steps:
+              - text: {en: "*Settings* (librarian or office): loan limits, loan days, the fine per day and renewals for students and for staff, and the fee head for fines put on a student's voucher.", ur: "*ترتیبات* (لائبریرین یا دفتر): طلبہ اور عملے کے لیے اجرا کی حد، اجرا کے دن، روزانہ جرمانہ اور تجدید، اور طالب علم کے واؤچر پر ڈالے گئے جرمانے کی فیس مد۔"}
+                shot: lib-settings
+              - text: {en: "*Catalogue*: add a book with its copies, one accession number per line (the number printed on the copy or its barcode), and the shelf.", ur: "*کیٹلاگ*: کتاب اور اس کی نقلیں شامل کریں، ہر سطر پر ایک ایکسیشن نمبر (نقل پر چھپا نمبر یا اس کا بارکوڈ)، اور شیلف۔"}
+                shot: lib-catalogue
+              - text: {en: "*Desk*: find the borrower (student or staff), scan or type the accession number and click *Issue*. The same lookup shows a copy that is out, with Return, Renew and Mark lost. The fine appears on return.", ur: "*ڈیسک*: لینے والا (طالب علم یا عملہ) تلاش کریں، ایکسیشن نمبر اسکین کریں یا لکھیں اور *جاری کریں* پر کلک کریں۔ یہی تلاش باہر گئی نقل کو واپسی، تجدید اور گم شدہ کے اختیار کے ساتھ دکھاتی ہے۔ واپسی پر جرمانہ نظر آتا ہے۔"}
+                shot: lib-desk
+              - text: {en: "*Loans*: open, overdue and returned loans and fines due, with return, waive and settle on each row.", ur: "*اجرا*: کھلے، تاخیر شدہ اور واپس شدہ اجرا اور واجب جرمانے، ہر قطار پر واپسی، معافی اور ادائیگی کے ساتھ۔"}
+                shot: lib-loans
+              - text: {en: "*Stock*: counts by category and every copy. After a stock take, set missing copies to Lost and discarded ones to Withdrawn.", ur: "*اسٹاک*: زمرہ وار تعداد اور ہر نقل۔ اسٹاک کی گنتی کے بعد غائب نقلیں گم شدہ اور ضائع شدہ نقلیں خارج شدہ کر دیں۔"}
+                shot: lib-stock
+
+      - id: transport
+        title: {en: "Transport", ur: "ٹرانسپورٹ"}
+        editions: [standard]
+        tasks:
+          - title: {en: "Vehicles, routes and riders", ur: "گاڑیاں، روٹس اور سوار"}
+            steps:
+              - text: {en: "*Vehicles*: registration, seats, driver and helper with their phones. The seats drive the warning when a route carries more students than it can seat.", ur: "*گاڑیاں*: رجسٹریشن، نشستیں، ڈرائیور اور ہیلپر ان کے فون کے ساتھ۔ جب کسی روٹ پر نشستوں سے زیادہ طلبہ ہوں تو نشستوں کی تعداد سے انتباہ آتا ہے۔"}
+                shot: trp-vehicles
+              - text: {en: "*Routes*: a route has a vehicle, a monthly fee and its stops in pickup order, each with a time and, if needed, a fee of its own.", ur: "*روٹس*: ہر روٹ کی ایک گاڑی، ماہانہ فیس، اور اٹھانے کی ترتیب سے اسٹاپ ہوتے ہیں، ہر ایک کا وقت اور ضرورت ہو تو اپنی فیس۔"}
+                shot: trp-routes
+              - text: {en: "*Assign*: pick a section, tick the students, choose the route, the stop and the start date, and click *Assign*. From then on their vouchers carry the transport fee.", ur: "*تفویض*: سیکشن چنیں، طلبہ پر نشان لگائیں، روٹ، اسٹاپ اور شروع کی تاریخ چنیں، اور *تفویض* پر کلک کریں۔ اس کے بعد ان کے واؤچرز پر ٹرانسپورٹ فیس آتی ہے۔"}
+                shot: trp-assign
+              - text: {en: "*Roster*: one route by stop, with student numbers, classes and guardian phones. Print it for the driver.", ur: "*فہرست*: ایک روٹ اسٹاپ وار، طالب علم نمبر، جماعت اور سرپرست کے فون کے ساتھ۔ اسے ڈرائیور کے لیے پرنٹ کریں۔"}
+                shot: trp-roster
+
+      - id: hostel
+        title: {en: "Hostel", ur: "ہاسٹل"}
+        editions: [standard]
+        tasks:
+          - title: {en: "Rooms, beds and residents", ur: "کمرے، بستر اور مکین"}
+            steps:
+              - text: {en: "*Hostels*: name, warden, the monthly fee and its fee head, and the rooms with their floor and beds. Tick whether leave-outs need the guardian's consent.", ur: "*ہاسٹل*: نام، وارڈن، ماہانہ فیس اور اس کی مد، اور کمرے ان کی منزل اور بستروں کے ساتھ۔ نشان لگائیں کہ کیا باہر جانے کے لیے سرپرست کی رضامندی درکار ہے۔"}
+                shot: hst-hostels
+              - text: {en: "*Board*: every room with its beds. Click a free bed, find the student, set the date and save. Move a resident to another bed from their row.", ur: "*بورڈ*: ہر کمرہ اپنے بستروں کے ساتھ۔ خالی بستر پر کلک کریں، طالب علم تلاش کریں، تاریخ طے کریں اور محفوظ کریں۔ مکین کو اس کی قطار سے دوسرے بستر پر منتقل کریں۔"}
+                shot: hst-board
+              - text: {en: "*Residents*: everyone in the hostel this year with room, bed and monthly charge. Their vouchers carry the hostel fee.", ur: "*مکین*: اس سال ہاسٹل میں ہر ایک، کمرہ، بستر اور ماہانہ رقم کے ساتھ۔ ان کے واؤچرز پر ہاسٹل فیس آتی ہے۔"}
+                shot: hst-residents
+              - text: {en: "*Register*: record a leave-out (expected back, the guardian's consent) or a visitor, and the return. A resident not back on time shows *Overdue*.", ur: "*رجسٹر*: باہر جانا (واپسی کا متوقع وقت، سرپرست کی رضامندی) یا ملاقاتی درج کریں، اور واپسی۔ جو مکین وقت پر واپس نہ آئے وہ *تاخیر* میں نظر آتا ہے۔"}
+                shot: hst-register
+
+      - id: inventory
+        title: {en: "Inventory", ur: "اسٹور"}
+        editions: [standard]
+        tasks:
+          - title: {en: "Keep the store", ur: "اسٹور سنبھالیں"}
+            steps:
+              - text: {en: "*Setup* (store keeper or office): categories to group items, and the locations where stock is kept (the main store, labs, rooms, offices).", ur: "*ترتیب* (اسٹور کیپر یا دفتر): اشیا کو گروپ کرنے کے زمرے، اور وہ جگہیں جہاں اسٹاک رکھا جاتا ہے (مرکزی اسٹور، لیبارٹریاں، کمرے، دفاتر)۔"}
+                shot: inv-setup
+              - text: {en: "*Items*: name, code, unit and a reorder level. Tick *Durable item* for things that get an asset tag. Items at or below their reorder level are flagged.", ur: "*اشیا*: نام، کوڈ، اکائی اور *دوبارہ آرڈر کی حد*۔ جن چیزوں پر اثاثہ ٹیگ لگتا ہے ان کے لیے *پائیدار چیز* پر نشان لگائیں۔ جو اشیا اپنی حد پر یا اس سے کم ہوں ان پر نشان آ جاتا ہے۔"}
+                shot: inv-items
+              - text: {en: "*Record movement*: a purchase in (with the cost and bill number), an issue to a person or room, a return, a write-off, an adjustment, or a transfer between locations. Stock can never go below zero.", ur: "*نقل و حرکت درج کریں*: خریداری (قیمت اور بل نمبر کے ساتھ)، کسی شخص یا کمرے کو اجرا، واپسی، ضیاع، ترمیم، یا ایک جگہ سے دوسری جگہ منتقلی۔ اسٹاک کبھی صفر سے کم نہیں ہو سکتا۔"}
+                shot: inv-movement
+              - text: {en: "*Stock*: what is on hand per item and location.", ur: "*اسٹاک*: ہر شے اور جگہ پر کتنا موجود ہے۔"}
+                shot: inv-stock
+              - text: {en: "*Assets*: one row per tagged item with its serial number, state, location and who has it.", ur: "*اثاثے*: ہر ٹیگ شدہ شے کی ایک قطار، سیریل نمبر، حالت، جگہ اور کس کے پاس ہے۔"}
+                shot: inv-assets
+
+      - id: directory
+        title: {en: "Logging in with the school directory", ur: "اسکول کی ڈائریکٹری سے لاگ ان"}
+        editions: [standard]
+        intro: {en: "A school with Active Directory (or another LDAP directory) can let staff log in with their usual username and password.", ur: "جس اسکول میں ایکٹو ڈائریکٹری (یا کوئی اور LDAP ڈائریکٹری) ہو وہ عملے کو ان کے معمول کے صارف نام اور پاس ورڈ سے لاگ ان کرنے دے سکتا ہے۔"}
+        tasks:
+          - title: {en: "Switch on directory login", ur: "ڈائریکٹری لاگ ان فعال کریں"}
+            steps:
+              - text: {en: "*Settings → Directory login*: tick *Use the school directory for logins*, enter the server (`ldaps://…`), the account that looks users up and its password (stored sealed, never shown again) and where staff accounts live. Map each directory group to a role; the first matching group wins. *Test connection* before saving.", ur: "*ترتیبات ← ڈائریکٹری لاگ ان*: *لاگ ان کے لیے اسکول کی ڈائریکٹری استعمال کریں* پر نشان لگائیں، سرور (`ldaps://…`)، صارفین تلاش کرنے والا اکاؤنٹ اور اس کا پاس ورڈ (مہر بند محفوظ، دوبارہ کبھی نظر نہیں آتا) اور عملے کے اکاؤنٹس کی جگہ لکھیں۔ ڈائریکٹری کے ہر گروپ کو ایک کردار دیں؛ پہلا ملنے والا گروپ مانا جاتا ہے۔ محفوظ کرنے سے پہلے *کنکشن جانچیں*۔"}
+                shot: dir-card
+
+      - id: api
+        title: {en: "The read-only API", ur: "صرف پڑھنے والا API"}
+        editions: [standard]
+        intro: {en: "Another system (a website, a report tool) can read school data through the API. Nothing can be changed through it.", ur: "کوئی دوسرا نظام (ویب سائٹ، رپورٹ ٹول) API کے ذریعے اسکول کا ڈیٹا پڑھ سکتا ہے۔ اس کے ذریعے کچھ تبدیل نہیں ہو سکتا۔"}
+        tasks:
+          - title: {en: "Give a system a key", ur: "کسی نظام کو کلید دیں"}
+            steps:
+              - text: {en: "*Settings → API (read-only)* lists the keys, with the endpoint reference and the calls made with each key.", ur: "*ترتیبات ← API (صرف پڑھنے کے لیے)* میں کلیدیں درج ہیں، اینڈ پوائنٹ کی تفصیل اور ہر کلید سے کی گئی کالز کے ساتھ۔"}
+                shot: api-card
+              - text: {en: "*New key*: give it a name, tick the scopes it may read, and if you like the addresses it may call from and an expiry date. The key is shown once; copy it into the other system. Revoke a key the moment it is no longer needed.", ur: "*نئی کلید*: نام دیں، وہ دائرے چنیں جو یہ پڑھ سکتی ہے، اور چاہیں تو وہ پتے جہاں سے کال ہو سکتی ہے اور میعاد ختم ہونے کی تاریخ۔ کلید صرف ایک بار نظر آتی ہے؛ اسے دوسرے نظام میں نقل کریں۔ ضرورت ختم ہوتے ہی کلید منسوخ کریں۔"}
+                shot: api-new
+
+# ===================================================================================== PART 4
+  - title: {en: "Several PCs: the school server", ur: "کئی کمپیوٹر: اسکول سرور"}
+    intro: {en: "One PC keeps the records; the office and the teachers work from their own PCs on the school network. This works in Lite and in Standard, and needs no internet.", ur: "ایک کمپیوٹر ریکارڈ رکھتا ہے؛ دفتر اور اساتذہ اسکول نیٹ ورک پر اپنے کمپیوٹروں سے کام کرتے ہیں۔ یہ لائٹ اور اسٹینڈرڈ دونوں میں چلتا ہے، اور انٹرنیٹ کی ضرورت نہیں۔"}
+    chapters:
+
+      - id: lan-server
+        title: {en: "Setting up the server PC", ur: "سرور کمپیوٹر ترتیب دینا"}
+        editions: [lan]
+        intro: {en: "Choose a PC that stays on during the school day, ideally connected by cable. Install Madrasa on it as in chapter 2.", ur: "ایسا کمپیوٹر چنیں جو اسکول کے اوقات میں چلتا رہے، بہتر ہے کہ کیبل سے جڑا ہو۔ اس پر مدرسہ باب 2 کی طرح انسٹال کریں۔"}
+        tasks:
+          - title: {en: "Start the school server", ur: "اسکول سرور شروع کریں"}
+            steps:
+              - text: {en: "At the first start choose *This PC is the school server*, keep the port (8471) unless your network needs another, and click *Start as the school server*. Windows asks once whether to allow Madrasa on private networks: click *Allow*. Then the setup wizard runs as in chapter 3.", ur: "پہلی بار کھلنے پر *یہ کمپیوٹر اسکول کا سرور ہے* چنیں، پورٹ (8471) ویسا ہی رہنے دیں جب تک آپ کے نیٹ ورک کو کوئی اور نہ چاہیے، اور *اسکول سرور کے طور پر شروع کریں* پر کلک کریں۔ ونڈوز ایک بار پوچھتی ہے کہ کیا مدرسہ کو نجی نیٹ ورک پر اجازت ہے: *Allow* پر کلک کریں۔ پھر ترتیب کا مددگار باب 3 کی طرح چلتا ہے۔"}
+                shot: lan-server
+              - text: {en: "On the server, *Settings → Network* shows the server's address, port and *certificate fingerprint*. Keep this screen at hand while connecting the other PCs.", ur: "سرور پر *ترتیبات ← نیٹ ورک* سرور کا پتہ، پورٹ اور *سرٹیفکیٹ فنگرپرنٹ* دکھاتا ہے۔ دوسرے کمپیوٹر جوڑتے وقت یہ اسکرین سامنے رکھیں۔"}
+                shot: lan-network
+
+      - id: lan-client
+        title: {en: "Connecting the other PCs", ur: "دوسرے کمپیوٹر جوڑنا"}
+        editions: [lan]
+        tasks:
+          - title: {en: "Connect a PC to the server", ur: "کمپیوٹر کو سرور سے جوڑیں"}
+            steps:
+              - text: {en: "Install Madrasa on the PC and choose *Connect to a school server*. Madrasa searches the network and lists the servers it finds. If yours is not there, type its *Server address* (for example 192.168.1.10) and click *Check*.", ur: "کمپیوٹر پر مدرسہ انسٹال کریں اور *اسکول سرور سے جڑیں* چنیں۔ مدرسہ نیٹ ورک پر تلاش کر کے ملنے والے سرور دکھاتا ہے۔ اگر آپ کا سرور نظر نہ آئے تو اس کا *سرور کا پتہ* (مثلاً 192.168.1.10) لکھیں اور *جانچیں* پر کلک کریں۔"}
+                shot: lan-client-find
+              - text: {en: "Click the server. Compare the fingerprint with the one on the server's *Settings → Network*. Only if they are the same, tick *The fingerprint matches the server's screen* and click *Connect*. Then log in as usual.", ur: "سرور پر کلک کریں۔ فنگرپرنٹ کو سرور کی *ترتیبات ← نیٹ ورک* والے فنگرپرنٹ سے ملائیں۔ صرف اگر دونوں ایک جیسے ہوں تو *فنگرپرنٹ سرور کی اسکرین سے ملتا ہے* پر نشان لگائیں اور *جڑیں* پر کلک کریں۔ پھر معمول کے مطابق لاگ ان کریں۔"}
+                shot: lan-client-confirm
+                warning: {en: "If the fingerprints differ, do not connect: another computer may be pretending to be the server. Ask whoever looks after the network.", ur: "اگر فنگرپرنٹ مختلف ہوں تو نہ جوڑیں: ہو سکتا ہے کوئی اور کمپیوٹر سرور ہونے کا دعویٰ کر رہا ہو۔ نیٹ ورک سنبھالنے والے سے پوچھیں۔"}
+              - text: {en: "On a connected PC, *Settings → Network* shows which server it uses. The principal or an administrator can change how a PC is used with *Change*; Madrasa then restarts in the new mode.", ur: "جڑے ہوئے کمپیوٹر پر *ترتیبات ← نیٹ ورک* دکھاتا ہے کہ یہ کون سا سرور استعمال کرتا ہے۔ پرنسپل یا منتظم *تبدیل کریں* سے کمپیوٹر کا استعمال بدل سکتا ہے؛ پھر مدرسہ نئے موڈ میں دوبارہ شروع ہوتا ہے۔"}
+                shot: lan-client-card
+                tip: {en: "If the server is off or the network drops, a connected PC says so and keeps what you were typing; nothing is lost.", ur: "اگر سرور بند ہو یا نیٹ ورک ٹوٹ جائے تو جڑا ہوا کمپیوٹر بتا دیتا ہے اور جو آپ لکھ رہے تھے وہ رکھتا ہے؛ کچھ ضائع نہیں ہوتا۔"}
+
+# ===================================================================================== PART 5
+  - title: {en: "Madrasa Nexus: a network of schools", ur: "مدرسہ نیکسس: اسکولوں کا نیٹ ورک"}
+    intro: {en: "A head office runs one hub. Each school keeps working on its own PC and sends its records to the hub whenever it is online; head office sees every school in one console.", ur: "ہیڈ آفس ایک حب چلاتا ہے۔ ہر اسکول اپنے کمپیوٹر پر کام جاری رکھتا ہے اور جب آن لائن ہو اپنا ریکارڈ حب کو بھیجتا ہے؛ ہیڈ آفس ہر اسکول کو ایک کنسول میں دیکھتا ہے۔"}
+    chapters:
+
+      - id: hub-setup
+        title: {en: "Setting up the hub", ur: "حب ترتیب دینا"}
+        editions: [nexus]
+        tasks:
+          - title: {en: "Install and set up the hub", ur: "حب انسٹال اور ترتیب دیں"}
+            steps:
+              - text: {en: "Whoever looks after head office's servers installs the hub, with Docker Compose on one machine or on Azure or Google Cloud, as described in `docs/nexus/deploy.md`. On its first start the hub prints a one-time *setup token*.", ur: "ہیڈ آفس کے سرور سنبھالنے والا شخص حب انسٹال کرتا ہے، ایک مشین پر Docker Compose سے یا Azure یا Google Cloud پر، جیسا کہ `docs/nexus/deploy.md` میں بیان ہے۔ پہلی بار چلنے پر حب ایک بار استعمال ہونے والا *سیٹ اپ ٹوکن* دکھاتا ہے۔"}
+                outside: true
+              - text: {en: "Open the hub's address in a browser. Paste the *Setup token*, give the *Name of the network* (schools see it when they join) and create the first administrator. Click *Finish setup*.", ur: "براؤزر میں حب کا پتہ کھولیں۔ *سیٹ اپ ٹوکن* چسپاں کریں، *نیٹ ورک کا نام* دیں (اسکول شامل ہوتے وقت یہی دیکھتے ہیں) اور پہلا ایڈمنسٹریٹر بنائیں۔ *ترتیب مکمل کریں* پر کلک کریں۔"}
+                shot: hub-setup
+              - text: {en: "Sign in to the *head office console* with that username and password.", ur: "اسی صارف نام اور پاس ورڈ سے *ہیڈ آفس کنسول* میں سائن ان کریں۔"}
+                shot: hub-login
+
+      - id: hub-console
+        title: {en: "The head office console", ur: "ہیڈ آفس کنسول"}
+        editions: [nexus]
+        tasks:
+          - title: {en: "Invite a school", ur: "اسکول کو دعوت دیں"}
+            steps:
+              - text: {en: "*Schools* lists every school in the network with its status, last sync, changes waiting and Madrasa version.", ur: "*اسکول* میں نیٹ ورک کا ہر اسکول اپنی حالت، آخری سنک، منتظر تبدیلیوں اور مدرسہ ورژن کے ساتھ درج ہے۔"}
+                shot: hub-schools
+              - text: {en: "Click *Invite a school*, type the *School's name* and click *Create join code*.", ur: "*اسکول کو دعوت دیں* پر کلک کریں، *اسکول کا نام* لکھیں اور *شمولیت کا کوڈ بنائیں* پر کلک کریں۔"}
+                shot: hub-invite
+              - text: {en: "Give the school the *Join code* and the *Hub address*, by phone or in person. The code works once; *Invitations* shows whether it has been used.", ur: "اسکول کو *شمولیت کا کوڈ* اور *ہب کا پتہ* فون پر یا خود جا کر دیں۔ کوڈ ایک ہی بار کام کرتا ہے؛ *دعوت نامے* میں نظر آتا ہے کہ استعمال ہوا یا نہیں۔"}
+                shot: hub-joincode
+          - title: {en: "Look after the schools", ur: "اسکولوں کی دیکھ بھال"}
+            steps:
+              - text: {en: "*Open* a school to see when it joined and last synced. *Send everything again* asks the school to resend all its records; *Remove from the network* ends its membership (its records stay at the school).", ur: "کسی اسکول کو *کھولیں* تو نظر آتا ہے کہ کب شامل ہوا اور آخری سنک کب ہوا۔ *سب کچھ دوبارہ بھیجیں* اسکول سے سارا ریکارڈ دوبارہ منگواتا ہے؛ *نیٹ ورک سے ہٹائیں* اس کی رکنیت ختم کرتا ہے (اس کا ریکارڈ اسکول میں رہتا ہے)۔"}
+                shot: hub-school
+              - text: {en: "*Reports*: choose a report and the schools (or *All joined schools*) and click *Show*. Every report downloads as Excel or CSV.", ur: "*رپورٹس*: رپورٹ اور اسکول (یا *تمام شامل اسکول*) منتخب کریں اور *دکھائیں* پر کلک کریں۔ ہر رپورٹ ایکسل یا CSV میں ڈاؤن لوڈ ہوتی ہے۔"}
+                shot: hub-reports
+              - text: {en: "*Corrections*: head office can correct a school's name, a student's, guardian's or staff member's name, father's name, address, phone or email. The correction reaches the school with its next sync.", ur: "*تصحیحات*: ہیڈ آفس کسی اسکول کا نام، یا کسی طالب علم، سرپرست یا رکنِ عملہ کا نام، والد کا نام، پتہ، فون یا ای میل درست کر سکتا ہے۔ تصحیح اگلے سنک کے ساتھ اسکول پہنچ جاتی ہے۔"}
+                shot: hub-corrections
+          - title: {en: "Keep schools' backup keys", ur: "اسکولوں کی بیک اپ کیز رکھیں"}
+            steps:
+              - text: {en: "*Backup keys*: set an *Escrow passphrase* once. A school can then leave a sealed copy of its backup key with head office. If a school loses both its backup password and its recovery key, an administrator with the right to do so clicks *Release key*, gives the reason, and passes the key to the school. The school is told.", ur: "*بیک اپ کیز*: ایک بار *ایسکرو پاس فریز* طے کریں۔ پھر اسکول اپنی بیک اپ کی کی مہر بند نقل ہیڈ آفس کے پاس رکھ سکتا ہے۔ اگر کسی اسکول کا بیک اپ پاس ورڈ اور ریکوری کلید دونوں گم ہو جائیں تو مجاز ایڈمنسٹریٹر *کی جاری کریں* پر کلک کر کے وجہ لکھتا ہے اور کی اسکول کو دیتا ہے۔ اسکول کو اس کی اطلاع ہوتی ہے۔"}
+                shot: hub-escrow
+          - title: {en: "Head office users and the activity log", ur: "ہیڈ آفس کے صارفین اور سرگرمی کا ریکارڈ"}
+            steps:
+              - text: {en: "*Users*: *Add a user* for each head office person, with what they may do: *Administer*, *Read reports*, *Release backup keys*.", ur: "*صارفین*: ہیڈ آفس کے ہر فرد کے لیے *صارف شامل کریں*، اس کے اختیارات کے ساتھ: *انتظام*، *رپورٹس دیکھنا*، *بیک اپ کیز جاری کرنا*۔"}
+                shot: hub-users
+              - text: {en: "*Activity log*: who did what and when, for every school and head office user.", ur: "*سرگرمی کا ریکارڈ*: کس نے کب کیا کیا، ہر اسکول اور ہیڈ آفس کے ہر صارف کے لیے۔"}
+                shot: hub-activity
+
+      - id: join
+        title: {en: "A school joins the network", ur: "اسکول نیٹ ورک میں شامل ہوتا ہے"}
+        editions: [nexus]
+        tasks:
+          - title: {en: "Join with the code from head office", ur: "ہیڈ آفس کے کوڈ سے شامل ہوں"}
+            steps:
+              - text: {en: "At the school, the principal or an administrator opens *Settings → School network (Nexus)*, types the *Hub address* and the *Join code* and clicks *Join the network*.", ur: "اسکول میں پرنسپل یا منتظم *ترتیبات ← اسکول نیٹ ورک (نیکسس)* کھولتا ہے، *حب کا پتہ* اور *شمولیت کا کوڈ* لکھتا ہے اور *نیٹ ورک میں شامل ہوں* پر کلک کرتا ہے۔"}
+                shot: join-card
+              - text: {en: "The first upload starts. The card shows the network, the last sync and the changes waiting to be sent; *Sync now* sends them at once. The school works as before, online or not: changes wait and go when the internet is back.", ur: "پہلا اپ لوڈ شروع ہو جاتا ہے۔ کارڈ نیٹ ورک، آخری ہم آہنگی اور بھیجے جانے کی منتظر تبدیلیاں دکھاتا ہے؛ *ابھی ہم آہنگ کریں* انہیں فوراً بھیج دیتا ہے۔ اسکول پہلے کی طرح کام کرتا ہے، آن لائن ہو یا نہیں: تبدیلیاں انتظار کرتی ہیں اور انٹرنیٹ واپس آنے پر چلی جاتی ہیں۔"}
+                shot: join-done
+                tip: {en: "The first upload of a large school can take some minutes. Leave Madrasa open until the changes waiting reach zero.", ur: "بڑے اسکول کا پہلا اپ لوڈ چند منٹ لے سکتا ہے۔ منتظر تبدیلیاں صفر ہونے تک مدرسہ کھلا رہنے دیں۔"}
+
+# ===================================================================================== PART 6
+  - title: {en: "The parent app", ur: "والدین کی ایپ"}
+    intro: {en: "Parents see their own children's attendance, approved results, fees and the school's notices on an Android phone, and can write to the class teacher. It works for schools that have joined a network.", ur: "والدین اینڈرائیڈ فون پر اپنے بچوں کی حاضری، منظور شدہ نتائج، فیس اور اسکول کے اعلانات دیکھتے ہیں، اور کلاس ٹیچر کو لکھ سکتے ہیں۔ یہ ان اسکولوں کے لیے ہے جو کسی نیٹ ورک میں شامل ہوں۔"}
+    chapters:
+
+      - id: pa-school
+        title: {en: "At the school", ur: "اسکول میں"}
+        editions: [parent]
+        intro: {en: "Once the school has joined a network, *Parent app* appears in the sidebar for the people who have something to do there.", ur: "اسکول کے نیٹ ورک میں شامل ہونے کے بعد سائیڈبار میں *والدین کی ایپ* ان لوگوں کو نظر آتی ہے جن کا وہاں کوئی کام ہو۔"}
+        tasks:
+          - title: {en: "Give a parent access", ur: "والدین کو رسائی دیں"}
+            steps:
+              - text: {en: "*Access* (principal and administrators) lists the guardians who have access, the last digits of the phone they sign in with and when they last signed in. *New code* is for a forgotten password or a new phone; *End access* signs the guardian out.", ur: "*رسائی* (پرنسپل اور منتظمین) میں وہ سرپرست درج ہیں جنہیں رسائی ہے، جس فون سے وہ لاگ اِن کرتے ہیں اس کے آخری ہندسے، اور آخری لاگ اِن۔ *نیا کوڈ* بھولے ہوئے پاس ورڈ یا نئے فون کے لیے ہے؛ *رسائی ختم کریں* سرپرست کو لاگ آؤٹ کر دیتا ہے۔"}
+                shot: pa-access
+              - text: {en: "Click *Give access* and find the guardian by name or phone.", ur: "*رسائی دیں* پر کلک کریں اور سرپرست کو نام یا فون سے تلاش کریں۔"}
+                shot: pa-give
+              - text: {en: "Choose the guardian: a one-time *access code* appears on a slip. Print it and hand it to the guardian in person. The code works once, for 14 days, and is not shown again.", ur: "سرپرست منتخب کریں: ایک بار استعمال ہونے والا *رسائی کوڈ* ایک پرچی پر آ جاتا ہے۔ اسے پرنٹ کر کے سرپرست کو خود دیں۔ کوڈ ایک بار، 14 دن کے لیے کام کرتا ہے اور دوبارہ نظر نہیں آتا۔"}
+                shot: pa-slip
+                warning: {en: "Anyone with the code can open access to that guardian's children. Never send it by message or leave it lying around.", ur: "جس کے پاس کوڈ ہو وہ اس سرپرست کے بچوں تک رسائی کھول سکتا ہے۔ اسے کبھی پیغام میں نہ بھیجیں اور نہ کہیں پڑا رہنے دیں۔"}
+          - title: {en: "Notices and messages", ur: "اعلانات اور پیغامات"}
+            steps:
+              - text: {en: "*Notices* (principal and administrators) lists the school's notices: drafts, published and withdrawn.", ur: "*اعلانات* (پرنسپل اور منتظمین) میں اسکول کے اعلانات ہیں: مسودے، شائع شدہ اور واپس لیے گئے۔"}
+                shot: pa-notices
+              - text: {en: "*New notice*: for the whole school or chosen classes, with a last day if it should disappear by itself. Save it as a draft or *Publish* it.", ur: "*نیا اعلان*: پورے اسکول یا چنی ہوئی جماعتوں کے لیے، اور اگر خود ختم ہو جانا چاہیے تو آخری دن کے ساتھ۔ اسے مسودے کے طور پر محفوظ کریں یا *شائع کریں*۔"}
+                shot: pa-notice-new
+              - text: {en: "*Messages*: parents write to their child's class teacher. The class teacher sees a count beside *Parent app*, opens the conversation and answers; the principal can read every conversation. Messages travel with the sync, every few minutes while the school is online.", ur: "*پیغامات*: والدین اپنے بچے کے کلاس ٹیچر کو لکھتے ہیں۔ کلاس ٹیچر کو *والدین کی ایپ* کے ساتھ گنتی نظر آتی ہے، وہ گفتگو کھول کر جواب دیتا ہے؛ پرنسپل ہر گفتگو پڑھ سکتا ہے۔ پیغامات سنک کے ساتھ جاتے ہیں، جب تک اسکول آن لائن ہو ہر چند منٹ بعد۔"}
+                shot: pa-messages
+
+      - id: pa-phone
+        title: {en: "On the parent's phone", ur: "والدین کے فون پر"}
+        editions: [parent]
+        tasks:
+          - title: {en: "Install and open access", ur: "انسٹال کریں اور رسائی کھولیں"}
+            steps:
+              - text: {en: "The school gives parents the *Madrasa Parent* app for Android (the `madrasa-parent-….apk` file of each Madrasa release). The phone asks once to allow installing apps from that source.", ur: "اسکول والدین کو اینڈرائیڈ کے لیے *مدرسہ والدین* ایپ دیتا ہے (ہر مدرسہ ریلیز کی `madrasa-parent-….apk` فائل)۔ فون ایک بار اس ذریعے سے ایپ انسٹال کرنے کی اجازت مانگتا ہے۔"}
+                outside: true
+              - text: {en: "Open the app and tap *I have an access code*.", ur: "ایپ کھولیں اور *میرے پاس رسائی کوڈ ہے* پر ٹیپ کریں۔"}
+                shot: parent-welcome
+                width: 46%
+              - text: {en: "Type the *School network address* and the *Access code* from the slip, then choose the phone number and a password to sign in with, and tap *Open my access*.", ur: "*اسکول نیٹ ورک کا پتہ* اور پرچی والا *رسائی کوڈ* لکھیں، پھر لاگ اِن کے لیے فون نمبر اور پاس ورڈ منتخب کریں، اور *میری رسائی کھولیں* پر ٹیپ کریں۔"}
+                shot: parent-code
+                width: 46%
+              - text: {en: "Next time, *Sign in* with the phone number and password.", ur: "اگلی بار فون نمبر اور پاس ورڈ سے *لاگ اِن کریں*۔"}
+                shot: parent-login
+                width: 46%
+          - title: {en: "What parents see", ur: "والدین کیا دیکھتے ہیں"}
+            steps:
+              - text: {en: "*My children*: each child with their school and class. A parent with children at two schools adds the second code with *I have another access code*.", ur: "*میرے بچے*: ہر بچہ اپنے اسکول اور جماعت کے ساتھ۔ جن کے بچے دو اسکولوں میں ہوں وہ دوسرا کوڈ *میرے پاس ایک اور رسائی کوڈ ہے* سے شامل کرتے ہیں۔"}
+                shot: parent-children
+                width: 46%
+              - text: {en: "A child's page: class, class teacher, this month's attendance, the latest results, what is due and the unread notices and messages. It also says when the school last sent its records.", ur: "بچے کا صفحہ: جماعت، کلاس ٹیچر، اس مہینے کی حاضری، تازہ نتائج، واجب الادا رقم، اور نہ پڑھے گئے اعلانات اور پیغامات۔ یہ بھی بتاتا ہے کہ اسکول نے آخری بار ریکارڈ کب بھیجا۔"}
+                shot: parent-overview
+                width: 46%
+              - text: {en: "*Attendance*: the month day by day, and the days present this year.", ur: "*حاضری*: مہینہ دن بہ دن، اور اس سال کے حاضر دن۔"}
+                shot: parent-attendance
+                width: 46%
+              - text: {en: "*Results*: only marks the principal has approved, with grades, position and the year so far. *Report card* opens the card.", ur: "*نتائج*: صرف وہ نمبر جو پرنسپل نے منظور کیے ہوں، گریڈ، پوزیشن اور سال کے اب تک کے نتیجے کے ساتھ۔ *رپورٹ کارڈ* کارڈ کھولتا ہے۔"}
+                shot: parent-results
+                width: 46%
+              - text: {en: "*Fees*: the vouchers as the school made them, what has been paid and what is still to pay. Fees are paid at the school; the app only shows them.", ur: "*فیس*: واؤچر جیسے اسکول نے بنائے، کتنا ادا ہوا اور کتنا باقی ہے۔ فیس اسکول میں ادا کی جاتی ہے؛ ایپ صرف دکھاتی ہے۔"}
+                shot: parent-fees
+                width: 46%
+              - text: {en: "*Notices*: the school's notices for everyone and for the child's class.", ur: "*اعلانات*: سب کے لیے اور بچے کی جماعت کے لیے اسکول کے اعلانات۔"}
+                shot: parent-notices
+                width: 46%
+              - text: {en: "*Messages*: write to the class teacher and read the answers.", ur: "*پیغامات*: کلاس ٹیچر کو لکھیں اور جواب پڑھیں۔"}
+                shot: parent-messages
+                width: 46%
+
+# ===================================================================================== PART 7
+  - title: {en: "The end of the year", ur: "سال کا اختتام"}
+    intro: {en: "The rollover closes the academic year and opens the next: every student moves up a class, in one step.", ur: "سال کی منتقلی تعلیمی سال بند کر کے اگلا کھولتی ہے: ہر طالب علم ایک ہی قدم میں اگلی جماعت میں چلا جاتا ہے۔"}
+    chapters:
+
+      - id: rollover
+        title: {en: "Year-end rollover", ur: "سال کے آخر کی منتقلی"}
+        editions: [all]
+        intro: {en: "Do the rollover after the final results are approved and before the new year's first vouchers. Make a backup first (chapter *Backups*).", ur: "منتقلی سالانہ نتائج کی منظوری کے بعد اور نئے سال کے پہلے واؤچرز سے پہلے کریں۔ پہلے بیک اپ لے لیں (باب *بیک اپ*)۔"}
+        tasks:
+          - title: {en: "Roll over to the next year", ur: "اگلے سال میں منتقلی"}
+            steps:
+              - text: {en: "*Settings → Academic years → Roll over year*. Madrasa shows what will happen: the new year, every section and where its students go (the top class graduates), and how much unpaid fee is carried into the new year. Sections keep their class teachers; the fee structure and the assessments are copied.", ur: "*ترتیبات ← تعلیمی سال ← سال آگے بڑھائیں*۔ مدرسہ دکھاتا ہے کہ کیا ہوگا: نیا سال، ہر سیکشن اور اس کے طلبہ کہاں جائیں گے (سب سے اوپر کی جماعت فارغ التحصیل ہوتی ہے)، اور کتنا غیر ادا شدہ بقایا نئے سال میں جائے گا۔ سیکشن اپنے کلاس ٹیچر رکھتے ہیں؛ فیس ڈھانچہ اور امتحانات نقل ہو جاتے ہیں۔"}
+                shot: rollover-open
+              - text: {en: "Type the student numbers of those who *Repeat the class*, and of those who *Leave the school instead*, one per line.", ur: "جو طلبہ *جماعت دہرائیں* گے اور جو *اسکول چھوڑ دیں* گے، ان کے طالب علم نمبر لکھیں، ہر سطر پر ایک۔"}
+                shot: rollover-exceptions
+              - text: {en: "Click *Roll over now*. The new year becomes the current one; the old year stays readable, with all its attendance, fees and results.", ur: "*ابھی منتقلی کریں* پر کلک کریں۔ نیا سال موجودہ سال بن جاتا ہے؛ پرانا سال اپنی حاضری، فیس اور نتائج کے ساتھ پڑھنے کے لیے موجود رہتا ہے۔"}
+                shot: rollover-done
+                warning: {en: "The rollover runs once per year and cannot be undone except by restoring the backup made before it.", ur: "منتقلی سال میں ایک بار ہوتی ہے اور اس سے پہلے لیے گئے بیک اپ کو بحال کرنے کے سوا واپس نہیں ہو سکتی۔"}
+          - title: {en: "After the rollover", ur: "منتقلی کے بعد"}
+            intro: {en: "Check the new sections and class teachers under *Settings*, carry leave balances over (*Leave → Balances*, Standard), make the new year's timetable (Standard), and generate the first vouchers: the unpaid balances are already on them.", ur: "*ترتیبات* میں نئے سیکشن اور کلاس ٹیچر دیکھ لیں، رخصت کے بقایا منتقل کریں (*رخصت ← بقایا*، اسٹینڈرڈ)، نئے سال کا ٹائم ٹیبل بنائیں (اسٹینڈرڈ)، اور پہلے واؤچرز بنائیں: غیر ادا شدہ بقایا ان پر پہلے سے موجود ہیں۔"}
+
+      - id: help
+        title: {en: "When something goes wrong", ur: "جب کچھ غلط ہو جائے"}
+        editions: [all]
+        intro:
+          en: |
+            - *Forgot a password*: the principal or an administrator resets it from the staff member's *Login account* box. A parent's: give them a *New code* under *Parent app → Access*.
+            - *Lost the backup password*: restore with the recovery key; a school in a network can ask head office to release the key it left there.
+            - *A PC cannot reach the school server*: check that the server PC is on and on the same network, and that Windows allowed Madrasa on private networks.
+            - *The dashboard says the last backup is old*: check the backup folder is still there (a USB drive may have been removed) and click *Back up now*.
+            - *Changes are waiting to go to head office*: the school is offline. Nothing is lost; they go when the internet is back.
+            - *Reporting a problem*: *Help → Report a problem*, with the version and edition shown there.
+          ur: |
+            - *پاس ورڈ بھول گئے*: پرنسپل یا منتظم رکنِ عملہ کے *لاگ ان اکاؤنٹ* کے خانے سے اسے بدل دیتا ہے۔ والدین کا: *والدین کی ایپ ← رسائی* میں انہیں *نیا کوڈ* دیں۔
+            - *بیک اپ پاس ورڈ گم ہو گیا*: ریکوری کلید سے بحال کریں؛ نیٹ ورک میں شامل اسکول ہیڈ آفس سے وہاں رکھی گئی کی جاری کرنے کو کہہ سکتا ہے۔
+            - *کمپیوٹر اسکول سرور تک نہیں پہنچتا*: دیکھیں کہ سرور کمپیوٹر چل رہا ہے اور اسی نیٹ ورک پر ہے، اور ونڈوز نے مدرسہ کو نجی نیٹ ورک پر اجازت دی ہے۔
+            - *ڈیش بورڈ کہتا ہے آخری بیک اپ پرانا ہے*: دیکھیں کہ بیک اپ فولڈر موجود ہے (ہو سکتا ہے یو ایس بی ڈرائیو نکال لی گئی ہو) اور *ابھی بیک اپ لیں* پر کلک کریں۔
+            - *تبدیلیاں ہیڈ آفس جانے کی منتظر ہیں*: اسکول آف لائن ہے۔ کچھ ضائع نہیں ہوتا؛ انٹرنیٹ واپس آنے پر چلی جاتی ہیں۔
+            - *مسئلہ بتانا*: *مدد ← مسئلہ بتائیں*، وہاں دکھائے گئے ورژن اور ایڈیشن کے ساتھ۔

@@ -104,6 +104,10 @@ desktop, hub image and Android builds on every pull request; tagged `v*-alpha` r
 publish the unsigned installers, the parent app's APK and the hub image
 (`docs/RELEASING.md`).
 
+The user manual, in English and Urdu, is attached to every release as
+`Madrasa-User-Manual-EN.pdf` and `Madrasa-User-Manual-UR.pdf` (source in `docs/manual`,
+built by `scripts/build-manual.sh`).
+
 See `docs/spec.md` for the product specification, `docs/user-guide/` for the user guide
 (English and Urdu) and `docs/PROGRESS.md` for what has actually been built and tested.
 

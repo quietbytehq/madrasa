@@ -1,0 +1,23 @@
+[package]
+name = "madrasa-manual"
+description = "Builds the Madrasa user manual (docs/manual) as PDF, in English and Urdu"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[[bin]]
+name = "madrasa-manual"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+chrono = { workspace = true }
+# The same typesetter the API uses for reports and vouchers (crates/api).
+typst = "0.15"
+typst-pdf = "0.15"
+typst-layout = "0.15"
+# Screenshots: WebP in, JPEG out (see webp_to_jpeg). Already in the tree through typst.
+image = { version = "0.25", default-features = false, features = ["jpeg", "webp"] }

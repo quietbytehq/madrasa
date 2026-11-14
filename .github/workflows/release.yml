@@ -198,6 +198,50 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "$GITHUB_REF_NAME" dist-apk/* --clobber --repo "$GITHUB_REPOSITORY"
 
+  manual:
+    # The user manual in English and Urdu (docs/manual, scripts/build-manual.sh).
+    name: User manual (EN and UR PDF)
+    needs: [preflight]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: manual
+      - name: Build both PDFs
+        run: scripts/build-manual.sh dist-manual
+      - name: Upload the manual
+        uses: actions/upload-artifact@v5
+        with:
+          name: madrasa-user-manual
+          path: dist-manual/*.pdf
+          if-no-files-found: error
+
+  attach-manual:
+    # The desktop build creates the draft release; this adds Madrasa-User-Manual-EN.pdf and
+    # Madrasa-User-Manual-UR.pdf to it.
+    name: Attach the user manual to the release
+    if: github.event_name == 'push'
+    needs: [build, manual]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: madrasa-user-manual
+          path: dist-manual
+      - name: Attach to the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          test -f dist-manual/Madrasa-User-Manual-EN.pdf
+          test -f dist-manual/Madrasa-User-Manual-UR.pdf
+          gh release upload "$GITHUB_REF_NAME" dist-manual/Madrasa-User-Manual-EN.pdf dist-manual/Madrasa-User-Manual-UR.pdf --clobber --repo "$GITHUB_REPOSITORY"
+
   nexus-image:
     # The Madrasa Nexus hub image (hub and web console). A tagged release publishes it to
     # GitHub Container Registry as ghcr.io/quietbytehq/madrasa-nexus:<version> and :latest;
