@@ -65,16 +65,10 @@ scene("setup wizard", ["setup-school", "setup-year", "setup-admin", "setup-backu
   await page.context().close();
 });
 
-scene("the screen at a glance", ["overview-dashboard", "overview-search", "overview-usermenu", "overview-help"], async (s) => {
+scene("the screen at a glance", ["overview-dashboard", "overview-usermenu", "overview-help"], async (s) => {
   const page = await s.desktop();
   const $ = by(s, page);
   await s.snap(page, "overview-dashboard");
-  await page.keyboard.press("Control+k");
-  await page.waitForTimeout(300);
-  await page.keyboard.type("Ali");
-  await page.waitForTimeout(900);
-  await s.snap(page, "overview-search");
-  await page.keyboard.press("Escape");
   await click($.button("topbar.userMenu"));
   await s.snap(page, "overview-usermenu");
   await page.keyboard.press("Escape");
@@ -202,6 +196,9 @@ scene("attendance", ["att-mark", "att-submitted", "att-absentees", "att-register
   const page = await s.desktop({ route: "/attendance" });
   const $ = by(s, page);
   await settle(page, 700);
+  // A school day: the last Monday.
+  await page.getByLabel(s.L("attendance.date"), { exact: true }).fill(lastMonday()).catch(() => {});
+  await settle(page, 900);
   // Mark two students: one absent, one late.
   await page.getByRole("radio", { name: s.L("attendance.status.absent"), exact: true }).nth(1).click();
   await page.getByRole("radio", { name: s.L("attendance.status.late"), exact: true }).nth(3).click();
@@ -327,5 +324,384 @@ scene("backup", ["backup-page", "backup-restore"], async (s) => {
   await settle(page, 700);
   await s.snap(page, "backup-page");
   await s.snap(page, "backup-restore", { target: page.getByLabel(s.L("backup.files.otherPath"), { exact: true }).locator("xpath=ancestor::section[1]") });
+  await page.context().close();
+});
+
+// ---- Part 3: the Standard edition ----------------------------------------------------------
+
+/** Open `route`, then each tab in turn, saving one screenshot per tab. */
+async function tabs(s, route, list, { first = null } = {}) {
+  const page = await s.desktop({ route });
+  const $ = by(s, page);
+  await settle(page, 900);
+  if (first) await s.snap(page, first);
+  for (const [tab, id] of list) {
+    await click($.tab(tab));
+    await settle(page, 1000);
+    await s.snap(page, id);
+  }
+  return page;
+}
+
+scene("edition", ["edition-card"], async (s) => {
+  const page = await s.desktop({ route: "/settings" });
+  const $ = by(s, page);
+  await s.snap(page, "edition-card", { target: $.card("settings.edition") });
+  await page.context().close();
+});
+
+/** The last Monday (a school day), as yyyy-mm-dd. */
+function lastMonday() {
+  const d = new Date();
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7 || 7));
+  return d.toISOString().slice(0, 10);
+}
+
+scene("timetable", ["tt-setup", "tt-lessons", "tt-generate", "tt-view", "tt-subs"], async (s) => {
+  const page = await tabs(s, "/timetable", [
+    ["tt.tab.setup", "tt-setup"],
+    ["tt.tab.lessons", "tt-lessons"],
+    ["tt.tab.generate", "tt-generate"],
+  ]);
+  const $ = by(s, page);
+  await click($.tab("tt.tab.view"));
+  await settle(page, 900);
+  // The first section the demo timetable fills.
+  const section = page.getByLabel(s.L("common.section"), { exact: true });
+  const values = await section.locator("option").evaluateAll((opts) => opts.map((o) => o.value));
+  let best = [values[0], 0];
+  for (const v of values) {
+    await section.selectOption(v);
+    await page.waitForTimeout(250);
+    const filled = await page.getByTestId("timetable-grid").evaluate((g) => g.innerText.length);
+    if (filled > best[1]) best = [v, filled];
+  }
+  await section.selectOption(best[0]);
+  await s.snap(page, "tt-view");
+  await click($.tab("tt.tab.substitutions"));
+  await settle(page, 800);
+  await page.locator('input[type="date"]').first().fill(lastMonday());
+  await settle(page, 900);
+  await s.snap(page, "tt-subs");
+  await page.context().close();
+});
+
+scene("leave", ["leave-types", "leave-staff", "leave-request", "leave-balances", "leave-students", "leave-register"], async (s) => {
+  const page = await s.desktop({ route: "/leave" });
+  const $ = by(s, page);
+  await click($.tab("leave.tab.types"));
+  await settle(page, 800);
+  await s.snap(page, "leave-types");
+  await click($.tab("leave.tab.requests"));
+  await settle(page, 800);
+  await s.snap(page, "leave-staff");
+  await click($.button("leave.requests.newFor"));
+  await s.snap(page, "leave-request", { target: $.dialog() });
+  await page.keyboard.press("Escape");
+  for (const [tab, id] of [
+    ["leave.tab.balances", "leave-balances"],
+    ["leave.tab.students", "leave-students"],
+    ["leave.tab.register", "leave-register"],
+  ]) {
+    await click($.tab(tab));
+    await settle(page, 900);
+    await s.snap(page, id);
+  }
+  await page.context().close();
+});
+
+scene("admissions", ["adm-stages", "adm-board", "adm-new", "adm-list", "adm-detail"], async (s) => {
+  const page = await s.desktop({ route: "/admissions" });
+  const $ = by(s, page);
+  await click($.tab("adm.tab.stages"));
+  await settle(page, 800);
+  await s.snap(page, "adm-stages");
+  await click($.tab("adm.tab.board"));
+  await settle(page, 800);
+  await s.snap(page, "adm-board");
+  await click($.button("adm.new"));
+  await s.snap(page, "adm-new", { target: $.dialog() });
+  await page.keyboard.press("Escape");
+  await click($.tab("adm.tab.list"));
+  await settle(page, 800);
+  await s.snap(page, "adm-list");
+  await click(page.locator("tbody tr").first());
+  await settle(page, 900);
+  await s.snap(page, "adm-detail");
+  await page.context().close();
+});
+
+scene("library", ["lib-settings", "lib-catalogue", "lib-desk", "lib-loans", "lib-stock"], async (s) => {
+  const page = await tabs(s, "/library", [
+    ["lib.tab.settings", "lib-settings"],
+    ["lib.tab.catalogue", "lib-catalogue"],
+    ["lib.tab.desk", "lib-desk"],
+    ["lib.tab.loans", "lib-loans"],
+    ["lib.tab.stock", "lib-stock"],
+  ]);
+  await page.context().close();
+});
+
+scene("transport", ["trp-vehicles", "trp-routes", "trp-assign", "trp-roster"], async (s) => {
+  const page = await tabs(s, "/transport", [
+    ["trp.tab.vehicles", "trp-vehicles"],
+    ["trp.tab.routes", "trp-routes"],
+    ["trp.tab.assign", "trp-assign"],
+    ["trp.tab.roster", "trp-roster"],
+  ]);
+  await page.context().close();
+});
+
+scene("hostel", ["hst-hostels", "hst-board", "hst-residents", "hst-register"], async (s) => {
+  const page = await tabs(s, "/hostel", [
+    ["hst.tab.hostels", "hst-hostels"],
+    ["hst.tab.board", "hst-board"],
+    ["hst.tab.residents", "hst-residents"],
+    ["hst.tab.register", "hst-register"],
+  ]);
+  await page.context().close();
+});
+
+scene("inventory", ["inv-setup", "inv-items", "inv-movement", "inv-stock", "inv-assets"], async (s) => {
+  const page = await s.desktop({ route: "/inventory" });
+  const $ = by(s, page);
+  await click($.tab("inv.tab.setup"));
+  await settle(page, 800);
+  await s.snap(page, "inv-setup");
+  await click($.tab("inv.tab.items"));
+  await settle(page, 800);
+  await s.snap(page, "inv-items");
+  await click(page.getByTestId("record-movement"));
+  await s.snap(page, "inv-movement", { target: $.dialog() });
+  await page.keyboard.press("Escape");
+  for (const [tab, id] of [
+    ["inv.tab.stock", "inv-stock"],
+    ["inv.tab.assets", "inv-assets"],
+  ]) {
+    await click($.tab(tab));
+    await settle(page, 900);
+    await s.snap(page, id);
+  }
+  await page.context().close();
+});
+
+scene("coming soon", ["hr-soon"], async (s) => {
+  const page = await s.desktop({ route: "/hr" });
+  await s.snap(page, "hr-soon");
+  await page.context().close();
+});
+
+scene("directory login", ["dir-card"], async (s) => {
+  const page = await s.desktop({ route: "/settings" });
+  const $ = by(s, page);
+  await $.field("directory.enabled").check().catch(() => {});
+  await s.snap(page, "dir-card", { target: $.card("directory.title"), maxHeight: 900 });
+  await page.context().close();
+});
+
+scene("read-only api", ["api-card", "api-new"], async (s) => {
+  const page = await s.desktop({ route: "/settings" });
+  const $ = by(s, page);
+  await s.snap(page, "api-card", { target: $.card("apikeys.title") });
+  await click($.button("apikeys.add"));
+  await s.snap(page, "api-new", { target: $.dialog() });
+  await page.context().close();
+});
+
+// ---- Part 4: several PCs on the school network ---------------------------------------------
+
+const FINGERPRINT = "3F:A2:9C:41:7B:D0:5E:88:12:C4:9A:6F:E1:03:B7:52:4D:9E:20:AF:68:C1:73:0B:9D:E4:51:26:8F:3A:C0:77";
+
+scene("school server and clients", ["lan-server", "lan-network", "lan-client-find", "lan-client-confirm", "lan-client-card"], async (s) => {
+  // The first start of the server PC.
+  let page = await s.desktop({ mode: null, signedIn: false });
+  let $ = by(s, page);
+  await click(page.getByRole("button", { name: new RegExp(`^${s.L("mode.server.title")}`) }));
+  await s.snap(page, "lan-server", { around: $.button("mode.server.start") });
+  await page.context().close();
+  // Settings → Network on the server.
+  page = await s.desktop({
+    route: "/settings",
+    mode: { mode: "server", server_url: null, fingerprint: FINGERPRINT, listen_port: 8471 },
+    network: { mode: "server", addresses: ["192.168.1.20"], port: 8471, fingerprint: FINGERPRINT, server_url: null },
+  });
+  $ = by(s, page);
+  await s.snap(page, "lan-network", { target: $.card("network.title") });
+  await page.context().close();
+  // A teacher's PC: find the server, check the fingerprint, connect.
+  page = await s.desktop({ mode: null, signedIn: false });
+  $ = by(s, page);
+  await click(page.getByRole("button", { name: new RegExp(`^${s.L("mode.client.title")}`) }));
+  await settle(page, 900);
+  await s.snap(page, "lan-client-find", { around: $.button("mode.client.search") });
+  await click(page.getByText("DEMO Gulshan Model School").first());
+  await settle(page, 700);
+  await s.snap(page, "lan-client-confirm", { around: $.button("mode.client.connect") });
+  await page.context().close();
+  page = await s.desktop({
+    route: "/settings",
+    mode: { mode: "client", server_url: "https://192.168.1.20:8471", fingerprint: FINGERPRINT, listen_port: 8471 },
+    network: { mode: "client", addresses: [], port: 0, fingerprint: FINGERPRINT, server_url: "https://192.168.1.20:8471" },
+  });
+  $ = by(s, page);
+  await s.snap(page, "lan-client-card", { target: $.card("network.title") });
+  await page.context().close();
+});
+
+// ---- Part 5: Madrasa Nexus -----------------------------------------------------------------
+
+scene("hub first setup", ["hub-setup", "hub-login"], async (s) => {
+  let page = await s.console({ hub: URLS.hubSetup, signedIn: false });
+  const inputs = page.locator("main input");
+  const values = [SETUP_TOKEN, "DEMO Head Office", "DEMO Administrator", "demo.admin", PASSWORD, PASSWORD];
+  const n = await inputs.count();
+  for (let i = 0; i < n && i < values.length; i++) {
+    const type = await inputs.nth(i).getAttribute("type");
+    if (type === "checkbox") continue;
+    await inputs.nth(i).fill(values[i]);
+  }
+  await s.snap(page, "hub-setup", { around: page.locator("main form").first() });
+  await page.context().close();
+  page = await s.console({ signedIn: false });
+  await page.locator('input[autocomplete="username"]').fill("demo.admin");
+  await s.snap(page, "hub-login", { around: page.locator("main form").first() });
+  await page.context().close();
+});
+
+scene("head office console", ["hub-schools", "hub-invite", "hub-joincode", "hub-school", "hub-reports", "hub-corrections", "hub-escrow", "hub-users", "hub-activity"], async (s) => {
+  const page = await s.console({ route: "/schools" });
+  const $ = by(s, page);
+  await settle(page, 700);
+  await s.snap(page, "hub-schools");
+  await click($.button("hub.invite"));
+  await page.getByLabel(s.L("hub.invite.school"), { exact: true }).fill("DEMO Gulshan Model School");
+  await s.snap(page, "hub-invite", { target: $.dialog() });
+  await click($.dialog().getByRole("button", { name: s.L("hub.invite.create"), exact: true }));
+  await page.getByTestId("join-code").waitFor();
+  s.joinCode = (await page.getByTestId("join-code").innerText()).trim();
+  await s.snap(page, "hub-joincode", { target: $.dialog() });
+  await page.keyboard.press("Escape");
+  await settle(page, 400);
+  await click(page.getByRole("button", { name: s.L("hub.schools.open"), exact: true }));
+  await settle(page, 900);
+  await s.snap(page, "hub-school");
+  for (const [path, id] of [
+    ["/reports", "hub-reports"],
+    ["/corrections", "hub-corrections"],
+    ["/escrow", "hub-escrow"],
+    ["/users", "hub-users"],
+    ["/activity", "hub-activity"],
+  ]) {
+    await page.evaluate((p) => {
+      history.pushState({}, "", p);
+      dispatchEvent(new PopStateEvent("popstate"));
+    }, path);
+    await settle(page, 900);
+    await s.snap(page, id);
+  }
+  await page.context().close();
+});
+
+scene("a school joins the network", ["join-card", "join-done"], async (s) => {
+  const page = await s.desktop({ route: "/settings" });
+  const $ = by(s, page);
+  const card = $.card("nexus.title");
+  await card.getByLabel(s.L("nexus.hubUrl"), { exact: true }).fill(URLS.hub);
+  await card.getByLabel(s.L("nexus.joinCode"), { exact: true }).fill(s.joinCode ?? "");
+  await s.snap(page, "join-card", { target: card });
+  await click(card.getByRole("button", { name: s.L("nexus.join"), exact: true }));
+  await settle(page, 2500);
+  await s.snap(page, "join-done", { target: $.card("nexus.title") });
+  await page.context().close();
+});
+
+// ---- Part 6: the parent app ----------------------------------------------------------------
+
+scene("parent app at the school", ["pa-access", "pa-give", "pa-slip", "pa-notices", "pa-notice-new", "pa-messages"], async (s) => {
+  const page = await s.desktop({ route: "/parent-app" });
+  const $ = by(s, page);
+  await settle(page, 900);
+  await click($.tab("pa.tab.access"));
+  await settle(page, 700);
+  await s.snap(page, "pa-access");
+  await click(page.getByTestId("give-access"));
+  const search = page.getByLabel(s.L("pa.access.search.label"), { exact: true });
+  await search.fill("Khan");
+  await settle(page, 1200);
+  await s.snap(page, "pa-give", { target: $.dialog() });
+  await click(page.locator('[data-testid^="choose-"]').first());
+  await page.getByTestId("access-slip").getByTestId("access-code").waitFor({ timeout: 60000 });
+  await settle(page, 500);
+  await s.snap(page, "pa-slip", { target: $.dialog() });
+  await page.keyboard.press("Escape");
+  await click($.tab("pa.tab.notices"));
+  await settle(page, 700);
+  await s.snap(page, "pa-notices");
+  await click(page.getByTestId("new-notice"));
+  await s.snap(page, "pa-notice-new", { target: $.dialog() });
+  await page.keyboard.press("Escape");
+  await page.context().close();
+  // Messages: the class teachers and the principal read them.
+  const principal = await s.desktop({ user: await s.userWithRole("principal"), route: "/parent-app" });
+  await click(by(s, principal).tab("pa.tab.messages"));
+  await settle(principal, 900);
+  await s.snap(principal, "pa-messages");
+  await principal.context().close();
+});
+
+scene("parent app on the phone", ["parent-welcome", "parent-code", "parent-login", "parent-children", "parent-overview", "parent-attendance", "parent-results", "parent-fees", "parent-notices", "parent-messages"], async (s) => {
+  let page = await s.parent({ signedIn: false, route: "/welcome" });
+  await page.evaluate(() => localStorage.removeItem("madrasa.parent.hub"));
+  await page.goto(`${URLS.parent}/#/welcome`);
+  await settle(page, 600);
+  await s.snap(page, "parent-welcome");
+  await page.goto(`${URLS.parent}/#/code`);
+  await settle(page, 600);
+  await page.getByTestId("hub-address").fill(URLS.hub).catch(() => {});
+  await page.getByTestId("access-code").fill("7PR7-6Z93-BC1D").catch(() => {});
+  await s.snap(page, "parent-code");
+  await page.context().close();
+  page = await s.parent({ signedIn: false, route: "/login" });
+  await page.getByTestId("phone").fill("+923001234567");
+  await s.snap(page, "parent-login");
+  await page.context().close();
+  page = await s.parent();
+  await settle(page, 1000);
+  await s.snap(page, "parent-children");
+  const child = await page.locator('a[href^="#/child/"]').first().getAttribute("href");
+  for (const [tab, id] of [
+    ["", "parent-overview"],
+    ["/attendance", "parent-attendance"],
+    ["/results", "parent-results"],
+    ["/fees", "parent-fees"],
+    ["/notices", "parent-notices"],
+    ["/messages", "parent-messages"],
+  ]) {
+    await page.goto(`${URLS.parent}/${child}${tab}`);
+    await settle(page, 1000);
+    await s.snap(page, id);
+  }
+  await page.context().close();
+});
+
+// ---- last: the end of the year (changes the demo school's year) ----------------------------
+
+scene("year-end rollover", ["rollover-open", "rollover-exceptions", "rollover-done"], async (s) => {
+  // A tall window: the dialog lists every section and ends with its button.
+  const page = await s.desktop({ route: "/settings", viewport: { width: 1280, height: 1900 } });
+  const $ = by(s, page);
+  await click($.button("rollover.button"));
+  await settle(page, 1200);
+  await s.snap(page, "rollover-open", { target: $.dialog(), maxHeight: 720 });
+  const retain = page.getByLabel(s.L("rollover.retain"), { exact: true });
+  await retain.scrollIntoViewIfNeeded();
+  await retain.fill("DEMO01-2015-00001");
+  await s.snap(page, "rollover-exceptions", { target: retain.locator("xpath=ancestor::div[1]"), margin: 16 });
+  await $.button("rollover.confirm").evaluate((b) => b.click());
+  await settle(page, 6000);
+  await page.setViewportSize({ width: 1280, height: 760 });
+  await page.goto(`${URLS.desktop}/settings`);
+  await settle(page, 900);
+  await s.snap(page, "rollover-done", { target: $.card("academics.years") });
   await page.context().close();
 });

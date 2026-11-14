@@ -69,6 +69,10 @@ Continuous integration (`.github/workflows/ci.yml`) runs lint, type checks, test
 builds on Linux and Windows; tagged `v*` releases publish unsigned `.deb`, AppImage and Windows
 NSIS installers as a draft pre-release.
 
+The user manual, in English and Urdu, is attached to every release as
+`Madrasa-User-Manual-EN.pdf` and `Madrasa-User-Manual-UR.pdf` (source in `docs/manual`,
+built by `scripts/build-manual.sh`).
+
 See `docs/spec.md` for the product specification, `docs/TASKS-M0.md` for the current milestone
 and `docs/PROGRESS.md` for what has actually been built and tested.
 

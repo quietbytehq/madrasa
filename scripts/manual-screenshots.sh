@@ -71,7 +71,9 @@ wait_for() { # wait_for <url>
 }
 
 start_school() { # start_school <db> <port>
-  MADRASA_DATABASE_URL=$(db_url "$1") MADRASA_BIND="127.0.0.1:$2" RUST_LOG=warn \
+  # Each server its own data folder (backups), so one school never shows another's files.
+  rm -rf "$work/data-$2" && mkdir -p "$work/data-$2"
+  MADRASA_DATA_DIR="$work/data-$2" MADRASA_DATABASE_URL=$(db_url "$1") MADRASA_BIND="127.0.0.1:$2" RUST_LOG=warn \
     "$bin/madrasa-server" >"$work/school-$2.log" 2>&1 &
   pids+=($!)
   wait_for "http://127.0.0.1:$2/api/v1/health"
@@ -93,7 +95,7 @@ MADRASA_DATABASE_URL=$(db_url manual_school_tpl) "$bin/madrasa-demo" load --yes 
 psql "$(db_url manual_school_tpl)" -qAtc "UPDATE settings SET value = '\"standard\"' WHERE key = 'edition'" >/dev/null
 recreate manual_hub_tpl
 NEXUS_DATABASE_URL=$(db_url manual_hub_tpl) "$bin/madrasa-nexus" demo-network --yes >"$work/codes.txt"
-code=$(grep -m1 "DEMO North Campus" "$work/codes.txt" | awk '{print $1}')
+code=$(grep -E "^ +[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4} +DEMO North Campus" "$work/codes.txt" | awk '{print $1}')
 start_hub manual_hub_tpl 47780
 curl -sf -X POST http://127.0.0.1:47780/api/nexus/v1/setup -H 'content-type: application/json' \
   -d '{"setup_token":"manual-setup-token","hub_name":"DEMO Head Office","admin_username":"demo.admin","admin_full_name":"DEMO Administrator","admin_password":"demo-password-1"}' >/dev/null

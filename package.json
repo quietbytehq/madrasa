@@ -15,7 +15,9 @@
     "format": "pnpm -r format",
     "format:check": "pnpm -r format:check",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test"
+    "test": "pnpm -r test",
+    "manual": "scripts/build-manual.sh",
+    "manual:screenshots": "scripts/manual-screenshots.sh"
   },
   "devDependencies": {
     "playwright": "1.63.0"

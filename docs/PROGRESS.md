@@ -1967,3 +1967,32 @@ each from a clean `main` with CI green on Linux and Windows. What changed, in sh
 - Whether the scheduled backup time (02:00) suits a PC that is switched off at night; if so,
   set it to a time in the school day (the status card shows when it last ran).
 - Code signing for the installers before the pilot (SmartScreen warnings otherwise).
+
+## User manual (PDF, English and Urdu)
+
+### 2026-11-14 — The manual, its screenshots and its build
+- Done: `docs/manual`: the whole manual in `manual.yaml`, English and Urdu side by side, laid
+  out by `manual.typ` in the brand's colours with the logo (cover, part pages, chapter
+  headings, edition chips, tips and warnings; Urdu right to left in Noto Nastaliq Urdu).
+  Seven parts: getting started (install, setup wizard, settings, structure, staff), daily
+  work (students, import, attendance, fees, examinations, reports, backups), the Standard
+  modules, the school server and its clients, Madrasa Nexus (hub setup, head office
+  console, a school joining), the parent app (at the school and on the phone), and the
+  year-end rollover with a troubleshooting page. 137 steps, each with its own screenshot;
+  the three that happen outside Madrasa (running an installer, deploying the hub,
+  installing the APK) say so, and the build stops on any other step without one.
+- `crates/manual` typesets both books with the Typst crates the API already uses (fonts
+  embedded, nothing to install); `scripts/build-manual.sh` writes
+  `Madrasa-User-Manual-EN.pdf` and `-UR.pdf`. Screenshots are kept as WebP and handed to
+  the PDF as JPEG, which halves the size (about 17 MB a book).
+- `scripts/manual-screenshots.sh` makes every screenshot again, in both languages, light
+  mode: fresh copies of the demo school (Standard edition), an empty school for the setup
+  wizard, the demo network on a hub and a hub before its first setup, the desktop app and
+  the parent app from Vite, driven by Playwright (`docs/manual/tools`). Screens are found
+  by their translated labels, so the same scenes work in Urdu.
+- CI builds both PDFs on every push and keeps them as the artifact `madrasa-user-manual`;
+  the Release workflow attaches them to the draft release (docs/RELEASING.md).
+- Tested: `cargo test -p madrasa-manual` (the WebP to JPEG step); both PDFs built from the
+  committed screenshots; every page looked at in both languages.
+- Left: the screenshots show the screens as they are on `main`; after the brand and
+  offline pull requests are merged, run `scripts/manual-screenshots.sh` once and commit.

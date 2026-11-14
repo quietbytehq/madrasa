@@ -80,6 +80,13 @@ impl Manual {
 
     fn read(&self, id: FileId) -> FileResult<Vec<u8>> {
         let path = self.path(id)?;
+        if !path.exists() && path.extension().is_some_and(|e| e == "jpg") {
+            let webp = path.with_extension("webp");
+            if !webp.exists() {
+                return Err(FileError::NotFound(webp));
+            }
+            return webp_to_jpeg(&webp);
+        }
         std::fs::read(&path).map_err(|e| FileError::from_io(e, &path))
     }
 
@@ -101,6 +108,21 @@ impl Manual {
         }
         s
     }
+}
+
+/// The screenshots are kept as WebP (small in the repository), but the PDF writer stores a
+/// WebP as a lossless picture, which makes a book of 130 screenshots some 30 MB. The manual asks
+/// for `<name>.jpg` instead, and gets the WebP turned into a JPEG here, which goes into the PDF
+/// as it is: half the size, and screen text stays sharp at this quality.
+fn webp_to_jpeg(webp: &Path) -> FileResult<Vec<u8>> {
+    let picture = image::open(webp)
+        .map_err(|e| FileError::Other(Some(format!("{}: {e}", webp.display()).into())))?
+        .into_rgb8();
+    let mut jpeg = Vec::new();
+    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg, 92)
+        .encode_image(&picture)
+        .map_err(|e| FileError::Other(Some(format!("{}: {e}", webp.display()).into())))?;
+    Ok(jpeg)
 }
 
 impl World for Manual {
@@ -191,7 +213,9 @@ fn main() -> anyhow::Result<()> {
             "--lang" => langs.push(value()?),
             "--version" => version = value()?,
             "-h" | "--help" => {
-                println!("madrasa-manual [--root .] [--out dist-manual] [--lang en|ur]... [--version X]");
+                println!(
+                    "madrasa-manual [--root .] [--out dist-manual] [--lang en|ur]... [--version X]"
+                );
                 return Ok(());
             }
             other => bail!("unknown argument {other}"),
@@ -217,4 +241,28 @@ fn main() -> anyhow::Result<()> {
         );
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_webp_screenshot_is_served_as_jpeg() {
+        let dir = std::env::temp_dir().join(format!("madrasa-manual-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let webp = dir.join("shot.webp");
+        image::RgbImage::from_pixel(8, 4, image::Rgb([11, 37, 87]))
+            .save(&webp)
+            .unwrap();
+        let jpeg = webp_to_jpeg(&webp).unwrap();
+        assert_eq!(
+            &jpeg[..3],
+            &[0xFF, 0xD8, 0xFF],
+            "a JPEG starts with FF D8 FF"
+        );
+        let back = image::load_from_memory(&jpeg).unwrap();
+        assert_eq!((back.width(), back.height()), (8, 4));
+        std::fs::remove_dir_all(&dir).ok();
+    }
 }

@@ -19,3 +19,5 @@ chrono = { workspace = true }
 typst = "0.15"
 typst-pdf = "0.15"
 typst-layout = "0.15"
+# Screenshots: WebP in, JPEG out (see webp_to_jpeg). Already in the tree through typst.
+image = { version = "0.25", default-features = false, features = ["jpeg", "webp"] }

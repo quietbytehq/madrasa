@@ -149,11 +149,16 @@
   #text(weight: "bold", fill: navy, w(kind)) #h(0.3em) #body
 ]
 
-// A screenshot, framed.
-#let shot(id, width: 100%) = {
-  let file = "screenshots/" + lang + "/" + id + ".webp"
+// A screenshot, framed. Desktop screenshots are taken in a window 1280 pixels wide, which fills
+// the line; a cut-out (a card, a dialog) keeps the same scale, so text is the same size in every
+// picture. `width` overrides that (the phone screens). The builder serves `<name>.jpg` from
+// `<name>.webp` (crates/manual).
+#let shot(id, width: auto) = context {
+  let file = "screenshots/" + lang + "/" + id + ".jpg"
+  let pixels = measure(image(file)).width / 1pt
+  let w = if width == auto { calc.min(pixels / 1280, 1) * 100% } else { width }
   block(
-    width: width,
+    width: w,
     stroke: 0.6pt + line-color,
     radius: 3pt,
     clip: true,
@@ -161,8 +166,13 @@
   )
 }
 
-// One numbered step: the instruction, then what the screen looks like.
+// Every step shows its screen, except one that happens outside Madrasa (`outside: true`).
 #let step(n, s) = {
+  let outside = s.at("outside", default: false)
+  assert(
+    "shot" in s or outside,
+    message: "a step without a screenshot (add `shot:`, or `outside: true`): " + tr(s.text),
+  )
   block(breakable: false, above: 0.9em, below: 0.5em)[
     #grid(
       columns: (auto, 1fr),
@@ -170,11 +180,21 @@
       align: (center + top, start + top),
       box(width: 1.35em, height: 1.35em, fill: blue, radius: 50%,
         align(center + horizon, text(size: 8.5pt, weight: "bold", fill: white, font: "Inter", str(n)))),
-      md(s.text),
+      {
+        if outside {
+          box(fill: tint, stroke: 0.5pt + line-color, inset: (x: 5pt, y: 2pt), radius: 6pt,
+            text(size: 7.5pt, weight: "bold", fill: muted, w("outside")))
+          h(5pt)
+        }
+        md(s.text)
+      },
     )
     #if "shot" in s {
       v(0.3em)
-      pad(x: 0.4cm, shot(s.shot, width: s.at("width", default: 100%)))
+      // `width` in the YAML is a percentage of the line, such as "46%" for a phone screen.
+      let width = s.at("width", default: auto)
+      if width != auto { width = float(width.trim("%")) * 1% }
+      pad(x: 0.4cm, shot(s.shot, width: width))
     }
   ]
   if "tip" in s { note("tip", md(s.tip)) }
