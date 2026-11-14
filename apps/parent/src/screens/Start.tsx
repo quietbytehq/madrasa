@@ -5,7 +5,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useI18n } from "@/i18n";
-import { hubApi, normalizeHubUrl } from "@parent/api";
+import { getHubUrl, hubApi, normalizeHubUrl } from "@parent/api";
+import { HubBadge } from "@parent/connection";
 import type { CodeCheck } from "@parent/api";
 import { LanguageSwitch } from "@parent/LanguageSwitch";
 import { useSession } from "@parent/session";
@@ -26,7 +27,10 @@ function StartFrame({ children }: { children: ReactNode }) {
             <div className="text-xs text-muted">{t("parent.app.tagline")}</div>
           </div>
         </div>
-        <LanguageSwitch />
+        <div className="flex items-center gap-2">
+          {getHubUrl() && <HubBadge />}
+          <LanguageSwitch />
+        </div>
       </div>
       <div className="mt-6 flex flex-1 flex-col">{children}</div>
     </div>

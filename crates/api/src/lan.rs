@@ -16,7 +16,9 @@
 use crate::{router, AppState};
 use axum::body::{Body, Bytes};
 use axum::extract::State;
-use axum::http::{header, HeaderName, HeaderValue, Request, Response, StatusCode};
+use axum::http::{
+    header, HeaderMap, HeaderName, HeaderValue, Method, Request, Response, StatusCode,
+};
 use axum::Router;
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::crypto::WebPkiSupportedAlgorithms;
@@ -122,7 +124,7 @@ pub fn load_or_create_identity(dir: &Path) -> anyhow::Result<Identity> {
     })
 }
 
-fn write_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+pub(crate) fn write_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     std::fs::write(path, bytes)?;
     #[cfg(unix)]
     {
@@ -335,20 +337,33 @@ pub fn normalise_url(input: &str) -> anyhow::Result<String> {
 struct ProxyState {
     upstream: String,
     client: reqwest::Client,
+    outbox: Option<Arc<crate::outbox::Outbox>>,
 }
 
 /// Serve a plain-HTTP proxy on `bind` (loopback) that forwards every request to `upstream`
-/// over TLS, trusting only the certificate with `fingerprint`.
+/// over TLS, trusting only the certificate with `fingerprint`. With `outbox_dir` the proxy
+/// keeps working while the server is out of reach (ADR 0009, [`crate::outbox`]).
 pub async fn serve_proxy(
     bind: SocketAddr,
     upstream: &str,
     fingerprint: &str,
+    outbox_dir: Option<&Path>,
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> anyhow::Result<(SocketAddr, impl Future<Output = std::io::Result<()>>)> {
     let (client, _) = pinned_client(Some(fingerprint))?;
+    let upstream = normalise_url(upstream)?;
+    let outbox = match outbox_dir {
+        Some(dir) => {
+            let o = crate::outbox::Outbox::open(dir)?;
+            o.spawn_sender(client.clone(), upstream.clone());
+            Some(o)
+        }
+        None => None,
+    };
     let state = ProxyState {
-        upstream: normalise_url(upstream)?,
+        upstream,
         client,
+        outbox,
     };
     let app = Router::new().fallback(forward).with_state(state);
     let app = app.into_make_service_with_connect_info::<SocketAddr>();
@@ -377,38 +392,104 @@ async fn forward(State(p): State<ProxyState>, req: Request<Body>) -> Response<Bo
         Ok(b) => b,
         Err(_) => return proxy_error(StatusCode::PAYLOAD_TOO_LARGE, "The request is too large."),
     };
+    let Some(outbox) = p.outbox.clone() else {
+        return match send_upstream(&p, &parts.method, &path, &parts.headers, bytes, None).await {
+            crate::outbox::Upstream::Answered {
+                status,
+                headers,
+                body,
+            } => {
+                let mut out = Response::builder().status(status);
+                for (name, value) in headers.iter() {
+                    out = out.header(name, value);
+                }
+                out.body(Body::from(body)).unwrap_or_default()
+            }
+            crate::outbox::Upstream::NotSent(m) | crate::outbox::Upstream::Lost(m) => {
+                proxy_error(StatusCode::BAD_GATEWAY, &m)
+            }
+        };
+    };
+    if path.starts_with(crate::outbox::LOCAL_PREFIX) {
+        return crate::outbox::local(&outbox, &parts.method, &path, &bytes).await;
+    }
+    if parts.method == Method::OPTIONS {
+        return crate::outbox::preflight(&parts.headers);
+    }
+    let method = parts.method.clone();
+    let headers = parts.headers.clone();
+    let send_bytes = bytes.clone();
+    crate::outbox::handle(
+        &outbox,
+        method.clone(),
+        path.clone(),
+        &headers,
+        bytes,
+        |key| {
+            let p = p.clone();
+            let headers = headers.clone();
+            async move { send_upstream(&p, &method, &path, &headers, send_bytes, key).await }
+        },
+    )
+    .await
+}
+
+/// Send one request to the school server; `key` becomes its `Idempotency-Key`.
+async fn send_upstream(
+    p: &ProxyState,
+    method: &Method,
+    path: &str,
+    headers: &HeaderMap,
+    body: Bytes,
+    key: Option<uuid::Uuid>,
+) -> crate::outbox::Upstream {
+    use crate::outbox::Upstream;
     let mut rb = p
         .client
-        .request(parts.method.clone(), format!("{}{}", p.upstream, path))
-        .body(bytes);
-    for (name, value) in parts.headers.iter() {
+        .request(method.clone(), format!("{}{}", p.upstream, path))
+        .body(body);
+    for (name, value) in headers.iter() {
         if !HOP_BY_HOP.contains(name) {
             rb = rb.header(name.clone(), value.clone());
         }
     }
+    if let Some(key) = key {
+        rb = rb.header(crate::offline::idempotency::HEADER, key.to_string());
+    }
     match rb.send().await {
         Ok(resp) => {
             let status = resp.status();
-            let mut out = Response::builder().status(status);
+            let mut out = HeaderMap::new();
             for (name, value) in resp.headers().iter() {
                 if !HOP_BY_HOP.contains(name) {
-                    out = out.header(name.clone(), value.clone());
+                    out.append(name.clone(), value.clone());
                 }
             }
             match resp.bytes().await {
-                Ok(b) => out
-                    .body(Body::from(b))
-                    .unwrap_or_else(|_| proxy_error(StatusCode::BAD_GATEWAY, "Bad reply.")),
-                Err(e) => proxy_error(StatusCode::BAD_GATEWAY, &e.to_string()),
+                Ok(b) => Upstream::Answered {
+                    status,
+                    headers: out,
+                    body: b,
+                },
+                Err(e) => Upstream::Lost(e.to_string()),
             }
         }
         Err(e) => {
-            let message = if e.to_string().contains("pinned fingerprint") {
-                "The school server's certificate has changed. Ask the administrator for the new fingerprint and connect again.".to_string()
+            if e.to_string().contains("pinned fingerprint") {
+                return Upstream::Answered {
+                    status: StatusCode::BAD_GATEWAY,
+                    headers: HeaderMap::new(),
+                    body: Bytes::from(
+                        serde_json::json!({ "error": { "code": "server_unreachable", "message": "The school server's certificate has changed. Ask the administrator for the new fingerprint and connect again." } })
+                            .to_string(),
+                    ),
+                };
+            }
+            if e.is_connect() {
+                Upstream::NotSent(format!("The school server could not be reached: {e}"))
             } else {
-                format!("The school server could not be reached: {e}")
-            };
-            proxy_error(StatusCode::BAD_GATEWAY, &message)
+                Upstream::Lost(format!("The school server stopped answering: {e}"))
+            }
         }
     }
 }

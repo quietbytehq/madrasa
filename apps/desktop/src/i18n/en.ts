@@ -2655,6 +2655,94 @@ export const en = {
     "A backup was restored on {date}. At the next sync head office will be asked to set its copy aside and start afresh from this school's records. Nothing is sent before that.",
   "nexus.restored.done":
     "After a restore, head office set its old copy aside on {date} (kept as an archive) and started afresh from this school's records.",
+
+  "offline.queued":
+    "Saved on this PC. The school server cannot be reached; this change will be sent as soon as it is back ({count} waiting).",
+  "offline.queued.receipt":
+    "Saved on this PC with provisional receipt {number}. It gets its real number when the school server is back.",
+  "offline.badge.label": "Connection to the school server",
+  "offline.link.connected": "Connected",
+  "offline.link.reconnecting": "Reconnecting…",
+  "offline.link.offline": "Offline",
+  "offline.waiting": "{count} waiting",
+  "offline.signInAgain.short": "Sign in again",
+  "offline.signInAgain":
+    "Your sign-in ended while the server was away. Sign in again as the same person to send the waiting changes; they are never sent under someone else's name.",
+  "offline.hub.label": "Head office",
+  "offline.hub.inStep": "in step",
+  "offline.hub.pending": "{count} to send",
+  "offline.hub.attention": "{count} need attention",
+  "offline.hub.unreachable": "not reached",
+  "offline.hub.lastSync": "last sync {time}",
+  "offline.panel.title": "Connection and waiting changes",
+  "offline.explain.client.connected":
+    "The school server is answering. Changes are saved there straight away.",
+  "offline.explain.client.reconnecting":
+    "The school server stopped answering a moment ago. Keep working: changes are kept on this PC and sent when it answers.",
+  "offline.explain.client.offline":
+    "The school server cannot be reached. Keep working: screens show what they last showed, and changes are kept on this PC (encrypted) and sent in order as soon as it is back.",
+  "offline.explain.local.connected": "Madrasa is running on this PC.",
+  "offline.explain.local.reconnecting":
+    "Madrasa's service on this PC is not answering; it may be restarting. What you type is kept as a draft.",
+  "offline.explain.local.offline":
+    "Madrasa's service on this PC is not answering. Close and open Madrasa; what you typed is kept as a draft and offered back.",
+  "offline.waiting.title": "Changes waiting to be sent: {count}",
+  "offline.waiting.none": "Nothing is waiting.",
+  "offline.retry": "Try now",
+  "offline.dismiss": "Clear",
+  "offline.failed.title": "Not accepted by the server",
+  "offline.failed.explain":
+    "The server refused these changes when they arrived (for example, someone had already done the same). Check them and enter them again if still needed.",
+  "offline.overwritten.title": "Overwritten on arrival",
+  "offline.overwritten.explain":
+    "These were also changed on another PC while this one was offline. As in head office sync, the value saved on the server stands; yours is shown here so nothing is lost silently.",
+  "offline.overwritten.what": "What",
+  "offline.overwritten.yours": "Yours",
+  "offline.overwritten.kept": "Kept",
+  "offline.notices.title": "To check",
+  "offline.notice.overpaid":
+    "Receipt {receipt} (provisional {provisional}) was recorded, but voucher {voucher} had been paid meanwhile: it is overpaid by {amount}. Refund it or carry it forward.",
+  "offline.receipts.title": "Provisional receipts replaced",
+  "offline.receipts.replaced": "{provisional} is now {real}",
+  "offline.change.studentNew": "New student",
+  "offline.change.student": "Student record",
+  "offline.change.payment": "Fee payment",
+  "offline.change.fees": "Fees",
+  "offline.change.staffAttendance": "Staff attendance",
+  "offline.change.attendance": "Attendance",
+  "offline.change.marks": "Marks",
+  "offline.change.guardian": "Guardian",
+  "offline.change.staff": "Staff",
+  "offline.change.leave": "Leave",
+  "offline.change.admissions": "Admissions",
+  "offline.change.library": "Library",
+  "offline.change.other": "Change: {what}",
+  "offline.field.status": "Mark",
+  "offline.field.address": "Address",
+  "offline.field.name": "Name",
+  "offline.field.father": "Father's name",
+  "offline.field.phone": "Phone",
+  "offline.field.dob": "Date of birth",
+  "drafts.offer": "Unsaved changes from {time} were kept on this PC.",
+  "drafts.offer.titled": "Unsaved changes in “{title}” from {time} were kept on this PC.",
+  "drafts.restore": "Restore",
+  "drafts.discard": "Discard",
+  "drafts.title": "Drafts kept on this PC: {count}",
+  "drafts.none": "No drafts.",
+  "drafts.explain":
+    "Every form is saved as a draft as you type (encrypted, on this PC only, never passwords). Open the same form again to restore it.",
+  "fees.provisional.title": "Provisional receipt",
+  "fees.provisional.banner": "Provisional receipt — not yet confirmed by the school server",
+  "fees.provisional.pending":
+    "The school server has not received this payment yet. A real receipt number will replace this provisional one; either number finds it.",
+  "fees.provisional.replacedBy": "Confirmed by the school server: real receipt number {number}.",
+  "fees.provisional.notFound": "No provisional receipt with this number on this PC.",
+  "fees.provisional.replaces": "Replaces provisional receipt {number}.",
+  "parent.link.explain.connected": "The school network answers. What you see is up to date.",
+  "parent.link.explain.reconnecting":
+    "The school network stopped answering a moment ago. Trying again.",
+  "parent.link.explain.offline":
+    "No connection to the school network. You see what was last loaded; messages you write are kept as drafts on this phone.",
 } as const;
 
 export type TranslationKey = keyof typeof en;

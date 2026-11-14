@@ -1177,6 +1177,28 @@ async fn apply_payment_to_voucher(
     Ok(after)
 }
 
+/// A payment taken on a LAN client while the school server was out of reach, arriving when it
+/// came back (ADR 0009).
+#[derive(Debug, Clone)]
+pub struct OfflinePayment {
+    /// The number printed on the provisional receipt (`P-<device>-<n>`), kept on the real one.
+    pub provisional_no: String,
+}
+
+/// Is `s` a provisional receipt number as LAN clients make them: `P-`, four letters or digits
+/// naming the PC, `-`, then a number.
+pub fn is_provisional_no(s: &str) -> bool {
+    let mut parts = s.split('-');
+    matches!(
+        (parts.next(), parts.next(), parts.next(), parts.next()),
+        (Some("P"), Some(dev), Some(n), None)
+            if dev.len() == 4
+                && dev.chars().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit())
+                && (1..=9).contains(&n.len())
+                && n.chars().all(|c| c.is_ascii_digit())
+    )
+}
+
 /// Record a (possibly partial) payment. Assesses the late fee first if the voucher is overdue.
 /// Returns the receipt and the updated voucher.
 pub async fn record_payment(
@@ -1185,6 +1207,37 @@ pub async fn record_payment(
     actor: Actor,
     policy: &FeePolicy,
     p: NewPayment,
+) -> DbResult<(FeeReceipt, FeeVoucher)> {
+    record(conn, hlc, actor, policy, p, None).await
+}
+
+/// Record a payment that was taken offline. The money was received, so it is recorded even if
+/// the voucher was paid meanwhile from another PC: receipts are never refused or merged away
+/// (append-only, as in sync), and the voucher shows the overpayment for the accountant to
+/// refund or carry forward. A second arrival with the same provisional number is refused.
+pub async fn record_offline_payment(
+    conn: &mut PgConnection,
+    hlc: &Hlc,
+    actor: Actor,
+    policy: &FeePolicy,
+    p: NewPayment,
+    offline: OfflinePayment,
+) -> DbResult<(FeeReceipt, FeeVoucher)> {
+    if !is_provisional_no(&offline.provisional_no) {
+        return Err(DbError::Conflict(
+            "the provisional receipt number is not in the form P-XXXX-0001".into(),
+        ));
+    }
+    record(conn, hlc, actor, policy, p, Some(offline)).await
+}
+
+async fn record(
+    conn: &mut PgConnection,
+    hlc: &Hlc,
+    actor: Actor,
+    policy: &FeePolicy,
+    p: NewPayment,
+    offline: Option<OfflinePayment>,
 ) -> DbResult<(FeeReceipt, FeeVoucher)> {
     let amount = fees::money(p.amount);
     if amount <= Decimal::ZERO {
@@ -1200,7 +1253,7 @@ pub async fn record_payment(
         ));
     }
     let voucher = assess_late_fee(&mut *conn, hlc, actor, policy, voucher, p.paid_on).await?;
-    if amount > voucher.balance() {
+    if offline.is_none() && amount > voucher.balance() {
         return Err(DbError::Conflict(format!(
             "payment exceeds the outstanding balance of {}",
             voucher.balance()
@@ -1216,8 +1269,8 @@ pub async fn record_payment(
     let receipt_no = format!("R{}-{:06}", p.paid_on.year(), seq);
     let id = new_id();
     let receipt = sqlx::query_as::<_, FeeReceipt>(
-        "INSERT INTO fee_receipts (id, school_id, voucher_id, student_id, receipt_no, paid_on, amount, method, reference, note, received_by, hlc)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *",
+        "INSERT INTO fee_receipts (id, school_id, voucher_id, student_id, receipt_no, paid_on, amount, method, reference, note, received_by, hlc, provisional_no)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *",
     )
     .bind(id)
     .bind(voucher.school_id)
@@ -1231,6 +1284,7 @@ pub async fn record_payment(
     .bind(p.note.map(|r| r.trim().to_string()).filter(|r| !r.is_empty()))
     .bind(p.received_by)
     .bind(hlc.now().to_string())
+    .bind(offline.map(|o| o.provisional_no))
     .fetch_one(&mut *conn)
     .await?;
     audit::record(

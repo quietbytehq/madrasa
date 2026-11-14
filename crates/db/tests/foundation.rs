@@ -106,6 +106,7 @@ async fn migrations_apply_and_tables_follow_the_rules() {
             "hostel_register",
             "hostel_rooms",
             "hostels",
+            "idempotency_keys",
             "import_batch_rows",
             "import_batches",
             "inventory_assets",

@@ -136,7 +136,12 @@ async fn run_client(
         .clone()
         .ok_or_else(|| anyhow::anyhow!("no server fingerprint configured"))?;
     let bind: SocketAddr = "127.0.0.1:0".parse()?;
-    let (addr, fut) = lan::serve_proxy(bind, &upstream, &fingerprint, async {
+    // Changes made while the server is out of reach wait here (ADR 0009), one folder per
+    // server so a PC moved to another school never sends them to the wrong one.
+    let outbox = madrasa_api::bootstrap::default_data_dir()
+        .join("outbox")
+        .join(outbox_folder(&fingerprint));
+    let (addr, fut) = lan::serve_proxy(bind, &upstream, &fingerprint, Some(&outbox), async {
         let _ = shutdown_rx.await;
     })
     .await?;
@@ -152,6 +157,16 @@ async fn run_client(
     let _ = status.send(Status::Ready(url));
     fut.await?;
     Ok(())
+}
+
+/// The outbox folder for a server: its certificate fingerprint, letters and digits only.
+fn outbox_folder(fingerprint: &str) -> String {
+    fingerprint
+        .chars()
+        .filter(char::is_ascii_alphanumeric)
+        .take(32)
+        .collect::<String>()
+        .to_ascii_lowercase()
 }
 
 /// The bundled PostgreSQL refuses to run as root, so say so plainly instead of failing later
@@ -300,5 +315,16 @@ mod tests {
         assert_eq!(root_check(Some(1000)), Ok(()));
         assert_eq!(root_check(None), Ok(()), "Windows: no uid");
         assert_eq!(friendly(&anyhow::Error::msg(ROOT_MESSAGE)), ROOT_MESSAGE);
+    }
+
+    #[test]
+    fn each_server_has_its_own_outbox_folder() {
+        let a = outbox_folder("AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD");
+        assert_eq!(a, "abcdef0123456789abcdef0123456789");
+        assert_ne!(
+            a,
+            outbox_folder("AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:88:AB:CD")
+        );
+        assert!(!outbox_folder("../../etc:passwd").contains('/'));
     }
 }

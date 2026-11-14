@@ -4,6 +4,7 @@ import { I18nProvider } from "@/i18n";
 import type { Locale } from "@/i18n";
 import { ThemeProvider } from "@/theme";
 import { SessionProvider, useSession } from "./session";
+import { FormDrafts } from "@/components/drafts/FormDrafts";
 import { AttendanceScreen } from "./screens/Attendance";
 import { ChildLayout, OverviewScreen } from "./screens/Child";
 import { Children } from "./screens/Children";
@@ -55,9 +56,16 @@ export function ParentApp({ initialLocale }: { initialLocale?: Locale }) {
         <ToastProvider>
           <SessionProvider>
             <AppRoutes />
+            <Drafts />
           </SessionProvider>
         </ToastProvider>
       </I18nProvider>
     </ThemeProvider>
   );
+}
+
+/** Autosave of every form, kept encrypted on the phone for the signed-in parent (ADR 0009). */
+function Drafts() {
+  const { signedIn, phone } = useSession();
+  return <FormDrafts user={signedIn && phone ? `parent:${phone}` : null} />;
 }

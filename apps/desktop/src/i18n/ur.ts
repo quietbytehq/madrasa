@@ -2631,4 +2631,93 @@ export const ur: Translation = {
     "{date} کو ایک بیک اپ بحال کیا گیا۔ اگلی ہم آہنگی پر ہیڈ آفس سے کہا جائے گا کہ اپنی کاپی الگ کر کے اس اسکول کے ریکارڈ سے نئے سرے سے شروع کرے۔ اس سے پہلے کچھ نہیں بھیجا جاتا۔",
   "nexus.restored.done":
     "بحالی کے بعد ہیڈ آفس نے {date} کو اپنی پرانی کاپی الگ کر کے محفوظ کر لی (آرکائیو) اور اس اسکول کے ریکارڈ سے نئے سرے سے شروع کیا۔",
+
+  "offline.queued":
+    "اس کمپیوٹر پر محفوظ ہو گیا۔ اسکول سرور سے رابطہ نہیں ہو رہا؛ یہ تبدیلی سرور واپس آتے ہی بھیج دی جائے گی ({count} منتظر)۔",
+  "offline.queued.receipt":
+    "عارضی رسید {number} کے ساتھ اس کمپیوٹر پر محفوظ ہو گیا۔ اسکول سرور واپس آنے پر اسے اصل نمبر مل جائے گا۔",
+  "offline.badge.label": "اسکول سرور سے رابطہ",
+  "offline.link.connected": "منسلک",
+  "offline.link.reconnecting": "دوبارہ رابطہ ہو رہا ہے…",
+  "offline.link.offline": "آف لائن",
+  "offline.waiting": "{count} منتظر",
+  "offline.signInAgain.short": "دوبارہ لاگ اِن کریں",
+  "offline.signInAgain":
+    "سرور کی غیر موجودگی میں آپ کا لاگ اِن ختم ہو گیا۔ منتظر تبدیلیاں بھیجنے کے لیے اسی نام سے دوبارہ لاگ اِن کریں؛ یہ کبھی کسی اور کے نام سے نہیں بھیجی جاتیں۔",
+  "offline.hub.label": "ہیڈ آفس",
+  "offline.hub.inStep": "ہم آہنگ",
+  "offline.hub.pending": "{count} بھیجنا باقی",
+  "offline.hub.attention": "{count} توجہ طلب",
+  "offline.hub.unreachable": "رابطہ نہیں ہوا",
+  "offline.hub.lastSync": "آخری ہم آہنگی {time}",
+  "offline.panel.title": "رابطہ اور منتظر تبدیلیاں",
+  "offline.explain.client.connected":
+    "اسکول سرور جواب دے رہا ہے۔ تبدیلیاں فوراً وہیں محفوظ ہوتی ہیں۔",
+  "offline.explain.client.reconnecting":
+    "اسکول سرور نے ابھی جواب دینا بند کیا ہے۔ کام جاری رکھیں: تبدیلیاں اس کمپیوٹر پر رکھی جاتی ہیں اور جواب ملتے ہی بھیج دی جاتی ہیں۔",
+  "offline.explain.client.offline":
+    "اسکول سرور تک رسائی نہیں ہو رہی۔ کام جاری رکھیں: اسکرینیں وہی دکھاتی ہیں جو آخری بار دکھایا تھا، اور تبدیلیاں اس کمپیوٹر پر (خفیہ کر کے) رکھی جاتی ہیں اور سرور واپس آتے ہی ترتیب سے بھیج دی جاتی ہیں۔",
+  "offline.explain.local.connected": "مدرسہ اسی کمپیوٹر پر چل رہا ہے۔",
+  "offline.explain.local.reconnecting":
+    "اس کمپیوٹر پر مدرسہ کی سروس جواب نہیں دے رہی؛ ممکن ہے دوبارہ شروع ہو رہی ہو۔ جو آپ لکھتے ہیں وہ مسودے کے طور پر محفوظ رہتا ہے۔",
+  "offline.explain.local.offline":
+    "اس کمپیوٹر پر مدرسہ کی سروس جواب نہیں دے رہی۔ مدرسہ بند کر کے دوبارہ کھولیں؛ جو آپ نے لکھا تھا وہ مسودے کے طور پر محفوظ ہے اور واپس پیش کیا جائے گا۔",
+  "offline.waiting.title": "بھیجنے کی منتظر تبدیلیاں: {count}",
+  "offline.waiting.none": "کچھ بھی منتظر نہیں۔",
+  "offline.retry": "ابھی کوشش کریں",
+  "offline.dismiss": "صاف کریں",
+  "offline.failed.title": "سرور نے قبول نہیں کیں",
+  "offline.failed.explain":
+    "یہ تبدیلیاں پہنچنے پر سرور نے رد کر دیں (مثلاً کسی نے پہلے ہی یہی کام کر دیا تھا)۔ انہیں دیکھیں اور ضرورت ہو تو دوبارہ درج کریں۔",
+  "offline.overwritten.title": "پہنچنے پر بدل دی گئیں",
+  "offline.overwritten.explain":
+    "یہ چیزیں اس وقت دوسرے کمپیوٹر پر بھی بدلی گئیں جب یہ کمپیوٹر آف لائن تھا۔ ہیڈ آفس کی ہم آہنگی کی طرح سرور پر محفوظ قدر برقرار رہتی ہے؛ آپ کی قدر یہاں دکھائی گئی ہے تاکہ کچھ خاموشی سے ضائع نہ ہو۔",
+  "offline.overwritten.what": "کیا",
+  "offline.overwritten.yours": "آپ کی",
+  "offline.overwritten.kept": "برقرار",
+  "offline.notices.title": "جانچ لیں",
+  "offline.notice.overpaid":
+    "رسید {receipt} (عارضی {provisional}) درج ہو گئی، لیکن واؤچر {voucher} اس دوران ادا ہو چکا تھا: اس پر {amount} زائد ادا ہوئے ہیں۔ واپس کریں یا آگے منتقل کریں۔",
+  "offline.receipts.title": "عارضی رسیدیں جن کے اصل نمبر آ گئے",
+  "offline.receipts.replaced": "{provisional} اب {real} ہے",
+  "offline.change.studentNew": "نیا طالب علم",
+  "offline.change.student": "طالب علم کا ریکارڈ",
+  "offline.change.payment": "فیس کی ادائیگی",
+  "offline.change.fees": "فیس",
+  "offline.change.staffAttendance": "عملے کی حاضری",
+  "offline.change.attendance": "حاضری",
+  "offline.change.marks": "نمبر",
+  "offline.change.guardian": "سرپرست",
+  "offline.change.staff": "عملہ",
+  "offline.change.leave": "رخصت",
+  "offline.change.admissions": "داخلے",
+  "offline.change.library": "لائبریری",
+  "offline.change.other": "تبدیلی: {what}",
+  "offline.field.status": "حاضری",
+  "offline.field.address": "پتہ",
+  "offline.field.name": "نام",
+  "offline.field.father": "والد کا نام",
+  "offline.field.phone": "فون",
+  "offline.field.dob": "تاریخ پیدائش",
+  "drafts.offer": "{time} کی غیر محفوظ تبدیلیاں اس کمپیوٹر پر رکھی گئی ہیں۔",
+  "drafts.offer.titled": "“{title}” میں {time} کی غیر محفوظ تبدیلیاں اس کمپیوٹر پر رکھی گئی ہیں۔",
+  "drafts.restore": "بحال کریں",
+  "drafts.discard": "ختم کریں",
+  "drafts.title": "اس کمپیوٹر پر رکھے گئے مسودے: {count}",
+  "drafts.none": "کوئی مسودہ نہیں۔",
+  "drafts.explain":
+    "ہر فارم لکھتے وقت مسودے کے طور پر محفوظ ہوتا ہے (خفیہ کر کے، صرف اسی کمپیوٹر پر، پاس ورڈ کبھی نہیں)۔ بحال کرنے کے لیے وہی فارم دوبارہ کھولیں۔",
+  "fees.provisional.title": "عارضی رسید",
+  "fees.provisional.banner": "عارضی رسید — اسکول سرور نے ابھی تصدیق نہیں کی",
+  "fees.provisional.pending":
+    "اسکول سرور کو یہ ادائیگی ابھی نہیں ملی۔ اس عارضی نمبر کی جگہ اصل رسید نمبر آ جائے گا؛ دونوں میں سے کسی بھی نمبر سے یہ مل جائے گی۔",
+  "fees.provisional.replacedBy": "اسکول سرور نے تصدیق کر دی: اصل رسید نمبر {number}۔",
+  "fees.provisional.notFound": "اس کمپیوٹر پر اس نمبر کی کوئی عارضی رسید نہیں۔",
+  "fees.provisional.replaces": "عارضی رسید {number} کی جگہ۔",
+  "parent.link.explain.connected":
+    "اسکول نیٹ ورک جواب دے رہا ہے۔ جو آپ دیکھ رہے ہیں وہ تازہ ترین ہے۔",
+  "parent.link.explain.reconnecting":
+    "اسکول نیٹ ورک نے ابھی جواب دینا بند کیا ہے۔ دوبارہ کوشش ہو رہی ہے۔",
+  "parent.link.explain.offline":
+    "اسکول نیٹ ورک سے رابطہ نہیں۔ آپ وہی دیکھ رہے ہیں جو آخری بار لوڈ ہوا تھا؛ آپ کے لکھے پیغامات اس فون پر مسودے کے طور پر محفوظ رہتے ہیں۔",
 };

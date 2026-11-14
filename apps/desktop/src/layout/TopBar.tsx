@@ -21,6 +21,7 @@ import type { ThemePreference } from "@/theme";
 import { useSession } from "@/app/session";
 import { useFeatures } from "@/app/features";
 import { Menu, MenuItem, MenuSection } from "./Menu";
+import { ConnectionBadge } from "@/components/connection/ConnectionBadge";
 
 const iconButton =
   "flex h-8 w-8 items-center justify-center rounded text-muted hover:bg-hover hover:text-text aria-expanded:bg-hover";
@@ -71,6 +72,8 @@ export function TopBar() {
       )}
 
       <div className="flex-1" />
+
+      <ConnectionBadge />
 
       <Menu
         label={t("topbar.notifications")}

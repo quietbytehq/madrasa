@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { AlertTriangle, CheckCircle2, Info, X, XCircle } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useI18n } from "@/i18n";
+import { lastQueuedMessage } from "@/api/client";
 
 export type ToastKind = "info" | "success" | "warning" | "error";
 
@@ -43,6 +44,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     (input: ToastInput) => {
       const id = nextId.current++;
       const toast: Toast = { kind: "info", ...input, id };
+      // A change kept on this PC while the server is away reaches the page as an error (it
+      // did not get the server's answer); it is information, not a failure (ADR 0009).
+      if (toast.kind === "error" && toast.title && toast.title === lastQueuedMessage())
+        toast.kind = "info";
       setToasts((list) => [...list, toast]);
       const duration = input.duration ?? 5000;
       if (duration > 0)

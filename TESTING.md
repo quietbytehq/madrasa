@@ -579,7 +579,41 @@ see), paying fees in the app, report cards as PDF, attachments, and an iPhone ve
     machine, where Madrasa was never installed): `sudo apt install ./Madrasa_0.4.3_amd64.deb`
     installs WebKitGTK and the rest by itself.
 
-## 10. Report a problem
+## 10. Working offline
+
+You need the school server and one client PC (section 6). Unplug the server's network cable
+(or switch off its Wi-Fi) to "lose" it; plug it back in to reconnect.
+
+66. **The badge.** On the client, the top bar shows **Connected**. Unplug the server: within a
+    few seconds it shows **Reconnecting…**, and after 15 seconds **Offline**. Plug it back:
+    **Connected**.
+67. **Keep working.** With the server unplugged, open screens you had open before (a student,
+    the voucher list): they still show. Admit a new student, edit another, mark attendance
+    for a class. Each save says "Saved on this PC" and the badge counts **3 waiting**. Press
+    Save twice on one of them: still 3.
+68. **Restart.** Still unplugged, close Madrasa on the client and open it again (or restart
+    the PC). The badge still shows 3 waiting. Plug the server back: within seconds the badge
+    shows Connected with nothing waiting. On the server, check: the new student is there
+    once, the edit is there, the attendance is there.
+69. **A provisional receipt.** Unplug the server and record a fee payment on the client. A
+    receipt numbered `P-…` opens at once, marked "Provisional receipt — not yet confirmed".
+    Print it. Plug the server back. The badge's panel says which real receipt number replaced
+    it; the real receipt (Fees → the voucher) says "Replaces provisional receipt P-…".
+70. **Two PCs, one record.** Unplug the client PC this time (not the server). On the client,
+    change a student's address; on the server PC, change the same student's address to
+    something else and their father's name. Plug the client back. The server's address
+    stands, the father's name too, and the client's badge panel lists your address under
+    "Overwritten on arrival".
+71. **Drafts.** Start a new admission on any PC, type a few fields, then close Madrasa
+    without saving (or end it in Task Manager). Open Madrasa and the same form: it offers
+    **Restore**, and restores what you typed.
+72. **Parent app.** With the phone's network off, the badge at the top says Offline, and the
+    last loaded screens still show.
+
+**Not tested by us:** a real cable pulled out of a real school network; our tests stop and
+start the server program on the same PC.
+
+## 11. Report a problem
 
 Please report anything, including small things, at
 <https://github.com/quietbytehq/madrasa/issues/new>. If you do not have a GitHub account,
