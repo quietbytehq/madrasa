@@ -206,8 +206,15 @@ scene("attendance", ["att-mark", "att-submitted", "att-absentees", "att-register
   await click($.button("attendance.mark.submit"));
   await settle(page, 700);
   await s.snap(page, "att-submitted");
+  // The absentees of the day just marked (not today's, which may be a weekend), once the
+  // "saved" message has gone.
+  await settle(page, 4500);
+  await click($.tab("attendance.tabs.absentees"));
+  await settle(page, 700);
+  await page.getByLabel(s.L("attendance.date"), { exact: true }).fill(lastMonday()).catch(() => {});
+  await settle(page, 900);
+  await s.snap(page, "att-absentees");
   for (const [tab, id] of [
-    ["attendance.tabs.absentees", "att-absentees"],
     ["attendance.tabs.register", "att-register"],
     ["attendance.tabs.staff", "att-staff"],
     ["attendance.tabs.calendar", "att-calendar"],
@@ -382,6 +389,22 @@ scene("timetable", ["tt-setup", "tt-lessons", "tt-generate", "tt-view", "tt-subs
   await settle(page, 800);
   await page.locator('input[type="date"]').first().fill(lastMonday());
   await settle(page, 900);
+  // Record a teacher's absence for that day: the first teacher who has lessons on it, so the
+  // screen shows sessions needing cover with their suggestions.
+  page.on("dialog", (d) => d.accept());
+  const nothing = page.getByText(s.L("tt.subs.needs.empty"), { exact: true });
+  for (let i = 0; i < 10; i++) {
+    await click($.button("tt.subs.absence.add"));
+    const teacher = $.dialog().getByLabel(s.L("tt.subs.absence.teacher"), { exact: true });
+    const options = await teacher.locator("option").evaluateAll((o) => o.map((x) => x.value));
+    if (i >= options.length) break;
+    await teacher.selectOption(options[i]);
+    await click($.dialog().getByRole("button", { name: s.L("action.save"), exact: true }));
+    await settle(page, 1200);
+    if (!(await nothing.isVisible())) break;
+    await click($.button("tt.subs.absence.delete"));
+    await settle(page, 900);
+  }
   await s.snap(page, "tt-subs");
   await page.context().close();
 });
@@ -645,9 +668,18 @@ scene("parent app at the school", ["pa-access", "pa-give", "pa-slip", "pa-notice
   const principal = await s.desktop({ user: await s.userWithRole("principal"), route: "/parent-app" });
   await click(by(s, principal).tab("pa.tab.messages"));
   await settle(principal, 900);
+  // Open the first conversation, so the screen shows the messages and not an empty pane.
+  await click(principal.locator('[data-testid^="conversation-"]').first());
+  await settle(principal, 900);
   await s.snap(principal, "pa-messages");
   await principal.context().close();
 });
+
+// What the demo parent writes to the class teacher, in the book's language.
+const PARENT_MESSAGE = {
+  en: "Danish was unwell on Monday and stayed at home. He is better now.",
+  ur: "دانش پیر کو بیمار تھا اور گھر پر رہا۔ اب وہ ٹھیک ہے۔",
+};
 
 scene("parent app on the phone", ["parent-welcome", "parent-code", "parent-login", "parent-children", "parent-overview", "parent-attendance", "parent-results", "parent-fees", "parent-notices", "parent-messages"], async (s) => {
   let page = await s.parent({ signedIn: false, route: "/welcome" });
@@ -679,6 +711,17 @@ scene("parent app on the phone", ["parent-welcome", "parent-code", "parent-login
   ]) {
     await page.goto(`${URLS.parent}/${child}${tab}`);
     await settle(page, 1000);
+    if (id === "parent-attendance") {
+      // Last month: a whole month of marks, not the first days of this one.
+      await click(page.getByRole("button", { name: s.L("parent.attendance.previous"), exact: true }));
+      await settle(page, 800);
+    }
+    if (id === "parent-messages") {
+      // A parent writing to the class teacher.
+      await page.getByTestId("message-text").fill(PARENT_MESSAGE[s.lang]);
+      await click(page.getByTestId("send"));
+      await settle(page, 1200);
+    }
     await s.snap(page, id);
   }
   await page.context().close();

@@ -103,9 +103,10 @@
   line(length: 100%, stroke: 1.2pt + gold)
   v(0.2cm)
 }
-#show heading.where(level: 2): it => block(above: 1.3em, below: 0.7em, breakable: false)[
+// Nastaliq is tall: Urdu headings get more room above and below.
+#show heading.where(level: 2): it => block(above: if ur { 2em } else { 1.3em }, below: 0.7em, breakable: false)[
   #text(size: 13.5pt, weight: "bold", fill: navy)[#counter(heading).display() #h(0.25em) #it.body]
-  #v(-0.45em)
+  #v(if ur { -0.1em } else { -0.45em })
   #line(length: 100%, stroke: 0.6pt + blue.lighten(60%))
 ]
 #show heading.where(level: 3): set text(size: 11pt, fill: blue)
