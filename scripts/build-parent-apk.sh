@@ -28,10 +28,9 @@ if [ ! -d "$android" ]; then
   pnpm --dir "$app" tauri android init --ci
 fi
 
-# `init` gives the app Tauri's own launcher icon; replace it with Madrasa's. The command
-# also rewrites the desktop icon files from the same picture, which is not wanted here.
-pnpm --dir "$app" tauri icon src-tauri/icons/icon.png
-git checkout --quiet -- "$app/src-tauri/icons" 2>/dev/null || true
+# `init` gives the app Tauri's own launcher icon; replace it with Madrasa's, generated
+# from assets/brand/madrasa-icon.svg by assets/brand/generate-icons.sh.
+cp -r "$app/src-tauri/icons/android/." "$android/app/src/main/res/"
 
 # Phones: 64-bit and 32-bit ARM, in one package.
 pnpm --dir "$app" tauri android build --apk --target aarch64 --target armv7

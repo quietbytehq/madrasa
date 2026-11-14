@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { getMode } from "@/app/mode";
 import { setBaseUrl } from "@/api/client";
-import { Spinner } from "@/components/ui/Spinner";
+import { BrandSplash } from "@/components/brand/Brand";
 import { ModePage } from "@/pages/ModePage";
 
 /**
@@ -21,11 +21,7 @@ export function ModeGate({ children }: { children: ReactNode }) {
     };
   }, []);
   if (state === "loading") {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Spinner size="lg" />
-      </div>
-    );
+    return <BrandSplash />;
   }
   if (state === "ask") {
     return (

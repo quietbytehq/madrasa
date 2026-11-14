@@ -1684,6 +1684,38 @@ depend on each other and were built together)
   copy and stays in the archive. Rows that belong to no school (instance-wide settings in the
   audit log) are never sent to a hub, by design, and the test counts the school's rows.
 
+## Brand identity
+
+The brand sheet (`assets/brand/Madrasa_Brand_Identity_Showcase.png`) applied across the
+product, without layout or feature changes (ADR 0008, spec §8.1).
+
+- **Source files.** `assets/brand/tools/build_svg.py` draws the emblem and outlines the
+  wordmark: `madrasa-icon.svg` (the app icon, source of every icon size), `madrasa-mark.svg`
+  (the emblem), `madrasa-logo(-dark).svg` and `madrasa-logo-vertical(-dark).svg`.
+- **Icons.** `assets/brand/generate-icons.sh` writes the desktop icon sets of both apps
+  (Windows `.ico`, Linux PNGs, `.icns`, Store logos) and the parent app's Android launcher
+  icons (legacy, round, adaptive; every density) from `madrasa-icon.svg`.
+  `scripts/build-parent-apk.sh` copies the Android ones into the generated project.
+- **Tokens.** Navy `#0B2557`, blue `#0757BA`, a new `gold` (`#F5B13B`), re-tinted selection,
+  text and border; a dark palette in the brand's night blue. `font-display` (Merriweather
+  Black, bundled) for the product name. One set for the desktop app, the parent app and the
+  Nexus console.
+- **Logo in the product.** The emblem replaces the "M" square at the same size in the sidebar
+  header, desktop login and first-run screens, the console's header, login and setup, and the
+  parent app. The startup screen shows the vertical logo (static HTML first, then the app's
+  own while it starts). Vouchers, report cards and offer letters (server PDFs) and the voucher,
+  receipt and report card print views carry the emblem. README has the logo as its header.
+
+**Tested:** `cargo fmt`, clippy (`-D warnings`) on the API, the PDF unit tests (the emblem is
+embedded; no other file can be read by the typesetter) and the API tests that produce PDFs
+(fees, exams, admissions, alpha2, reports, international, polish); desktop 229 and parent 37
+vitest tests (two new for the brand components), lint, format and type checks, the desktop,
+console and parent builds. Every main screen of the three apps photographed before and after
+with Playwright in light and dark against the demo school and demo network (in the PR).
+
+**Not tested here:** the Windows installer and the APK on a phone with the new icons (CI builds
+both); how launchers other than a circle mask crop the adaptive icon.
+
 ## Summary for the owner — Parent app alpha
 
 The parent app alpha was built as one design pull request and seven stage pull requests,

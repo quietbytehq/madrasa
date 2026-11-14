@@ -1,4 +1,5 @@
 import { ChevronsLeft, ChevronsRight } from "lucide-react";
+import { BrandMark } from "@/components/brand/Brand";
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/cn";
 import { useI18n } from "@/i18n";
@@ -38,15 +39,12 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           collapsed && "justify-center px-0",
         )}
       >
-        <div
-          aria-hidden
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-navy text-xs font-bold text-white"
-        >
-          M
-        </div>
+        <BrandMark className="h-7 w-7" />
         {!collapsed && (
           <div className="min-w-0 leading-tight">
-            <div className="truncate text-sm font-semibold text-navy">{t("app.name")}</div>
+            <div className="truncate font-display text-sm font-black text-navy">
+              {t("app.name")}
+            </div>
             <div className="truncate text-2xs uppercase tracking-wide text-muted">
               {t(`edition.${edition}`)}
             </div>

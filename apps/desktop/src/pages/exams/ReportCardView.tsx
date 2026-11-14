@@ -2,6 +2,7 @@ import type { ReportCard } from "@/api/types";
 import type { TFunction } from "@/i18n";
 import { cn } from "@/lib/cn";
 import { num, pct } from "./common";
+import { BrandMark } from "@/components/brand/Brand";
 
 /** Default report card design, used on screen and in print (one card per page). */
 export function ReportCardView({
@@ -37,7 +38,8 @@ export function ReportCardView({
       )}
       data-testid="report-card"
     >
-      <header className="mb-3 border-b border-border pb-2 text-center">
+      <header className="relative mb-3 border-b border-border pb-2 text-center">
+        <BrandMark className="absolute start-0 top-0 h-11 w-11" />
         <div className="text-lg font-bold text-navy">{card.school.name}</div>
         <div className="text-xs text-muted">
           {card.school.city} · {card.school.code}

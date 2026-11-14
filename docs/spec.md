@@ -1634,25 +1634,35 @@ confirm when there are several.
 ### 8.1 Theme (v1)
 
 Light, compact, information-dense. No hero banners. Tokens are CSS variables (light and dark)
-exposed through Tailwind:
+exposed through Tailwind (`apps/desktop/src/styles/tokens.css`, `tailwind.config.ts`; the
+parent app and the Nexus console use the same ones). Colours follow the brand
+(`assets/brand`, ADR 0008): night-blue navy, royal blue and the emblem's gold.
 
-| Token | Light |
-| --- | --- |
-| `--bg` | `#F7F9FC` |
-| `--card` | `#FFFFFF` |
-| `--navy` | `#142F50` |
-| `--blue` | `#2864C5` |
-| `--selection` | `#E8F1FF` |
-| `--success` / `--success-bg` | `#19835A` / `#DDF3E8` |
-| `--warning` / `--warning-bg` | `#D99A27` / `#FFF0D5` |
-| `--lavender` | `#E8E1FA` |
-| `--text` | `#172B4D` |
-| `--muted` | `#64748B` |
-| `--border` | `#DFE7F1` |
+| Token | Light | Dark |
+| --- | --- | --- |
+| `--bg` | `#F7F9FC` | `#0A1428` |
+| `--card` | `#FFFFFF` | `#111D35` |
+| `--navy` | `#0B2557` | `#CFDBF0` (navy as text on dark) |
+| `--blue` | `#0757BA` | `#5B9BF0` |
+| `--gold` / `--gold-bg` | `#F5B13B` / `#FFF4DC` | `#F7BE55` / `#3A2E12` |
+| `--selection` | `#E6EFFC` | `#1A3260` |
+| `--success` / `--success-bg` | `#19835A` / `#DDF3E8` | `#48BE88` / `#14382A` |
+| `--warning` / `--warning-bg` | `#D99A27` / `#FFF0D5` | `#EAB448` / `#403014` |
+| `--lavender` | `#E8E1FA` | `#383060` |
+| `--text` | `#15264A` | `#E3EAF6` |
+| `--muted` | `#64748B` | `#94A3BD` |
+| `--border` | `#DEE6F2` | `#24365A` |
 
-Font: Inter (Latin), Noto Nastaliq Urdu (Urdu), both bundled. Thin borders, subtle shadows,
-restrained radii. Dark mode via the same tokens (follow OS, user override). Printouts are
-always light.
+Fonts: Inter (Latin), Noto Nastaliq Urdu (Urdu), both bundled; `font-display` is the
+wordmark's serif (Merriweather Black, bundled), used only for the product name. Thin borders,
+subtle shadows, restrained radii. Dark mode via the same tokens (follow OS, user override).
+Printouts are always light.
+
+Brand (`assets/brand`): the emblem (`madrasa-mark.svg`) stands where the product is named:
+the sidebar header, login and first-run screens, the startup screen (`madrasa-logo-vertical`),
+the Nexus console, the parent app, and the header of printed vouchers, receipts, report cards
+and offer letters. Every app icon (Windows, Linux, Android) is generated from
+`madrasa-icon.svg` by `assets/brand/generate-icons.sh`.
 
 ### 8.2 Layout
 
@@ -2445,7 +2455,9 @@ only to development builds (`devCsp`), so that live reload works.
 ### 17.6 The Android package (stage 6)
 
 - `scripts/build-parent-apk.sh` generates the Android project (`tauri android init`; it is
-  not kept in the repository), gives it Madrasa's launcher icon and builds one package
+  not kept in the repository), copies in Madrasa's launcher icons (legacy, round and adaptive,
+  in `apps/parent/src-tauri/icons/android`, generated from `assets/brand/madrasa-icon.svg`)
+  and builds one package
   (APK) for 64-bit and 32-bit ARM phones, Android 7.0 (API 24) or newer.
   `scripts/sign-apk.sh` aligns and signs it and writes `SIGNING.txt`, which names the file,
   the kind of key and the certificate's SHA-256.
