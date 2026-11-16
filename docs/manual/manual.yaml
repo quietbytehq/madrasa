@@ -325,7 +325,7 @@ parts:
         tasks:
           - title: {en: "Check and make backups", ur: "بیک اپ دیکھیں اور بنائیں"}
             steps:
-              - text: {en: "*Backup* shows the last backup, the time of the nightly backup and the folder (a USB drive or a network folder is better than the same disk). *Back up now* makes one immediately. The dashboard warns when the last backup is older than two days.", ur: "*بیک اپ* آخری بیک اپ، رات کے بیک اپ کا وقت اور فولڈر دکھاتا ہے (یو ایس بی ڈرائیو یا نیٹ ورک فولڈر اسی ڈسک سے بہتر ہے)۔ *ابھی بیک اپ لیں* سے فوراً بیک اپ بنتا ہے۔ آخری بیک اپ دو دن سے پرانا ہو تو ڈیش بورڈ خبردار کرتا ہے۔"}
+              - text: {en: "*Backup* shows the last backup, the time of the nightly backup and the folder (a USB drive or a network folder is better than the same disk). *Back up now* makes one immediately. The dashboard warns when the last backup is older than two days; on a new install with no backup yet it says *No backup yet — run one now*.", ur: "*بیک اپ* آخری بیک اپ، رات کے بیک اپ کا وقت اور فولڈر دکھاتا ہے (یو ایس بی ڈرائیو یا نیٹ ورک فولڈر اسی ڈسک سے بہتر ہے)۔ *ابھی بیک اپ لیں* سے فوراً بیک اپ بنتا ہے۔ آخری بیک اپ دو دن سے پرانا ہو تو ڈیش بورڈ خبردار کرتا ہے؛ نئی تنصیب پر جس کا ابھی کوئی بیک اپ نہیں وہ *ابھی کوئی بیک اپ نہیں — ابھی ایک بیک اپ لیں* کہتا ہے۔"}
                 shot: backup-page
           - title: {en: "Restore a backup", ur: "بیک اپ بحال کریں"}
             steps:

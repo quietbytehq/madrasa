@@ -11,7 +11,11 @@ import { useToast } from "@/components/ui/Toast";
 import { useI18n } from "@/i18n";
 import { formatMoney, monthLabel } from "@/lib/money";
 import { useMoney } from "@/lib/useMoney";
-import { balanceAfterWaiting, useWaitingPayments } from "@/lib/waitingPayments";
+import {
+  balanceAfterWaiting,
+  useReloadWhenPaymentsArrive,
+  useWaitingPayments,
+} from "@/lib/waitingPayments";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 import { methodLabel } from "./common";
 import { BrandMark } from "@/components/brand/Brand";
@@ -62,6 +66,7 @@ export function VoucherPrintPage() {
   const { id = "" } = useParams();
   const { t, locale } = useI18n();
   const v = useAsync(() => api.voucher(id), [id]);
+  useReloadWhenPaymentsArrive(v.reload);
   if (v.loading && !v.data)
     return (
       <div className="flex justify-center py-10">

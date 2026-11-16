@@ -14,6 +14,7 @@ import { ProvisionalReceiptPage } from "@/pages/fees/PrintPages";
 import { PayDialog } from "@/pages/fees/PayDialog";
 import { useToast } from "@/components/ui/Toast";
 import { describeChange } from "@/lib/connection";
+import { useWaitingPayments } from "@/lib/waitingPayments";
 import { translate } from "@/i18n";
 
 const user: UserSummary = {
@@ -183,6 +184,50 @@ describe("connection", () => {
       expect(screen.getByTestId("connection-link")).toHaveTextContent("Reconnecting"),
     );
     expect(screen.queryByTestId("connection-waiting")).toBeNull();
+  });
+
+  // B4 (v0.5.0 test): the screen asked every five seconds, on top of the proxy's own delay.
+  it("on a LAN client asks this PC every second, and leaves the screen alone while nothing changed", async () => {
+    let status: OutboxStatus = { ...offlineStatus, link: "connected", waiting: 0, items: [] };
+    let asked = 0;
+    mockFetch((url) => {
+      if (!url.endsWith("/__madrasa/outbox/status")) return json(404, {});
+      asked += 1;
+      // The time of the last answer moves with every heartbeat.
+      return json(200, {
+        ...status,
+        last_contact: new Date(1_800_000_000_000 + asked).toISOString(),
+      });
+    });
+    let draws = 0;
+    function Watcher() {
+      useWaitingPayments();
+      draws += 1;
+      return null;
+    }
+    renderWithProviders(
+      withSession(
+        <ConnectionProvider>
+          <ConnectionBadge />
+          <Watcher />
+        </ConnectionProvider>,
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("connection-link")).toHaveTextContent("Connected"),
+    );
+    const before = draws;
+    // Three more looks, no timer of ours, no event: only the one-second pace.
+    await waitFor(() => expect(asked).toBeGreaterThanOrEqual(4), { timeout: 4500 });
+    expect(draws).toBe(before);
+    // The proxy noticed the pulled cable: on the screen within the next second.
+    status = { ...status, link: "reconnecting" };
+    const at = Date.now();
+    await waitFor(
+      () => expect(screen.getByTestId("connection-link")).toHaveTextContent("Reconnecting"),
+      { timeout: 2500 },
+    );
+    expect(Date.now() - at).toBeLessThan(1500);
   });
 
   it("names waiting changes in Urdu too", () => {

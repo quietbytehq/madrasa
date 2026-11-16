@@ -584,13 +584,18 @@ see), paying fees in the app, report cards as PDF, attachments, and an iPhone ve
 You need the school server and one client PC (section 6). Unplug the server's network cable
 (or switch off its Wi-Fi) to "lose" it; plug it back in to reconnect.
 
-66. **The badge.** On the client, the top bar shows **Connected**. Unplug the server: within a
-    few seconds it shows **Reconnecting…**, and after 15 seconds **Offline**. Plug it back:
-    **Connected**.
-67. **Keep working.** With the server unplugged, open screens you had open before (a student,
-    the voucher list): they still show. Admit a new student, edit another, mark attendance
-    for a class. Each save says "Saved on this PC" and the badge counts **3 waiting**. Press
-    Save twice on one of them: still 3.
+66. **The badge.** On the client, the top bar shows **Connected**. Unplug the server: within
+    about 5 seconds it shows **Reconnecting…**, and about 15 seconds after the cable came out
+    **Offline**. Plug it back: **Connected** within a few seconds.
+67. **Keep working.** With the server unplugged and the badge at Offline, open screens you had
+    open before (a student, the voucher list): they show at once, without a wait. Then make
+    exactly three changes: admit a new student (Students → Add student, fill the form, Save),
+    edit another student's address (open the student, Edit, Save), and mark attendance for a
+    class (Save). Each save says "Saved on this PC" and the badge counts 1, 2, then
+    **3 waiting**; the badge's panel lists a new student, a student record and an attendance
+    sheet, and nothing else. Opening a form, typing in it, or the form saying "Duplicates
+    cannot be checked right now" adds nothing to the count. Press Save twice on one of them:
+    still 3.
 68. **Restart.** Still unplugged, close Madrasa on the client and open it again (or restart
     the PC). The badge still shows 3 waiting. Plug the server back: within seconds the badge
     shows Connected with nothing waiting. On the server, check: the new student is there
@@ -598,7 +603,9 @@ You need the school server and one client PC (section 6). Unplug the server's ne
 69. **A provisional receipt.** Unplug the server and record a fee payment on the client. A
     receipt numbered `P-…` opens at once, marked "Provisional receipt — not yet confirmed".
     Print it. Plug the server back. The badge's panel says which real receipt number replaced
-    it; the real receipt (Fees → the voucher) says "Replaces provisional receipt P-…".
+    it; the real receipt (Fees → the voucher) says "Replaces provisional receipt P-…". Open
+    the provisional receipt page again (from the panel): it now says "Confirmed — receipt R…"
+    and no longer "not yet confirmed".
 70. **Two PCs, one record.** Unplug the client PC this time (not the server). On the client,
     change a student's address; on the server PC, change the same student's address to
     something else and their father's name. Plug the client back. The server's address
@@ -610,10 +617,54 @@ You need the school server and one client PC (section 6). Unplug the server's ne
 72. **Parent app.** With the phone's network off, the badge at the top says Offline, and the
     last loaded screens still show.
 
-**Not tested by us:** a real cable pulled out of a real school network; our tests stop and
-start the server program on the same PC.
+**Not tested by us:** a real cable pulled out of a real school network. Our tests stop the
+server program, and cut the virtual network between a server and a client that each run in
+their own container.
 
-## 11. Report a problem
+## 11. New in v0.5.1-alpha
+
+Fixes for what the v0.5.0-alpha test found. Tasks 66, 67 and 69 above changed too.
+
+73. **A payment taken offline shows at once.** On a client with the server unplugged, open a
+    student with an unpaid voucher (Students → the student → Fees) and record part of it, say
+    Rs 5,000. Close the provisional receipt and go back to the student's Fees tab: beside the
+    voucher's status it says **Paid (provisional, waiting to send): Rs 5,000.00**, and under
+    the totals a line says how much is waiting and what the balance will be once it arrives.
+    Fees → Vouchers shows the same beside that voucher, and so does the voucher's print page.
+74. **No collecting twice.** Still offline, press *Record payment* on the same voucher again.
+    A warning says a payment of Rs 5,000.00 is already waiting, with its `P-…` number; the
+    amount offered is what is left, not the full balance; *Record payment* stays greyed out
+    until you tick "This is a further payment". Cancel. Plug the server back: the note and
+    the warning go, and the voucher shows the server's own figures.
+75. **Checking for duplicates offline.** Offline, Students → Add student, type a name, the
+    father's name and a date of birth: the form says "Duplicates cannot be checked right
+    now", you can still save, and the badge counts one change for the save, none for the
+    typing.
+76. **Badge and card agree.** With the school joined to a hub (section 7), open Settings →
+    School network and press *Sync now*. Whatever the card says ("In step", "Not in step
+    yet", records waiting at head office, a number to send), the top bar's **Head office**
+    line says the same in the same moment, not a minute later.
+77. **Dashboard.** Mark attendance for every section (or load the demo school on a weekday
+    and mark the sections it lists): the attendance panel is headed **All sections marked**,
+    not "Not yet marked today".
+78. **Student profile.** Open any demo student: the profile's extra fields show only what
+    the school entered. No "DEMO: true", and after an import no "import_batch" or row
+    numbers. Edit and save the student, then look again: nothing appeared.
+79. **A new install and backups.** Install on a PC that never had Madrasa and set up a school.
+    The dashboard and the Backup page say **No backup yet — run one now**; nothing about a
+    backup "older than 2 days". Press *Back up now*: "Backups are up to date".
+80. **Private files (Linux).** After starting Madrasa once, run
+    `find ~/.local/share/madrasa -not -path '*/pg/data/*' -not -path '*/pg/bin/*' -perm /077`
+    in a terminal: it prints nothing (every file and folder is for your user only), and
+    `ls ~/.local/share/madrasa/pg/.pgpass` says there is no such file. **Windows:** right-click
+    `%APPDATA%\madrasa` → Properties → Security: only your own account, SYSTEM and
+    Administrators are listed.
+81. **Closing the server.** On the server PC (or a single PC) close Madrasa with the window's
+    close button. Within a few seconds no `postgres` process of Madrasa is left (Windows:
+    Task Manager → Details; Linux: `pgrep -u $USER postgres` prints nothing), and Madrasa
+    opens again without delay.
+
+## 12. Report a problem
 
 Please report anything, including small things, at
 <https://github.com/quietbytehq/madrasa/issues/new>. If you do not have a GitHub account,

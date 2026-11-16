@@ -55,9 +55,9 @@ const MAX_QUEUED: usize = 1024 * 1024;
 /// After this long without an answer, "Reconnecting" becomes "Offline".
 const RECONNECT_GRACE: i64 = 15;
 /// How often the server is asked whether it is there while connected, and how long one such
-/// question may take. Together under five seconds, so a pulled cable shows as "Reconnecting"
-/// within about five seconds even on an idle PC.
-const HEARTBEAT: Duration = Duration::from_secs(3);
+/// question may take. Together four seconds, and the screen asks this PC every second, so a
+/// pulled cable shows as "Reconnecting" within about five seconds even on an idle PC.
+const HEARTBEAT: Duration = Duration::from_secs(2);
 const HEARTBEAT_TIMEOUT: Duration = Duration::from_secs(2);
 /// While the server is known to be out of reach, a read waits at most this long for it
 /// before the kept copy is served.
@@ -444,29 +444,17 @@ impl Outbox {
     pub async fn unreachable(&self) {
         let mut inner = self.inner.lock().await;
         let now = Utc::now();
-        // Counted from the last answer (or, before any answer, from when trouble started).
-        let silent_since = inner.last_contact.unwrap_or(inner.since);
-        let silent = (now - silent_since).num_seconds() >= RECONNECT_GRACE;
-        match inner.link {
-            Link::Connected => {
-                inner.link = if silent && inner.last_contact.is_some() {
-                    Link::Offline
-                } else {
-                    Link::Reconnecting
-                };
-                inner.since = now;
-            }
-            Link::Reconnecting
-                if silent || (now - inner.since).num_seconds() >= RECONNECT_GRACE =>
-            {
-                inner.link = Link::Offline;
-            }
-            _ => {}
+        if inner.link == Link::Connected {
+            inner.link = Link::Reconnecting;
+            inner.since = now;
         }
+        settle(&mut inner, now);
     }
 
     pub async fn link(&self) -> Link {
-        self.inner.lock().await.link
+        let mut inner = self.inner.lock().await;
+        settle(&mut inner, Utc::now());
+        inner.link
     }
 
     pub async fn waiting(&self) -> usize {
@@ -474,7 +462,8 @@ impl Outbox {
     }
 
     pub async fn status(&self) -> Status {
-        let inner = self.inner.lock().await;
+        let mut inner = self.inner.lock().await;
+        settle(&mut inner, Utc::now());
         Status {
             link: inner.link,
             since: inner.since,
@@ -871,6 +860,19 @@ impl Outbox {
                 }
             }
         });
+    }
+}
+
+/// "Reconnecting" becomes "Offline" by the clock: fifteen seconds after the server's last
+/// answer (or, before any answer, after trouble started), whenever anyone looks, not only
+/// when the next attempt happens to fail.
+fn settle(inner: &mut Inner, now: DateTime<Utc>) {
+    if inner.link != Link::Reconnecting {
+        return;
+    }
+    let silent_since = inner.last_contact.unwrap_or(inner.since);
+    if (now - silent_since).num_seconds() >= RECONNECT_GRACE {
+        inner.link = Link::Offline;
     }
 }
 
@@ -1749,6 +1751,13 @@ mod tests {
         assert_eq!(outbox.link().await, Link::Offline);
         outbox.reached().await;
         assert_eq!(outbox.link().await, Link::Connected);
+        // "Offline" comes by the clock, without waiting for another attempt to fail: the
+        // status the screen reads says so the moment fifteen seconds have passed.
+        outbox.unreachable().await;
+        assert_eq!(outbox.status().await.link, Link::Reconnecting);
+        outbox.inner.lock().await.last_contact = Some(Utc::now() - chrono::Duration::seconds(15));
+        assert_eq!(outbox.status().await.link, Link::Offline);
+        assert_eq!(outbox.link().await, Link::Offline);
         let _ = std::fs::remove_dir_all(&dir);
     }
 

@@ -67,10 +67,11 @@ pub fn restrict_dir(path: &Path) -> std::io::Result<()> {
 
 /// The parts of the data folder Madrasa does not write itself: PostgreSQL's programs (as
 /// unpacked, some of them must stay executable) and its cluster (PostgreSQL insists on its
-/// own `0700` and manages the files inside).
-fn left_alone(data_dir: &Path, path: &Path) -> bool {
+/// own `0700` and manages the files inside). The two folders themselves are closed like any
+/// other; what is inside them is left as PostgreSQL made it.
+fn postgres_own(data_dir: &Path, path: &Path) -> bool {
     let pg = data_dir.join("pg");
-    path.starts_with(pg.join("bin")) || path.starts_with(pg.join("data"))
+    path == pg.join("bin") || path == pg.join("data")
 }
 
 /// Make the whole data folder private: the folder itself, and every file and folder Madrasa
@@ -103,9 +104,6 @@ pub fn harden_data_dir(data_dir: &Path) -> usize {
         };
         for entry in entries.flatten() {
             let path = entry.path();
-            if left_alone(data_dir, &path) {
-                continue;
-            }
             let Ok(kind) = entry.file_type() else {
                 continue;
             };
@@ -117,7 +115,9 @@ pub fn harden_data_dir(data_dir: &Path) -> usize {
                 // every folder is narrowed by itself.
                 #[cfg(unix)]
                 note(restrict_dir(&path), &path);
-                stack.push(path);
+                if !postgres_own(data_dir, &path) {
+                    stack.push(path);
+                }
             } else {
                 #[cfg(unix)]
                 note(restrict_file(&path), &path);
@@ -150,13 +150,12 @@ pub fn exposed(data_dir: &Path) -> Vec<PathBuf> {
             };
             for entry in entries.flatten() {
                 let path = entry.path();
-                if left_alone(data_dir, &path) {
-                    continue;
-                }
                 if open(&path) {
                     found.push(path.clone());
                 }
-                if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                if entry.file_type().map(|t| t.is_dir()).unwrap_or(false)
+                    && !postgres_own(data_dir, &path)
+                {
                     stack.push(path);
                 }
             }
@@ -342,11 +341,21 @@ mod tests {
             ] {
                 assert_eq!(mode(f), 0o600, "{f}");
             }
-            for d in ["pg", "tls", "outbox", "outbox/abc/queue", "backups"] {
+            for d in [
+                "pg",
+                "pg/bin",
+                "pg/data",
+                "tls",
+                "outbox",
+                "outbox/abc/queue",
+                "backups",
+            ] {
                 assert_eq!(mode(d), 0o700, "{d}");
             }
-            // PostgreSQL's own programs keep their modes (they must stay executable).
+            // What is inside PostgreSQL's two folders is left as PostgreSQL made it (its
+            // programs must stay executable); the closed folders above keep others out.
             assert_eq!(mode("pg/bin/16/bin/postgres"), 0o644);
+            assert_eq!(mode("pg/bin/16"), 0o755);
         }
         // Running it again changes nothing that matters and does not fail.
         harden_data_dir(&dir);

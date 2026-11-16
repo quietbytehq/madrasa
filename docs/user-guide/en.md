@@ -128,7 +128,9 @@ list is in `docs/permissions.md`.
 
 - Madrasa backs up every night (default 02:00) to **Documents\Madrasa Backups**, or to the
   USB drive or network folder you choose under **Backup**. Copy the newest `.mbk` file off the
-  computer regularly; the dashboard warns when the last backup is older than two days.
+  computer regularly; the dashboard warns when the last backup is older than two days. On a
+  new install that has not made a backup yet it says **No backup yet — run one now** instead
+  (and warns once the school is more than two days old and still has none).
 - **Back up now** makes a backup immediately.
 - **Restore**: pick a file, check its date and record counts, enter the backup password (or
   the recovery key) and confirm. Everything is replaced by the backup and everyone logs in
@@ -421,13 +423,16 @@ Madrasa is built so that no school loses work when the network or the school ser
 At the top of every screen, next to the bell:
 
 - **Connected** (green): the school server answers; changes are saved there at once.
-- **Reconnecting…** (amber): it stopped answering a moment ago; Madrasa keeps trying.
+- **Reconnecting…** (amber): it stopped answering a moment ago (shown within about five
+  seconds of a pulled cable); Madrasa keeps trying.
 - **Offline** (red): it has not answered for 15 seconds or more.
-- **3 waiting**: changes made on this PC that the server has not received yet.
+- **3 waiting**: changes made on this PC that the server has not received yet. Only real
+  changes are counted: three saves, three waiting.
 - A red number: something to read (a change the server refused, a value overwritten, a
   payment to check).
 - **Head office: in step / 4 to send / needs attention / not reached**: when the school is
-  joined to a school network and you may see the network settings.
+  joined to a school network and you may see the network settings. It always says the same
+  as the card under Settings → School network, and both change the moment a sync ends.
 
 Click the badge for the details: what is waiting, what happened to it, your drafts, and a
 **Try now** button.
@@ -436,14 +441,21 @@ Click the badge for the details: what is waiting, what happened to it, your draf
 
 When the server or the network goes down:
 
-- **Keep working.** Screens show what they last showed (a copy kept on this PC).
+- **Keep working.** Screens show what they last showed (a copy kept on this PC), without
+  waiting once the badge says Offline.
 - **Saving keeps the change on this PC**, encrypted, and says "Saved on this PC". The badge
   counts it. Changes are sent on their own, in the order you made them, as soon as the server
   answers, even if Madrasa was closed and opened again or the PC restarted in between.
 - **Nothing is applied twice.** Pressing Save again, or a connection that drops half way,
   never makes a second student, receipt or mark.
 - **Some things need the server there and then**: signing in, backups and restores, imports,
-  setup and network settings. Madrasa says so instead of keeping them.
+  setup and network settings, creating logins, and the big jobs (generating vouchers, running
+  late fees, generating a timetable, the year-end rollover). Madrasa says so instead of
+  keeping them.
+- **Checks cannot be made offline.** While you type a new student, Madrasa normally looks for
+  a student already on record. Offline the form says "Duplicates cannot be checked right
+  now"; you can still save, and the server checks when the record arrives. A check is never
+  counted as a change waiting.
 - **If your sign-in ends while the server is away**, the badge says **Sign in again**. The
   waiting changes go when you sign in again as the same person; they are never sent under
   anyone else's name.
@@ -461,6 +473,18 @@ When the server is back, the payment gets its real receipt number (for example
 `R2026-000123`). The badge's panel shows which provisional number became which, the
 provisional receipt page shows the real number, and the real receipt says "Replaces
 provisional receipt P-K7QM-0001", so either number finds it.
+
+**So that nobody collects the same money twice**, until the payment is sent this PC shows it
+wherever the voucher appears: the voucher list, the student's ledger and the voucher itself
+say **Paid (provisional, waiting to send)** with the amount, and the ledger says what the
+student's balance will be once it arrives. If you press *Record payment* on that voucher
+again, Madrasa first warns that a payment is already waiting, offers only what is still to
+pay, and takes a further payment only after you tick "This is a further payment". Other PCs
+cannot see a waiting payment until it has been sent, so take a family's fees on one PC while
+the server is away.
+
+Once the server has the payment, the provisional receipt page no longer says "not yet
+confirmed": it says **Confirmed — receipt R2026-000123**.
 
 If someone paid the same voucher on another PC meanwhile, both receipts stand (the money was
 received twice) and the panel asks you to refund or carry forward the overpayment.
@@ -491,6 +515,14 @@ lists your drafts.
 
 There is no network to lose. The badge shows whether Madrasa's own service answers; if it
 does not, close and open Madrasa, and your drafts come back.
+
+Close Madrasa with the window's close button and let it finish: it stops its database
+properly before it goes (a few seconds). Do not switch the PC off at the wall while Madrasa
+is open.
+
+Everything Madrasa keeps in its data folder (the database, its password, the keys, the
+offline queue) can be read by your own user account only. A file an older version left
+readable by others is put right the next time Madrasa starts.
 
 ### Parent app
 

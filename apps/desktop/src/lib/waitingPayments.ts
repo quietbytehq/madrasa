@@ -1,6 +1,6 @@
 import type { OutboxStatus } from "@/api/types";
 import { useConnection } from "@/app/connection";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 /**
  * Fee payments taken on this PC while the school server was out of reach, not yet sent.
@@ -41,4 +41,28 @@ export function useWaitingPayments(): Map<string, WaitingPayment> {
 /** What is left of `balance` once the waiting payments have arrived (never below zero). */
 export function balanceAfterWaiting(balance: string | number, waiting: number): string {
   return Math.max(Number(balance) - waiting, 0).toFixed(2);
+}
+
+/**
+ * Read the screen's figures again the moment a waiting payment has reached the server.
+ *
+ * While the payment waits, the note beside the voucher covers for the old figures. When it
+ * arrives the note goes; without this the screen would go on showing "unpaid" from before,
+ * with nothing to say otherwise, until someone opened it again.
+ */
+export function useReloadWhenPaymentsArrive(reload: () => unknown): void {
+  const waiting = useWaitingPayments();
+  const numbers = [...waiting.values()]
+    .flatMap((w) => w.numbers)
+    .sort()
+    .join(",");
+  const before = useRef(numbers);
+  const reloadRef = useRef(reload);
+  reloadRef.current = reload;
+  useEffect(() => {
+    const was = before.current ? before.current.split(",") : [];
+    const now = new Set(numbers ? numbers.split(",") : []);
+    before.current = numbers;
+    if (was.some((n) => !now.has(n))) void reloadRef.current();
+  }, [numbers]);
 }

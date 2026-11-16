@@ -571,11 +571,46 @@ describe("a payment taken offline, waiting to be sent (v0.5.1)", () => {
       "Rs 1,000.00 taken on this PC is waiting to be sent to the school server. Balance once it arrives: Rs 1,300.00.",
     );
 
-    // It arrives: the server's own figures take over and the note goes.
+    // It arrives: the note goes, and the ledger is read again at once, so the server's own
+    // figures take over without anyone reopening the screen.
+    const reads = vi.mocked(api.ledger).mock.calls.length;
+    vi.mocked(api.ledger).mockResolvedValue({
+      ...ledger,
+      totals: { ...ledger.totals, paid: "2000.00", balance: "1300.00" },
+      vouchers: [{ ...voucher, net_paid: "2000.00", balance: "1300.00" }],
+    });
     current = { ...outbox([]), link: "connected" };
     window.dispatchEvent(new CustomEvent(OFFLINE_EVENTS.saved));
     await waitFor(() => expect(screen.queryByTestId("waiting-paid")).toBeNull());
     expect(screen.queryByTestId("waiting-total")).toBeNull();
+    await waitFor(() => expect(vi.mocked(api.ledger).mock.calls.length).toBe(reads + 1));
+    await waitFor(() => expect(screen.getAllByText("Rs 1,300.00")).toHaveLength(2));
+  });
+
+  it("while the server answers, keeps a copy of the vouchers a student can pay", async () => {
+    vi.mocked(api.voucher).mockClear();
+    stubOutbox({ ...outbox([]), link: "connected" });
+    const view = online(
+      <Routes>
+        <Route path="/students/:id" element={<LedgerView studentId="st1" />} />
+      </Routes>,
+    );
+    await screen.findByText("V202605-00001");
+    await waitFor(() => expect(api.voucher).toHaveBeenCalledWith("v1"));
+    expect(api.voucher).toHaveBeenCalledTimes(1);
+    view.unmount();
+
+    // Offline there is nothing to fetch; and on the server PC (no proxy) nothing is needed.
+    vi.mocked(api.voucher).mockClear();
+    stubOutbox(outbox([]));
+    online(
+      <Routes>
+        <Route path="/students/:id" element={<LedgerView studentId="st1" />} />
+      </Routes>,
+    );
+    await screen.findByText("V202605-00001");
+    await new Promise((r) => setTimeout(r, 30));
+    expect(api.voucher).not.toHaveBeenCalled();
   });
 
   it("the voucher list and the voucher itself show it too", async () => {
