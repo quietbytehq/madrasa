@@ -1,4 +1,4 @@
-# Testing Madrasa v0.5.0-alpha (Lite, Standard, the Nexus hub and the parent app)
+# Testing Madrasa v0.5.1-alpha (Lite, Standard, the Nexus hub and the parent app)
 
 Thank you for trying Madrasa. This is an early build for a small group of testers. It is
 not ready for a school's real records yet: use made-up data, expect rough edges, and tell us
@@ -15,9 +15,9 @@ Download the file for your computer from the release page (the "Assets" list):
 
 | Computer | File |
 | --- | --- |
-| Windows 10/11 (64-bit) | `Madrasa_0.5.0_x64-setup.exe` |
-| Debian 12/13, Ubuntu 22.04+, Linux Mint 21+ | `Madrasa_0.5.0_amd64.deb` |
-| Any other 64-bit Linux from 2022 or later | `Madrasa_0.5.0_amd64.AppImage` |
+| Windows 10/11 (64-bit) | `Madrasa_0.5.1_x64-setup.exe` |
+| Debian 12/13, Ubuntu 22.04+, Linux Mint 21+ | `Madrasa_0.5.1_amd64.deb` |
+| Any other 64-bit Linux from 2022 or later | `Madrasa_0.5.1_amd64.AppImage` |
 
 ### Windows
 
@@ -35,7 +35,7 @@ Download the file for your computer from the release page (the "Assets" list):
 Open a terminal in the folder with the downloaded file and run:
 
 ```bash
-sudo apt install ./Madrasa_0.5.0_amd64.deb
+sudo apt install ./Madrasa_0.5.1_amd64.deb
 ```
 
 apt also installs the libraries Madrasa needs (WebKitGTK 4.1 and GTK 3) if they are missing,
@@ -47,10 +47,10 @@ Then start **Madrasa** from your applications menu, or run `madrasa` in a termin
 ### Linux (AppImage: any distribution)
 
 1. Right-click the `.AppImage` file → Properties → Permissions → tick **Allow executing
-   file as program** (or run `chmod +x Madrasa_0.5.0_amd64.AppImage`).
+   file as program** (or run `chmod +x Madrasa_0.5.1_amd64.AppImage`).
 2. Double-click the file. If nothing happens, open a terminal in that folder and run
-   `./Madrasa_0.5.0_amd64.AppImage`; if it complains about FUSE, run
-   `./Madrasa_0.5.0_amd64.AppImage --appimage-extract-and-run` instead.
+   `./Madrasa_0.5.1_amd64.AppImage`; if it complains about FUSE, run
+   `./Madrasa_0.5.1_amd64.AppImage --appimage-extract-and-run` instead.
 
 ### Where Madrasa keeps its files
 
@@ -359,7 +359,7 @@ Madrasa installs to act as schools (the demo school of section 3 is fine).
 ### Start a hub
 
 The hub image is published with every release (`ghcr.io/quietbytehq/madrasa-nexus`, tagged
-with the release, for example `:0.5.0-alpha`, and `:latest`). Compose pulls it:
+with the release, for example `:0.5.1-alpha`, and `:latest`). Compose pulls it:
 
 ```bash
 cd deploy/nexus
@@ -370,7 +370,7 @@ cp .env.example .env
 ```
 
 Edit `.env` and set `NEXUS_DB_PASSWORD` (letters and digits) and `NEXUS_SETUP_TOKEN` (any
-long text you choose), and `NEXUS_IMAGE=ghcr.io/quietbytehq/madrasa-nexus:0.5.0-alpha` so
+long text you choose), and `NEXUS_IMAGE=ghcr.io/quietbytehq/madrasa-nexus:0.5.1-alpha` so
 the hub is the same version as your Madrasa. Then:
 
 ```bash
@@ -576,7 +576,7 @@ see), paying fees in the app, report cards as PDF, attachments, and an iPhone ve
     "Change this login's role?"; *Keep it as it is* changes nothing. Changing the role in the
     Login account box also asks first.
 65. **Installing the .deb on a fresh system** (a spare Ubuntu or Debian PC, or a virtual
-    machine, where Madrasa was never installed): `sudo apt install ./Madrasa_0.5.0_amd64.deb`
+    machine, where Madrasa was never installed): `sudo apt install ./Madrasa_0.5.1_amd64.deb`
     installs WebKitGTK and the rest by itself.
 
 ## 10. Working offline
@@ -625,8 +625,9 @@ their own container.
 
 Fixes for what the v0.5.0-alpha test found. Tasks 66, 67 and 69 above changed too.
 
-73. **A payment taken offline shows at once.** On a client with the server unplugged, open a
-    student with an unpaid voucher (Students → the student → Fees) and record part of it, say
+73. **A payment taken offline shows at once.** On a client, open a student with an unpaid
+    voucher (Students → the student → Fees, or Fees → Collect) while the server is still
+    there. Unplug the server, wait for Offline, and record part of the voucher, say
     Rs 5,000. Close the provisional receipt and go back to the student's Fees tab: beside the
     voucher's status it says **Paid (provisional, waiting to send): Rs 5,000.00**, and under
     the totals a line says how much is waiting and what the balance will be once it arrives.
@@ -634,8 +635,10 @@ Fixes for what the v0.5.0-alpha test found. Tasks 66, 67 and 69 above changed to
 74. **No collecting twice.** Still offline, press *Record payment* on the same voucher again.
     A warning says a payment of Rs 5,000.00 is already waiting, with its `P-…` number; the
     amount offered is what is left, not the full balance; *Record payment* stays greyed out
-    until you tick "This is a further payment". Cancel. Plug the server back: the note and
-    the warning go, and the voucher shows the server's own figures.
+    until you tick "This is a further payment". Cancel. Stay on the student's Fees tab and
+    plug the server back: within a few seconds the note goes and the same screen shows the
+    server's own figures (Partial, the amount paid, the smaller balance) without being
+    reopened.
 75. **Checking for duplicates offline.** Offline, Students → Add student, type a name, the
     father's name and a date of birth: the form says "Duplicates cannot be checked right
     now", you can still save, and the badge counts one change for the save, none for the
@@ -646,7 +649,7 @@ Fixes for what the v0.5.0-alpha test found. Tasks 66, 67 and 69 above changed to
     line says the same in the same moment, not a minute later.
 77. **Dashboard.** Mark attendance for every section (or load the demo school on a weekday
     and mark the sections it lists): the attendance panel is headed **All sections marked**,
-    not "Not yet marked today".
+    not "Not yet marked today". A new school with no students yet shows no such panel.
 78. **Student profile.** Open any demo student: the profile's extra fields show only what
     the school entered. No "DEMO: true", and after an import no "import_batch" or row
     numbers. Edit and save the student, then look again: nothing appeared.

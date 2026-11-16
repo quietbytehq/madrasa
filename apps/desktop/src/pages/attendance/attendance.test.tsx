@@ -468,6 +468,33 @@ describe("Dashboard attendance card", () => {
   });
 });
 
+describe("Dashboard on a new school (classes, no students yet)", () => {
+  it("shows no attendance panel at all: there is nothing to mark, or to call all marked", async () => {
+    vi.mocked(api.dashboard).mockResolvedValue({
+      date: "2026-04-06",
+      day_kind: { kind: "school" },
+      attendance: {
+        totals: { ...status.totals, sections: 13, marked: 0 },
+        unmarked: [],
+      },
+      backup: backupOk,
+      students_active: 0,
+      staff_active: 0,
+      fees: null,
+    });
+    renderWithProviders(
+      <FeaturesProvider initial={{ edition: "lite", features: ["dashboard", "attendance"] }}>
+        <SessionProvider initial={{ user, permissions: TEACHER }}>
+          <Dashboard />
+        </SessionProvider>
+      </FeaturesProvider>,
+    );
+    expect(await screen.findByTestId("backup-card")).toBeInTheDocument();
+    expect(screen.queryByText("All sections marked")).toBeNull();
+    expect(screen.queryByText("Not yet marked today")).toBeNull();
+  });
+});
+
 describe("StudentAttendanceView", () => {
   it("shows the summary and the days", async () => {
     const v: StudentView = {

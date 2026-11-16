@@ -481,7 +481,13 @@ student's balance will be once it arrives. If you press *Record payment* on that
 again, Madrasa first warns that a payment is already waiting, offers only what is still to
 pay, and takes a further payment only after you tick "This is a further payment". Other PCs
 cannot see a waiting payment until it has been sent, so take a family's fees on one PC while
-the server is away.
+the server is away. When the payment arrives, the screen you are looking at changes to the
+server's figures by itself.
+
+A payment can be taken offline for a student whose fees this PC has shown before (the
+student's Fees tab, or Fees → Collect): Madrasa keeps a copy of the vouchers that student
+can pay. For a student never opened on this PC, write a manual receipt and enter it when the
+server is back.
 
 Once the server has the payment, the provisional receipt page no longer says "not yet
 confirmed": it says **Confirmed — receipt R2026-000123**.

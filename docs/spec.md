@@ -2522,14 +2522,17 @@ In client mode the desktop app reaches the school server through its loopback pr
   With the server away it is answered `503 offline_check` ("This cannot be checked right
   now…"). The waiting count is therefore the number of real changes (v0.5.1). The same change queued twice (same user, method, path and body;
   for payments, the same payment) is kept once.
-- **Sending.** A background task checks `/api/v1/health` every 3 s with a 2 s timeout (every
+- **Sending.** A background task checks `/api/v1/health` every 2 s with a 2 s timeout (every
   second while not connected) and sends what waits in order, each with `Idempotency-Key: <item id>` and
   `X-Madrasa-Queued-At: <when it was made>`. 2xx: done. 401: wait for the same user to sign in
   again (the proxy learns which user a token belongs to from `/auth/login` and `/auth/me`),
   never another. 5xx, 429 and `idempotency_in_progress`: try again later. Other 4xx: listed
   as refused, with the server's message, and the line moves on.
 - **Link state.** `connected`; `reconnecting` from the first failure (within about 5 s of a
-  silent loss); `offline` 15 s after the last answer.
+  silent loss); `offline` 15 s after the last answer, by the clock (whoever reads the state
+  gets it, without waiting for another attempt to fail). The UI asks the proxy's status every
+  second on a LAN client (every 5 s where the API is on the same PC) and redraws only when
+  something changed.
 - **Status.** Each waiting item of a fee payment carries `voucher_id` and `amount`, so the UI
   can show the payment on the voucher before the server has it (§18.3).
 - **Local endpoints** (never forwarded): `GET /__madrasa/outbox/status`, `POST /retry`,
@@ -2567,7 +2570,11 @@ Until it is sent, the client that took the payment shows it wherever the voucher
 (voucher list, ledger, voucher page): "Paid (provisional, waiting to send): <amount>", and
 the ledger gives the balance once it arrives (`apps/desktop/src/lib/waitingPayments.ts`, from
 the outbox status). Recording another payment on that voucher warns first, defaults to what
-is still to pay, and needs a tick. Other PCs cannot know of it until it is sent.
+is still to pay, and needs a tick. Other PCs cannot know of it until it is sent. When it
+arrives the open ledger, voucher list and voucher page read their figures again at once.
+While connected, a ledger reads the vouchers its student can pay, so the proxy keeps a copy
+and the payment window opens for them offline (a voucher never read cannot be paid offline:
+there would be nothing to print on the provisional receipt).
 
 ### 18.4 Conflicts
 
@@ -2606,7 +2613,9 @@ Everything overwritten is shown in the connection panel until the user clears it
   its data folder is for the owning user only: 0600 / 0700 on Linux, and on Windows an ACL
   without inheritance granting the user, SYSTEM and Administrators. The data folder is
   hardened at every start (`harden_data_dir`), which also puts right what an older version
-  left open. PostgreSQL's own `pg/data` and `pg/bin` are left to PostgreSQL. The bundled
+  left open. PostgreSQL's own `pg/data` and `pg/bin` are closed as folders; what is inside
+  them is left to PostgreSQL. A backup folder inside the data folder is private too; one the
+  school chose elsewhere keeps its own rules (the file is sealed either way). The bundled
   database's password is kept in `pg/password` only; the world-readable `pg/.pgpass` that
   v0.5.0 left behind is removed.
 - **Closing.** When the window is closed the shell waits (up to 30 s) for the backend to stop

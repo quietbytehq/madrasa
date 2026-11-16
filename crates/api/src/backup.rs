@@ -69,6 +69,25 @@ pub fn default_directory() -> PathBuf {
         .unwrap_or_else(|| crate::bootstrap::default_data_dir().join("backups"))
 }
 
+/// Is this folder inside Madrasa's own data folder (where everything is private)?
+fn in_own_folder(dir: &std::path::Path) -> bool {
+    dir.starts_with(crate::bootstrap::default_data_dir())
+}
+
+/// Make the backup folder. Inside Madrasa's own data folder it is private like everything
+/// else there; a folder the school chose (a USB drive, a shared folder) keeps its own rules.
+fn make_folder(dir: &std::path::Path) -> std::io::Result<()> {
+    make_folder_as(dir, in_own_folder(dir))
+}
+
+fn make_folder_as(dir: &std::path::Path, private: bool) -> std::io::Result<()> {
+    if private {
+        crate::private::create_private_dir(dir)
+    } else {
+        std::fs::create_dir_all(dir)
+    }
+}
+
 pub async fn load_settings(
     conn: &mut sqlx::PgConnection,
     school_id: Uuid,
@@ -87,7 +106,7 @@ pub async fn save_settings(
 ) -> Result<BackupSettings, ApiError> {
     s.validate()?;
     let dir = s.directory();
-    std::fs::create_dir_all(&dir).map_err(|e| {
+    make_folder(&dir).map_err(|e| {
         ApiError::validation(format!(
             "The backup folder cannot be used ({}): {e}",
             dir.display()
@@ -346,7 +365,7 @@ async fn produce(
         .map_err(|_| ApiError::internal())?
         .map_err(|e| ApiError::conflict(e.to_string()))?;
     let dir = settings.directory();
-    std::fs::create_dir_all(&dir).map_err(|e| {
+    make_folder(&dir).map_err(|e| {
         ApiError::conflict(format!(
             "The backup folder cannot be used ({}): {e}",
             dir.display()
@@ -357,7 +376,7 @@ async fn produce(
     // Inside Madrasa's own data folder a backup is private like everything else there. In a
     // folder the school chose (a USB drive, a shared folder) it keeps that folder's rules:
     // the file is sealed, and someone else may be meant to collect it.
-    let own_folder = dir.starts_with(crate::bootstrap::default_data_dir());
+    let own_folder = in_own_folder(&dir);
     let write = |tmp: &std::path::Path| {
         if own_folder {
             crate::private::write_private(tmp, &bytes)
@@ -855,5 +874,28 @@ mod tests {
         };
         assert!(bad.validate().is_err());
         assert!(!is_due(&bad, None, today_0300));
+    }
+
+    /// Found testing v0.5.1 on a fresh install: the backup file was private but the folder
+    /// Madrasa made for it inside its data folder was open to other accounts.
+    #[test]
+    fn the_backup_folder_inside_the_data_folder_is_private_and_a_chosen_one_is_left_alone() {
+        let base = std::env::temp_dir().join(format!("madrasa-bk-{}", uuid::Uuid::now_v7()));
+        let own = base.join("data").join("backups");
+        super::make_folder_as(&own, true).unwrap();
+        let chosen = base.join("usb").join("School Backups");
+        super::make_folder_as(&chosen, false).unwrap();
+        assert!(own.is_dir() && chosen.is_dir());
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = |p: &std::path::Path| p.metadata().unwrap().permissions().mode() & 0o777;
+            assert_eq!(mode(&own), 0o700);
+            // Whatever the system gives a new folder (the school's own choice of place).
+            let plain = base.join("plain");
+            std::fs::create_dir_all(&plain).unwrap();
+            assert_eq!(mode(&chosen), mode(&plain));
+        }
+        let _ = std::fs::remove_dir_all(&base);
     }
 }

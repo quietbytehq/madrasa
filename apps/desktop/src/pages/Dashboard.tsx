@@ -170,7 +170,9 @@ export function Dashboard() {
           </Card>
         ))}
       </div>
-      {att && !noSchool && (
+      {/* Nothing left to mark and nothing marked (a new school: classes but no students yet):
+          there is nothing to list, and nothing to call "all marked". */}
+      {att && !noSchool && (att.unmarked.length > 0 || att.totals.marked > 0) && (
         <Card
           title={
             att.unmarked.length === 0

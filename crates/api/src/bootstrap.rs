@@ -143,6 +143,8 @@ pub mod embedded {
                 let _ = server.stop().await;
             }
             server.start().await?;
+            // On a first run PostgreSQL's two folders were only just made: close them too.
+            crate::private::harden_data_dir(data_dir);
             if !server.database_exists(DATABASE_NAME).await? {
                 server.create_database(DATABASE_NAME).await?;
             }
