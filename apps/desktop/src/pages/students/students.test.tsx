@@ -396,6 +396,7 @@ describe("offline and internal fields (v0.5.1)", () => {
     vi.mocked(api.student).mockResolvedValue(detail);
     renderAt("/students/st1/edit");
     await screen.findByRole("heading", { level: 1, name: "Edit student" });
+    await waitFor(() => expect(screen.getByLabelText("Student name")).toHaveValue("Ali Khan"));
     await userEvent.type(screen.getByLabelText("Address"), " Block 5");
     await new Promise((r) => setTimeout(r, 600));
     expect(api.checkDuplicates).not.toHaveBeenCalled();
@@ -418,7 +419,11 @@ describe("offline and internal fields (v0.5.1)", () => {
 
     renderAt("/students/st1/edit");
     await screen.findByRole("heading", { level: 1, name: "Edit student" });
-    const keys = screen.getAllByLabelText("Field").map((i) => (i as HTMLInputElement).value);
+    // The form is drawn empty first and filled when the student has been read.
+    await waitFor(() => expect(screen.getByLabelText("Student name")).toHaveValue("Ali Khan"));
+    const keys = (await screen.findAllByLabelText("Field")).map(
+      (i) => (i as HTMLInputElement).value,
+    );
     expect(keys).toEqual(["house"]);
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(api.updateStudent).toHaveBeenCalled());
