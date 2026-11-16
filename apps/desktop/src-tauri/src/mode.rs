@@ -62,8 +62,11 @@ impl ModeConfig {
 
     pub fn save(&self, data_dir: &Path) -> anyhow::Result<()> {
         self.validate()?;
-        std::fs::create_dir_all(data_dir)?;
-        std::fs::write(Self::path(data_dir), serde_json::to_string_pretty(self)?)?;
+        madrasa_api::private::create_private_dir(data_dir)?;
+        madrasa_api::private::write_private(
+            &Self::path(data_dir),
+            serde_json::to_string_pretty(self)?.as_bytes(),
+        )?;
         Ok(())
     }
 

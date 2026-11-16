@@ -2738,6 +2738,21 @@ export const en = {
   "fees.provisional.replacedBy": "Confirmed by the school server: real receipt number {number}.",
   "fees.provisional.notFound": "No provisional receipt with this number on this PC.",
   "fees.provisional.replaces": "Replaces provisional receipt {number}.",
+  // v0.5.1: fixes after the v0.5.0 offline test
+  "fees.provisional.confirmed": "Confirmed — receipt {number}",
+  "fees.provisional.confirmed.title": "Receipt {number}",
+  "fees.provisional.waiting": "Paid (provisional, waiting to send): {amount}",
+  "fees.provisional.waitingTotal":
+    "{amount} taken on this PC is waiting to be sent to the school server. Balance once it arrives: {balance}.",
+  "fees.provisional.again":
+    "A payment of {amount} for this voucher was already taken on this PC and is waiting to be sent ({numbers}). Do not collect the same money twice.",
+  "fees.provisional.again.confirm": "This is a further payment, on top of the one that is waiting.",
+  "fees.provisional.again.required": "Tick the box to take a further payment on this voucher.",
+  "fees.provisional.remaining": "Still to pay after the waiting payment: {amount}",
+  "students.duplicate.offline":
+    "Duplicates cannot be checked right now: the school server is out of reach. This record is checked when it arrives there.",
+  "dashboard.attendance.allMarkedTitle": "All sections marked",
+  "backup.status.none": "No backup yet — run one now",
   "parent.link.explain.connected": "The school network answers. What you see is up to date.",
   "parent.link.explain.reconnecting":
     "The school network stopped answering a moment ago. Trying again.",

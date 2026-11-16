@@ -17,7 +17,9 @@ import { useI18n } from "@/i18n";
 import { monthLabel } from "@/lib/money";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 import { useSession } from "@/app/session";
-import { Amount, methodLabel, VoucherStatusBadge } from "./common";
+import { balanceAfterWaiting, useWaitingPayments } from "@/lib/waitingPayments";
+import { useMoney } from "@/lib/useMoney";
+import { Amount, methodLabel, VoucherStatusBadge, WaitingPaid } from "./common";
 import { PayDialog } from "./PayDialog";
 
 /** A student's fee ledger with actions: pay, waive, reverse, concessions, print. */
@@ -26,6 +28,8 @@ export function LedgerView({ studentId }: { studentId: string }) {
   const { can } = useSession();
   const toast = useToast();
   const ledger = useAsync(() => api.ledger(studentId), [studentId]);
+  const waiting = useWaitingPayments();
+  const money = useMoney();
   const [paying, setPaying] = useState<VoucherDetail | null>(null);
   const [reason, setReason] = useState<{ kind: "waive" | "cancel" | "reverse"; id: string } | null>(
     null,
@@ -74,6 +78,8 @@ export function LedgerView({ studentId }: { studentId: string }) {
   if (ledger.error || !ledger.data)
     return <EmptyState title={errorMessage(ledger.error, t("common.error.load"))} />;
   const l: Ledger = ledger.data;
+  // Payments taken on this PC for this student's vouchers that have not reached the server.
+  const waitingTotal = l.vouchers.reduce((sum, v) => sum + (waiting.get(v.id)?.amount ?? 0), 0);
   const reasonTitle =
     reason?.kind === "waive"
       ? t("fees.waive")
@@ -95,6 +101,18 @@ export function LedgerView({ studentId }: { studentId: string }) {
           </Card>
         ))}
       </div>
+      {waitingTotal > 0 && (
+        <p
+          role="status"
+          data-testid="waiting-total"
+          className="rounded border border-warning bg-warning-bg px-3 py-2 text-sm text-text"
+        >
+          {t("fees.provisional.waitingTotal", {
+            amount: money(waitingTotal.toFixed(2)),
+            balance: money(balanceAfterWaiting(l.totals.balance, waitingTotal)),
+          })}
+        </p>
+      )}
 
       <Card title={t("fees.tabs.vouchers")} padded={false}>
         {l.vouchers.length === 0 ? (
@@ -151,6 +169,7 @@ export function LedgerView({ studentId }: { studentId: string }) {
                   </td>
                   <td className="px-3 py-1.5">
                     <VoucherStatusBadge status={v.status} t={t} />
+                    <WaitingPaid voucherId={v.id} />
                   </td>
                   <td className="px-3 py-1.5 text-end">
                     <div className="flex justify-end gap-1">

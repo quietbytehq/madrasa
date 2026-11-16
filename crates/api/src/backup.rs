@@ -354,7 +354,18 @@ async fn produce(
     })?;
     let path = dir.join(archive::file_name(&school.code, now));
     let tmp = path.with_extension("tmp");
-    std::fs::write(&tmp, &bytes)
+    // Inside Madrasa's own data folder a backup is private like everything else there. In a
+    // folder the school chose (a USB drive, a shared folder) it keeps that folder's rules:
+    // the file is sealed, and someone else may be meant to collect it.
+    let own_folder = dir.starts_with(crate::bootstrap::default_data_dir());
+    let write = |tmp: &std::path::Path| {
+        if own_folder {
+            crate::private::write_private(tmp, &bytes)
+        } else {
+            std::fs::write(tmp, &bytes)
+        }
+    };
+    write(&tmp)
         .and_then(|_| std::fs::rename(&tmp, &path))
         .map_err(|e| {
             let _ = std::fs::remove_file(&tmp);
@@ -686,13 +697,22 @@ async fn relink_after_restore(
 pub struct BackupStatus {
     pub last_backup_at: Option<DateTime<Utc>>,
     pub last_backup_file: Option<String>,
-    /// No successful backup in the last two days.
+    /// No backup has ever succeeded on this install.
+    pub never: bool,
+    /// A backup is overdue: the last one is older than two days, or none has ever been
+    /// made although the school was set up more than two days ago. A brand-new install is
+    /// not overdue; it just has no backup yet.
     pub stale: bool,
     pub enabled: bool,
     pub time: String,
     pub directory: String,
     pub unattended_ready: bool,
     pub last_error: Option<String>,
+}
+
+/// More than two days have passed since `since` (the last backup, or the school's set-up).
+fn overdue(since: DateTime<Utc>, now: DateTime<Utc>) -> bool {
+    now - since > chrono::Duration::hours(STALE_AFTER_HOURS)
 }
 
 pub async fn status(
@@ -704,10 +724,20 @@ pub async fn status(
     let recent = repo::recent_runs(conn, school_id, 1).await?;
     let last_at = last.as_ref().and_then(|r| r.finished_at);
     let stale = match last_at {
-        Some(at) => Utc::now() - at > chrono::Duration::hours(STALE_AFTER_HOURS),
-        None => true,
+        Some(at) => overdue(at, Utc::now()),
+        // Never backed up: overdue only once the school has existed long enough for a
+        // nightly backup to have been due.
+        None => {
+            let set_up: Option<DateTime<Utc>> =
+                sqlx::query_scalar("SELECT created_at FROM schools WHERE id = $1")
+                    .bind(school_id)
+                    .fetch_optional(&mut *conn)
+                    .await?;
+            set_up.is_none_or(|at| overdue(at, Utc::now()))
+        }
     };
     Ok(BackupStatus {
+        never: last_at.is_none(),
         last_backup_at: last_at,
         last_backup_file: last.and_then(|r| r.file_path),
         stale,

@@ -11,6 +11,7 @@ import { useToast } from "@/components/ui/Toast";
 import { useI18n } from "@/i18n";
 import { formatMoney, monthLabel } from "@/lib/money";
 import { useMoney } from "@/lib/useMoney";
+import { balanceAfterWaiting, useWaitingPayments } from "@/lib/waitingPayments";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 import { methodLabel } from "./common";
 import { BrandMark } from "@/components/brand/Brand";
@@ -98,6 +99,8 @@ function VoucherCopy({ v, copy }: { v: VoucherDetail; copy: string }) {
   // Every amount carries the school's currency (v0.2.0-alpha B2).
   const formatMoney = useMoney();
   const discounts = Number(v.sibling_discount) + Number(v.concession_discount);
+  // Taken on this PC while the server was out of reach: the balance above does not know it.
+  const waiting = useWaitingPayments().get(v.id);
   return (
     <section className="rounded border border-border bg-card p-4 text-sm text-text print:rounded-none print:border-black">
       <header className="mb-2 flex items-start justify-between border-b border-border pb-2">
@@ -157,6 +160,18 @@ function VoucherCopy({ v, copy }: { v: VoucherDetail; copy: string }) {
           <Row label={t("fees.balance")} value={formatMoney(v.balance)} strong />
         </tbody>
       </table>
+      {waiting && (
+        <p
+          data-testid="voucher-waiting"
+          className="mt-1 rounded border border-warning bg-warning-bg px-2 py-1 text-xs font-semibold text-text print:border-black print:bg-white"
+        >
+          {t("fees.provisional.waiting", { amount: formatMoney(waiting.amount.toFixed(2)) })}
+          {" · "}
+          {t("fees.provisional.remaining", {
+            amount: formatMoney(balanceAfterWaiting(v.balance, waiting.amount)),
+          })}
+        </p>
+      )}
       <p className="mb-2 text-2xs text-muted">
         {t("fees.print.payBefore", {
           date: formatDate(v.due_date),
@@ -299,14 +314,33 @@ export function ProvisionalReceiptPage() {
   const v = p.voucher;
   return (
     <>
-      <PrintToolbar title={`${t("fees.provisional.title")} ${p.provisional_no}`} />
+      <PrintToolbar
+        title={
+          p.receipt_no
+            ? t("fees.provisional.confirmed.title", { number: p.receipt_no })
+            : `${t("fees.provisional.title")} ${p.provisional_no}`
+        }
+      />
       <section
-        className="print-area mx-auto max-w-lg rounded border-2 border-dashed border-warning bg-card p-4 text-sm text-text print:rounded-none print:border-black"
+        className={`print-area mx-auto max-w-lg rounded border-2 bg-card p-4 text-sm text-text print:rounded-none print:border-black ${p.receipt_no ? "border-success" : "border-dashed border-warning"}`}
         data-testid="provisional-receipt"
       >
-        <p className="mb-2 rounded bg-warning-bg px-2 py-1.5 text-center text-sm font-bold uppercase tracking-wide text-text print:border print:border-black">
-          {t("fees.provisional.banner")}
-        </p>
+        {p.receipt_no ? (
+          // The school server has the payment: no word of "not yet confirmed" any more.
+          <p
+            className="mb-2 rounded bg-success-bg px-2 py-1.5 text-center text-sm font-bold text-text print:border print:border-black"
+            data-testid="provisional-confirmed"
+          >
+            {t("fees.provisional.confirmed", { number: p.receipt_no })}
+          </p>
+        ) : (
+          <p
+            className="mb-2 rounded bg-warning-bg px-2 py-1.5 text-center text-sm font-bold uppercase tracking-wide text-text print:border print:border-black"
+            data-testid="provisional-banner"
+          >
+            {t("fees.provisional.banner")}
+          </p>
+        )}
         <header className="mb-2 flex items-start justify-between border-b border-border pb-2">
           <div className="flex items-start gap-2">
             <div>
@@ -317,8 +351,18 @@ export function ProvisionalReceiptPage() {
             </div>
           </div>
           <div className="text-end text-xs">
-            <div className="font-semibold uppercase">{t("fees.provisional.title")}</div>
-            <div className="font-mono" data-testid="provisional-number">
+            <div className="font-semibold uppercase">
+              {p.receipt_no ? t("fees.receiptNo") : t("fees.provisional.title")}
+            </div>
+            {p.receipt_no && (
+              <div className="font-mono font-semibold" data-testid="real-number">
+                {p.receipt_no}
+              </div>
+            )}
+            <div
+              className={`font-mono ${p.receipt_no ? "text-muted" : ""}`}
+              data-testid="provisional-number"
+            >
               {p.provisional_no}
             </div>
             <div>{formatDate(p.paid_on)}</div>
@@ -357,11 +401,11 @@ export function ProvisionalReceiptPage() {
             {v?.school.currency ?? ""} {formatMoney(p.amount)}
           </span>
         </div>
-        <p className="mt-3 text-xs" data-testid="provisional-status">
-          {p.receipt_no
-            ? t("fees.provisional.replacedBy", { number: p.receipt_no })
-            : t("fees.provisional.pending")}
-        </p>
+        {!p.receipt_no && (
+          <p className="mt-3 text-xs" data-testid="provisional-status">
+            {t("fees.provisional.pending")}
+          </p>
+        )}
         <div className="mt-6 flex justify-between text-xs text-muted print:mt-10">
           <span>{t("fees.print.signature")}: ____________</span>
         </div>

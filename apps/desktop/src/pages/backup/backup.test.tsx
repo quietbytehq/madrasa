@@ -34,6 +34,7 @@ const user: UserSummary = {
 const status: BackupStatus = {
   last_backup_at: "2026-10-30T02:00:00Z",
   last_backup_file: "/home/u/Documents/Madrasa Backups/madrasa-khi-mc-20261030-020000.mbk",
+  never: false,
   stale: false,
   enabled: true,
   time: "02:00",
@@ -106,18 +107,31 @@ describe("BackupPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("on a new install says there is no backup yet, without the two-day warning", async () => {
+    vi.mocked(api.backupStatus).mockResolvedValue({
+      ...status,
+      never: true,
+      stale: false,
+      last_backup_at: null,
+      last_backup_file: null,
+    });
+    render();
+    expect(await screen.findByText("No backup yet — run one now")).toBeInTheDocument();
+    expect(screen.queryByText("The last backup is older than 2 days.")).toBeNull();
+    expect(screen.queryByText("Backups are up to date.")).toBeNull();
+  });
+
   it("warns when stale and asks for the password once when unattended backups are not ready", async () => {
     vi.mocked(api.backupStatus).mockResolvedValue({
       ...status,
       stale: true,
-      last_backup_at: null,
+      last_backup_at: "2026-10-20T02:00:00Z",
       unattended_ready: false,
       last_error: "disk full",
     });
     vi.mocked(api.unlockBackups).mockResolvedValue(undefined);
     render();
     expect(await screen.findByText("The last backup is older than 2 days.")).toBeInTheDocument();
-    expect(screen.getByText("No backup yet")).toBeInTheDocument();
     expect(screen.getByText("Last attempt failed: disk full")).toBeInTheDocument();
     await userEvent.type(screen.getAllByLabelText("Backup password")[0]!, "backup-password-1");
     await userEvent.click(screen.getByRole("button", { name: "Enable automatic backups" }));

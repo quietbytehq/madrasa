@@ -4,11 +4,16 @@ import { Route, Routes } from "react-router-dom";
 import { renderWithProviders } from "@/test/render";
 import { api } from "@/api/endpoints";
 import { SessionProvider } from "@/app/session";
+import { ConnectionProvider } from "@/app/connection";
+import { FeaturesProvider } from "@/app/features";
+import { OFFLINE_EVENTS, setBaseUrl } from "@/api/client";
+import { balanceAfterWaiting, waitingPayments } from "@/lib/waitingPayments";
 import type {
   FeePolicy,
   FeeVoucher,
   FeeVoucherRow,
   Ledger,
+  OutboxStatus,
   ReceiptDetail,
   UserSummary,
   VoucherDetail,
@@ -464,5 +469,184 @@ describe("VoucherPrintPage", () => {
     expect(screen.getAllByText("GHS-V202605-00001")).toHaveLength(2);
     await userEvent.click(screen.getByRole("button", { name: "Print / Save as PDF" }));
     await waitFor(() => expect(api.voucherPdf).toHaveBeenCalledWith("v1", "en"));
+  });
+});
+
+// v0.5.0 test, B6: after Rs 5,000 was taken offline the ledger on the same PC still said
+// "unpaid, Rs 9,240", so a cashier could collect the same money twice.
+describe("a payment taken offline, waiting to be sent (v0.5.1)", () => {
+  const item = (
+    id: string,
+    voucher_id: string | null,
+    amount: string | null,
+    no: string | null,
+  ) => ({
+    id,
+    method: "POST",
+    path: voucher_id ? `/api/v1/fees/vouchers/${voucher_id}/payments` : "/api/v1/students",
+    queued_at: "2026-11-16T08:00:00Z",
+    provisional_no: no,
+    voucher_id,
+    amount,
+    attempts: 0,
+    last_error: null,
+  });
+  const outbox = (items: OutboxStatus["items"]): OutboxStatus => ({
+    link: "offline",
+    since: "2026-11-16T08:00:00Z",
+    last_contact: "2026-11-16T07:59:00Z",
+    waiting: items.length,
+    needs_sign_in: false,
+    items,
+    failed: [],
+    overwritten: [],
+    notices: [],
+    sent: [],
+  });
+  let current: OutboxStatus;
+  const stubOutbox = (status: OutboxStatus) => {
+    current = status;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) =>
+        String(input).endsWith("/__madrasa/outbox/status")
+          ? new Response(JSON.stringify(current), {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            })
+          : new Response("{}", { status: 404 }),
+      ),
+    );
+  };
+  const online = (ui: React.ReactNode, route = "/students/st1") =>
+    renderWithProviders(
+      <FeaturesProvider initial={{ edition: "lite", features: ["fees"], version: "test" }}>
+        <SessionProvider initial={{ user, permissions: ADMIN }}>
+          <ConnectionProvider pollMs={600_000}>{ui}</ConnectionProvider>
+        </SessionProvider>
+      </FeaturesProvider>,
+      { route },
+    );
+
+  beforeEach(() => setBaseUrl("http://proxy"));
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("adds up the waiting payments of each voucher, and nothing else in the queue", () => {
+    const map = waitingPayments(
+      outbox([
+        item("a", null, null, null),
+        item("b", "v1", "1000", "P-K7QM-0001"),
+        item("c", "v1", "300.50", "P-K7QM-0002"),
+        item("d", "v2", "9240.00", "P-K7QM-0003"),
+        // A change to a voucher that is not a payment carries no provisional number.
+        item("e", "v3", null, null),
+      ]),
+    );
+    expect([...map.keys()]).toEqual(["v1", "v2"]);
+    expect(map.get("v1")).toEqual({ amount: 1300.5, numbers: ["P-K7QM-0001", "P-K7QM-0002"] });
+    expect(map.get("v2")?.amount).toBe(9240);
+    expect(waitingPayments(null).size).toBe(0);
+    expect(balanceAfterWaiting("2300.00", 1300.5)).toBe("999.50");
+    expect(balanceAfterWaiting("2300.00", 5000)).toBe("0.00");
+  });
+
+  it("the ledger shows it on the voucher and against the student's balance, at once", async () => {
+    stubOutbox(outbox([]));
+    online(
+      <Routes>
+        <Route path="/students/:id" element={<LedgerView studentId="st1" />} />
+      </Routes>,
+    );
+    await screen.findByText("V202605-00001");
+    expect(screen.queryByTestId("waiting-paid")).toBeNull();
+    expect(screen.queryByTestId("waiting-total")).toBeNull();
+
+    // The payment is taken: the proxy keeps it and the app is told at once (no timer).
+    current = outbox([item("b", "v1", "1000.00", "P-K7QM-0001")]);
+    window.dispatchEvent(new CustomEvent(OFFLINE_EVENTS.queued));
+    expect(await screen.findByTestId("waiting-paid")).toHaveTextContent(
+      "Paid (provisional, waiting to send): Rs 1,000.00",
+    );
+    expect(screen.getByTestId("waiting-total")).toHaveTextContent(
+      "Rs 1,000.00 taken on this PC is waiting to be sent to the school server. Balance once it arrives: Rs 1,300.00.",
+    );
+
+    // It arrives: the server's own figures take over and the note goes.
+    current = { ...outbox([]), link: "connected" };
+    window.dispatchEvent(new CustomEvent(OFFLINE_EVENTS.saved));
+    await waitFor(() => expect(screen.queryByTestId("waiting-paid")).toBeNull());
+    expect(screen.queryByTestId("waiting-total")).toBeNull();
+  });
+
+  it("the voucher list and the voucher itself show it too", async () => {
+    stubOutbox(outbox([item("b", "v1", "1000.00", "P-K7QM-0001")]));
+    vi.mocked(api.vouchers).mockResolvedValue([
+      {
+        ...voucher,
+        balance: "2300.00",
+        student_name: "Ali Khan",
+        student_number: "KHI-MC-2026-00001",
+        class_name: "1",
+        section_name: "A",
+      } as FeeVoucherRow,
+    ]);
+    const list = online(<VouchersTab />, "/");
+    expect(await screen.findByTestId("waiting-paid")).toHaveTextContent("Rs 1,000.00");
+    list.unmount();
+
+    online(
+      <Routes>
+        <Route path="/fees/vouchers/:id/print" element={<VoucherPrintPage />} />
+      </Routes>,
+      "/fees/vouchers/v1/print",
+    );
+    const notes = await screen.findAllByTestId("voucher-waiting");
+    expect(notes).toHaveLength(2); // school copy and parent copy
+    expect(notes[0]).toHaveTextContent(
+      "Paid (provisional, waiting to send): Rs 1,000.00 · Still to pay after the waiting payment: Rs 1,300.00",
+    );
+  });
+
+  it("warns before a second payment on the same voucher, and takes it only once confirmed", async () => {
+    stubOutbox(outbox([item("b", "v1", "1000.00", "P-K7QM-0001")]));
+    vi.mocked(api.payVoucher).mockResolvedValue({
+      receipt: { ...ledger.receipts[0]!, receipt_no: "R2026-000002" } as ReceiptDetail,
+      voucher: detail,
+    });
+    online(<PayDialog voucher={detail} onClose={() => {}} onPaid={() => {}} />, "/");
+    const warning = await screen.findByTestId("waiting-warning");
+    expect(warning).toHaveTextContent(
+      "A payment of Rs 1,000.00 for this voucher was already taken on this PC and is waiting to be sent (P-K7QM-0001). Do not collect the same money twice.",
+    );
+    expect(warning).toHaveTextContent("Still to pay after the waiting payment: Rs 1,300.00");
+    const pay = screen.getByRole("button", { name: "Record payment" });
+    expect(pay).toBeDisabled();
+    await userEvent.click(pay);
+    expect(api.payVoucher).not.toHaveBeenCalled();
+
+    // "Full" offers what is left, not the balance the server last reported.
+    await userEvent.click(screen.getByRole("button", { name: "Pay full balance" }));
+    expect(screen.getByLabelText("Amount")).toHaveValue("1300.00");
+    await userEvent.click(
+      screen.getByLabelText("This is a further payment, on top of the one that is waiting."),
+    );
+    expect(pay).toBeEnabled();
+    await userEvent.click(pay);
+    await waitFor(() =>
+      expect(api.payVoucher).toHaveBeenCalledWith(
+        "v1",
+        expect.objectContaining({ amount: "1300.00" }),
+      ),
+    );
+  });
+
+  it("does not warn when nothing is waiting for this voucher", async () => {
+    stubOutbox(outbox([item("d", "v2", "500.00", "P-K7QM-0003")]));
+    online(<PayDialog voucher={detail} onClose={() => {}} onPaid={() => {}} />, "/");
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByTestId("waiting-warning")).toBeNull();
+    expect(screen.getByRole("button", { name: "Record payment" })).toBeEnabled();
+    expect(screen.getByLabelText("Amount")).toHaveValue("2300.00");
   });
 });

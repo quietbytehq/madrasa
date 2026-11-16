@@ -9,8 +9,8 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 import { OFFLINE_EVENTS, outboxStatus, ping } from "@/api/client";
-import { api } from "@/api/endpoints";
 import type { NexusLinkStatus, OutboxLink, OutboxStatus } from "@/api/types";
+import { publishHubStatus, refreshHubStatus, useHubStatus } from "@/app/hubStatus";
 import { useFeatures } from "@/app/features";
 import { useSession } from "@/app/session";
 
@@ -33,6 +33,9 @@ export interface Connection {
 }
 
 const ConnectionContext = createContext<Connection | null>(null);
+
+/** How many checks between two looks at the sync with head office. */
+const HUB_EVERY = 3;
 
 /** After this long without an answer, "Reconnecting" becomes "Offline" (as in the proxy). */
 const GRACE_MS = 15_000;
@@ -59,7 +62,8 @@ export function ConnectionProvider({
   const [kind, setKind] = useState<"client" | "local">("local");
   const [link, setLink] = useState<OutboxLink>("connected");
   const [outbox, setOutbox] = useState<OutboxStatus | null>(null);
-  const [hub, setHub] = useState<NexusLinkStatus | null>(null);
+  // One source for the badge and the Settings card (app/hubStatus.ts).
+  const sharedHub = useHubStatus();
   const failingSince = useRef<number | null>(null);
   const tick = useRef(0);
   const busy = useRef(false);
@@ -83,13 +87,10 @@ export function ConnectionProvider({
         failingSince.current = next.failingSince;
         setLink(next.link);
       }
-      // The hub's sync every 20 checks (a minute at the default pace).
-      if (hubVisible && tick.current % 20 === 0) {
-        api
-          .nexusLink()
-          .then(setHub)
-          .catch(() => {});
-      }
+      // The hub's sync every third check (fifteen seconds at the default pace), which
+      // catches the school's own background syncs; a sync from the screen is published the
+      // moment it answers.
+      if (hubVisible && tick.current % HUB_EVERY === 0) void refreshHubStatus();
       tick.current += 1;
     } finally {
       busy.current = false;
@@ -108,10 +109,11 @@ export function ConnectionProvider({
   }, [check, pollMs]);
 
   useEffect(() => {
-    if (!hubVisible) setHub(null);
+    if (!hubVisible) publishHubStatus(null);
     tick.current = 0;
   }, [hubVisible]);
 
+  const hub = hubVisible ? sharedHub : null;
   const value = useMemo<Connection>(
     () => ({ link, kind, outbox, hub, refresh: () => void check() }),
     [link, kind, outbox, hub, check],

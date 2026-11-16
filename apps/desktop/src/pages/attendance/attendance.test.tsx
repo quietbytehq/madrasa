@@ -19,6 +19,7 @@ import { Dashboard } from "@/pages/Dashboard";
 const backupOk = {
   last_backup_at: "2026-04-06T02:00:00Z",
   last_backup_file: "/backups/madrasa-khi-mc-20260406-020000.mbk",
+  never: false,
   stale: false,
   enabled: true,
   time: "02:00",
@@ -430,6 +431,40 @@ describe("Dashboard attendance card", () => {
     );
     expect(await screen.findByText("No school today: weekend")).toBeInTheDocument();
     expect(screen.getByText("The last backup is older than 2 days.")).toBeInTheDocument();
+  });
+
+  // Sanity test of v0.5.0: with every section marked the panel was still headed "Not yet
+  // marked today"; and a brand-new install warned that its backup was older than two days.
+  it("heads the panel 'All sections marked' when none is left, and says 'No backup yet' on a new install", async () => {
+    vi.mocked(api.dashboard).mockResolvedValue({
+      date: "2026-04-06",
+      day_kind: { kind: "school" },
+      attendance: { totals: { ...status.totals, marked: status.totals.sections }, unmarked: [] },
+      backup: {
+        ...backupOk,
+        never: true,
+        stale: false,
+        last_backup_at: null,
+        last_backup_file: null,
+      },
+      students_active: 1200,
+      staff_active: 120,
+      fees: null,
+    });
+    renderWithProviders(
+      <FeaturesProvider initial={{ edition: "lite", features: ["dashboard", "attendance"] }}>
+        <SessionProvider initial={{ user, permissions: TEACHER }}>
+          <Dashboard />
+        </SessionProvider>
+      </FeaturesProvider>,
+    );
+    expect(await screen.findByText("All sections marked")).toBeInTheDocument();
+    expect(screen.queryByText("Not yet marked today")).toBeNull();
+    expect(screen.getByText("Every section is marked for today.")).toBeInTheDocument();
+    const backup = screen.getByTestId("backup-card");
+    expect(backup).toHaveTextContent("No backup yet — run one now");
+    expect(backup).not.toHaveTextContent("older than 2 days");
+    expect(backup.querySelector(".text-danger")).toBeNull();
   });
 });
 

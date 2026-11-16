@@ -95,7 +95,7 @@ impl Database {
 pub mod embedded {
     //! Bundled PostgreSQL lifecycle. Binaries are extracted into `<data_dir>/pg/bin`, the cluster
     //! lives in `<data_dir>/pg/data`, and the superuser password is generated once and kept in
-    //! `<data_dir>/pg/password` with user-only permissions.
+    //! `<data_dir>/pg/password` with user-only permissions (see [`crate::private`]).
 
     use postgresql_embedded::{PostgreSQL, Settings, Status};
     use std::path::Path;
@@ -110,13 +110,20 @@ pub mod embedded {
     impl Embedded {
         pub async fn start(data_dir: &Path) -> anyhow::Result<Embedded> {
             let pg_dir = data_dir.join("pg");
-            std::fs::create_dir_all(&pg_dir)?;
+            crate::private::create_private_dir(data_dir)?;
+            crate::private::create_private_dir(&pg_dir)?;
+            // Everything an earlier version left readable by other accounts is closed now,
+            // before the database is touched (it removes the old `pg/.pgpass` too).
+            crate::private::harden_data_dir(data_dir);
             let password = load_or_create_password(&pg_dir.join("password"))?;
 
             let mut settings = Settings::new();
             settings.installation_dir = pg_dir.join("bin");
             settings.data_dir = pg_dir.join("data");
-            settings.password_file = pg_dir.join(".pgpass");
+            // PostgreSQL's set-up reads the password from a file. It is given the private
+            // `pg/password` itself: the library would otherwise write a second copy
+            // (`pg/.pgpass`) readable by every account on the PC.
+            settings.password_file = pg_dir.join("password");
             settings.host = "127.0.0.1".into();
             settings.port = 0; // random free port, never exposed beyond loopback
             settings.password = password;
@@ -169,12 +176,7 @@ pub mod embedded {
             }
             s
         };
-        std::fs::write(path, &password)?;
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
-        }
+        crate::private::write_private(path, password.as_bytes())?;
         Ok(password)
     }
 }

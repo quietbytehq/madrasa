@@ -26,6 +26,7 @@ import { useI18n } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
 import { useSchool } from "@/app/session";
 import { placeholders } from "@/lib/school";
+import { internalCustomFields, visibleCustomFields } from "@/lib/customFields";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 import { PageHeader } from "../PageHeader";
 import { GENDERS, genderLabel, RELATIONSHIPS, relationshipLabel, today } from "./common";
@@ -102,8 +103,12 @@ export function toCreateRequest(
   };
 }
 
-export function toPatch(f: StudentFormValues): StudentPatch {
-  const custom: Record<string, unknown> = {};
+/**
+ * `kept` are the record's custom fields that the form does not show (Madrasa's own notes on
+ * the record, see lib/customFields.ts): they go back unchanged.
+ */
+export function toPatch(f: StudentFormValues, kept: Record<string, unknown> = {}): StudentPatch {
+  const custom: Record<string, unknown> = { ...kept };
   for (const { key, value } of f.custom) if (key.trim()) custom[key.trim()] = value;
   return {
     full_name: f.full_name.trim(),
@@ -135,10 +140,8 @@ export function fromDetail(d: StudentDetail): StudentFormValues {
     board_registration_no: d.board_registration_no ?? "",
     section_id: d.current?.section_id ?? "",
     roll_no: d.current?.roll_no?.toString() ?? "",
-    custom: Object.entries(d.custom).map(([key, value]) => ({
-      key,
-      value: typeof value === "string" ? value : JSON.stringify(value),
-    })),
+    // Only the school's own fields are shown and edited.
+    custom: visibleCustomFields(d.custom),
   };
 }
 
@@ -206,6 +209,8 @@ export function StudentFormPage() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [duplicates, setDuplicates] = useState<DuplicateMatch[] | null>(null);
   const [liveDuplicates, setLiveDuplicates] = useState<DuplicateMatch[]>([]);
+  // The check needs the school server: without it the form says so instead of staying silent.
+  const [checkOffline, setCheckOffline] = useState(false);
 
   const [initialGuardians, setInitialGuardians] = useState<GuardianDraft[]>([]);
   useEffect(() => {
@@ -217,10 +222,13 @@ export function StudentFormPage() {
     }
   }, [existing.data]);
 
-  // Inline duplicate warning while typing (debounced).
+  // Inline duplicate warning while typing (debounced), for a new student. It only reads:
+  // while the school server is out of reach it is not queued, and the form says that
+  // duplicates cannot be checked right now.
   useEffect(() => {
-    if (!form.full_name.trim() || !form.father_name.trim() || !form.date_of_birth) {
+    if (editing || !form.full_name.trim() || !form.father_name.trim() || !form.date_of_birth) {
       setLiveDuplicates([]);
+      setCheckOffline(false);
       return;
     }
     const handle = setTimeout(() => {
@@ -232,11 +240,20 @@ export function StudentFormPage() {
           cnic: form.cnic || undefined,
           exclude_id: id,
         })
-        .then(setLiveDuplicates)
-        .catch(() => setLiveDuplicates([]));
+        .then((matches) => {
+          setLiveDuplicates(matches);
+          setCheckOffline(false);
+        })
+        .catch((err) => {
+          setLiveDuplicates([]);
+          setCheckOffline(
+            err instanceof ApiError &&
+              (err.code === "offline_check" || err.code === "server_unreachable"),
+          );
+        });
     }, 400);
     return () => clearTimeout(handle);
-  }, [form.full_name, form.father_name, form.date_of_birth, form.cnic, id]);
+  }, [editing, form.full_name, form.father_name, form.date_of_birth, form.cnic, id]);
 
   const set = (key: keyof StudentFormValues) => (e: { target: { value: string } }) => {
     setForm((f) => ({ ...f, [key]: e.target.value }));
@@ -269,7 +286,10 @@ export function StudentFormPage() {
         )) {
           await api.linkGuardian(id, stripDraft(g));
         }
-        let detail = await api.updateStudent(id, toPatch(form));
+        let detail = await api.updateStudent(
+          id,
+          toPatch(form, internalCustomFields(existing.data?.custom)),
+        );
         const currentSection = existing.data?.current?.section_id ?? "";
         const currentRoll = existing.data?.current?.roll_no?.toString() ?? "";
         if (
@@ -329,6 +349,15 @@ export function StudentFormPage() {
         ]}
       />
       <form onSubmit={(e) => void submit(e)} noValidate className="flex flex-col gap-4">
+        {checkOffline && !editing && (
+          <p
+            role="status"
+            data-testid="duplicate-check-offline"
+            className="rounded border border-border bg-hover px-3 py-2 text-xs text-muted"
+          >
+            {t("students.duplicate.offline")}
+          </p>
+        )}
         {liveDuplicates.length > 0 && !editing && (
           <div
             role="status"
