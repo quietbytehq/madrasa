@@ -16,6 +16,7 @@ pub mod late_fees;
 pub mod nexus_link;
 pub mod offline;
 pub mod outbox;
+pub mod private;
 pub mod reports;
 pub mod ro;
 pub mod routes;

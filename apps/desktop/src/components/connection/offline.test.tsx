@@ -14,6 +14,7 @@ import { ProvisionalReceiptPage } from "@/pages/fees/PrintPages";
 import { PayDialog } from "@/pages/fees/PayDialog";
 import { useToast } from "@/components/ui/Toast";
 import { describeChange } from "@/lib/connection";
+import { useWaitingPayments } from "@/lib/waitingPayments";
 import { translate } from "@/i18n";
 
 const user: UserSummary = {
@@ -56,6 +57,8 @@ const offlineStatus: OutboxStatus = {
       path: "/api/v1/students",
       queued_at: "2026-11-13T08:01:00Z",
       provisional_no: null,
+      voucher_id: null,
+      amount: null,
       attempts: 0,
       last_error: null,
     },
@@ -65,6 +68,8 @@ const offlineStatus: OutboxStatus = {
       path: "/api/v1/fees/vouchers/v1/payments",
       queued_at: "2026-11-13T08:02:00Z",
       provisional_no: "P-K7QM-0001",
+      voucher_id: "v1",
+      amount: "1000",
       attempts: 0,
       last_error: null,
     },
@@ -74,6 +79,8 @@ const offlineStatus: OutboxStatus = {
       path: "/api/v1/attendance/sheet",
       queued_at: "2026-11-13T08:03:00Z",
       provisional_no: null,
+      voucher_id: null,
+      amount: null,
       attempts: 1,
       last_error: "refused",
     },
@@ -178,6 +185,51 @@ describe("connection", () => {
     );
     expect(screen.queryByTestId("connection-waiting")).toBeNull();
   });
+
+  // B4 (v0.5.0 test): the screen asked every five seconds, on top of the proxy's own delay.
+  it("on a LAN client asks this PC every second, and leaves the screen alone while nothing changed", async () => {
+    let status: OutboxStatus = { ...offlineStatus, link: "connected", waiting: 0, items: [] };
+    let asked = 0;
+    mockFetch((url) => {
+      if (!url.endsWith("/__madrasa/outbox/status")) return json(404, {});
+      asked += 1;
+      // The time of the last answer moves with every heartbeat.
+      return json(200, {
+        ...status,
+        last_contact: new Date(1_800_000_000_000 + asked).toISOString(),
+      });
+    });
+    let draws = 0;
+    function Watcher() {
+      useWaitingPayments();
+      draws += 1;
+      return null;
+    }
+    renderWithProviders(
+      withSession(
+        <ConnectionProvider>
+          <ConnectionBadge />
+          <Watcher />
+        </ConnectionProvider>,
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("connection-link")).toHaveTextContent("Connected"),
+    );
+    const before = draws;
+    // Three more looks, no timer of ours, no event: only the one-second pace.
+    await waitFor(() => expect(asked).toBeGreaterThanOrEqual(3), { timeout: 8000 });
+    expect(draws).toBe(before);
+    // The proxy noticed the pulled cable: on the screen within the next second.
+    status = { ...status, link: "reconnecting" };
+    const at = Date.now();
+    await waitFor(
+      () => expect(screen.getByTestId("connection-link")).toHaveTextContent("Reconnecting"),
+      { timeout: 4000 },
+    );
+    // About a second (the old pace was five); the margin is for a busy test machine.
+    expect(Date.now() - at).toBeLessThan(3000);
+  }, 20_000);
 
   it("names waiting changes in Urdu too", () => {
     const t = (k: Parameters<typeof translate>[1], p?: Record<string, string | number>) =>
@@ -291,6 +343,8 @@ describe("changes kept on this PC", () => {
     expect(within(receipt).getByTestId("provisional-status")).toHaveTextContent(
       "has not received this payment yet",
     );
+    expect(within(receipt).getByTestId("provisional-banner")).toBeInTheDocument();
+    expect(within(receipt).queryByTestId("provisional-confirmed")).toBeNull();
   });
 
   it("once the server has it, the provisional receipt shows the real number", async () => {
@@ -306,9 +360,19 @@ describe("changes kept on this PC", () => {
       ),
       { route: "/fees/receipts/provisional/P-K7QM-0001/print" },
     );
-    expect(await screen.findByTestId("provisional-status")).toHaveTextContent(
-      "real receipt number R2026-000123",
+    // B5 (v0.5.0 test): the page said "confirmed" under a banner that still said "not yet
+    // confirmed". Now only "Confirmed — receipt R…".
+    const receipt = await screen.findByTestId("provisional-receipt");
+    expect(within(receipt).getByTestId("provisional-confirmed")).toHaveTextContent(
+      "Confirmed — receipt R2026-000123",
     );
+    expect(within(receipt).getByTestId("real-number")).toHaveTextContent("R2026-000123");
+    expect(within(receipt).queryByTestId("provisional-banner")).toBeNull();
+    expect(within(receipt).queryByTestId("provisional-status")).toBeNull();
+    expect(receipt).not.toHaveTextContent(/not yet confirmed/i);
+    expect(receipt).not.toHaveTextContent(/has not received/i);
+    // The provisional number stays, so the printed slip can still be matched.
+    expect(within(receipt).getByTestId("provisional-number")).toHaveTextContent("P-K7QM-0001");
   });
 });
 

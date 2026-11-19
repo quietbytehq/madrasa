@@ -11,13 +11,14 @@ import { Spinner } from "@/components/ui/Spinner";
 import { useToast } from "@/components/ui/Toast";
 import { useI18n } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
-import { errorMessage, useAsync } from "@/lib/useAsync";
+import { errorMessage } from "@/lib/useAsync";
+import { publishHubStatus, refreshHubStatus, useHubStatus } from "@/app/hubStatus";
 import { announceParentAppChange } from "@/app/parentApp";
 import { showValue } from "@/lib/showValue";
 import { NexusEscrow } from "./NexusEscrow";
 
 /** How often a joined school's card looks at the sync state again. */
-const REFRESH_MS = 60 * 1000;
+const REFRESH_MS = 15 * 1000;
 
 const REASONS: Record<string, TranslationKey> = {
   head_office_wins: "nexus.reason.head_office_wins",
@@ -33,7 +34,19 @@ const REASONS: Record<string, TranslationKey> = {
 export function NexusCard({ canManageBackups = false }: { canManageBackups?: boolean }) {
   const { t, formatDate } = useI18n();
   const toast = useToast();
-  const link = useAsync(() => api.nexusLink(), []);
+  // The same status the top bar's badge shows (app/hubStatus.ts): one source, so the two
+  // always agree and change together.
+  const status = useHubStatus();
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void refreshHubStatus().finally(() => {
+      if (alive) setLoaded(true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
   const [hubUrl, setHubUrl] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [busy, setBusy] = useState<"join" | "sync" | "leave" | null>(null);
@@ -46,18 +59,12 @@ export function NexusCard({ canManageBackups = false }: { canManageBackups?: boo
 
   // The school also syncs by itself every few minutes: look again now and then, so the
   // card (and the backup key part, which hears of a release at a sync) does not go stale.
-  const joined = link.data?.linked ?? false;
-  const setLink = link.setData;
+  const joined = status?.linked ?? false;
   useEffect(() => {
     if (!joined) return;
-    const timer = setInterval(() => {
-      api.nexusLink().then(
-        (next) => setLink(next),
-        () => {},
-      );
-    }, REFRESH_MS);
+    const timer = setInterval(() => void refreshHubStatus(), REFRESH_MS);
     return () => clearInterval(timer);
-  }, [joined, setLink]);
+  }, [joined]);
 
   const loadLog = async () => {
     try {
@@ -71,7 +78,7 @@ export function NexusCard({ canManageBackups = false }: { canManageBackups?: boo
     setBusy("sync");
     try {
       const next = await api.nexusSync();
-      link.setData(next);
+      publishHubStatus(next);
       if (next.overwrites > 0) await loadLog();
       if (announce) {
         toast.push(
@@ -94,7 +101,7 @@ export function NexusCard({ canManageBackups = false }: { canManageBackups?: boo
     setBusy("join");
     try {
       const next = await api.nexusJoin(hubUrl.trim(), joinCode.trim());
-      link.setData(next);
+      publishHubStatus(next);
       announceParentAppChange();
       setJoinCode("");
       toast.push({ kind: "success", title: t("nexus.joined", { hub: next.hub_name ?? "" }) });
@@ -110,7 +117,7 @@ export function NexusCard({ canManageBackups = false }: { canManageBackups?: boo
     setBusy("leave");
     try {
       const out = await api.nexusLeave(reason.trim());
-      link.setData(out.status);
+      publishHubStatus(out.status);
       announceParentAppChange();
       setLeaving(false);
       setReason("");
@@ -126,13 +133,13 @@ export function NexusCard({ canManageBackups = false }: { canManageBackups?: boo
     }
   };
 
-  if (link.loading && !link.data)
+  if (!loaded && !status)
     return (
       <Card title={t("nexus.title")}>
         <Spinner />
       </Card>
     );
-  const d: NexusLinkStatus | null = link.data;
+  const d: NexusLinkStatus | null = status;
   if (!d) return null;
 
   if (!d.linked)

@@ -12,6 +12,9 @@ use mode::{ModeConfig, NetworkInfo};
 use std::sync::Mutex;
 use tauri::Manager;
 
+/// How long closing Madrasa waits for the bundled database to shut down.
+const CLOSE_LIMIT: std::time::Duration = std::time::Duration::from_secs(30);
+
 /// The backend once a mode is chosen; `None` on a fresh install until the user chooses.
 struct Shell {
     backend: Mutex<Option<Backend>>,
@@ -144,6 +147,29 @@ pub fn run() {
             discover_servers,
             probe_server
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Madrasa");
+        .build(tauri::generate_context!())
+        .expect("error while running Madrasa")
+        .run(|app, event| {
+            // Madrasa is closing (the last window was closed, or the session is ending).
+            // Stop the backend and wait for it: on a PC that holds the records this shuts
+            // the bundled database down cleanly before the program ends. Without the wait
+            // the program left while the database was still stopping, and it was killed or
+            // left running behind.
+            if let tauri::RunEvent::Exit = event {
+                if let Some(shell) = app.try_state::<Shell>() {
+                    let backend = shell
+                        .backend
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .take();
+                    if let Some(backend) = backend {
+                        if backend.stop_and_wait(CLOSE_LIMIT) {
+                            tracing::info!("stopped cleanly");
+                        } else {
+                            tracing::warn!("the backend did not stop in time; leaving anyway");
+                        }
+                    }
+                }
+            }
+        });
 }

@@ -1684,6 +1684,100 @@ depend on each other and were built together)
   copy and stays in the archive. Rows that belong to no school (instance-wide settings in the
   audit log) are never sent to a hub, by design, and the test counts the school's rows.
 
+## v0.5.1-alpha
+
+### 2026-11-16 — Fixes after the v0.5.0-alpha offline test (branch `claude/kind-franklin-ac2vjh`)
+
+What the test of v0.5.0-alpha found (19 pass, 2 fail, 3 blocked; bugs B1 to B6 and four
+observations), fixed and tested. Version 0.5.1.
+
+1. **A payment taken offline was not shown (high).** After Rs 5,000 was taken on a client
+   with the server away, that client's ledger still said "unpaid, Rs 9,240": the same money
+   could be collected twice. Now the client shows the waiting payment wherever the voucher
+   appears (voucher list, ledger, the voucher's page): "Paid (provisional, waiting to send):
+   Rs …", and the ledger gives the balance once it arrives. Recording another payment on that
+   voucher warns first, offers only what is still to pay, and needs a tick. When the payment
+   reaches the server the open screen reads its figures again by itself. Found while testing
+   the fix: offline, a voucher never opened on that PC could not be paid at all; a ledger now
+   keeps a copy of the vouchers its student can pay while the server answers.
+   (`lib/waitingPayments.ts`, `fees/common.tsx`, `PayDialog`, `LedgerView`, `VouchersTab`,
+   `PrintPages`; the outbox status carries each payment's voucher and amount.)
+2. **`pg/.pgpass` was readable by everyone (high).** The bundled database's password was
+   written a second time by the PostgreSQL library, mode 0644. It is no longer written
+   (PostgreSQL is given the private `pg/password`), and the old file is removed at the next
+   start. Every file and folder Madrasa writes under its data folder is now for the owning
+   user only (0600 / 0700; on Windows an access list of the user, SYSTEM and Administrators
+   without inheritance), checked and put right at every start: `mode.json`, `tls/`, the
+   offline queue, cache and key, backups kept inside the data folder, and the folders
+   themselves. New module `crates/api/src/private.rs`.
+3. **B1, checks were queued as changes.** `POST /students/check-duplicates` (and the other
+   requests that only read: allocation balance, custom report runs, import and board result
+   previews) are never queued; offline they answer `offline_check` and the form says
+   "Duplicates cannot be checked right now". The waiting count is the number of real
+   changes. Big jobs and login management (voucher generation, late fees, timetable
+   generation, rollover, users, staff logins, parent access) are refused offline, not queued.
+4. **B2, badge and card disagreed for a minute.** One store (`app/hubStatus.ts`) feeds the
+   top bar and the School network card; a sync, a join or a leave is published to both the
+   moment it answers.
+5. **B3, five seconds per screen when the server was silently gone.** Once Offline is known
+   the kept copy is served at once; while Reconnecting a read waits one second at most.
+6. **B4, slow badge.** Heartbeat every 2 s (2 s timeout), the screen asks its own PC every
+   second, and Offline follows the clock (15 s after the last answer).
+7. **B5.** A confirmed provisional receipt says "Confirmed — receipt R…" and nothing about
+   "not yet confirmed".
+8. **Dashboard.** The attendance panel is headed "All sections marked" when none is left
+   (and is not shown at all on a new school with nothing to mark).
+9. **Student profile.** Madrasa's own notes on a record (`demo`, import keys, anything
+   starting with `_`) are not shown and not offered for editing; saving keeps them.
+10. **New install.** "No backup yet — run one now" instead of "older than 2 days"; the
+    warning comes only once the school itself is more than two days old with no backup.
+11. **Closing the server window.** Checked on v0.5.0 first: the window's close request ended
+    the program in 0.2 s and left PostgreSQL running, cluster "in production" (2 of 3 closes;
+    the next start found it "running already" and stopped it). The shell now waits, up to
+    30 s, for the backend to stop the API and shut the database down before it exits.
+
+**Tested (automated).** Rust: outbox unit tests for the check/change split, "3 waiting" for
+three changes with duplicate checks in between, the kept copy served at once, the link
+timings, a waiting payment naming its voucher and amount; `private` (an old install made
+private, the old `.pgpass` removed, a private file private from creation); the backup
+folder; backup status on a new and a three-day-old school; `tests/embedded.rs`, which starts
+the real bundled PostgreSQL, checks every mode, simulates a v0.5.0 install and checks the
+cluster is left "shut down" with no process and no pid file; the shell's
+`closing_waits_until_the_backend_has_stopped`. Desktop UI: 259 tests (new: waiting payments on
+ledger, list and voucher; the second-payment warning; reload on arrival; the copy of payable
+vouchers; badge and card agreeing through three syncs; the one-second pace without redraws;
+hidden fields kept on save; the offline duplicate note; backup and dashboard wording).
+Full Rust workspace (78 test binaries), clippy, lint, format and type checks.
+
+**Tested in the lab (the real app, driven through its window; three containers on a virtual
+school network, the v0.5.0 `.deb` install upgraded with a debug build of this branch).**
+- Upgrade: `.pgpass` (0644) removed at first start, 10 open entries down to 0; a fresh
+  install is private from its first run, and its first backup folder too.
+- Window close on the server, 4 closes: PostgreSQL gone in under a second each time, cluster
+  "shut down", log "stopped cleanly". Single-PC install: the same.
+- Cable pulled from the server, 6 pulls (two clients watched on 3 of them): Reconnecting after 2.4 to 4.4 s,
+  Offline after 13.5 to 15.6 s, Connected 1.1 to 2.1 s after it was plugged back.
+- Offline with the cable out: student list 0.0 s, a profile 0.06 s, the voucher list 0.4 s
+  (5 s each before); a save answered in 0.06 to 0.4 s.
+- TESTING task 67: new student, edit, attendance gave 1, 2, 3 waiting, three lines in the
+  panel; typing in the form and opening the edit form added nothing; Save twice stayed at 3.
+  On reconnect all three arrived once (checked through the API).
+- Payment of Rs 3,000 offline: provisional receipt `P-…`, the note on the ledger, the
+  voucher list and the voucher page, the warning on a second payment with Rs 2,544.00
+  offered and the button disabled until ticked. On reconnect the open ledger went from
+  "unpaid + note" to "partial, Rs 1,000 paid" in one step (second run), and the provisional
+  page said "Confirmed — receipt R2026-005895" with no banner.
+- Hub (built from the v0.5.0 tag): badge and card changed in the same 0.1 s sample after
+  Sync now, in step, with three records held at head office (a clash planted in the hub's
+  database), and back.
+- Dashboard "All sections marked" (39 of 39); a demo student's profile shows no `demo`
+  field and keeps it after an edit; a new install says "No backup yet — run one now".
+
+**Not tested here.** Windows: the access-list code and the window-close wait run in CI's
+Windows tests and build, but no Windows PC was used by hand. A real cable on a real school
+network (the lab cuts a virtual network). The release `.deb` of 0.5.1 (the lab ran a debug
+build of the same source). The published hub image.
+
 ## Brand identity
 
 The brand sheet (`assets/brand/Madrasa_Brand_Identity_Showcase.png`) applied across the

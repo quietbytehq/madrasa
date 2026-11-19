@@ -2506,26 +2506,41 @@ In client mode the desktop app reaches the school server through its loopback pr
 `<data dir>/outbox/<server fingerprint>/`, one folder per server:
 
 - **Reads.** Every JSON answer to a `GET` (up to 4 MB) is kept per user. While the server is
-  out of reach the last copy is served with `X-Madrasa-Offline: cached`.
+  out of reach the last copy is served with `X-Madrasa-Offline: cached`: at once when the
+  link is already `offline`, and after at most 1 s while it is `reconnecting` (v0.5.1; the
+  sender, not the reader, finds out when the server is back).
 - **Changes.** A `POST`, `PUT`, `PATCH` or `DELETE` the server cannot take is queued and
   answered `202 { "queued": { id, queued_at, waiting, provisional } }`. Never queued (answered
   `503 server_unreachable`): `/auth/`, `/setup`, `/backup`, `/imports`, `/system`, `/edition`,
-  `/nexus`, `/directory`, `/api-keys`, and bodies over 1 MB. While anything waits, new changes
-  join the end of the line. The same change queued twice (same user, method, path and body;
+  `/nexus`, `/settings/directory`, `/settings/api-keys`, `/users`, `/staff/{id}/login`,
+  `/parent-app/access`, `/academic-years/rollover`, `/fees/vouchers/generate`,
+  `/fees/late-fees/run`, `/timetable/generate`, and bodies over 1 MB. While anything waits,
+  new changes join the end of the line.
+- **Checks.** A `POST` that only reads (`/students/check-duplicates`, `/allocation/balance`,
+  `/reports/custom/run`, `/subject-allocations/import/parse`,
+  `/boards/exams/{id}/results/parse|preview`) is never queued and carries no idempotency key.
+  With the server away it is answered `503 offline_check` ("This cannot be checked right
+  now…"). The waiting count is therefore the number of real changes (v0.5.1). The same change queued twice (same user, method, path and body;
   for payments, the same payment) is kept once.
-- **Sending.** A background task checks `/api/v1/health` every 10 s (every second while not
-  connected) and sends what waits in order, each with `Idempotency-Key: <item id>` and
+- **Sending.** A background task checks `/api/v1/health` every 2 s with a 2 s timeout (every
+  second while not connected) and sends what waits in order, each with `Idempotency-Key: <item id>` and
   `X-Madrasa-Queued-At: <when it was made>`. 2xx: done. 401: wait for the same user to sign in
   again (the proxy learns which user a token belongs to from `/auth/login` and `/auth/me`),
   never another. 5xx, 429 and `idempotency_in_progress`: try again later. Other 4xx: listed
   as refused, with the server's message, and the line moves on.
-- **Link state.** `connected`; `reconnecting` from the first failure; `offline` after 15 s
-  without an answer.
+- **Link state.** `connected`; `reconnecting` from the first failure (within about 5 s of a
+  silent loss); `offline` 15 s after the last answer, by the clock (whoever reads the state
+  gets it, without waiting for another attempt to fail). The UI asks the proxy's status every
+  second on a LAN client (every 5 s where the API is on the same PC) and redraws only when
+  something changed.
+- **Status.** Each waiting item of a fee payment carries `voucher_id` and `amount`, so the UI
+  can show the payment on the voucher before the server has it (§18.3).
 - **Local endpoints** (never forwarded): `GET /__madrasa/outbox/status`, `POST /retry`,
   `POST /dismiss { kind: failed|overwritten|notices, id? }`, `GET /receipts/{provisional no}`.
   CORS preflights are answered by the proxy so changes can be made while the server is away.
 - **At rest.** Queue, cache and book are sealed with AES-256-GCM under `outbox.key` (32 random
-  bytes, owner-only on Linux) in the same folder.
+  bytes) in the same folder. Like everything under the data folder it is readable by the
+  owning user only (§18.6).
 
 ### 18.2 Exactly once: `Idempotency-Key`
 
@@ -2548,7 +2563,18 @@ school), and records the payment even if the voucher was paid meanwhile (receipt
 append-only, as in sync): the response then carries `X-Madrasa-Notice: overpaid`. The UI
 prints a provisional receipt page from the outbox (`/fees/receipts/provisional/:no/print`);
 once sent, it and the outbox status show the real number, and the real receipt shows the
-number it replaced.
+number it replaced. A confirmed provisional receipt page says "Confirmed — receipt R…" and
+no longer "not yet confirmed".
+
+Until it is sent, the client that took the payment shows it wherever the voucher appears
+(voucher list, ledger, voucher page): "Paid (provisional, waiting to send): <amount>", and
+the ledger gives the balance once it arrives (`apps/desktop/src/lib/waitingPayments.ts`, from
+the outbox status). Recording another payment on that voucher warns first, defaults to what
+is still to pay, and needs a tick. Other PCs cannot know of it until it is sent. When it
+arrives the open ledger, voucher list and voucher page read their figures again at once.
+While connected, a ledger reads the vouchers its student can pay, so the proxy keeps a copy
+and the payment window opens for them offline (a voucher never read cannot be paid offline:
+there would be nothing to print on the provisional receipt).
 
 ### 18.4 Conflicts
 
@@ -2571,10 +2597,27 @@ Everything overwritten is shown in the connection panel until the user clears it
 
 - The top bar of every screen shows Connected / Reconnecting / Offline, the number of
   changes waiting, a count of things to read, and (users with `settings.manage`, school
-  joined) head office's sync. In standalone and server mode it follows `/api/v1/health`.
+  joined) head office's sync, from the same store as the School network card
+  (`apps/desktop/src/app/hubStatus.ts`): a sync from the screen is published to both the
+  moment it answers, and the store is refreshed every 15 s for the background syncs. In standalone and server mode it follows `/api/v1/health`.
   The parent app shows the hub's reachability on every screen.
 - Every `<form>` autosaves to an encrypted draft (`apps/desktop/src/lib/drafts.ts`,
   `FormDrafts`): AES-GCM through Web Crypto with a non-extractable key in IndexedDB, nothing
   kept where those are missing. Keyed by user, page and form shape; passwords, file inputs
   and `data-no-draft` fields never kept; offered back when the form is opened again; removed
   when the change reaches the server or the outbox.
+
+### 18.6 Files on disk and closing (v0.5.1)
+
+- **Private files.** `crates/api/src/private.rs`. Every file and folder Madrasa writes under
+  its data folder is for the owning user only: 0600 / 0700 on Linux, and on Windows an ACL
+  without inheritance granting the user, SYSTEM and Administrators. The data folder is
+  hardened at every start (`harden_data_dir`), which also puts right what an older version
+  left open. PostgreSQL's own `pg/data` and `pg/bin` are closed as folders; what is inside
+  them is left to PostgreSQL. A backup folder inside the data folder is private too; one the
+  school chose elsewhere keeps its own rules (the file is sealed either way). The bundled
+  database's password is kept in `pg/password` only; the world-readable `pg/.pgpass` that
+  v0.5.0 left behind is removed.
+- **Closing.** When the window is closed the shell waits (up to 30 s) for the backend to stop
+  the API and shut the bundled database down before the process exits, so the cluster is
+  left "shut down", not "in production", and the next start needs no recovery.

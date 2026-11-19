@@ -29,8 +29,10 @@ export function describeChange(t: TFunction, method: string, path: string): stri
 export function hubSummary(t: TFunction, hub: NexusLinkStatus | null): string | null {
   if (!hub?.linked) return null;
   if (hub.last_error) return t("offline.hub.unreachable");
-  const parked = hub.parked.length + (hub.last_report?.parked_at_hub.length ?? 0);
+  // The same records the card counts: held here, and waiting at head office.
+  const parked = hub.parked.length + hub.parked_at_hub.length;
   if (parked > 0) return t("offline.hub.attention", { count: parked });
   if (hub.pending > 0) return t("offline.hub.pending", { count: hub.pending });
-  return t("offline.hub.inStep");
+  // The same word as the card under Settings → School network.
+  return hub.in_step ? t("offline.hub.inStep") : t("nexus.state.notInStep");
 }

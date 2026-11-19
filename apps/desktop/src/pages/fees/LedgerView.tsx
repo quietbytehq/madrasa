@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Printer } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -16,8 +16,15 @@ import { useToast } from "@/components/ui/Toast";
 import { useI18n } from "@/i18n";
 import { monthLabel } from "@/lib/money";
 import { errorMessage, useAsync } from "@/lib/useAsync";
+import { useConnection } from "@/app/connection";
 import { useSession } from "@/app/session";
-import { Amount, methodLabel, VoucherStatusBadge } from "./common";
+import {
+  balanceAfterWaiting,
+  useReloadWhenPaymentsArrive,
+  useWaitingPayments,
+} from "@/lib/waitingPayments";
+import { useMoney } from "@/lib/useMoney";
+import { Amount, methodLabel, VoucherStatusBadge, WaitingPaid } from "./common";
 import { PayDialog } from "./PayDialog";
 
 /** A student's fee ledger with actions: pay, waive, reverse, concessions, print. */
@@ -26,6 +33,9 @@ export function LedgerView({ studentId }: { studentId: string }) {
   const { can } = useSession();
   const toast = useToast();
   const ledger = useAsync(() => api.ledger(studentId), [studentId]);
+  const waiting = useWaitingPayments();
+  useReloadWhenPaymentsArrive(ledger.reload);
+  const money = useMoney();
   const [paying, setPaying] = useState<VoucherDetail | null>(null);
   const [reason, setReason] = useState<{ kind: "waive" | "cancel" | "reverse"; id: string } | null>(
     null,
@@ -37,6 +47,18 @@ export function LedgerView({ studentId }: { studentId: string }) {
     toast.push({ kind: "error", title: errorMessage(err, t("app.error.generic")) });
   const manage = can("fees.manage");
   const approve = can("fees.approve");
+
+  // On a PC that works through the school server: while it answers, read the vouchers this
+  // student can pay, so that this PC keeps a copy. If the server then drops, the payment
+  // window still opens for them and the provisional receipt has the student's details.
+  // (Found testing v0.5.1: offline, a voucher never opened before could not be paid.)
+  const connection = useConnection();
+  const online = connection?.kind === "client" && connection.link === "connected";
+  const payable = manage ? (ledger.data?.payable ?? []).join(",") : "";
+  useEffect(() => {
+    if (!online || !payable) return;
+    for (const id of payable.split(",")) api.voucher(id).catch(() => undefined);
+  }, [online, payable]);
 
   const openPay = async (voucherId: string) => {
     try {
@@ -74,6 +96,8 @@ export function LedgerView({ studentId }: { studentId: string }) {
   if (ledger.error || !ledger.data)
     return <EmptyState title={errorMessage(ledger.error, t("common.error.load"))} />;
   const l: Ledger = ledger.data;
+  // Payments taken on this PC for this student's vouchers that have not reached the server.
+  const waitingTotal = l.vouchers.reduce((sum, v) => sum + (waiting.get(v.id)?.amount ?? 0), 0);
   const reasonTitle =
     reason?.kind === "waive"
       ? t("fees.waive")
@@ -95,6 +119,18 @@ export function LedgerView({ studentId }: { studentId: string }) {
           </Card>
         ))}
       </div>
+      {waitingTotal > 0 && (
+        <p
+          role="status"
+          data-testid="waiting-total"
+          className="rounded border border-warning bg-warning-bg px-3 py-2 text-sm text-text"
+        >
+          {t("fees.provisional.waitingTotal", {
+            amount: money(waitingTotal.toFixed(2)),
+            balance: money(balanceAfterWaiting(l.totals.balance, waitingTotal)),
+          })}
+        </p>
+      )}
 
       <Card title={t("fees.tabs.vouchers")} padded={false}>
         {l.vouchers.length === 0 ? (
@@ -151,6 +187,7 @@ export function LedgerView({ studentId }: { studentId: string }) {
                   </td>
                   <td className="px-3 py-1.5">
                     <VoucherStatusBadge status={v.status} t={t} />
+                    <WaitingPaid voucherId={v.id} />
                   </td>
                   <td className="px-3 py-1.5 text-end">
                     <div className="flex justify-end gap-1">

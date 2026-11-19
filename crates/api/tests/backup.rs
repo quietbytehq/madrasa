@@ -223,19 +223,39 @@ async fn backup_restore_round_trip_wrong_password_tampering_and_password_change(
         (StatusCode::OK, Some(dir_s.as_str()))
     );
 
-    // Status before any backup: stale, unattended ready (setup stored the public key).
+    // Status before any backup on a school set up a moment ago: no backup yet, and none
+    // overdue (v0.5.0 warned "older than 2 days" on a brand-new install); unattended ready
+    // (setup stored the public key).
     let (s, status) = app.get("/backup/status", &admin).await;
     assert_eq!(
         (
             s,
+            status["never"].as_bool(),
             status["stale"].as_bool(),
             status["unattended_ready"].as_bool(),
             status["last_backup_at"].clone()
         ),
-        (StatusCode::OK, Some(true), Some(true), Value::Null)
+        (
+            StatusCode::OK,
+            Some(true),
+            Some(false),
+            Some(true),
+            Value::Null
+        )
     );
     let (_, dash) = app.get("/dashboard", &admin).await;
-    assert_eq!(dash["backup"]["stale"], true);
+    assert_eq!(dash["backup"]["never"], true);
+    assert_eq!(dash["backup"]["stale"], false);
+    // The same school three days after it was set up, still without a backup: overdue.
+    sqlx::query("UPDATE schools SET created_at = now() - interval '3 days'")
+        .execute(&app.state.pool)
+        .await
+        .unwrap();
+    let (_, status) = app.get("/backup/status", &admin).await;
+    assert_eq!(
+        (status["never"].as_bool(), status["stale"].as_bool()),
+        (Some(true), Some(true))
+    );
 
     // Manual backup writes a file and records the run.
     let ali = app.student(&admin, "Ali", &ids["s1"]).await;
@@ -251,10 +271,11 @@ async fn backup_restore_round_trip_wrong_password_tampering_and_password_change(
     let (_, status) = app.get("/backup/status", &admin).await;
     assert_eq!(
         (
+            status["never"].as_bool(),
             status["stale"].as_bool(),
             status["last_backup_file"].as_str()
         ),
-        (Some(false), Some(path.as_str()))
+        (Some(false), Some(false), Some(path.as_str()))
     );
     let (_, files) = app.get("/backup/files", &admin).await;
     assert_eq!(files.as_array().unwrap().len(), 1);

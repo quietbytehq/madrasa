@@ -91,8 +91,15 @@ export function BackupPage() {
             >
               {s.last_backup_at ? formatDate(s.last_backup_at) : t("backup.status.never")}
             </div>
-            <p role="status" className={`mt-1 text-sm ${s.stale ? "text-danger" : "text-success"}`}>
-              {s.stale ? t("backup.status.stale") : t("backup.status.ok")}
+            <p
+              role="status"
+              className={`mt-1 text-sm ${s.stale ? "text-danger" : s.never ? "text-text" : "text-success"}`}
+            >
+              {s.never
+                ? t("backup.status.none")
+                : s.stale
+                  ? t("backup.status.stale")
+                  : t("backup.status.ok")}
             </p>
             <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
               <dt className="text-muted">{t("backup.settings")}</dt>
