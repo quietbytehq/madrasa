@@ -71,12 +71,15 @@ async fn load_scoped_user(
     Ok(u)
 }
 
-/// Every login of the caller's school (`users.manage`).
+/// Every login of the caller's school (`users.read`, as docs/permissions.md says, or
+/// `users.manage`).
 async fn list(
     State(state): State<AppState>,
     current: CurrentUser,
 ) -> ApiResult<Json<Vec<UserAccount>>> {
-    current.require(Permission::UsersManage)?;
+    if !current.can(Permission::UsersRead) {
+        current.require(Permission::UsersManage)?;
+    }
     let mut conn = state.pool.acquire().await?;
     let rows = users::list(&mut conn, current.user.school_id).await?;
     let mut out = Vec::with_capacity(rows.len());

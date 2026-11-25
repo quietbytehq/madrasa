@@ -1,0 +1,63 @@
+# cargo-deny: advisories, licences and sources for every crate Madrasa ships.
+# Run: cargo deny check        (CI runs it on every push; see docs/SECURITY.md)
+
+[graph]
+# The platforms Madrasa is built for: the desktop app and server (Linux, Windows), the hub
+# image (Linux) and the parent app (Android).
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "x86_64-pc-windows-msvc",
+    "aarch64-linux-android",
+]
+all-features = true
+
+[advisories]
+version = 2
+yanked = "warn"
+# "Unmaintained" notices are reported by `cargo audit` and reviewed at each release; they do
+# not fail the build (most come from the GTK3 bindings Tauri uses on Linux).
+unmaintained = "none"
+ignore = [
+    # quick-xml 0.38 (quadratic time and unbounded allocation on hostile XML). Reached only
+    # through typst -> hayagriva -> citationberg, which parses citation styles. Madrasa's
+    # PDF templates have no bibliography and never hand user input to that parser. Goes away
+    # with the next Typst upgrade.
+    { id = "RUSTSEC-2026-0194", reason = "only in Typst's citation-style parser, which Madrasa never feeds" },
+    { id = "RUSTSEC-2026-0195", reason = "only in Typst's citation-style parser, which Madrasa never feeds" },
+]
+
+[licenses]
+version = 2
+confidence-threshold = 0.9
+# Licences compatible with shipping Madrasa under Apache-2.0.
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "MIT",
+    "MIT-0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "0BSD",
+    "BSL-1.0",
+    "CC0-1.0",
+    "Unicode-3.0",
+    "MPL-2.0",
+    "CDLA-Permissive-2.0",
+    "PostgreSQL",
+    "Unlicense",
+]
+
+[licenses.private]
+# Madrasa's own crates.
+ignore = true
+
+[bans]
+multiple-versions = "allow"
+wildcards = "allow"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

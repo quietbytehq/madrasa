@@ -4,6 +4,7 @@
 //! `madrasa-server` binary (Standard). Permission checks happen here, never only in the UI.
 
 pub mod auth;
+pub mod authz;
 pub mod backup;
 pub mod bootstrap;
 pub mod clock;
@@ -78,6 +79,11 @@ pub fn router(state: AppState) -> Router {
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
             offline::idempotency::layer,
+        ))
+        // Who may call what, decided before anything else looks at the request (authz.rs).
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            authz::layer,
         ))
         .with_state(state.clone());
 
