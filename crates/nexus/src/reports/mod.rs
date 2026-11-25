@@ -562,10 +562,12 @@ fn cell_text(v: &Value) -> String {
 /// The report as CSV: headings, rows, then the total rows. With a BOM so Excel opens Urdu
 /// text correctly.
 pub fn to_csv(r: &Report) -> Vec<u8> {
+    // Text a spreadsheet would run as a formula is written as text.
+    use madrasa_core::spreadsheet::csv_cell;
     let mut w = csv::Writer::from_writer(Vec::new());
-    let _ = w.write_record(r.columns.iter().map(|c| c.label.as_str()));
+    let _ = w.write_record(r.columns.iter().map(|c| csv_cell(&c.label).into_owned()));
     for row in r.rows.iter().chain(r.totals.iter()) {
-        let _ = w.write_record(row.iter().map(cell_text));
+        let _ = w.write_record(row.iter().map(|v| csv_cell(&cell_text(v)).into_owned()));
     }
     let mut out = vec![0xEF, 0xBB, 0xBF];
     out.extend(w.into_inner().unwrap_or_default());

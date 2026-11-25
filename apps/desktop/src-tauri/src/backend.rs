@@ -107,6 +107,44 @@ impl Backend {
         }
     }
 
+    /// Ask the backend to stop and wait until it has: the servers closed and, on a PC that
+    /// holds the records, the bundled database shut down cleanly. Called when Madrasa is
+    /// closed, so the window going away never leaves the database running or cut off in the
+    /// middle of a write. `false` if it took longer than `limit`.
+    pub fn stop_and_wait(&self, limit: std::time::Duration) -> bool {
+        self.shutdown();
+        if *self.stopped.borrow() {
+            return true;
+        }
+        let mut rx = self.stopped.clone();
+        let (done_tx, done_rx) = std::sync::mpsc::channel();
+        // A thread of its own: this is called from the window system's thread, outside any
+        // async runtime.
+        std::thread::spawn(move || {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_time()
+                .build();
+            let finished = match rt {
+                Ok(rt) => rt.block_on(async move {
+                    tokio::time::timeout(limit, async move {
+                        while !*rx.borrow_and_update() {
+                            if rx.changed().await.is_err() {
+                                break;
+                            }
+                        }
+                    })
+                    .await
+                    .is_ok()
+                }),
+                Err(_) => false,
+            };
+            let _ = done_tx.send(finished);
+        });
+        done_rx
+            .recv_timeout(limit + std::time::Duration::from_secs(1))
+            .unwrap_or(false)
+    }
+
     /// Resolves once the backend thread has finished (after `shutdown`), or at once if it
     /// has already gone.
     pub async fn stopped(&self) {
@@ -199,6 +237,8 @@ async fn run(
     network: &watch::Sender<Option<NetworkInfo>>,
 ) -> anyhow::Result<()> {
     lan::init();
+    // Nothing in the data folder is for other accounts on this PC (every mode, every start).
+    madrasa_api::private::harden_data_dir(&default_data_dir());
     if config.mode == Mode::Client {
         return run_client(config, shutdown_rx, status, network).await;
     }
@@ -315,6 +355,50 @@ mod tests {
         assert_eq!(root_check(Some(1000)), Ok(()));
         assert_eq!(root_check(None), Ok(()), "Windows: no uid");
         assert_eq!(friendly(&anyhow::Error::msg(ROOT_MESSAGE)), ROOT_MESSAGE);
+    }
+
+    /// Closing Madrasa waits for the backend to finish (on a server PC: for the bundled
+    /// database to stop) instead of leaving with it half way. Here with a client's backend,
+    /// which needs no database: it must be up, then stopped and gone within the limit.
+    #[test]
+    fn closing_waits_until_the_backend_has_stopped() {
+        let dir = std::env::temp_dir().join(format!("madrasa-shell-{}", std::process::id()));
+        std::env::set_var("MADRASA_DATA_DIR", &dir);
+        let backend = Backend::start(ModeConfig {
+            mode: Mode::Client,
+            server_url: Some("https://127.0.0.1:1".into()),
+            fingerprint: Some("AB".repeat(32)),
+            listen_port: lan::DEFAULT_PORT,
+        });
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let url = rt
+            .block_on(async {
+                tokio::time::timeout(
+                    std::time::Duration::from_secs(20),
+                    backend.handle().base_url(),
+                )
+                .await
+            })
+            .expect("the client's proxy starts")
+            .expect("and is ready");
+        assert!(url.starts_with("http://127.0.0.1:"));
+        assert!(!*backend.stopped.borrow(), "running");
+        assert!(
+            backend.stop_and_wait(std::time::Duration::from_secs(20)),
+            "stopped within the limit"
+        );
+        assert!(*backend.stopped.borrow(), "the backend thread has finished");
+        // Asking again is harmless and answers at once.
+        assert!(backend.stop_and_wait(std::time::Duration::from_secs(1)));
+        let port: u16 = url.rsplit(':').next().unwrap().parse().unwrap();
+        assert!(
+            std::net::TcpStream::connect(("127.0.0.1", port)).is_err(),
+            "nothing listens any more"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

@@ -29,6 +29,7 @@ pub mod periods;
 pub mod permissions;
 pub mod secrets;
 pub mod session_token;
+pub mod spreadsheet;
 pub mod students;
 pub mod subjects;
 pub mod sync;

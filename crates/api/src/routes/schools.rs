@@ -88,7 +88,11 @@ async fn update_current(
     user: CurrentUser,
     body: Result<Json<ProfileBody>, axum::extract::rejection::JsonRejection>,
 ) -> ApiResult<Json<SchoolSummary>> {
-    user.require(Permission::SettingsManage)?;
+    // The school profile: `school.manage` (docs/permissions.md); `settings.manage` kept for
+    // roles a school set up before the two were told apart.
+    if !user.can(Permission::SchoolManage) {
+        user.require(Permission::SettingsManage)?;
+    }
     let Json(b) = body?;
     if b.name.as_deref().is_some_and(|n| n.trim().is_empty()) {
         return Err(ApiError::validation("School name is required."));

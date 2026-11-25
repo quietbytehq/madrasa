@@ -1684,6 +1684,177 @@ depend on each other and were built together)
   copy and stays in the archive. Rows that belong to no school (instance-wide settings in the
   audit log) are never sent to a hub, by design, and the test counts the school's rows.
 
+## v0.5.1-alpha
+
+### 2026-11-16 — Fixes after the v0.5.0-alpha offline test (branch `claude/kind-franklin-ac2vjh`)
+
+What the test of v0.5.0-alpha found (19 pass, 2 fail, 3 blocked; bugs B1 to B6 and four
+observations), fixed and tested. Version 0.5.1.
+
+1. **A payment taken offline was not shown (high).** After Rs 5,000 was taken on a client
+   with the server away, that client's ledger still said "unpaid, Rs 9,240": the same money
+   could be collected twice. Now the client shows the waiting payment wherever the voucher
+   appears (voucher list, ledger, the voucher's page): "Paid (provisional, waiting to send):
+   Rs …", and the ledger gives the balance once it arrives. Recording another payment on that
+   voucher warns first, offers only what is still to pay, and needs a tick. When the payment
+   reaches the server the open screen reads its figures again by itself. Found while testing
+   the fix: offline, a voucher never opened on that PC could not be paid at all; a ledger now
+   keeps a copy of the vouchers its student can pay while the server answers.
+   (`lib/waitingPayments.ts`, `fees/common.tsx`, `PayDialog`, `LedgerView`, `VouchersTab`,
+   `PrintPages`; the outbox status carries each payment's voucher and amount.)
+2. **`pg/.pgpass` was readable by everyone (high).** The bundled database's password was
+   written a second time by the PostgreSQL library, mode 0644. It is no longer written
+   (PostgreSQL is given the private `pg/password`), and the old file is removed at the next
+   start. Every file and folder Madrasa writes under its data folder is now for the owning
+   user only (0600 / 0700; on Windows an access list of the user, SYSTEM and Administrators
+   without inheritance), checked and put right at every start: `mode.json`, `tls/`, the
+   offline queue, cache and key, backups kept inside the data folder, and the folders
+   themselves. New module `crates/api/src/private.rs`.
+3. **B1, checks were queued as changes.** `POST /students/check-duplicates` (and the other
+   requests that only read: allocation balance, custom report runs, import and board result
+   previews) are never queued; offline they answer `offline_check` and the form says
+   "Duplicates cannot be checked right now". The waiting count is the number of real
+   changes. Big jobs and login management (voucher generation, late fees, timetable
+   generation, rollover, users, staff logins, parent access) are refused offline, not queued.
+4. **B2, badge and card disagreed for a minute.** One store (`app/hubStatus.ts`) feeds the
+   top bar and the School network card; a sync, a join or a leave is published to both the
+   moment it answers.
+5. **B3, five seconds per screen when the server was silently gone.** Once Offline is known
+   the kept copy is served at once; while Reconnecting a read waits one second at most.
+6. **B4, slow badge.** Heartbeat every 2 s (2 s timeout), the screen asks its own PC every
+   second, and Offline follows the clock (15 s after the last answer).
+7. **B5.** A confirmed provisional receipt says "Confirmed — receipt R…" and nothing about
+   "not yet confirmed".
+8. **Dashboard.** The attendance panel is headed "All sections marked" when none is left
+   (and is not shown at all on a new school with nothing to mark).
+9. **Student profile.** Madrasa's own notes on a record (`demo`, import keys, anything
+   starting with `_`) are not shown and not offered for editing; saving keeps them.
+10. **New install.** "No backup yet — run one now" instead of "older than 2 days"; the
+    warning comes only once the school itself is more than two days old with no backup.
+11. **Closing the server window.** Checked on v0.5.0 first: the window's close request ended
+    the program in 0.2 s and left PostgreSQL running, cluster "in production" (2 of 3 closes;
+    the next start found it "running already" and stopped it). The shell now waits, up to
+    30 s, for the backend to stop the API and shut the database down before it exits.
+
+**Tested (automated).** Rust: outbox unit tests for the check/change split, "3 waiting" for
+three changes with duplicate checks in between, the kept copy served at once, the link
+timings, a waiting payment naming its voucher and amount; `private` (an old install made
+private, the old `.pgpass` removed, a private file private from creation); the backup
+folder; backup status on a new and a three-day-old school; `tests/embedded.rs`, which starts
+the real bundled PostgreSQL, checks every mode, simulates a v0.5.0 install and checks the
+cluster is left "shut down" with no process and no pid file; the shell's
+`closing_waits_until_the_backend_has_stopped`. Desktop UI: 259 tests (new: waiting payments on
+ledger, list and voucher; the second-payment warning; reload on arrival; the copy of payable
+vouchers; badge and card agreeing through three syncs; the one-second pace without redraws;
+hidden fields kept on save; the offline duplicate note; backup and dashboard wording).
+Full Rust workspace (78 test binaries), clippy, lint, format and type checks.
+
+**Tested in the lab (the real app, driven through its window; three containers on a virtual
+school network, the v0.5.0 `.deb` install upgraded with a debug build of this branch).**
+- Upgrade: `.pgpass` (0644) removed at first start, 10 open entries down to 0; a fresh
+  install is private from its first run, and its first backup folder too.
+- Window close on the server, 4 closes: PostgreSQL gone in under a second each time, cluster
+  "shut down", log "stopped cleanly". Single-PC install: the same.
+- Cable pulled from the server, 6 pulls (two clients watched on 3 of them): Reconnecting after 2.4 to 4.4 s,
+  Offline after 13.5 to 15.6 s, Connected 1.1 to 2.1 s after it was plugged back.
+- Offline with the cable out: student list 0.0 s, a profile 0.06 s, the voucher list 0.4 s
+  (5 s each before); a save answered in 0.06 to 0.4 s.
+- TESTING task 67: new student, edit, attendance gave 1, 2, 3 waiting, three lines in the
+  panel; typing in the form and opening the edit form added nothing; Save twice stayed at 3.
+  On reconnect all three arrived once (checked through the API).
+- Payment of Rs 3,000 offline: provisional receipt `P-…`, the note on the ledger, the
+  voucher list and the voucher page, the warning on a second payment with Rs 2,544.00
+  offered and the button disabled until ticked. On reconnect the open ledger went from
+  "unpaid + note" to "partial, Rs 1,000 paid" in one step (second run), and the provisional
+  page said "Confirmed — receipt R2026-005895" with no banner.
+- Hub (built from the v0.5.0 tag): badge and card changed in the same 0.1 s sample after
+  Sync now, in step, with three records held at head office (a clash planted in the hub's
+  database), and back.
+- Dashboard "All sections marked" (39 of 39); a demo student's profile shows no `demo`
+  field and keeps it after an edit; a new install says "No backup yet — run one now".
+
+**Not tested here.** Windows: the access-list code and the window-close wait run in CI's
+Windows tests and build, but no Windows PC was used by hand. A real cable on a real school
+network (the lab cuts a virtual network). The release `.deb` of 0.5.1 (the lab ran a debug
+build of the same source). The published hub image.
+
+## Pilot readiness (after v0.5.1)
+
+One branch and one pull request per stage, each merged when CI was green. The version stays
+0.5.1 throughout; nothing was tagged.
+
+**Read first: what main held when this run started.** main carried the 0.5.1 version number
+and the tag `v0.5.1-alpha`, but not the fixes of 16 Nov (pull request 66: the offline payment
+display, the world-readable `.pgpass`, the clean stop of the database and the rest). The tag
+points at a commit that only changed version numbers. Stage 1 could not sensibly start
+without those fixes (it asks for the same file permissions), so its branch began by merging
+them; they reached main with stage 1. **The tag `v0.5.1-alpha` still does not contain them.**
+See "Decisions" in the owner summary.
+
+### 2026-11-25 — Stage 1: Security audit and fixes (branch `claude/kind-franklin-ac2vjh-s1-security`)
+
+The full write-up is `docs/SECURITY.md` (threat model, sixteen findings, the review area by
+area, remaining risks). `SECURITY.md` at the top says how to report a vulnerability.
+
+- **Dependencies.** `cargo audit`, `cargo deny` (advisories, licences, sources; `deny.toml`)
+  and `pnpm audit --audit-level high` run in a new CI job. Cleared: 20 Rust advisories
+  (`calamine` 0.29 → 0.38, `rust_xlsxwriter` 0.80 → 0.104 which brings `zip` 9, `url`,
+  `cookie`) and 2 critical JavaScript ones (`vitest` 3 → 4). Three advisories are set aside
+  with written reasons (not reachable or not built).
+- **Authentication.** Logins no longer tell real usernames from made-up ones (school, hub
+  console, parent login); a password reset ends the user's sessions; users change their own
+  password (user menu); a session ends seven days after sign-in at the latest.
+- **Authorisation.** One table of all 387 routes and the permission each needs
+  (`crates/api/src/authz.rs`), enforced before any handler reads the request and listed in
+  `docs/permissions.md`. `tests/authz_matrix.rs` calls every route without a login and as
+  each of the six roles (2,709 calls) and fails if code, document and behaviour disagree or
+  a route is missing. It found three places stricter than the document (the report list for
+  store keepers, `GET /users`, the school profile); none looser.
+- **Hub.** Tenant and parent isolation were already tested and were read again. New: a
+  limit of 60 attempts per address at each door that takes a secret, `NEXUS_TRUSTED_PROXIES`
+  in the Compose file and both cloud templates, HSTS over HTTPS, `Permissions-Policy`,
+  `Cross-Origin-Opener-Policy`.
+- **Files.** The WebView's own folder (session token, drafts) was readable by other
+  accounts on Linux: closed at every start. A log file now exists (`logs/madrasa.log`,
+  owner-only, 5 MB) where the app's error screen said there was one.
+- **Crypto.** Read, nothing to change: Argon2id for passwords and backup keys, AES-256-GCM
+  with random nonces, X25519 for unattended backups, no key in the code.
+- **Input.** All 177 run-time-built SQL statements read (a second reviewer): no user value
+  reaches SQL text. Workbooks are measured before they are opened (zip bombs, a cell in the
+  far corner). CSV exports write formula-looking text as text. PDFs: hostile names typeset
+  as text on vouchers as well as reports. The school API answers only the app's own origins;
+  the desktop WebView has a content security policy.
+
+**Tested (automated).** New: `authz_matrix` (3 tests), `security` for the API (4) and the
+hub (3), unit tests for the unknown-name lock, the dummy hash, the throttle, the proxy
+header, the origin check, CSV cells, workbook guards (4), the WebView folders, the log file,
+the voucher with hostile data; UI tests for the password dialog and for the return to the
+login when a session is ended. Whole Rust workspace and
+both front ends pass; `cargo audit`, `cargo deny check` and `pnpm audit --audit-level high`
+pass locally.
+
+**Tested in the lab** (the real app in its WebView, driven through its window, on the
+school-server container from the v0.5.0 test, upgraded to a debug build of this branch):
+- The content security policy is in force (a script added to the page did not run, `eval`
+  is refused) and nothing the app does trips it: dashboard, a student, fees, reports,
+  attendance, settings, Urdu (Noto Nastaliq loads), a voucher PDF. No violation was reported.
+- `~/.local/share/org.quietbyte.madrasa` and its `localstorage` went from `drwxr-xr-x` to
+  `drwx------` at the first start; the cache folder was made closed; 0 entries open to others.
+- `logs/madrasa.log` is there, `-rw-------`, in a `drwx------` folder, with the start-up
+  lines and no line mentioning a password or a token.
+- The sign-in kept from 16 Nov (nine days old) was refused; the app showed the login.
+- User menu → Change password: changed, "Password changed.", still signed in; the old
+  password was then refused and the new one accepted (checked through the API, disclosed).
+- Found there and fixed: when the server ended a session (the password changed from
+  elsewhere) the open app stayed on its screen showing errors; it now returns to the login.
+  That last fix is covered by a UI test, not by another lab run. The PDF's save dialog
+  cannot be seen under automation; only that the request raised no error or violation.
+
+**Not proven.** Windows by hand (the ACL code and the tests run in CI's Windows job only);
+the content security policy in WebView2; that the far-corner workbook really stops a server
+(read from the library's code, not reproduced); scoping inside a permission was not
+re-audited (the module tests cover it). `docs/SECURITY.md` §5 lists fifteen remaining risks.
+
 ## Brand identity
 
 The brand sheet (`assets/brand/Madrasa_Brand_Identity_Showcase.png`) applied across the

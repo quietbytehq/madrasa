@@ -140,9 +140,11 @@ export function Dashboard() {
           </div>
           <p className={`mt-1 text-xs ${backup?.stale ? "text-danger" : "text-muted"}`}>
             {backup
-              ? backup.stale
-                ? t("backup.status.stale")
-                : t("backup.status.ok")
+              ? backup.never
+                ? t("backup.status.none")
+                : backup.stale
+                  ? t("backup.status.stale")
+                  : t("backup.status.ok")
               : t("dashboard.card.placeholder")}{" "}
             {can("backup.manage") && (
               <Link to="/backup" className="text-blue hover:underline">
@@ -168,9 +170,15 @@ export function Dashboard() {
           </Card>
         ))}
       </div>
-      {att && !noSchool && (
+      {/* Nothing left to mark and nothing marked (a new school: classes but no students yet):
+          there is nothing to list, and nothing to call "all marked". */}
+      {att && !noSchool && (att.unmarked.length > 0 || att.totals.marked > 0) && (
         <Card
-          title={t("dashboard.attendance.unmarked")}
+          title={
+            att.unmarked.length === 0
+              ? t("dashboard.attendance.allMarkedTitle")
+              : t("dashboard.attendance.unmarked")
+          }
           className="mt-3"
           padded={false}
           actions={

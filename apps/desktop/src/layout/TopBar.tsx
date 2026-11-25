@@ -3,6 +3,7 @@ import {
   Bell,
   Check,
   CircleHelp,
+  KeyRound,
   Languages,
   LogOut,
   Monitor,
@@ -22,6 +23,7 @@ import { useSession } from "@/app/session";
 import { useFeatures } from "@/app/features";
 import { Menu, MenuItem, MenuSection } from "./Menu";
 import { ConnectionBadge } from "@/components/connection/ConnectionBadge";
+import { ChangePasswordDialog } from "./ChangePasswordDialog";
 
 const iconButton =
   "flex h-8 w-8 items-center justify-center rounded text-muted hover:bg-hover hover:text-text aria-expanded:bg-hover";
@@ -34,6 +36,7 @@ export function TopBar() {
   const navigate = useNavigate();
   const [searchOpen, setSearchOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
 
   // Ctrl+K / Cmd+K opens global search.
   useEffect(() => {
@@ -165,6 +168,18 @@ export function TopBar() {
               ))}
             </MenuSection>
             <MenuSection>
+              {/* A directory login's password belongs to the directory, not to Madrasa. */}
+              {user?.auth_source !== "directory" && (
+                <MenuItem
+                  icon={<KeyRound className="h-4 w-4" aria-hidden />}
+                  onClick={() => {
+                    close();
+                    setPasswordOpen(true);
+                  }}
+                >
+                  {t("password.change.title")}
+                </MenuItem>
+              )}
               <MenuItem
                 icon={<LogOut className="h-4 w-4" aria-hidden />}
                 onClick={() => {
@@ -178,6 +193,8 @@ export function TopBar() {
           </>
         )}
       </Menu>
+
+      {passwordOpen && <ChangePasswordDialog onClose={() => setPasswordOpen(false)} />}
 
       <Dialog
         open={searchOpen}

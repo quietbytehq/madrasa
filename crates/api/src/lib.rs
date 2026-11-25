@@ -4,6 +4,7 @@
 //! `madrasa-server` binary (Standard). Permission checks happen here, never only in the UI.
 
 pub mod auth;
+pub mod authz;
 pub mod backup;
 pub mod bootstrap;
 pub mod clock;
@@ -16,6 +17,7 @@ pub mod late_fees;
 pub mod nexus_link;
 pub mod offline;
 pub mod outbox;
+pub mod private;
 pub mod reports;
 pub mod ro;
 pub mod routes;
@@ -78,12 +80,24 @@ pub fn router(state: AppState) -> Router {
             state.clone(),
             offline::idempotency::layer,
         ))
+        // Who may call what, decided before anything else looks at the request (authz.rs).
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            authz::layer,
+        ))
         .with_state(state.clone());
 
-    // The UI is served from a different origin in `vite dev` (http://localhost:1420) and from
-    // `tauri://localhost` in the packaged app; the API only ever binds to loopback.
+    // The UI is served from a different origin than the API: `tauri://localhost` (or
+    // `http://tauri.localhost` on Windows) in the packaged app, `http://localhost:1420` in
+    // `vite dev`. Only those may read answers from a browser context. A school server also
+    // listens on the school network, so "any origin" would let a web page opened on any PC
+    // of the school talk to it from that PC's browser; logins are bearer tokens, not
+    // cookies, so such a page has no session to ride on, but there is no reason to let it
+    // read even the public answers.
     let cors = CorsLayer::new()
-        .allow_origin(Any)
+        .allow_origin(tower_http::cors::AllowOrigin::predicate(|origin, _| {
+            is_app_origin(origin.as_bytes())
+        }))
         .allow_methods(Any)
         .allow_headers(Any);
 
@@ -92,4 +106,60 @@ pub fn router(state: AppState) -> Router {
         .nest(ro::RO_PREFIX, ro::router(state))
         .layer(cors)
         .layer(TraceLayer::new_for_http())
+}
+
+/// Is this `Origin` the Madrasa app itself (packaged, or its development server)? Anything
+/// served from this computer counts; nothing served from elsewhere does.
+pub fn is_app_origin(origin: &[u8]) -> bool {
+    let Ok(origin) = std::str::from_utf8(origin) else {
+        return false;
+    };
+    let Some((scheme, rest)) = origin.split_once("://") else {
+        return false;
+    };
+    let host = match rest.rsplit_once(':') {
+        Some((host, port)) if !port.is_empty() && port.bytes().all(|b| b.is_ascii_digit()) => host,
+        _ => rest,
+    };
+    match scheme {
+        "tauri" => host == "localhost",
+        "http" | "https" => matches!(
+            host,
+            "localhost" | "127.0.0.1" | "tauri.localhost" | "[::1]"
+        ),
+        _ => false,
+    }
+}
+
+#[cfg(test)]
+mod origin_tests {
+    use super::is_app_origin;
+
+    #[test]
+    fn only_the_app_itself_is_an_allowed_origin() {
+        for ok in [
+            "tauri://localhost",
+            "http://tauri.localhost",
+            "https://tauri.localhost",
+            "http://localhost:1420",
+            "http://127.0.0.1:5173",
+            "http://localhost",
+            "http://[::1]:1420",
+        ] {
+            assert!(is_app_origin(ok.as_bytes()), "{ok}");
+        }
+        for no in [
+            "https://example.com",
+            "http://192.168.1.20:8080",
+            "http://localhost.example.com",
+            "http://example.com:localhost",
+            "http://tauri.localhost.example.com",
+            "tauri://example.com",
+            "file://",
+            "null",
+            "",
+        ] {
+            assert!(!is_app_origin(no.as_bytes()), "{no}");
+        }
+    }
 }

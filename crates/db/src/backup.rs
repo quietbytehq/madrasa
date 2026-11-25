@@ -100,11 +100,13 @@ pub async fn columns(conn: &mut PgConnection, table: &str) -> DbResult<Vec<Strin
     .await?)
 }
 
+/// One name as a quoted SQL identifier (a `"` inside it is doubled).
+fn ident(name: &str) -> String {
+    format!("\"{}\"", name.replace('"', "\"\""))
+}
+
 fn quoted(cols: &[String]) -> String {
-    cols.iter()
-        .map(|c| format!("\"{}\"", c.replace('"', "\"\"")))
-        .collect::<Vec<_>>()
-        .join(", ")
+    cols.iter().map(|c| ident(c)).collect::<Vec<_>>().join(", ")
 }
 
 /// Row counts of the tables shown in a preview.
@@ -238,16 +240,14 @@ pub async fn restore_in(tx: &mut PgConnection, container: &[u8]) -> DbResult<Res
     }
     for name in &existing {
         sqlx::query(sqlx::AssertSqlSafe(format!(
-            "ALTER TABLE \"{name}\" DISABLE TRIGGER USER"
+            "ALTER TABLE {} DISABLE TRIGGER USER",
+            ident(name)
         )))
         .execute(&mut *tx)
         .await?;
     }
-    let all = existing
-        .iter()
-        .map(|n| format!("\"{n}\""))
-        .collect::<Vec<_>>()
-        .join(", ");
+    // Names come from the database's own catalogue; quoted properly all the same.
+    let all = quoted(&existing);
     sqlx::query(sqlx::AssertSqlSafe(format!("TRUNCATE {all} CASCADE")))
         .execute(&mut *tx)
         .await?;
@@ -260,14 +260,15 @@ pub async fn restore_in(tx: &mut PgConnection, container: &[u8]) -> DbResult<Res
         if t.data.is_empty() {
             continue;
         }
-        let sql = format!("COPY \"{}\" ({}) FROM STDIN", t.name, quoted(&t.cols));
+        let sql = format!("COPY {} ({}) FROM STDIN", ident(&t.name), quoted(&t.cols));
         let mut sink = tx.copy_in_raw(&sql).await?;
         sink.send(t.data).await?;
         rows += sink.finish().await?;
     }
     for name in &existing {
         sqlx::query(sqlx::AssertSqlSafe(format!(
-            "ALTER TABLE \"{name}\" ENABLE TRIGGER USER"
+            "ALTER TABLE {} ENABLE TRIGGER USER",
+            ident(name)
         )))
         .execute(&mut *tx)
         .await?;

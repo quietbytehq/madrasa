@@ -18,6 +18,7 @@ pub mod server;
 pub mod state;
 pub mod store;
 pub mod tenants;
+pub mod throttle;
 
 pub use config::Config;
 pub use error::{HubError, HubResult};
@@ -48,6 +49,10 @@ async fn no_such_api() -> HubError {
 
 /// Build the hub router: the API, and the web console when its files are present.
 pub fn router(state: HubState) -> Router {
+    let https = state
+        .public_url
+        .as_deref()
+        .is_some_and(|u| u.starts_with("https://"));
     let console = state
         .console_dir
         .clone()
@@ -66,7 +71,12 @@ pub fn router(state: HubState) -> Router {
         .merge(routes::parent_data::router())
         .merge(routes::sync::router())
         .fallback(no_such_api)
-        .with_state(state);
+        // Too many tries at a login, a join code or an access code: refused for a while.
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            throttle::layer,
+        ))
+        .with_state(state.clone());
     let app = Router::new().nest(API_PREFIX, api);
     let app = match console {
         Some(dir) => {
@@ -114,5 +124,21 @@ pub fn router(state: HubState) -> Router {
         HeaderName::from_static("referrer-policy"),
         HeaderValue::from_static("no-referrer"),
     ))
+    // The console uses no camera, microphone, location or payment API; say so.
+    .layer(SetResponseHeaderLayer::overriding(
+        HeaderName::from_static("permissions-policy"),
+        HeaderValue::from_static("camera=(), microphone=(), geolocation=(), payment=()"),
+    ))
+    .layer(SetResponseHeaderLayer::overriding(
+        HeaderName::from_static("cross-origin-opener-policy"),
+        HeaderValue::from_static("same-origin"),
+    ))
+    // Served over HTTPS (the public address says so): browsers must not fall back to HTTP.
+    .layer(tower::util::option_layer(https.then(|| {
+        SetResponseHeaderLayer::overriding(
+            header::STRICT_TRANSPORT_SECURITY,
+            HeaderValue::from_static("max-age=31536000"),
+        )
+    })))
     .layer(TraceLayer::new_for_http())
 }

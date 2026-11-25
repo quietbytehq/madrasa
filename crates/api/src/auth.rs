@@ -57,6 +57,10 @@ impl FromRequestParts<AppState> for CurrentUser {
         parts: &mut Parts,
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
+        // Already read for this request by the authorisation gate (authz.rs).
+        if let Some(user) = parts.extensions.get::<CurrentUser>() {
+            return Ok(user.clone());
+        }
         let token = bearer_token(parts).ok_or_else(ApiError::unauthenticated)?;
         let hash = session_token::hash(token);
         let now = Utc::now();

@@ -92,6 +92,81 @@ impl LockoutPolicy {
     }
 }
 
+/// A real hash of a password nobody has, made once with the same settings as every other
+/// hash. Checking against it costs what checking a real account costs, so the time a login
+/// takes does not tell whether the account exists. (Made here rather than written down, so it
+/// always has the settings in use.)
+pub fn dummy_hash() -> &'static str {
+    static DUMMY: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
+        let mut bytes = [0u8; 24];
+        rand::RngCore::fill_bytes(&mut rand::thread_rng(), &mut bytes);
+        let nobody: String = bytes.iter().map(|b| format!("{b:02x}")).collect();
+        hash_password(&nobody).expect("hashing a random password")
+    });
+    &DUMMY
+}
+
+/// Failed logins for names (usernames, phone numbers) that are not accounts.
+///
+/// A real account locks after five wrong passwords. If names that do not exist never locked,
+/// the fifth answer would tell an attacker which names are real. So unknown names are counted
+/// the same way, in memory, and answer "locked" on the same attempt and for as long.
+#[derive(Debug, Default)]
+pub struct UnknownLogins {
+    seen: std::sync::Mutex<std::collections::HashMap<String, Failures>>,
+}
+
+/// Failed attempts so far, and until when the name is locked.
+type Failures = (u32, Option<DateTime<Utc>>);
+
+impl UnknownLogins {
+    /// Never grows without bound: a flood of made-up names starts the count again.
+    const MAX_NAMES: usize = 10_000;
+
+    fn key(name: &str) -> String {
+        name.trim().to_lowercase()
+    }
+
+    pub fn is_locked(&self, policy: &LockoutPolicy, name: &str, now: DateTime<Utc>) -> bool {
+        let seen = self.seen.lock().unwrap_or_else(|e| e.into_inner());
+        seen.get(&Self::key(name))
+            .is_some_and(|(_, until)| policy.is_locked(*until, now))
+    }
+
+    /// Count one more failure; `true` when this attempt locks the name.
+    pub fn fail(&self, policy: &LockoutPolicy, name: &str, now: DateTime<Utc>) -> bool {
+        let mut seen = self.seen.lock().unwrap_or_else(|e| e.into_inner());
+        if seen.len() >= Self::MAX_NAMES {
+            seen.clear();
+        }
+        let entry = seen.entry(Self::key(name)).or_insert((0, None));
+        // A lock that has run out starts a new count; for a name that is nobody's, time is
+        // the only way out.
+        if entry.1.is_some_and(|until| until <= now) {
+            *entry = (0, None);
+        }
+        let next = policy.after_failure(entry.0, now);
+        *entry = (next.failed_count, next.locked_until);
+        next.locked_until.is_some()
+    }
+
+    /// One failed attempt on a name that is not an account: check the password against the
+    /// dummy hash (same cost as a real check) and say whether the answer is "locked".
+    pub fn refuse(
+        &self,
+        policy: &LockoutPolicy,
+        name: &str,
+        password: &str,
+        now: DateTime<Utc>,
+    ) -> bool {
+        if self.is_locked(policy, name, now) {
+            return true;
+        }
+        let _ = verify_password(password, dummy_hash());
+        self.fail(policy, name, now)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -143,5 +218,34 @@ mod tests {
         assert!(policy.is_locked(Some(until), now + Duration::minutes(14)));
         assert!(!policy.is_locked(Some(until), now + Duration::minutes(15)));
         assert!(!policy.is_locked(None, now));
+    }
+
+    #[test]
+    fn the_dummy_hash_is_a_real_hash_with_the_usual_settings() {
+        assert!(dummy_hash().starts_with("$argon2id$v=19$m=19456,t=2,p=1$"));
+        assert!(!verify_password("anything at all", dummy_hash()));
+        assert!(PasswordHash::new(dummy_hash()).is_ok());
+    }
+
+    #[test]
+    fn an_unknown_name_locks_on_the_same_attempt_as_a_real_account() {
+        let policy = LockoutPolicy::default();
+        let unknown = UnknownLogins::default();
+        let now = Utc::now();
+        for attempt in 1..policy.max_attempts {
+            assert!(!unknown.fail(&policy, " Nobody ", now), "attempt {attempt}");
+            assert!(!unknown.is_locked(&policy, "nobody", now));
+        }
+        assert!(unknown.fail(&policy, "NOBODY", now), "the fifth locks");
+        assert!(unknown.is_locked(&policy, "nobody", now));
+        assert!(
+            unknown.refuse(&policy, "nobody", "x", now),
+            "and stays locked"
+        );
+        assert!(!unknown.is_locked(&policy, "someone-else", now));
+        // The lock runs out; the count starts again.
+        let later = now + policy.lock_duration + Duration::seconds(1);
+        assert!(!unknown.is_locked(&policy, "nobody", later));
+        assert!(!unknown.fail(&policy, "nobody", later));
     }
 }

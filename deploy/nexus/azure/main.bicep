@@ -18,7 +18,7 @@ param location string = resourceGroup().location
 @maxLength(20)
 param name string = 'madrasa-nexus'
 
-@description('The hub image with a release tag, for example ghcr.io/quietbytehq/madrasa-nexus:0.5.0-alpha (release tags end in -alpha). Avoid "latest": an upgrade should be a decision.')
+@description('The hub image with a release tag, for example ghcr.io/quietbytehq/madrasa-nexus:0.5.1-alpha (release tags end in -alpha). Avoid "latest": an upgrade should be a decision.')
 param image string
 
 @description('PostgreSQL administrator login.')
@@ -92,6 +92,12 @@ var baseEnvironment = [
   {
     name: 'NEXUS_PUBLIC_URL'
     value: publicAddress
+  }
+  {
+    // The Container Apps ingress is the one proxy before the hub: the last
+    // X-Forwarded-For entry is the client, which the hub counts sign-in attempts by.
+    name: 'NEXUS_TRUSTED_PROXIES'
+    value: '1'
   }
 ]
 var setupEnvironment = empty(setupToken) ? [] : [

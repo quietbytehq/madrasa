@@ -3,6 +3,7 @@
 //! API is also served to other PCs over TLS, or this PC proxies to a school server.
 
 mod backend;
+mod logfile;
 mod mode;
 
 use backend::Backend;
@@ -11,6 +12,9 @@ use madrasa_api::lan;
 use mode::{ModeConfig, NetworkInfo};
 use std::sync::Mutex;
 use tauri::Manager;
+
+/// How long closing Madrasa waits for the bundled database to shut down.
+const CLOSE_LIMIT: std::time::Duration = std::time::Duration::from_secs(30);
 
 /// The backend once a mode is chosen; `None` on a fresh install until the user chooses.
 struct Shell {
@@ -100,13 +104,26 @@ async fn probe_server(url: String) -> Result<lan::Probe, String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info,sqlx=warn".into()),
-        )
-        .init();
+    let filter = || {
+        tracing_subscriber::EnvFilter::try_from_default_env()
+            .unwrap_or_else(|_| "info,sqlx=warn".into())
+    };
+    // To the terminal as before, and to `<data folder>/logs/madrasa.log` (logfile.rs).
+    match logfile::open(&default_data_dir()) {
+        Some(log) => tracing_subscriber::fmt()
+            .with_env_filter(filter())
+            .with_ansi(false)
+            .with_writer(log)
+            .init(),
+        None => tracing_subscriber::fmt().with_env_filter(filter()).init(),
+    }
     lan::init();
+
+    let context = tauri::generate_context!();
+    // The WebView keeps the signed-in session and the form drafts in its own folders, beside
+    // Madrasa's data folder. They are closed to other accounts before the WebView opens them.
+    let closed = madrasa_api::private::harden_webview_dirs(&context.config().identifier);
+    tracing::debug!(closed, "WebView folders made private");
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -144,6 +161,29 @@ pub fn run() {
             discover_servers,
             probe_server
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Madrasa");
+        .build(context)
+        .expect("error while running Madrasa")
+        .run(|app, event| {
+            // Madrasa is closing (the last window was closed, or the session is ending).
+            // Stop the backend and wait for it: on a PC that holds the records this shuts
+            // the bundled database down cleanly before the program ends. Without the wait
+            // the program left while the database was still stopping, and it was killed or
+            // left running behind.
+            if let tauri::RunEvent::Exit = event {
+                if let Some(shell) = app.try_state::<Shell>() {
+                    let backend = shell
+                        .backend
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .take();
+                    if let Some(backend) = backend {
+                        if backend.stop_and_wait(CLOSE_LIMIT) {
+                            tracing::info!("stopped cleanly");
+                        } else {
+                            tracing::warn!("the backend did not stop in time; leaving anyway");
+                        }
+                    }
+                }
+            }
+        });
 }

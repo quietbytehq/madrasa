@@ -1,0 +1,13 @@
+# cargo-audit: advisories that do not apply to what Madrasa builds. Each has its reason here
+# and in docs/SECURITY.md; review them at every release.
+[advisories]
+ignore = [
+    # quick-xml 0.38: only in Typst's citation-style parser (typst -> hayagriva ->
+    # citationberg). Madrasa's PDF templates have no bibliography and never hand user input
+    # to that parser. Goes away with the next Typst upgrade.
+    "RUSTSEC-2026-0194",
+    "RUSTSEC-2026-0195",
+    # libsqlite3-sys: named in Cargo.lock by sqlx's optional SQLite driver, which Madrasa
+    # does not enable; the crate is never compiled (`cargo tree -i libsqlite3-sys` is empty).
+    "RUSTSEC-2026-0459",
+]

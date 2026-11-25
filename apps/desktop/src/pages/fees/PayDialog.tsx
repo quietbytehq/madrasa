@@ -13,6 +13,7 @@ import { useI18n } from "@/i18n";
 import { parseMoney } from "@/lib/money";
 import { useMoney } from "@/lib/useMoney";
 import { errorMessage } from "@/lib/useAsync";
+import { balanceAfterWaiting, useWaitingPayments } from "@/lib/waitingPayments";
 import { METHODS, methodLabel } from "./common";
 
 /** Record a payment against a voucher. Validates locally; the server does the money maths. */
@@ -28,7 +29,14 @@ export function PayDialog({
   const { t } = useI18n();
   const money = useMoney();
   const navigate = useNavigate();
-  const [amount, setAmount] = useState(voucher.balance);
+  // A payment for this voucher taken on this PC and not yet sent: the balance the server
+  // (or the kept copy) reports does not know of it.
+  const waiting = useWaitingPayments().get(voucher.id);
+  const remaining = waiting
+    ? balanceAfterWaiting(voucher.balance, waiting.amount)
+    : voucher.balance;
+  const [further, setFurther] = useState(false);
+  const [amount, setAmount] = useState(remaining);
   const [method, setMethod] = useState<PaymentMethod>("cash");
   const [reference, setReference] = useState("");
   const [paidOn, setPaidOn] = useState(todayIso());
@@ -49,6 +57,7 @@ export function PayDialog({
       return setError(t("fees.pay.amount") + ": " + t("common.required"));
     if (method !== "cash" && !reference.trim())
       return setError(t("fees.pay.reference") + ": " + t("common.required"));
+    if (waiting && !further) return setError(t("fees.provisional.again.required"));
     setBusy(true);
     setError(null);
     try {
@@ -85,6 +94,30 @@ export function PayDialog({
       size="sm"
     >
       <form onSubmit={submit} noValidate className="flex flex-col gap-3">
+        {waiting && (
+          <div
+            role="alert"
+            data-testid="waiting-warning"
+            className="rounded border border-warning bg-warning-bg px-2.5 py-2 text-xs text-text"
+          >
+            <p className="font-semibold">
+              {t("fees.provisional.again", {
+                amount: money(waiting.amount.toFixed(2)),
+                numbers: waiting.numbers.join(", "),
+              })}
+            </p>
+            <p className="mt-1">{t("fees.provisional.remaining", { amount: money(remaining) })}</p>
+            <label className="mt-1.5 flex items-start gap-2">
+              <input
+                type="checkbox"
+                checked={further}
+                onChange={(e) => setFurther(e.target.checked)}
+                className="mt-0.5"
+              />
+              <span>{t("fees.provisional.again.confirm")}</span>
+            </label>
+          </div>
+        )}
         {overdue && (
           <p
             role="status"
@@ -103,12 +136,7 @@ export function PayDialog({
             autoFocus
             required
           />
-          <Button
-            type="button"
-            variant="secondary"
-            size="md"
-            onClick={() => setAmount(voucher.balance)}
-          >
+          <Button type="button" variant="secondary" size="md" onClick={() => setAmount(remaining)}>
             {t("fees.pay.full")}
           </Button>
         </div>
@@ -146,7 +174,7 @@ export function PayDialog({
           <Button type="button" variant="secondary" onClick={onClose}>
             {t("action.cancel")}
           </Button>
-          <Button type="submit" loading={busy}>
+          <Button type="submit" loading={busy} disabled={Boolean(waiting) && !further}>
             {t("fees.pay")}
           </Button>
         </div>

@@ -9,8 +9,8 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 import { OFFLINE_EVENTS, outboxStatus, ping } from "@/api/client";
-import { api } from "@/api/endpoints";
 import type { NexusLinkStatus, OutboxLink, OutboxStatus } from "@/api/types";
+import { publishHubStatus, refreshHubStatus, useHubStatus } from "@/app/hubStatus";
 import { useFeatures } from "@/app/features";
 import { useSession } from "@/app/session";
 
@@ -34,6 +34,18 @@ export interface Connection {
 
 const ConnectionContext = createContext<Connection | null>(null);
 
+/**
+ * How often the connection is looked at. On a LAN client the question goes to this PC's own
+ * proxy (no network involved), so it is asked every second: together with the proxy's
+ * two-second heartbeat a pulled cable shows as "Reconnecting…" within about five seconds, and
+ * "Offline" fifteen seconds after the server's last answer. With the database on this PC
+ * there is no network to lose and every five seconds is enough.
+ */
+const CLIENT_MS = 1000;
+const LOCAL_MS = 5000;
+/** How long between two looks at the sync with head office (the school's background syncs). */
+const HUB_MS = 15_000;
+
 /** After this long without an answer, "Reconnecting" becomes "Offline" (as in the proxy). */
 const GRACE_MS = 15_000;
 
@@ -49,9 +61,10 @@ export function nextLink(
 
 export function ConnectionProvider({
   children,
-  pollMs = 5000,
+  pollMs,
 }: {
   children: ReactNode;
+  /** A fixed pace (tests); by default the pace follows the kind of connection. */
   pollMs?: number;
 }) {
   const { has } = useFeatures();
@@ -59,9 +72,13 @@ export function ConnectionProvider({
   const [kind, setKind] = useState<"client" | "local">("local");
   const [link, setLink] = useState<OutboxLink>("connected");
   const [outbox, setOutbox] = useState<OutboxStatus | null>(null);
-  const [hub, setHub] = useState<NexusLinkStatus | null>(null);
+  // One source for the badge and the Settings card (app/hubStatus.ts).
+  const sharedHub = useHubStatus();
   const failingSince = useRef<number | null>(null);
-  const tick = useRef(0);
+  const pace = useRef(LOCAL_MS);
+  // The last status shown, to leave the screen alone while nothing changed.
+  const shown = useRef("");
+  const hubAskedAt = useRef(0);
   const busy = useRef(false);
   const hubVisible =
     has("nexus_link") && sessionStatus === "authenticated" && can("settings.manage");
@@ -72,10 +89,22 @@ export function ConnectionProvider({
     try {
       const status = await outboxStatus();
       if (status) {
+        pace.current = CLIENT_MS;
         setKind("client");
-        setOutbox(status);
+        // While connected the time of the last answer moves with every heartbeat; that
+        // alone is no reason to draw every screen that shows a voucher again.
+        const text = JSON.stringify({
+          ...status,
+          last_contact: status.link === "connected" ? null : status.last_contact,
+        });
+        if (text !== shown.current) {
+          shown.current = text;
+          setOutbox(status);
+        }
         setLink(status.link);
       } else {
+        pace.current = LOCAL_MS;
+        shown.current = "";
         setKind("local");
         setOutbox(null);
         const ok = await ping();
@@ -83,35 +112,40 @@ export function ConnectionProvider({
         failingSince.current = next.failingSince;
         setLink(next.link);
       }
-      // The hub's sync every 20 checks (a minute at the default pace).
-      if (hubVisible && tick.current % 20 === 0) {
-        api
-          .nexusLink()
-          .then(setHub)
-          .catch(() => {});
+      // The hub's sync every fifteen seconds, which catches the school's own background
+      // syncs; a sync from the screen is published the moment it answers.
+      if (hubVisible && Date.now() - hubAskedAt.current >= HUB_MS) {
+        hubAskedAt.current = Date.now();
+        void refreshHubStatus();
       }
-      tick.current += 1;
     } finally {
       busy.current = false;
     }
   }, [hubVisible]);
 
   useEffect(() => {
-    void check();
-    const timer = setInterval(() => void check(), pollMs);
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const loop = async () => {
+      await check();
+      if (!stopped) timer = setTimeout(() => void loop(), pollMs ?? pace.current);
+    };
+    void loop();
     const now = () => void check();
     for (const e of Object.values(OFFLINE_EVENTS)) window.addEventListener(e, now);
     return () => {
-      clearInterval(timer);
+      stopped = true;
+      clearTimeout(timer);
       for (const e of Object.values(OFFLINE_EVENTS)) window.removeEventListener(e, now);
     };
   }, [check, pollMs]);
 
   useEffect(() => {
-    if (!hubVisible) setHub(null);
-    tick.current = 0;
+    if (!hubVisible) publishHubStatus(null);
+    hubAskedAt.current = 0;
   }, [hubVisible]);
 
+  const hub = hubVisible ? sharedHub : null;
   const value = useMemo<Connection>(
     () => ({ link, kind, outbox, hub, refresh: () => void check() }),
     [link, kind, outbox, hub, check],

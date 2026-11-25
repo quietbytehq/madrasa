@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { ApiError, getToken, setToken } from "@/api/client";
+import { ApiError, SIGNED_OUT_EVENT, getToken, setToken } from "@/api/client";
 import { api } from "@/api/endpoints";
 import type { LoginRequest, SchoolSummary, UserSummary } from "@/api/types";
 import { DEFAULT_SCHOOL } from "@/lib/school";
@@ -75,6 +75,18 @@ export function SessionProvider({
       cancelled = true;
     };
   }, [initial, refreshSchool]);
+
+  // The server ended this sign-in while the app was open (client.ts): back to the login.
+  useEffect(() => {
+    const ended = () => {
+      setToken(null);
+      setUser(null);
+      setPermissions([]);
+      setStatus((was) => (was === "authenticated" ? "anonymous" : was));
+    };
+    window.addEventListener(SIGNED_OUT_EVENT, ended);
+    return () => window.removeEventListener(SIGNED_OUT_EVENT, ended);
+  }, []);
 
   const login = useCallback(
     async (credentials: LoginRequest) => {

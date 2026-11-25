@@ -1194,6 +1194,8 @@ export interface RestoreResult {
 export interface BackupStatus {
   last_backup_at: string | null;
   last_backup_file: string | null;
+  /** No backup has ever succeeded on this install. */
+  never: boolean;
   stale: boolean;
   enabled: boolean;
   time: string;
@@ -3787,6 +3789,9 @@ export interface OutboxItem {
   path: string;
   queued_at: string;
   provisional_no: string | null;
+  /** A fee payment taken offline: the voucher it pays and the amount. */
+  voucher_id: string | null;
+  amount: string | null;
   attempts: number;
   last_error: string | null;
 }

@@ -269,6 +269,12 @@ export const api = {
   login: (body: LoginRequest) =>
     request<LoginResponse>("/auth/login", { method: "POST", body, auth: false }),
   logout: () => request<void>("/auth/logout", { method: "POST" }),
+  /** Change the signed-in user's own password; other sessions of the user are ended. */
+  changeOwnPassword: (current_password: string, new_password: string) =>
+    request<void>("/auth/password", {
+      method: "POST",
+      body: { current_password, new_password },
+    }),
   me: () => request<MeResponse>("/auth/me"),
   currentSchool: () => request<SchoolSummary>("/schools/current"),
   updateSchool: (body: SchoolProfileUpdate) =>

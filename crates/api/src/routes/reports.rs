@@ -76,14 +76,22 @@ async fn list(
     user: CurrentUser,
     Query(q): Query<HashMap<String, String>>,
 ) -> ApiResult<Json<Vec<catalogue::CatalogueModule>>> {
-    if !user.can(Permission::ReportsRead)
-        && !user.can(Permission::AttendanceRead)
-        && !user.can(Permission::ExamsRead)
-        && !user.can(Permission::TimetableRead)
-        && !user.can(Permission::LeaveRead)
-        && !user.can(Permission::AdmissionsRead)
-        && !user.can(Permission::LibraryRead)
-    {
+    // Anyone who may run at least one report sees the list (of those they may run). The
+    // store keeper, transport and hostel readers were refused the list although they could
+    // run their module's reports by code (found by the route matrix, v0.5.1 security review).
+    let any = [
+        Permission::ReportsRead,
+        Permission::AttendanceRead,
+        Permission::ExamsRead,
+        Permission::TimetableRead,
+        Permission::LeaveRead,
+        Permission::AdmissionsRead,
+        Permission::LibraryRead,
+        Permission::TransportRead,
+        Permission::HostelRead,
+        Permission::InventoryRead,
+    ];
+    if !any.into_iter().any(|p| user.can(p)) {
         return Err(ApiError::forbidden());
     }
     let lang = Lang::parse(q.get("lang").map(String::as_str));

@@ -524,6 +524,10 @@ pub(crate) async fn apply_password_reset(
     validate_password(password).map_err(|e| ApiError::validation(format!("Password: {e}.")))?;
     let password_hash = hash_password(password)?;
     madrasa_db::users::set_password(tx, &state.hlc, user.actor(), uid, &password_hash).await?;
+    // Whoever was signed in with the old password is signed out (the admin resetting their
+    // own password keeps the session they are using).
+    let keep = (uid == user.user.id).then_some(user.session.id);
+    madrasa_db::sessions::revoke_all_for_user(tx, &state.hlc, uid, keep).await?;
     Ok(())
 }
 
