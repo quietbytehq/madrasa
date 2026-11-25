@@ -43,6 +43,9 @@ dirs = "6"
 rust_xlsxwriter = { workspace = true }
 csv = { workspace = true }
 calamine = { workspace = true }
+# Only to measure an uploaded workbook before it is opened (imports.rs); the version calamine
+# and rust_xlsxwriter already bring in.
+zip = { version = "9", default-features = false, features = ["deflate"] }
 # LAN mode: TLS server with a self-signed certificate, pinned client, loopback proxy, discovery.
 axum-server = { version = "0.7", default-features = false, features = ["tls-rustls-no-provider"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }

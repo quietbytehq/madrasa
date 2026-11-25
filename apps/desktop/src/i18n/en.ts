@@ -2753,6 +2753,18 @@ export const en = {
     "Duplicates cannot be checked right now: the school server is out of reach. This record is checked when it arrives there.",
   "dashboard.attendance.allMarkedTitle": "All sections marked",
   "backup.status.none": "No backup yet — run one now",
+  // Security review after v0.5.1
+  "password.change.title": "Change password",
+  "password.change.help":
+    "Choose a password only you know. You stay signed in here; any other PC signed in with your name is signed out.",
+  "password.change.current": "Current password",
+  "password.change.new": "New password",
+  "password.change.again": "New password again",
+  "password.change.rule": "At least 10 characters.",
+  "password.change.submit": "Change password",
+  "password.change.tooShort": "The new password must be at least 10 characters.",
+  "password.change.mismatch": "The two new passwords are not the same.",
+  "password.change.done": "Password changed.",
   "parent.link.explain.connected": "The school network answers. What you see is up to date.",
   "parent.link.explain.reconnecting":
     "The school network stopped answering a moment ago. Trying again.",

@@ -127,6 +127,54 @@ pub fn harden_data_dir(data_dir: &Path) -> usize {
     changed
 }
 
+/// The WebView's own folders, named after the app's identifier (`org.quietbyte.madrasa`):
+/// its local storage holds the signed-in session, its IndexedDB the key and contents of the
+/// form drafts, its cache copies of what was shown. WebKitGTK makes them readable by every
+/// account on the PC (found in the lab on v0.5.1: `drwxr-xr-x`). They are created, if need
+/// be, and closed before the WebView starts, and closed again at every start; files the
+/// WebView adds later sit behind the closed folder. Returns how many entries were narrowed.
+///
+/// On Windows the WebView's folder is under the user's own `AppData`, which other accounts
+/// cannot open; nothing is changed there.
+pub fn harden_webview_dirs(identifier: &str) -> usize {
+    let present = |dirs: [Option<PathBuf>; 2]| dirs.into_iter().flatten().collect::<Vec<_>>();
+    harden_webview_dirs_in(
+        identifier,
+        // Created by the WebView if missing: made first, closed.
+        &present([dirs::data_dir(), dirs::cache_dir()]),
+        // Only closed when present.
+        &present([dirs::data_local_dir(), dirs::config_dir()]),
+    )
+}
+
+fn harden_webview_dirs_in(identifier: &str, make: &[PathBuf], only_close: &[PathBuf]) -> usize {
+    #[cfg(unix)]
+    {
+        if identifier.is_empty() || identifier.contains(['/', '\\']) {
+            return 0;
+        }
+        let mut changed = 0;
+        for base in make {
+            let dir = base.join(identifier);
+            if create_private_dir(&dir).is_ok() {
+                changed += harden_data_dir(&dir);
+            }
+        }
+        for base in only_close {
+            let dir = base.join(identifier);
+            if dir.is_dir() {
+                changed += harden_data_dir(&dir);
+            }
+        }
+        changed
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = (identifier, make, only_close);
+        0
+    }
+}
+
 /// Everything in the data folder that someone other than the owner could read, enter or
 /// change. Empty after [`harden_data_dir`]. On Windows, where the access list of the data
 /// folder decides, the folder itself is checked.
@@ -361,6 +409,67 @@ mod tests {
         harden_data_dir(&dir);
         assert!(exposed(&dir).is_empty());
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Found in the lab on v0.5.1: `~/.local/share/org.quietbyte.madrasa` (the WebView's
+    /// local storage with the session token, the drafts database) was `drwxr-xr-x`.
+    #[cfg(unix)]
+    #[test]
+    fn the_webview_folders_are_closed_and_made_closed_when_missing() {
+        use std::os::unix::fs::PermissionsExt;
+        let base = temp("webview");
+        let data = base.join("share");
+        let cache = base.join("cache");
+        let config = base.join("config");
+        let id = "org.quietbyte.madrasa";
+        // As WebKitGTK leaves them.
+        for sub in ["localstorage", "databases/indexeddb/v1", "WebKitCache"] {
+            std::fs::create_dir_all(data.join(id).join(sub)).unwrap();
+        }
+        std::fs::write(
+            data.join(id)
+                .join("localstorage/tauri_localhost_0.localstorage"),
+            "token",
+        )
+        .unwrap();
+        std::fs::write(data.join(id).join("hsts-storage.sqlite"), "x").unwrap();
+        for p in [data.join(id), data.join(id).join("localstorage")] {
+            std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        std::fs::create_dir_all(&cache).unwrap();
+        std::fs::create_dir_all(&config).unwrap();
+        assert!(!exposed(&data.join(id)).is_empty(), "as found");
+
+        let changed = harden_webview_dirs_in(
+            id,
+            &[data.clone(), cache.clone()],
+            std::slice::from_ref(&config),
+        );
+        assert!(changed > 0);
+        assert!(exposed(&data.join(id)).is_empty());
+        let mode = |p: PathBuf| std::fs::metadata(p).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode(data.join(id)), 0o700);
+        assert_eq!(
+            mode(
+                data.join(id)
+                    .join("localstorage/tauri_localhost_0.localstorage")
+            ),
+            0o600
+        );
+        // The cache folder did not exist yet: made, closed, before the WebView would make it.
+        assert_eq!(mode(cache.join(id)), 0o700);
+        // A folder the WebView may never make is not littered about.
+        assert!(!config.join(id).exists());
+        // Nothing outside the app's own folders is touched, whatever the identifier says.
+        assert_eq!(
+            harden_webview_dirs_in("../share", std::slice::from_ref(&base), &[]),
+            0
+        );
+        assert_eq!(
+            harden_webview_dirs_in("", std::slice::from_ref(&base), &[]),
+            0
+        );
+        let _ = std::fs::remove_dir_all(&base);
     }
 
     #[test]

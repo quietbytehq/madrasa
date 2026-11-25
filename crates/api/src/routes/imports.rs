@@ -103,9 +103,10 @@ async fn parse(
 ) -> ApiResult<Json<ParsedFile>> {
     let Json(req) = body?;
     user.require(permission_for(req.kind))?;
-    if req.content_base64.len() > 40 * 1024 * 1024 {
+    // Base64 is a third longer than the file; the exact limit is checked once decoded.
+    if req.content_base64.len() > imports::MAX_FILE_BYTES / 3 * 4 + 1024 {
         return Err(ApiError::validation(
-            "The file is too large (30 MB at most).",
+            "The file is too large (20 MB at most).",
         ));
     }
     let mut c = state.pool.acquire().await?;

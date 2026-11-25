@@ -826,10 +826,12 @@ pub const ROUTES: &[(&str, &str, Access)] = &[
         "/leave/requests",
         Access::Any(&[P::LeaveRead, P::LeaveManage]),
     ),
+    // `leave.approve`, or the staff member the school named as approver (who needs only
+    // `leave.read`); the handler tells them apart.
     (
         "POST",
         "/leave/requests/{id}/decide",
-        Access::Any(&[P::LeaveApprove]),
+        Access::Any(&[P::LeaveApprove, P::LeaveRead]),
     ),
     (
         "POST",
@@ -921,7 +923,10 @@ pub const ROUTES: &[(&str, &str, Access)] = &[
     ("PUT", "/library/settings", Access::Any(&[P::LibraryManage])),
     ("GET", "/library/stock", Access::Any(&[P::LibraryRead])),
     // nexus
-    ("GET", "/nexus/status", Access::Any(&[P::NexusAdmin])),
+    // A stub that exists to exercise edition gating: on Lite and Standard it answers
+    // "feature unavailable" to anyone signed in; its handler asks for `nexus.admin` (which
+    // no school role holds) once the feature is on.
+    ("GET", "/nexus/status", Access::SignedIn),
     // nexus_link
     ("GET", "/nexus/link", Access::Any(&[P::SettingsManage])),
     (

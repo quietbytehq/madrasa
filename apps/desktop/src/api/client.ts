@@ -60,6 +60,13 @@ export const OFFLINE_EVENTS = {
   unreachable: "madrasa:unreachable",
 } as const;
 
+/**
+ * The server no longer knows this sign-in: the password was changed, an administrator ended
+ * it, or it ran out (twelve hours unused, seven days in all). The session listens and shows
+ * the login screen, instead of every screen showing "Please log in to continue".
+ */
+export const SIGNED_OUT_EVENT = "madrasa:signed-out";
+
 function emit(name: string, detail?: unknown) {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent(name, { detail }));
@@ -175,6 +182,9 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   if (!response.ok) {
     const body = payload as ApiErrorBody | null;
     if (body?.error?.code === "server_unreachable") emit(OFFLINE_EVENTS.unreachable);
+    // Only for a request that carried a sign-in: a wrong password at the login is not this.
+    if (token && response.status === 401 && body?.error?.code === "unauthenticated")
+      emit(SIGNED_OUT_EVENT);
     throw new ApiError(
       response.status,
       body?.error?.code ?? "unknown",

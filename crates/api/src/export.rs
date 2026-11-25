@@ -6,12 +6,15 @@ use rust_xlsxwriter::{Format, Workbook};
 
 use crate::ApiError;
 
-/// CSV with a BOM so Excel opens Urdu text correctly.
+/// CSV with a BOM so Excel opens Urdu text correctly. A cell a spreadsheet would run as a
+/// formula (a name or note starting with `=`, `+`, `-` or `@`) is written as text
+/// (`madrasa_core::spreadsheet`).
 pub fn csv(headers: &[String], rows: &[Vec<String>]) -> Vec<u8> {
+    use madrasa_core::spreadsheet::csv_cell;
     let mut w = csv::Writer::from_writer(Vec::new());
-    let _ = w.write_record(headers);
+    let _ = w.write_record(headers.iter().map(|h| csv_cell(h).into_owned()));
     for r in rows {
-        let _ = w.write_record(r);
+        let _ = w.write_record(r.iter().map(|c| csv_cell(c).into_owned()));
     }
     let mut out = vec![0xEF, 0xBB, 0xBF];
     out.extend(w.into_inner().unwrap_or_default());

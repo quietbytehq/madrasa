@@ -1778,6 +1778,83 @@ Windows tests and build, but no Windows PC was used by hand. A real cable on a r
 network (the lab cuts a virtual network). The release `.deb` of 0.5.1 (the lab ran a debug
 build of the same source). The published hub image.
 
+## Pilot readiness (after v0.5.1)
+
+One branch and one pull request per stage, each merged when CI was green. The version stays
+0.5.1 throughout; nothing was tagged.
+
+**Read first: what main held when this run started.** main carried the 0.5.1 version number
+and the tag `v0.5.1-alpha`, but not the fixes of 16 Nov (pull request 66: the offline payment
+display, the world-readable `.pgpass`, the clean stop of the database and the rest). The tag
+points at a commit that only changed version numbers. Stage 1 could not sensibly start
+without those fixes (it asks for the same file permissions), so its branch began by merging
+them; they reached main with stage 1. **The tag `v0.5.1-alpha` still does not contain them.**
+See "Decisions" in the owner summary.
+
+### 2026-11-25 — Stage 1: Security audit and fixes (branch `claude/kind-franklin-ac2vjh-s1-security`)
+
+The full write-up is `docs/SECURITY.md` (threat model, sixteen findings, the review area by
+area, remaining risks). `SECURITY.md` at the top says how to report a vulnerability.
+
+- **Dependencies.** `cargo audit`, `cargo deny` (advisories, licences, sources; `deny.toml`)
+  and `pnpm audit --audit-level high` run in a new CI job. Cleared: 20 Rust advisories
+  (`calamine` 0.29 → 0.38, `rust_xlsxwriter` 0.80 → 0.104 which brings `zip` 9, `url`,
+  `cookie`) and 2 critical JavaScript ones (`vitest` 3 → 4). Three advisories are set aside
+  with written reasons (not reachable or not built).
+- **Authentication.** Logins no longer tell real usernames from made-up ones (school, hub
+  console, parent login); a password reset ends the user's sessions; users change their own
+  password (user menu); a session ends seven days after sign-in at the latest.
+- **Authorisation.** One table of all 387 routes and the permission each needs
+  (`crates/api/src/authz.rs`), enforced before any handler reads the request and listed in
+  `docs/permissions.md`. `tests/authz_matrix.rs` calls every route without a login and as
+  each of the six roles (2,709 calls) and fails if code, document and behaviour disagree or
+  a route is missing. It found three places stricter than the document (the report list for
+  store keepers, `GET /users`, the school profile); none looser.
+- **Hub.** Tenant and parent isolation were already tested and were read again. New: a
+  limit of 60 attempts per address at each door that takes a secret, `NEXUS_TRUSTED_PROXIES`
+  in the Compose file and both cloud templates, HSTS over HTTPS, `Permissions-Policy`,
+  `Cross-Origin-Opener-Policy`.
+- **Files.** The WebView's own folder (session token, drafts) was readable by other
+  accounts on Linux: closed at every start. A log file now exists (`logs/madrasa.log`,
+  owner-only, 5 MB) where the app's error screen said there was one.
+- **Crypto.** Read, nothing to change: Argon2id for passwords and backup keys, AES-256-GCM
+  with random nonces, X25519 for unattended backups, no key in the code.
+- **Input.** All 177 run-time-built SQL statements read (a second reviewer): no user value
+  reaches SQL text. Workbooks are measured before they are opened (zip bombs, a cell in the
+  far corner). CSV exports write formula-looking text as text. PDFs: hostile names typeset
+  as text on vouchers as well as reports. The school API answers only the app's own origins;
+  the desktop WebView has a content security policy.
+
+**Tested (automated).** New: `authz_matrix` (3 tests), `security` for the API (4) and the
+hub (3), unit tests for the unknown-name lock, the dummy hash, the throttle, the proxy
+header, the origin check, CSV cells, workbook guards (4), the WebView folders, the log file,
+the voucher with hostile data; UI tests for the password dialog and for the return to the
+login when a session is ended. Whole Rust workspace and
+both front ends pass; `cargo audit`, `cargo deny check` and `pnpm audit --audit-level high`
+pass locally.
+
+**Tested in the lab** (the real app in its WebView, driven through its window, on the
+school-server container from the v0.5.0 test, upgraded to a debug build of this branch):
+- The content security policy is in force (a script added to the page did not run, `eval`
+  is refused) and nothing the app does trips it: dashboard, a student, fees, reports,
+  attendance, settings, Urdu (Noto Nastaliq loads), a voucher PDF. No violation was reported.
+- `~/.local/share/org.quietbyte.madrasa` and its `localstorage` went from `drwxr-xr-x` to
+  `drwx------` at the first start; the cache folder was made closed; 0 entries open to others.
+- `logs/madrasa.log` is there, `-rw-------`, in a `drwx------` folder, with the start-up
+  lines and no line mentioning a password or a token.
+- The sign-in kept from 16 Nov (nine days old) was refused; the app showed the login.
+- User menu → Change password: changed, "Password changed.", still signed in; the old
+  password was then refused and the new one accepted (checked through the API, disclosed).
+- Found there and fixed: when the server ended a session (the password changed from
+  elsewhere) the open app stayed on its screen showing errors; it now returns to the login.
+  That last fix is covered by a UI test, not by another lab run. The PDF's save dialog
+  cannot be seen under automation; only that the request raised no error or violation.
+
+**Not proven.** Windows by hand (the ACL code and the tests run in CI's Windows job only);
+the content security policy in WebView2; that the far-corner workbook really stops a server
+(read from the library's code, not reproduced); scoping inside a permission was not
+re-audited (the module tests cover it). `docs/SECURITY.md` §5 lists fifteen remaining risks.
+
 ## Brand identity
 
 The brand sheet (`assets/brand/Madrasa_Brand_Identity_Showcase.png`) applied across the

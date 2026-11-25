@@ -30,6 +30,20 @@ This guide covers the daily work. Press **Ctrl+K** anywhere to search.
    (principal, administrator, accountant or teacher). The same box changes the role, switches
    the login off and on, and resets a forgotten password. Only the principal and
    administrators can do this, and every change is in the audit log.
+6. **Your own password**: everyone changes the password they were given, from the menu under
+   their name (top right) → **Change password**. Madrasa asks for the current password and
+   a new one of at least 10 characters. Any other PC signed in with your name is signed out.
+   When an administrator resets someone's password, that person is signed out everywhere and
+   signs in with the new one. A login also ends by itself after 12 hours without use, and
+   seven days after signing in.
+
+**Setting up a school server**: do the setup wizard before the PC joins the school's network
+(or on a network you trust). Until a school exists, the first person to reach the server
+creates it.
+
+**If something goes wrong**, Madrasa keeps a log in its data folder under `logs/madrasa.log`
+(the folder is named in TESTING.md). It holds no passwords and no records; send it with a
+problem report.
 
 Roles: **principal** (everything, approves marks), **admin** (everything except approving
 marks), **accountant** (fees), **teacher** (attendance and marks for own sections). The full

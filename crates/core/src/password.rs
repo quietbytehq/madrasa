@@ -113,8 +113,11 @@ pub fn dummy_hash() -> &'static str {
 /// the same way, in memory, and answer "locked" on the same attempt and for as long.
 #[derive(Debug, Default)]
 pub struct UnknownLogins {
-    seen: std::sync::Mutex<std::collections::HashMap<String, (u32, Option<DateTime<Utc>>)>>,
+    seen: std::sync::Mutex<std::collections::HashMap<String, Failures>>,
 }
+
+/// Failed attempts so far, and until when the name is locked.
+type Failures = (u32, Option<DateTime<Utc>>);
 
 impl UnknownLogins {
     /// Never grows without bound: a flood of made-up names starts the count again.

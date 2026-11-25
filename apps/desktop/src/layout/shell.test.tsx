@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
 import { FeaturesProvider } from "@/app/features";
@@ -188,6 +188,51 @@ describe("App shell", () => {
       expect(screen.getByRole("navigation", { name: "ماڈیولز" })).toBeInTheDocument();
       await userEvent.click(screen.getByRole("menuitem", { name: "لاگ آؤٹ" }));
       expect(await screen.findByText("login page")).toBeInTheDocument();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("lets a user change their own password from the user menu", async () => {
+    const calls: Array<{ url: string; body: unknown }> = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        calls.push({ url: String(input), body: init?.body ? JSON.parse(String(init.body)) : null });
+        return new Response(null, { status: 204 });
+      }),
+    );
+    try {
+      renderShell();
+      await userEvent.click(screen.getByRole("button", { name: "User menu" }));
+      await userEvent.click(screen.getByRole("menuitem", { name: "Change password" }));
+      const dialog = screen.getByRole("dialog", { name: "Change password" });
+      const submit = within(dialog).getByRole("button", { name: "Change password" });
+      expect(submit).toBeDisabled();
+      await userEvent.type(within(dialog).getByLabelText("Current password"), "old-password-1");
+      await userEvent.type(within(dialog).getByLabelText("New password"), "short");
+      await userEvent.type(within(dialog).getByLabelText("New password again"), "short");
+      await userEvent.click(submit);
+      expect(within(dialog).getByRole("alert")).toHaveTextContent("at least 10 characters");
+      await userEvent.clear(within(dialog).getByLabelText("New password"));
+      await userEvent.type(within(dialog).getByLabelText("New password"), "my-own-password-33");
+      await userEvent.click(submit);
+      expect(within(dialog).getByRole("alert")).toHaveTextContent("not the same");
+      expect(calls.filter((c) => c.url.endsWith("/auth/password"))).toHaveLength(0);
+      await userEvent.clear(within(dialog).getByLabelText("New password again"));
+      await userEvent.type(
+        within(dialog).getByLabelText("New password again"),
+        "my-own-password-33",
+      );
+      await userEvent.click(submit);
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      const sent = calls.filter((c) => c.url.endsWith("/auth/password"));
+      expect(sent).toHaveLength(1);
+      expect(sent[0]!.body).toEqual({
+        current_password: "old-password-1",
+        new_password: "my-own-password-33",
+      });
+      expect(await screen.findByText("Password changed.")).toBeInTheDocument();
     } finally {
       vi.unstubAllGlobals();
     }

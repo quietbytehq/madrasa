@@ -3,6 +3,7 @@
 //! API is also served to other PCs over TLS, or this PC proxies to a school server.
 
 mod backend;
+mod logfile;
 mod mode;
 
 use backend::Backend;
@@ -103,13 +104,26 @@ async fn probe_server(url: String) -> Result<lan::Probe, String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info,sqlx=warn".into()),
-        )
-        .init();
+    let filter = || {
+        tracing_subscriber::EnvFilter::try_from_default_env()
+            .unwrap_or_else(|_| "info,sqlx=warn".into())
+    };
+    // To the terminal as before, and to `<data folder>/logs/madrasa.log` (logfile.rs).
+    match logfile::open(&default_data_dir()) {
+        Some(log) => tracing_subscriber::fmt()
+            .with_env_filter(filter())
+            .with_ansi(false)
+            .with_writer(log)
+            .init(),
+        None => tracing_subscriber::fmt().with_env_filter(filter()).init(),
+    }
     lan::init();
+
+    let context = tauri::generate_context!();
+    // The WebView keeps the signed-in session and the form drafts in its own folders, beside
+    // Madrasa's data folder. They are closed to other accounts before the WebView opens them.
+    let closed = madrasa_api::private::harden_webview_dirs(&context.config().identifier);
+    tracing::debug!(closed, "WebView folders made private");
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -147,7 +161,7 @@ pub fn run() {
             discover_servers,
             probe_server
         ])
-        .build(tauri::generate_context!())
+        .build(context)
         .expect("error while running Madrasa")
         .run(|app, event| {
             // Madrasa is closing (the last window was closed, or the session is ending).

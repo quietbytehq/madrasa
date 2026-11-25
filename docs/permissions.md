@@ -319,7 +319,7 @@ key and its scopes, not a user's login (docs/spec.md §15).
 | POST | `/leave/balances/carry-over` | `leave.manage` |
 | GET | `/leave/requests` | `leave.read` |
 | POST | `/leave/requests` | `leave.read` or `leave.manage` |
-| POST | `/leave/requests/{id}/decide` | `leave.approve` |
+| POST | `/leave/requests/{id}/decide` | `leave.approve` or `leave.read` |
 | POST | `/leave/requests/{id}/withdraw` | `leave.read` |
 | GET | `/leave/settings` | `leave.read` |
 | PUT | `/leave/settings` | `leave.manage` |
@@ -352,7 +352,7 @@ key and its scopes, not a user's login (docs/spec.md §15).
 | GET | `/library/settings` | `library.read` |
 | PUT | `/library/settings` | `library.manage` |
 | GET | `/library/stock` | `library.read` |
-| GET | `/nexus/status` | `nexus.admin` |
+| GET | `/nexus/status` | signed in |
 | GET | `/nexus/link` | `settings.manage` |
 | GET | `/nexus/link/escrow` | `settings.manage` |
 | POST | `/nexus/link/escrow` | `backup.manage` |

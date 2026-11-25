@@ -21,6 +21,87 @@ use crate::{ApiError, AppState};
 
 pub const MAX_ROWS: usize = 5000;
 
+// What an uploaded spreadsheet may cost to open, checked before a spreadsheet library sees
+// it. A workbook is a zip file: a few kilobytes can unpack to gigabytes, and a sheet with
+// one cell in its far corner makes a reader lay out billions of empty cells. Either would
+// stop the school's server; an import file comes from outside the school more often than
+// anything else Madrasa reads.
+/// The file itself.
+pub const MAX_FILE_BYTES: usize = 20 * 1024 * 1024;
+/// Everything in the workbook, unpacked.
+const MAX_UNPACKED_BYTES: u64 = 300 * 1024 * 1024;
+/// Files inside the workbook.
+const MAX_ZIP_ENTRIES: usize = 2000;
+/// Columns a sheet may span, and the furthest row it may reach.
+const MAX_SHEET_COLUMNS: u32 = 500;
+const MAX_SHEET_ROWS: u32 = 200_000;
+/// Cells of the rectangle a sheet spans (the reader keeps one slot for each).
+const MAX_SHEET_CELLS: u64 = 3_000_000;
+
+fn too_big() -> ApiError {
+    ApiError::validation(
+        "This file is too large to import. Keep one sheet with the columns you need and at most 5,000 rows, save it as .xlsx or .csv, and try again.",
+    )
+}
+
+/// Unpack every file of a zip-based workbook into nothing, counting: refuse when it holds
+/// too many files or more data than a real import ever would. What the zip's own headers
+/// claim is not trusted; the bytes are counted as they come out.
+fn check_unpacked_size(bytes: &[u8]) -> Result<(), ApiError> {
+    use std::io::Read;
+    let unreadable = || {
+        ApiError::validation(
+            "This is not a spreadsheet Madrasa can read. Save it as .xlsx or .csv.",
+        )
+    };
+    let mut archive = zip::ZipArchive::new(Cursor::new(bytes)).map_err(|_| unreadable())?;
+    if archive.len() > MAX_ZIP_ENTRIES {
+        return Err(too_big());
+    }
+    let mut left = MAX_UNPACKED_BYTES;
+    let mut sink = [0u8; 64 * 1024];
+    for i in 0..archive.len() {
+        let mut entry = archive.by_index(i).map_err(|_| unreadable())?;
+        loop {
+            let n = entry.read(&mut sink).map_err(|_| unreadable())?;
+            if n == 0 {
+                break;
+            }
+            left = left.checked_sub(n as u64).ok_or_else(too_big)?;
+        }
+    }
+    Ok(())
+}
+
+/// Read the cells of one `.xlsx` sheet as a stream and refuse a sheet that spans more than
+/// a real list does, before anything lays it out as a grid.
+fn check_sheet_span(bytes: &[u8], sheet: &str) -> Result<(), ApiError> {
+    let unreadable = || ApiError::validation("The sheet could not be read.");
+    let mut wb: calamine::Xlsx<_> =
+        calamine::open_workbook_from_rs(Cursor::new(bytes)).map_err(|_| unreadable())?;
+    let mut cells = wb.worksheet_cells_reader(sheet).map_err(|_| unreadable())?;
+    let (mut first_row, mut last_row, mut first_col, mut last_col) =
+        (u32::MAX, 0u32, u32::MAX, 0u32);
+    while let Some(cell) = cells.next_cell().map_err(|_| unreadable())? {
+        let (row, col) = cell.get_position();
+        first_row = first_row.min(row);
+        last_row = last_row.max(row);
+        first_col = first_col.min(col);
+        last_col = last_col.max(col);
+        if last_row >= MAX_SHEET_ROWS || last_col >= MAX_SHEET_COLUMNS {
+            return Err(too_big());
+        }
+    }
+    if first_row == u32::MAX {
+        return Ok(());
+    }
+    let span = u64::from(last_row - first_row + 1) * u64::from(last_col - first_col + 1);
+    if span > MAX_SHEET_CELLS {
+        return Err(too_big());
+    }
+    Ok(())
+}
+
 // ---- reading files ------------------------------------------------------------------------
 
 /// Mirrored by `ParsedFile` in the UI.
@@ -118,23 +199,38 @@ pub fn parse_file(
     let bytes = STANDARD
         .decode(content_base64.trim())
         .map_err(|_| ApiError::validation("The file could not be read."))?;
+    if bytes.len() > MAX_FILE_BYTES {
+        return Err(ApiError::validation(
+            "The file is too large (20 MB at most).",
+        ));
+    }
     let lower = file_name.to_lowercase();
     if lower.ends_with(".xlsx")
         || lower.ends_with(".xlsm")
         || lower.ends_with(".xls")
         || lower.ends_with(".ods")
     {
-        let mut wb = calamine::open_workbook_auto_from_rs(Cursor::new(bytes)).map_err(|_| {
-            ApiError::validation(
-                "This is not a spreadsheet Madrasa can read. Save it as .xlsx or .csv.",
-            )
-        })?;
+        // Zip-based workbooks are measured before they are opened (`.xls` is not a zip: it
+        // cannot hold more than the file itself).
+        let zipped = bytes.starts_with(b"PK");
+        if zipped {
+            check_unpacked_size(&bytes)?;
+        }
+        let mut wb =
+            calamine::open_workbook_auto_from_rs(Cursor::new(bytes.as_slice())).map_err(|_| {
+                ApiError::validation(
+                    "This is not a spreadsheet Madrasa can read. Save it as .xlsx or .csv.",
+                )
+            })?;
         let names = wb.sheet_names().to_vec();
         let chosen = sheet
             .filter(|s| names.iter().any(|n| n == s))
             .or_else(|| pick_sheet(kind, &names))
             .map(str::to_owned)
             .ok_or_else(|| ApiError::validation("The workbook has no sheets."))?;
+        if matches!(wb, calamine::Sheets::Xlsx(_)) {
+            check_sheet_span(&bytes, &chosen)?;
+        }
         let range = wb
             .worksheet_range(&chosen)
             .map_err(|_| ApiError::validation("The sheet could not be read."))?;
@@ -1426,6 +1522,106 @@ mod tests {
 
     fn names(list: &[&str]) -> Vec<String> {
         list.iter().map(|s| s.to_string()).collect()
+    }
+
+    fn b64(bytes: &[u8]) -> String {
+        STANDARD.encode(bytes)
+    }
+
+    fn workbook(cells: &[(u32, u16, &str)]) -> Vec<u8> {
+        let mut wb = rust_xlsxwriter::Workbook::new();
+        let ws = wb.add_worksheet();
+        ws.set_name("Students").unwrap();
+        for (row, col, text) in cells {
+            ws.write_string(*row, *col, *text).unwrap();
+        }
+        wb.save_to_buffer().unwrap()
+    }
+
+    fn message(e: ApiError) -> String {
+        format!("{e:?}")
+    }
+
+    #[test]
+    fn an_ordinary_workbook_is_read_as_before() {
+        let file = workbook(&[
+            (0, 0, "Name"),
+            (0, 1, "Father"),
+            (1, 0, "Ali Khan"),
+            (1, 1, "Ahmed Khan"),
+            (2, 0, "=1+1"),
+            (2, 1, "Sara"),
+        ]);
+        let (sheets, chosen, headers, rows) =
+            parse_file(ImportKind::Students, "students.xlsx", &b64(&file), None).unwrap();
+        assert_eq!(sheets, ["Students"]);
+        assert_eq!(chosen, ["Students"]);
+        assert_eq!(headers, ["Name", "Father"]);
+        // Text that looks like a formula comes in as the text it is; nothing is evaluated.
+        assert_eq!(rows, [["Ali Khan", "Ahmed Khan"], ["=1+1", "Sara"]]);
+    }
+
+    /// A three-kilobyte workbook with one cell in the far corner of the sheet: a reader that
+    /// lays the sheet out as a grid would ask for seventeen thousand million cells and take
+    /// the server down. Refused, with a message that says what to do.
+    #[test]
+    fn a_sheet_with_a_cell_in_its_far_corner_is_refused_before_it_is_laid_out() {
+        let file = workbook(&[(0, 0, "Name"), (1_048_575, 16_383, "x")]);
+        assert!(
+            file.len() < 20_000,
+            "the file itself is tiny: {}",
+            file.len()
+        );
+        let err = parse_file(ImportKind::Students, "wide.xlsx", &b64(&file), None).unwrap_err();
+        assert!(message(err).contains("too large to import"));
+        // Far down but narrow, and wide but short, are refused too.
+        for corner in [(250_000, 1), (10, 700)] {
+            let file = workbook(&[(0, 0, "Name"), (corner.0, corner.1, "x")]);
+            let err =
+                parse_file(ImportKind::Students, "corner.xlsx", &b64(&file), None).unwrap_err();
+            assert!(message(err).contains("too large to import"), "{corner:?}");
+        }
+    }
+
+    /// A zip bomb: a workbook whose parts unpack to far more than any import would.
+    #[test]
+    fn a_workbook_that_unpacks_to_hundreds_of_megabytes_is_refused() {
+        use std::io::Write;
+        let mut out = Cursor::new(Vec::new());
+        {
+            let mut zip = zip::ZipWriter::new(&mut out);
+            let options = zip::write::SimpleFileOptions::default()
+                .compression_method(zip::CompressionMethod::Deflated);
+            zip.start_file("xl/worksheets/sheet1.xml", options).unwrap();
+            let block = vec![b' '; 1024 * 1024];
+            for _ in 0..(MAX_UNPACKED_BYTES / (1024 * 1024) + 8) {
+                zip.write_all(&block).unwrap();
+            }
+            zip.finish().unwrap();
+        }
+        let file = out.into_inner();
+        assert!(
+            file.len() < 2 * 1024 * 1024,
+            "it packs small: {}",
+            file.len()
+        );
+        let err = parse_file(ImportKind::Students, "bomb.xlsx", &b64(&file), None).unwrap_err();
+        assert!(message(err).contains("too large to import"));
+    }
+
+    #[test]
+    fn a_file_over_the_size_limit_or_not_a_spreadsheet_is_refused_plainly() {
+        let big = vec![b'a'; MAX_FILE_BYTES + 1];
+        let err = parse_file(ImportKind::Students, "big.csv", &b64(&big), None).unwrap_err();
+        assert!(message(err).contains("20 MB"));
+        let err = parse_file(
+            ImportKind::Students,
+            "fake.xlsx",
+            &b64(b"PK not a zip"),
+            None,
+        )
+        .unwrap_err();
+        assert!(message(err).contains("not a spreadsheet"));
     }
 
     #[test]

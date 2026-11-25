@@ -243,6 +243,36 @@ mod tests {
         }
     }
 
+    /// Names, notes and references come from the school's data (and from imports): nothing in
+    /// them may be read as markup. A name that tries to close the string and call a function
+    /// is typeset as the text it is; if it were executed, `#panic` would fail the build.
+    #[test]
+    fn data_on_a_voucher_is_never_markup() {
+        let hostile = "\"] #panic(\"pwned\") #read(\"/etc/passwd\") [#\" \\ *x* $y$ <z> @a";
+        let mut doc = sample();
+        for field in [
+            &mut doc.school_name,
+            &mut doc.school_city,
+            &mut doc.school_code,
+            &mut doc.currency,
+            &mut doc.voucher_no,
+            &mut doc.student_name,
+            &mut doc.father_name,
+            &mut doc.student_number,
+            &mut doc.class_section,
+            &mut doc.reference_label,
+            &mut doc.reference_note,
+            &mut doc.reference,
+        ] {
+            *field = hostile.to_string();
+        }
+        doc.lines = vec![(hostile.to_string(), dec!(100))];
+        for lang in [Lang::En, Lang::Ur] {
+            let pdf = render(std::slice::from_ref(&doc), lang).expect("typesets as plain text");
+            assert!(pdf.starts_with(b"%PDF"));
+        }
+    }
+
     #[test]
     fn every_amount_carries_the_currency_and_both_copies_are_present() {
         let src = source(&[sample()], Lang::En);
