@@ -249,6 +249,12 @@ describe("student form helpers", () => {
     });
     expect(req.guardians).toHaveLength(1);
     expect(toPatch(f)).toMatchObject({ full_name: "Ali", cnic: null, custom: { house: "Red" } });
+    // Madrasa's own notes on the record are not in the form; they go back unchanged.
+    expect(toPatch(f, { demo: true, import_batch: "b7" }).custom).toEqual({
+      demo: true,
+      import_batch: "b7",
+      house: "Red",
+    });
   });
 });
 
@@ -363,6 +369,71 @@ describe("Add student", () => {
       expect(api.createStudent).toHaveBeenLastCalledWith(expect.objectContaining({ force: true })),
     );
     expect(await screen.findByRole("heading", { level: 1, name: "Ali Khan" })).toBeInTheDocument();
+  });
+});
+
+describe("offline and internal fields (v0.5.1)", () => {
+  it("says when duplicates cannot be checked, and still lets the student be saved", async () => {
+    vi.mocked(api.checkDuplicates).mockRejectedValue(
+      new ApiError(503, "offline_check", "This cannot be checked right now."),
+    );
+    vi.mocked(api.student).mockResolvedValue(detail);
+    renderAt("/students/new");
+    await screen.findByRole("heading", { level: 1, name: "Add student" });
+    expect(screen.queryByTestId("duplicate-check-offline")).toBeNull();
+    await userEvent.type(screen.getByLabelText("Student name"), "Ali Khan");
+    await userEvent.type(screen.getByLabelText("Father's name"), "Ahmed Khan");
+    await userEvent.type(screen.getByLabelText("Date of birth"), "2015-03-04");
+    expect(await screen.findByTestId("duplicate-check-offline")).toHaveTextContent(
+      "Duplicates cannot be checked right now",
+    );
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+    vi.mocked(api.checkDuplicates).mockResolvedValue([]);
+  });
+
+  it("never asks for a duplicate check while editing an existing student", async () => {
+    vi.mocked(api.checkDuplicates).mockClear();
+    vi.mocked(api.student).mockResolvedValue(detail);
+    renderAt("/students/st1/edit");
+    await screen.findByRole("heading", { level: 1, name: "Edit student" });
+    await waitFor(() => expect(screen.getByLabelText("Student name")).toHaveValue("Ali Khan"));
+    await userEvent.type(screen.getByLabelText("Address"), " Block 5");
+    await new Promise((r) => setTimeout(r, 600));
+    expect(api.checkDuplicates).not.toHaveBeenCalled();
+  });
+
+  it("does not show Madrasa's own notes on a record, and keeps them when it is saved", async () => {
+    const internal = {
+      ...detail,
+      custom: { house: "Red", demo: true, import_batch: "b7", _row: 12, source: "xlsx" },
+    };
+    vi.mocked(api.student).mockResolvedValue(internal);
+    vi.mocked(api.updateStudent).mockResolvedValue(internal);
+    const { unmount } = renderAt("/students/st1");
+    await screen.findByRole("heading", { level: 1, name: "Ali Khan" });
+    expect(screen.getByText("house")).toBeInTheDocument();
+    expect(screen.getByText("Red")).toBeInTheDocument();
+    for (const hidden of ["demo", "DEMO", "true", "import_batch", "b7", "_row", "source", "xlsx"])
+      expect(screen.queryByText(hidden)).toBeNull();
+    unmount();
+
+    renderAt("/students/st1/edit");
+    await screen.findByRole("heading", { level: 1, name: "Edit student" });
+    // The form is drawn empty first and filled when the student has been read.
+    await waitFor(() => expect(screen.getByLabelText("Student name")).toHaveValue("Ali Khan"));
+    const keys = (await screen.findAllByLabelText("Field")).map(
+      (i) => (i as HTMLInputElement).value,
+    );
+    expect(keys).toEqual(["house"]);
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(api.updateStudent).toHaveBeenCalled());
+    expect(vi.mocked(api.updateStudent).mock.lastCall?.[1].custom).toEqual({
+      demo: true,
+      import_batch: "b7",
+      _row: 12,
+      source: "xlsx",
+      house: "Red",
+    });
   });
 });
 

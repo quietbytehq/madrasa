@@ -5,6 +5,11 @@ import { api } from "@/api/endpoints";
 import type { NexusEscrowView, NexusLinkStatus, NexusOverwrite } from "@/api/types";
 import { showValue } from "@/lib/showValue";
 import { NexusCard } from "./NexusCard";
+import { publishHubStatus } from "@/app/hubStatus";
+import { ConnectionProvider } from "@/app/connection";
+import { FeaturesProvider } from "@/app/features";
+import { SessionProvider } from "@/app/session";
+import { ConnectionBadge } from "@/components/connection/ConnectionBadge";
 
 vi.mock("@/api/endpoints", () => ({
   api: {
@@ -68,6 +73,7 @@ const noEscrow: NexusEscrowView = {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  publishHubStatus(null);
   vi.mocked(api.nexusEscrow).mockResolvedValue(noEscrow);
 });
 
@@ -362,8 +368,11 @@ describe("NexusCard", () => {
       },
     });
     renderWithProviders(<NexusCard />);
-    expect(await screen.findByTestId("nexus-restored")).toHaveTextContent(
-      "head office set its old copy aside",
+    // The card opens on what was last known and asks again at once.
+    await waitFor(() =>
+      expect(screen.getByTestId("nexus-restored")).toHaveTextContent(
+        "head office set its old copy aside",
+      ),
     );
   });
   it("asks again about the backup key after each sync, so a release by head office shows", async () => {
@@ -404,5 +413,78 @@ describe("NexusCard", () => {
     await userEvent.click(screen.getByRole("button", { name: "Sync now" }));
     await waitFor(() => expect(api.nexusEscrow).toHaveBeenCalledTimes(2));
     expect(await screen.findByText(/by Head Office: Backup password lost/)).toBeInTheDocument();
+  });
+
+  // B2 (v0.5.0 test): after a sync that left three records at head office the card said
+  // "Not in step yet" while the top bar still said "in step" for a minute. Both now show
+  // the same status, and change in the same moment.
+  it("the top bar's badge and the card always say the same, at once after a sync", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("{}", { status: 200 })),
+    );
+    vi.mocked(api.nexusLink).mockResolvedValue({ ...linked, pending: 0, in_step: true });
+    const held = [
+      { table: "students", id: "s1", reason: "Another record here already uses the same value." },
+      { table: "enrollments", id: "e1", reason: "It refers to a record that has not arrived." },
+      {
+        table: "student_guardians",
+        id: "g1",
+        reason: "It refers to a record that has not arrived.",
+      },
+    ];
+    vi.mocked(api.nexusSync).mockResolvedValue({
+      ...linked,
+      pending: 0,
+      in_step: false,
+      parked_at_hub: held,
+    });
+    renderWithProviders(
+      <FeaturesProvider initial={{ edition: "lite", features: ["nexus_link"], version: "test" }}>
+        <SessionProvider
+          initial={{
+            user: {
+              id: "u1",
+              school_id: "s1",
+              username: "admin",
+              full_name: "Ayesha Khan",
+              email: null,
+              is_active: true,
+              roles: ["admin"],
+            },
+            permissions: ["settings.manage"],
+          }}
+        >
+          <ConnectionProvider pollMs={600_000}>
+            <ConnectionBadge />
+            <NexusCard />
+          </ConnectionProvider>
+        </SessionProvider>
+      </FeaturesProvider>,
+    );
+    expect(await screen.findByTestId("nexus-state")).toHaveTextContent("In step");
+    await waitFor(() =>
+      expect(screen.getByTestId("connection-hub")).toHaveTextContent("Head office: in step"),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Sync now" }));
+    // No timer has run since: the badge changed with the card.
+    await waitFor(() =>
+      expect(screen.getByTestId("nexus-state")).toHaveTextContent("Not in step yet"),
+    );
+    expect(screen.getByTestId("connection-hub")).toHaveTextContent("Head office: 3 need attention");
+    expect(screen.getByTestId("nexus-parked-at-hub")).toHaveTextContent("3");
+    // And back: the clash is gone at head office, the next sync says so in both places.
+    vi.mocked(api.nexusSync).mockResolvedValue({ ...linked, pending: 0, in_step: true });
+    await userEvent.click(screen.getByRole("button", { name: "Sync now" }));
+    await waitFor(() => expect(screen.getByTestId("nexus-state")).toHaveTextContent("In step"));
+    expect(screen.getByTestId("connection-hub")).toHaveTextContent("Head office: in step");
+    // "To send" figures too: 412215 waiting, then none.
+    vi.mocked(api.nexusSync).mockResolvedValue({ ...linked, pending: 412215, in_step: false });
+    await userEvent.click(screen.getByRole("button", { name: "Sync now" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("connection-hub")).toHaveTextContent("412215 to send"),
+    );
+    expect(screen.getByTestId("nexus-state")).toHaveTextContent("Not in step yet");
+    vi.unstubAllGlobals();
   });
 });

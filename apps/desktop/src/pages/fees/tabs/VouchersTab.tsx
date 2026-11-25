@@ -14,8 +14,9 @@ import { useToast } from "@/components/ui/Toast";
 import { useI18n } from "@/i18n";
 import { monthLabel, monthStart } from "@/lib/money";
 import { errorMessage, useAsync } from "@/lib/useAsync";
+import { useReloadWhenPaymentsArrive } from "@/lib/waitingPayments";
 import { useSession } from "@/app/session";
-import { Amount, VoucherStatusBadge } from "../common";
+import { Amount, VoucherStatusBadge, WaitingPaid } from "../common";
 import { ExportMenu } from "@/components/ExportMenu";
 
 const STATUSES: VoucherStatus[] = ["unpaid", "partial", "paid", "carried", "cancelled"];
@@ -40,6 +41,7 @@ export function VouchersTab() {
       }),
     [month, classId, status, q],
   );
+  useReloadWhenPaymentsArrive(list.reload);
 
   const totals = (list.data ?? []).reduce(
     (acc, v) => ({
@@ -154,6 +156,7 @@ export function VouchersTab() {
                   </td>
                   <td className="px-3 py-1.5">
                     <VoucherStatusBadge status={v.status} t={t} />
+                    <WaitingPaid voucherId={v.id} />
                   </td>
                 </tr>
               ))}

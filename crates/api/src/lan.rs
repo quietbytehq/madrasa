@@ -102,7 +102,7 @@ pub fn load_or_create_identity(dir: &Path) -> anyhow::Result<Identity> {
             key_der,
         });
     }
-    std::fs::create_dir_all(&tls)?;
+    crate::private::create_private_dir(&tls)?;
     let mut names = vec!["madrasa-server".to_string(), "localhost".to_string()];
     if let Ok(h) = hostname::get() {
         if let Some(h) = h.to_str() {
@@ -125,13 +125,7 @@ pub fn load_or_create_identity(dir: &Path) -> anyhow::Result<Identity> {
 }
 
 pub(crate) fn write_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
-    std::fs::write(path, bytes)?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
-    }
-    Ok(())
+    crate::private::write_private(path, bytes)
 }
 
 /// The PC's LAN addresses (best effort): the address used to reach the network, plus any
@@ -264,7 +258,9 @@ pub fn pinned_client(
         .with_no_client_auth();
     let client = reqwest::Client::builder()
         .use_preconfigured_tls(tls)
-        .connect_timeout(Duration::from_secs(5))
+        // On a school network a connection is made in milliseconds; three seconds is ample,
+        // and a change made in the moment the server drops is queued that much sooner.
+        .connect_timeout(Duration::from_secs(3))
         .timeout(Duration::from_secs(120))
         .build()?;
     Ok((client, verifier))

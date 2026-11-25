@@ -69,6 +69,25 @@ pub fn default_directory() -> PathBuf {
         .unwrap_or_else(|| crate::bootstrap::default_data_dir().join("backups"))
 }
 
+/// Is this folder inside Madrasa's own data folder (where everything is private)?
+fn in_own_folder(dir: &std::path::Path) -> bool {
+    dir.starts_with(crate::bootstrap::default_data_dir())
+}
+
+/// Make the backup folder. Inside Madrasa's own data folder it is private like everything
+/// else there; a folder the school chose (a USB drive, a shared folder) keeps its own rules.
+fn make_folder(dir: &std::path::Path) -> std::io::Result<()> {
+    make_folder_as(dir, in_own_folder(dir))
+}
+
+fn make_folder_as(dir: &std::path::Path, private: bool) -> std::io::Result<()> {
+    if private {
+        crate::private::create_private_dir(dir)
+    } else {
+        std::fs::create_dir_all(dir)
+    }
+}
+
 pub async fn load_settings(
     conn: &mut sqlx::PgConnection,
     school_id: Uuid,
@@ -87,7 +106,7 @@ pub async fn save_settings(
 ) -> Result<BackupSettings, ApiError> {
     s.validate()?;
     let dir = s.directory();
-    std::fs::create_dir_all(&dir).map_err(|e| {
+    make_folder(&dir).map_err(|e| {
         ApiError::validation(format!(
             "The backup folder cannot be used ({}): {e}",
             dir.display()
@@ -346,7 +365,7 @@ async fn produce(
         .map_err(|_| ApiError::internal())?
         .map_err(|e| ApiError::conflict(e.to_string()))?;
     let dir = settings.directory();
-    std::fs::create_dir_all(&dir).map_err(|e| {
+    make_folder(&dir).map_err(|e| {
         ApiError::conflict(format!(
             "The backup folder cannot be used ({}): {e}",
             dir.display()
@@ -354,7 +373,18 @@ async fn produce(
     })?;
     let path = dir.join(archive::file_name(&school.code, now));
     let tmp = path.with_extension("tmp");
-    std::fs::write(&tmp, &bytes)
+    // Inside Madrasa's own data folder a backup is private like everything else there. In a
+    // folder the school chose (a USB drive, a shared folder) it keeps that folder's rules:
+    // the file is sealed, and someone else may be meant to collect it.
+    let own_folder = in_own_folder(&dir);
+    let write = |tmp: &std::path::Path| {
+        if own_folder {
+            crate::private::write_private(tmp, &bytes)
+        } else {
+            std::fs::write(tmp, &bytes)
+        }
+    };
+    write(&tmp)
         .and_then(|_| std::fs::rename(&tmp, &path))
         .map_err(|e| {
             let _ = std::fs::remove_file(&tmp);
@@ -686,13 +716,22 @@ async fn relink_after_restore(
 pub struct BackupStatus {
     pub last_backup_at: Option<DateTime<Utc>>,
     pub last_backup_file: Option<String>,
-    /// No successful backup in the last two days.
+    /// No backup has ever succeeded on this install.
+    pub never: bool,
+    /// A backup is overdue: the last one is older than two days, or none has ever been
+    /// made although the school was set up more than two days ago. A brand-new install is
+    /// not overdue; it just has no backup yet.
     pub stale: bool,
     pub enabled: bool,
     pub time: String,
     pub directory: String,
     pub unattended_ready: bool,
     pub last_error: Option<String>,
+}
+
+/// More than two days have passed since `since` (the last backup, or the school's set-up).
+fn overdue(since: DateTime<Utc>, now: DateTime<Utc>) -> bool {
+    now - since > chrono::Duration::hours(STALE_AFTER_HOURS)
 }
 
 pub async fn status(
@@ -704,10 +743,20 @@ pub async fn status(
     let recent = repo::recent_runs(conn, school_id, 1).await?;
     let last_at = last.as_ref().and_then(|r| r.finished_at);
     let stale = match last_at {
-        Some(at) => Utc::now() - at > chrono::Duration::hours(STALE_AFTER_HOURS),
-        None => true,
+        Some(at) => overdue(at, Utc::now()),
+        // Never backed up: overdue only once the school has existed long enough for a
+        // nightly backup to have been due.
+        None => {
+            let set_up: Option<DateTime<Utc>> =
+                sqlx::query_scalar("SELECT created_at FROM schools WHERE id = $1")
+                    .bind(school_id)
+                    .fetch_optional(&mut *conn)
+                    .await?;
+            set_up.is_none_or(|at| overdue(at, Utc::now()))
+        }
     };
     Ok(BackupStatus {
+        never: last_at.is_none(),
         last_backup_at: last_at,
         last_backup_file: last.and_then(|r| r.file_path),
         stale,
@@ -825,5 +874,28 @@ mod tests {
         };
         assert!(bad.validate().is_err());
         assert!(!is_due(&bad, None, today_0300));
+    }
+
+    /// Found testing v0.5.1 on a fresh install: the backup file was private but the folder
+    /// Madrasa made for it inside its data folder was open to other accounts.
+    #[test]
+    fn the_backup_folder_inside_the_data_folder_is_private_and_a_chosen_one_is_left_alone() {
+        let base = std::env::temp_dir().join(format!("madrasa-bk-{}", uuid::Uuid::now_v7()));
+        let own = base.join("data").join("backups");
+        super::make_folder_as(&own, true).unwrap();
+        let chosen = base.join("usb").join("School Backups");
+        super::make_folder_as(&chosen, false).unwrap();
+        assert!(own.is_dir() && chosen.is_dir());
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = |p: &std::path::Path| p.metadata().unwrap().permissions().mode() & 0o777;
+            assert_eq!(mode(&own), 0o700);
+            // Whatever the system gives a new folder (the school's own choice of place).
+            let plain = base.join("plain");
+            std::fs::create_dir_all(&plain).unwrap();
+            assert_eq!(mode(&chosen), mode(&plain));
+        }
+        let _ = std::fs::remove_dir_all(&base);
     }
 }

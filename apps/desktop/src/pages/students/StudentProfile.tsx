@@ -21,6 +21,7 @@ import { cn } from "@/lib/cn";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 import { useSession } from "@/app/session";
 import { PageHeader } from "../PageHeader";
+import { visibleCustomFields } from "@/lib/customFields";
 import { LedgerView } from "../fees/LedgerView";
 import { StudentAttendanceView } from "../attendance/StudentAttendanceView";
 import { StudentResultsView } from "../exams/StudentResultsView";
@@ -239,7 +240,8 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function DetailsTab({ s }: { s: StudentDetail }) {
   const { t, formatDate } = useI18n();
-  const custom = Object.entries(s.custom);
+  // Only what the school added itself; Madrasa's own notes on the record are not shown.
+  const custom = visibleCustomFields(s.custom);
   return (
     <div className="grid gap-4 xl:grid-cols-2">
       <Card title={t("students.tabs.details")}>
@@ -258,9 +260,9 @@ function DetailsTab({ s }: { s: StudentDetail }) {
               <Field label={t("students.leftReason")}>{s.left_reason ?? "—"}</Field>
             </>
           )}
-          {custom.map(([k, v]) => (
-            <Field key={k} label={k}>
-              {typeof v === "string" ? v : JSON.stringify(v)}
+          {custom.map(({ key, value }) => (
+            <Field key={key} label={key}>
+              {value || "—"}
             </Field>
           ))}
         </dl>

@@ -54,6 +54,14 @@ const MAX_CACHED: usize = 4 * 1024 * 1024;
 const MAX_QUEUED: usize = 1024 * 1024;
 /// After this long without an answer, "Reconnecting" becomes "Offline".
 const RECONNECT_GRACE: i64 = 15;
+/// How often the server is asked whether it is there while connected, and how long one such
+/// question may take. Together four seconds, and the screen asks this PC every second, so a
+/// pulled cable shows as "Reconnecting" within about five seconds even on an idle PC.
+const HEARTBEAT: Duration = Duration::from_secs(2);
+const HEARTBEAT_TIMEOUT: Duration = Duration::from_secs(2);
+/// While the server is known to be out of reach, a read waits at most this long for it
+/// before the kept copy is served.
+const AWAY_READ_TIMEOUT: Duration = Duration::from_secs(1);
 /// How many past outcomes are kept for the user to read.
 const KEEP_OUTCOMES: usize = 200;
 
@@ -205,6 +213,10 @@ pub struct ItemView {
     pub path: String,
     pub queued_at: DateTime<Utc>,
     pub provisional_no: Option<String>,
+    /// A fee payment taken offline: the voucher it pays and the amount, so every screen that
+    /// shows the voucher can say "paid (provisional, waiting to send)".
+    pub voucher_id: Option<Uuid>,
+    pub amount: Option<Value>,
     pub attempts: u32,
     pub last_error: Option<String>,
 }
@@ -248,8 +260,9 @@ fn device_code() -> String {
 impl Outbox {
     /// Open (or create) the outbox in `dir`.
     pub fn open(dir: &Path) -> anyhow::Result<Arc<Outbox>> {
-        std::fs::create_dir_all(dir.join("queue"))?;
-        std::fs::create_dir_all(dir.join("cache"))?;
+        crate::private::create_private_dir(dir)?;
+        crate::private::create_private_dir(&dir.join("queue"))?;
+        crate::private::create_private_dir(&dir.join("cache"))?;
         let key_path = dir.join("outbox.key");
         let key = match std::fs::read(&key_path) {
             Ok(k) if k.len() == 32 => k,
@@ -431,20 +444,17 @@ impl Outbox {
     pub async fn unreachable(&self) {
         let mut inner = self.inner.lock().await;
         let now = Utc::now();
-        match inner.link {
-            Link::Connected => {
-                inner.link = Link::Reconnecting;
-                inner.since = now;
-            }
-            Link::Reconnecting if (now - inner.since).num_seconds() >= RECONNECT_GRACE => {
-                inner.link = Link::Offline;
-            }
-            _ => {}
+        if inner.link == Link::Connected {
+            inner.link = Link::Reconnecting;
+            inner.since = now;
         }
+        settle(&mut inner, now);
     }
 
     pub async fn link(&self) -> Link {
-        self.inner.lock().await.link
+        let mut inner = self.inner.lock().await;
+        settle(&mut inner, Utc::now());
+        inner.link
     }
 
     pub async fn waiting(&self) -> usize {
@@ -452,7 +462,8 @@ impl Outbox {
     }
 
     pub async fn status(&self) -> Status {
-        let inner = self.inner.lock().await;
+        let mut inner = self.inner.lock().await;
+        settle(&mut inner, Utc::now());
         Status {
             link: inner.link,
             since: inner.since,
@@ -468,6 +479,8 @@ impl Outbox {
                     path: i.path.clone(),
                     queued_at: i.queued_at,
                     provisional_no: i.provisional.as_ref().map(|p| p.provisional_no.clone()),
+                    voucher_id: i.provisional.as_ref().map(|p| p.voucher_id),
+                    amount: i.provisional.as_ref().map(|p| p.amount.clone()),
                     attempts: i.attempts,
                     last_error: i.last_error.clone(),
                 })
@@ -824,7 +837,7 @@ impl Outbox {
             loop {
                 let Some(me) = weak.upgrade() else { return };
                 let pause = match me.link().await {
-                    Link::Connected => Duration::from_secs(10),
+                    Link::Connected => HEARTBEAT,
                     _ => Duration::from_secs(1),
                 };
                 // Wait without keeping the outbox alive.
@@ -833,7 +846,7 @@ impl Outbox {
                 let Some(me) = weak.upgrade() else { return };
                 let health = client
                     .get(format!("{upstream}/api/v1/health"))
-                    .timeout(Duration::from_secs(5))
+                    .timeout(HEARTBEAT_TIMEOUT)
                     .send()
                     .await;
                 match health {
@@ -847,6 +860,19 @@ impl Outbox {
                 }
             }
         });
+    }
+}
+
+/// "Reconnecting" becomes "Offline" by the clock: fifteen seconds after the server's last
+/// answer (or, before any answer, after trouble started), whenever anyone looks, not only
+/// when the next attempt happens to fail.
+fn settle(inner: &mut Inner, now: DateTime<Utc>) {
+    if inner.link != Link::Reconnecting {
+        return;
+    }
+    let silent_since = inner.last_contact.unwrap_or(inner.since);
+    if (now - silent_since).num_seconds() >= RECONNECT_GRACE {
+        inner.link = Link::Offline;
     }
 }
 
@@ -984,7 +1010,15 @@ fn json_response(status: StatusCode, value: &Value) -> Response<Body> {
         .unwrap_or_default()
 }
 
-/// Paths whose changes need the server there and then; never queued.
+/// The path without its query string.
+fn bare(path: &str) -> &str {
+    path.split('?').next().unwrap_or(path)
+}
+
+/// Paths whose changes need the server there and then; never queued. Signing in, setup,
+/// backups and imports; settings that hold credentials or reach other systems; anything that
+/// creates a login or sets a password (a password never waits in a file); and whole-school
+/// jobs whose result the user has to see (rollover, voucher runs, timetable generation).
 fn needs_server(path: &str) -> bool {
     const LIVE: &[&str] = &[
         "/api/v1/auth/",
@@ -994,10 +1028,42 @@ fn needs_server(path: &str) -> bool {
         "/api/v1/system",
         "/api/v1/edition",
         "/api/v1/nexus",
-        "/api/v1/directory",
-        "/api/v1/api-keys",
+        "/api/v1/settings/directory",
+        "/api/v1/settings/api-keys",
+        "/api/v1/users",
+        "/api/v1/parent-app/access",
+        "/api/v1/academic-years/rollover",
+        "/api/v1/fees/vouchers/generate",
+        "/api/v1/fees/late-fees/run",
+        "/api/v1/timetable/generate",
     ];
-    LIVE.iter().any(|p| path.starts_with(p))
+    let path = bare(path);
+    if LIVE.iter().any(|p| path.starts_with(p)) {
+        return true;
+    }
+    // `/api/v1/staff/{id}/login` and `/login/password`.
+    path.strip_prefix("/api/v1/staff/")
+        .and_then(|rest| rest.split_once('/'))
+        .is_some_and(|(_, tail)| tail == "login" || tail.starts_with("login/"))
+}
+
+/// Requests that only read or check although they are sent as `POST` (a duplicate check, a
+/// preview, a file being read before an import): they change nothing, so they are never
+/// queued and never counted as waiting. Without the server they answer `offline_check`.
+fn is_check(method: &Method, path: &str) -> bool {
+    if *method != Method::POST {
+        return false;
+    }
+    const CHECKS: &[&str] = &[
+        "/api/v1/students/check-duplicates",
+        "/api/v1/allocation/balance",
+        "/api/v1/reports/custom/run",
+        "/api/v1/subject-allocations/import/parse",
+    ];
+    let path = bare(path);
+    CHECKS.contains(&path)
+        || (path.starts_with("/api/v1/boards/exams/")
+            && (path.ends_with("/results/parse") || path.ends_with("/results/preview")))
 }
 
 /// Answer the browser's CORS preflight ourselves, so changes can be made while the server is
@@ -1095,10 +1161,19 @@ where
         method,
         Method::POST | Method::PUT | Method::PATCH | Method::DELETE
     );
-    let queueable = is_change && !needs_server(&path) && body.len() <= MAX_QUEUED;
+    let check = is_check(&method, &path);
+    let queueable = is_change && !check && !needs_server(&path) && body.len() <= MAX_QUEUED;
+    let away = outbox.link().await != Link::Connected;
 
-    // While changes wait, new ones join the line so nothing overtakes.
-    if queueable && outbox.waiting().await > 0 {
+    // A check changes nothing: with the server away it is not asked, not queued, not counted.
+    if check && away {
+        return offline_check_response();
+    }
+
+    // While changes wait, new ones join the line so nothing overtakes; and while the server
+    // is known to be away, a change goes straight to the line instead of waiting for a
+    // connection that will not come.
+    if queueable && (away || outbox.waiting().await > 0) {
         let item = outbox
             .enqueue(
                 Uuid::now_v7(),
@@ -1114,8 +1189,25 @@ where
         return queued_response(outbox, &item).await;
     }
 
-    let key = is_change.then(Uuid::now_v7);
-    match send(key).await {
+    // A read while the server is away: the kept copy at once when "Offline" is known, and
+    // after a short wait while still "Reconnecting" (the heartbeat notices its return).
+    let reading_away = away && method == Method::GET;
+    if reading_away && outbox.link().await == Link::Offline {
+        if let Some(bytes) = outbox.cache_get(authorization.as_deref(), &path).await {
+            return cached_response(bytes);
+        }
+    }
+
+    let key = (is_change && !check).then(Uuid::now_v7);
+    let upstream = if reading_away {
+        match tokio::time::timeout(AWAY_READ_TIMEOUT, send(key)).await {
+            Ok(answer) => answer,
+            Err(_) => Upstream::NotSent("the school server did not answer in time".into()),
+        }
+    } else {
+        send(key).await
+    };
+    match upstream {
         Upstream::Answered {
             status,
             headers: rheaders,
@@ -1149,16 +1241,13 @@ where
         Upstream::NotSent(why) | Upstream::Lost(why) if method == Method::GET => {
             outbox.unreachable().await;
             match outbox.cache_get(authorization.as_deref(), &path).await {
-                Some(bytes) => Response::builder()
-                    .status(StatusCode::OK)
-                    .header(header::CONTENT_TYPE, "application/json")
-                    .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-                    .header(OFFLINE_HEADER, "cached")
-                    .header(header::ACCESS_CONTROL_EXPOSE_HEADERS, "x-madrasa-offline")
-                    .body(Body::from(bytes))
-                    .unwrap_or_default(),
+                Some(bytes) => cached_response(bytes),
                 None => unreachable_response(&why),
             }
+        }
+        Upstream::NotSent(_) | Upstream::Lost(_) if check => {
+            outbox.unreachable().await;
+            offline_check_response()
         }
         Upstream::NotSent(why) => {
             outbox.unreachable().await;
@@ -1199,6 +1288,29 @@ where
             queued_response(outbox, &item).await
         }
     }
+}
+
+/// The kept copy of a read, marked as such.
+fn cached_response(bytes: Vec<u8>) -> Response<Body> {
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+        .header(OFFLINE_HEADER, "cached")
+        .header(header::ACCESS_CONTROL_EXPOSE_HEADERS, "x-madrasa-offline")
+        .body(Body::from(bytes))
+        .unwrap_or_default()
+}
+
+/// A check that could not be made because the server is away. Nothing was queued.
+fn offline_check_response() -> Response<Body> {
+    json_response(
+        StatusCode::SERVICE_UNAVAILABLE,
+        &json!({ "error": {
+            "code": "offline_check",
+            "message": "This cannot be checked right now: the school server is out of reach. It is checked when your change arrives there.",
+        } }),
+    )
 }
 
 fn unreachable_response(why: &str) -> Response<Body> {
@@ -1336,6 +1448,341 @@ mod tests {
         std::fs::write(dir.join("outbox.key"), [7u8; 32]).unwrap();
         let wrong = Outbox::open(&dir).unwrap();
         assert_eq!(wrong.waiting().await, 0);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// One request through the proxy; `answer` is what the school server would do with it,
+    /// and `asked` counts how often it was asked at all.
+    async fn through(
+        outbox: &Arc<Outbox>,
+        method: Method,
+        path: &str,
+        body: &str,
+        asked: &std::sync::atomic::AtomicUsize,
+        answer: Option<&str>,
+    ) -> (StatusCode, Value, Option<String>) {
+        let mut headers = HeaderMap::new();
+        headers.insert(header::AUTHORIZATION, HeaderValue::from_static("Bearer t"));
+        let answer = answer.map(str::to_string);
+        let r = handle(
+            outbox,
+            method,
+            path.to_string(),
+            &headers,
+            Bytes::from(body.to_string()),
+            |_key| async move {
+                asked.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                match answer {
+                    Some(a) => {
+                        let mut h = HeaderMap::new();
+                        h.insert(
+                            header::CONTENT_TYPE,
+                            HeaderValue::from_static("application/json"),
+                        );
+                        Upstream::Answered {
+                            status: StatusCode::OK,
+                            headers: h,
+                            body: Bytes::from(a),
+                        }
+                    }
+                    None => {
+                        // A server that is silently out of reach: no answer for a long time.
+                        tokio::time::sleep(Duration::from_secs(5)).await;
+                        Upstream::NotSent("no route".into())
+                    }
+                }
+            },
+        )
+        .await;
+        let status = r.status();
+        let offline = r
+            .headers()
+            .get(OFFLINE_HEADER)
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_string);
+        let bytes = axum::body::to_bytes(r.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+            offline,
+        )
+    }
+
+    fn temp_outbox() -> (Arc<Outbox>, PathBuf) {
+        let dir = std::env::temp_dir().join(format!("madrasa-outbox-{}", Uuid::now_v7()));
+        (Outbox::open(&dir).unwrap(), dir)
+    }
+
+    async fn force_link(outbox: &Outbox, link: Link, silent_for: i64) {
+        let mut inner = outbox.inner.lock().await;
+        inner.link = link;
+        inner.since = Utc::now() - chrono::Duration::seconds(silent_for);
+        inner.last_contact = Some(Utc::now() - chrono::Duration::seconds(silent_for));
+    }
+
+    #[test]
+    fn checks_and_reads_sent_as_post_are_told_apart_from_changes() {
+        for path in [
+            "/api/v1/students/check-duplicates",
+            "/api/v1/students/check-duplicates?x=1",
+            "/api/v1/allocation/balance",
+            "/api/v1/reports/custom/run",
+            "/api/v1/subject-allocations/import/parse",
+            "/api/v1/boards/exams/0199aaaa-0000-7000-8000-000000000001/results/preview",
+            "/api/v1/boards/exams/0199aaaa-0000-7000-8000-000000000001/results/parse",
+        ] {
+            assert!(is_check(&Method::POST, path), "{path} only reads");
+        }
+        for path in [
+            "/api/v1/students",
+            "/api/v1/students/0199aaaa-0000-7000-8000-000000000001/withdraw",
+            "/api/v1/fees/vouchers/0199aaaa-0000-7000-8000-000000000001/payments",
+            "/api/v1/boards/exams/0199aaaa-0000-7000-8000-000000000001/results/apply",
+            "/api/v1/attendance/sheets",
+        ] {
+            assert!(!is_check(&Method::POST, path), "{path} is a change");
+        }
+        assert!(!is_check(
+            &Method::PATCH,
+            "/api/v1/students/check-duplicates"
+        ));
+        // Never waiting in a file: passwords, credentials, whole-school jobs.
+        for path in [
+            "/api/v1/settings/directory",
+            "/api/v1/settings/directory/test",
+            "/api/v1/settings/api-keys",
+            "/api/v1/users",
+            "/api/v1/users/0199aaaa-0000-7000-8000-000000000001/password",
+            "/api/v1/staff/0199aaaa-0000-7000-8000-000000000001/login",
+            "/api/v1/staff/0199aaaa-0000-7000-8000-000000000001/login/password",
+            "/api/v1/academic-years/rollover",
+            "/api/v1/fees/vouchers/generate",
+            "/api/v1/timetable/generate",
+        ] {
+            assert!(needs_server(path), "{path} needs the server there and then");
+        }
+        assert!(!needs_server("/api/v1/staff"));
+        assert!(!needs_server(
+            "/api/v1/staff/0199aaaa-0000-7000-8000-000000000001"
+        ));
+        assert!(!needs_server(
+            "/api/v1/fees/vouchers/0199aaaa-0000-7000-8000-000000000001/payments"
+        ));
+    }
+
+    /// B1 (v0.5.0 test): a duplicate check made offline was queued and counted as a change.
+    #[tokio::test]
+    async fn a_check_is_never_queued_and_the_waiting_count_is_the_real_changes() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let (outbox, dir) = temp_outbox();
+        let asked = AtomicUsize::new(0);
+        force_link(&outbox, Link::Offline, 60).await;
+        // TESTING task 67: admit a student, edit another, mark attendance; with the checks
+        // the forms make along the way.
+        let id = Uuid::now_v7();
+        let check = r#"{"full_name":"Sara","father_name":"Ahmed","date_of_birth":"2019-01-01"}"#;
+        for (method, path, body) in [
+            (
+                Method::POST,
+                "/api/v1/students/check-duplicates".to_string(),
+                check,
+            ),
+            (
+                Method::POST,
+                "/api/v1/students".to_string(),
+                r#"{"full_name":"Sara"}"#,
+            ),
+            (
+                Method::POST,
+                "/api/v1/students/check-duplicates".to_string(),
+                check,
+            ),
+            (
+                Method::PATCH,
+                format!("/api/v1/students/{id}"),
+                r#"{"address":"B"}"#,
+            ),
+            (
+                Method::PUT,
+                "/api/v1/attendance/sheets".to_string(),
+                r#"{"entries":[]}"#,
+            ),
+        ] {
+            let started = std::time::Instant::now();
+            let (status, answer, _) =
+                through(&outbox, method.clone(), &path, body, &asked, None).await;
+            assert!(
+                started.elapsed() < Duration::from_millis(500),
+                "nothing waits for a server that is known to be away"
+            );
+            if path.ends_with("check-duplicates") {
+                assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+                assert_eq!(answer["error"]["code"], "offline_check");
+            } else {
+                assert_eq!(status, StatusCode::ACCEPTED, "{method} {path} is queued");
+            }
+        }
+        assert_eq!(
+            outbox.waiting().await,
+            3,
+            "three real changes, three waiting"
+        );
+        assert_eq!(asked.load(Ordering::SeqCst), 0, "the server was not asked");
+        let kinds: Vec<String> = outbox
+            .status()
+            .await
+            .items
+            .iter()
+            .map(|i| i.path.clone())
+            .collect();
+        assert!(kinds.iter().all(|p| !p.contains("check-duplicates")));
+        // Connected again, a check is asked and still never queued when the answer is lost.
+        outbox.reached().await;
+        let (status, _, _) = through(
+            &outbox,
+            Method::POST,
+            "/api/v1/students/check-duplicates",
+            check,
+            &asked,
+            Some("[]"),
+        )
+        .await;
+        // (Changes are waiting, so a change would join the line; the check goes through.)
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(asked.load(Ordering::SeqCst), 1);
+        assert_eq!(outbox.waiting().await, 3);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// B3 (v0.5.0 test): every read waited five seconds for a silently unreachable server.
+    #[tokio::test]
+    async fn offline_the_kept_copy_is_served_at_once() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let (outbox, dir) = temp_outbox();
+        let asked = AtomicUsize::new(0);
+        let list = r#"[{"full_name":"Sara"}]"#;
+        let (status, _, offline) = through(
+            &outbox,
+            Method::GET,
+            "/api/v1/students",
+            "",
+            &asked,
+            Some(list),
+        )
+        .await;
+        assert_eq!((status, offline), (StatusCode::OK, None));
+        // Known to be offline: the kept copy, without asking.
+        force_link(&outbox, Link::Offline, 60).await;
+        let started = std::time::Instant::now();
+        let (status, body, offline) =
+            through(&outbox, Method::GET, "/api/v1/students", "", &asked, None).await;
+        assert!(
+            started.elapsed() < Duration::from_millis(300),
+            "served at once"
+        );
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(offline.as_deref(), Some("cached"));
+        assert_eq!(body[0]["full_name"], "Sara");
+        assert_eq!(
+            asked.load(Ordering::SeqCst),
+            1,
+            "not asked again while offline"
+        );
+        // Still "Reconnecting": one short try, then the kept copy.
+        force_link(&outbox, Link::Reconnecting, 4).await;
+        let started = std::time::Instant::now();
+        let (status, _, offline) =
+            through(&outbox, Method::GET, "/api/v1/students", "", &asked, None).await;
+        let took = started.elapsed();
+        assert!(
+            took < Duration::from_millis(1800),
+            "about a second, not five: {took:?}"
+        );
+        assert_eq!(
+            (status, offline.as_deref()),
+            (StatusCode::OK, Some("cached"))
+        );
+        // Nothing kept for this screen: said plainly, after the short try.
+        force_link(&outbox, Link::Offline, 60).await;
+        let started = std::time::Instant::now();
+        let (status, body, _) = through(
+            &outbox,
+            Method::GET,
+            "/api/v1/students/never-opened",
+            "",
+            &asked,
+            None,
+        )
+        .await;
+        assert!(started.elapsed() < Duration::from_millis(1800));
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(body["error"]["code"], "server_unreachable");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// B4 (v0.5.0 test): "Reconnecting" took 12 to 16 seconds to appear, "Offline" over 30.
+    #[tokio::test]
+    async fn reconnecting_at_once_and_offline_fifteen_seconds_after_the_last_answer() {
+        assert!(
+            HEARTBEAT + HEARTBEAT_TIMEOUT <= Duration::from_secs(5),
+            "an idle PC notices a pulled cable within five seconds"
+        );
+        let (outbox, dir) = temp_outbox();
+        outbox.reached().await;
+        outbox.unreachable().await;
+        assert_eq!(outbox.link().await, Link::Reconnecting);
+        // Ten seconds after the last answer: still trying.
+        {
+            let mut inner = outbox.inner.lock().await;
+            inner.last_contact = Some(Utc::now() - chrono::Duration::seconds(10));
+            inner.since = Utc::now() - chrono::Duration::seconds(6);
+        }
+        outbox.unreachable().await;
+        assert_eq!(outbox.link().await, Link::Reconnecting);
+        // Fifteen seconds after the last answer (only ten since it was noticed): offline.
+        {
+            let mut inner = outbox.inner.lock().await;
+            inner.last_contact = Some(Utc::now() - chrono::Duration::seconds(15));
+            inner.since = Utc::now() - chrono::Duration::seconds(10);
+        }
+        outbox.unreachable().await;
+        assert_eq!(outbox.link().await, Link::Offline);
+        outbox.reached().await;
+        assert_eq!(outbox.link().await, Link::Connected);
+        // "Offline" comes by the clock, without waiting for another attempt to fail: the
+        // status the screen reads says so the moment fifteen seconds have passed.
+        outbox.unreachable().await;
+        assert_eq!(outbox.status().await.link, Link::Reconnecting);
+        outbox.inner.lock().await.last_contact = Some(Utc::now() - chrono::Duration::seconds(15));
+        assert_eq!(outbox.status().await.link, Link::Offline);
+        assert_eq!(outbox.link().await, Link::Offline);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A payment that waits says which voucher it pays and how much, for the screens.
+    #[tokio::test]
+    async fn a_waiting_payment_names_its_voucher_and_amount() {
+        use std::sync::atomic::AtomicUsize;
+        let (outbox, dir) = temp_outbox();
+        let asked = AtomicUsize::new(0);
+        force_link(&outbox, Link::Offline, 60).await;
+        let v = Uuid::now_v7();
+        let (status, answer, _) = through(
+            &outbox,
+            Method::POST,
+            &format!("/api/v1/fees/vouchers/{v}/payments"),
+            r#"{"amount":"5000.00","method":"cash"}"#,
+            &asked,
+            None,
+        )
+        .await;
+        assert_eq!(status, StatusCode::ACCEPTED);
+        assert!(answer["queued"]["provisional"]["provisional_no"].is_string());
+        let status = serde_json::to_value(outbox.status().await).unwrap();
+        assert_eq!(status["items"][0]["voucher_id"], v.to_string());
+        assert_eq!(status["items"][0]["amount"], "5000.00");
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

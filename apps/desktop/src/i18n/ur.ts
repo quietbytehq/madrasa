@@ -2714,6 +2714,21 @@ export const ur: Translation = {
   "fees.provisional.replacedBy": "اسکول سرور نے تصدیق کر دی: اصل رسید نمبر {number}۔",
   "fees.provisional.notFound": "اس کمپیوٹر پر اس نمبر کی کوئی عارضی رسید نہیں۔",
   "fees.provisional.replaces": "عارضی رسید {number} کی جگہ۔",
+  // v0.5.1: fixes after the v0.5.0 offline test
+  "fees.provisional.confirmed": "تصدیق شدہ — رسید {number}",
+  "fees.provisional.confirmed.title": "رسید {number}",
+  "fees.provisional.waiting": "ادا شدہ (عارضی، بھیجے جانے کی منتظر): {amount}",
+  "fees.provisional.waitingTotal":
+    "اس کمپیوٹر پر لی گئی {amount} کی رقم اسکول سرور کو بھیجے جانے کی منتظر ہے۔ پہنچنے کے بعد بقایا: {balance}۔",
+  "fees.provisional.again":
+    "اس واؤچر کی {amount} کی ادائیگی اس کمپیوٹر پر پہلے ہی لی جا چکی ہے اور بھیجے جانے کی منتظر ہے ({numbers})۔ ایک ہی رقم دو بار وصول نہ کریں۔",
+  "fees.provisional.again.confirm": "یہ ایک اور ادائیگی ہے، منتظر ادائیگی کے علاوہ۔",
+  "fees.provisional.again.required": "اس واؤچر پر ایک اور ادائیگی لینے کے لیے خانے پر نشان لگائیں۔",
+  "fees.provisional.remaining": "منتظر ادائیگی کے بعد باقی: {amount}",
+  "students.duplicate.offline":
+    "اس وقت نقل کی جانچ نہیں ہو سکتی: اسکول سرور تک رسائی نہیں۔ یہ ریکارڈ وہاں پہنچنے پر جانچا جائے گا۔",
+  "dashboard.attendance.allMarkedTitle": "تمام سیکشنز کی حاضری لگ چکی",
+  "backup.status.none": "ابھی کوئی بیک اپ نہیں — ابھی ایک بیک اپ لیں",
   "parent.link.explain.connected":
     "اسکول نیٹ ورک جواب دے رہا ہے۔ جو آپ دیکھ رہے ہیں وہ تازہ ترین ہے۔",
   "parent.link.explain.reconnecting":
