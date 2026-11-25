@@ -18,13 +18,17 @@
   --selection: 230 239 252; /* #E6EFFC */
   --success: 25 131 90; /* #19835A */
   --success-bg: 221 243 232; /* #DDF3E8 */
+  --success-ink: 20 112 76; /* #14704C the green as text: AA on its tint and on white */
   --warning: 217 154 39; /* #D99A27 */
   --warning-bg: 255 240 213; /* #FFF0D5 */
+  --warning-ink: 138 90 0; /* #8A5A00 the amber as text: AA on its tint and on white */
   --danger: 198 40 40; /* #C62828 */
   --danger-bg: 253 232 232; /* #FDE8E8 */
   --lavender: 232 225 250; /* #E8E1FA */
   --text: 21 38 74; /* #15264A */
-  --muted: 100 116 139; /* #64748B */
+  --muted: 90 106 130; /* #5A6A82 AA on the sidebar, table headings and every tint */
+  --on-blue: 255 255 255; /* text on a blue button */
+  --on-danger: 255 255 255; /* text on a red button */
   --border: 222 230 242; /* #DEE6F2 */
   --sidebar: 237 242 250; /* #EDF2FA light blue-grey */
   --hover: 240 245 252; /* #F0F5FC */
@@ -42,11 +46,15 @@
   --blue: 91 155 240; /* #5B9BF0 */
   --gold: 247 190 85; /* #F7BE55 */
   --gold-bg: 58 46 18; /* #3A2E12 */
-  --selection: 26 50 96; /* #1A3260 */
+  --selection: 23 45 87; /* #172D57 */
   --success: 72 190 136; /* #48BE88 */
   --success-bg: 20 56 42; /* #14382A */
+  --success-ink: 72 190 136;
   --warning: 234 180 72; /* #EAB448 */
   --warning-bg: 64 48 20; /* #403014 */
+  --warning-ink: 234 180 72;
+  --on-blue: 10 20 40; /* #0A1428 dark text: white on this lighter blue is below AA */
+  --on-danger: 10 20 40;
   --danger: 240 108 108; /* #F06C6C */
   --danger-bg: 66 28 28; /* #421C1C */
   --lavender: 56 48 96; /* #383060 */
@@ -71,13 +79,17 @@
     --selection: 230 239 252;
     --success: 25 131 90;
     --success-bg: 221 243 232;
+    --success-ink: 20 112 76;
     --warning: 217 154 39;
     --warning-bg: 255 240 213;
+    --warning-ink: 138 90 0;
     --danger: 198 40 40;
     --danger-bg: 253 232 232;
     --lavender: 232 225 250;
     --text: 21 38 74;
-    --muted: 100 116 139;
+    --muted: 90 106 130;
+    --on-blue: 255 255 255;
+    --on-danger: 255 255 255;
     --border: 222 230 242;
     --sidebar: 255 255 255;
     --hover: 255 255 255;

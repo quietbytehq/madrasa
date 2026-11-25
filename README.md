@@ -99,8 +99,21 @@ real school's database; it refuses if one is present):
 MADRASA_DATABASE_URL=postgres://postgres:postgres@localhost:5432/madrasa cargo run -p madrasa-demo-data --bin madrasa-demo -- load --yes
 ```
 
-Continuous integration (`.github/workflows/ci.yml`) runs lint, type checks, tests and the
-desktop, hub image and Android builds on every pull request; tagged `v*-alpha` releases
+Automated GUI tests (`e2e/`, Playwright) drive the desktop front end, the parent app at
+phone size and the hub console in a real browser, against a real school server, a client
+PC's proxy and a hub, all with made-up data:
+
+```bash
+pnpm exec playwright install chromium     # once
+MADRASA_E2E_DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres scripts/e2e.sh
+```
+
+The script creates and drops databases named `e2e_*` on that server and needs `psql`,
+`pdftotext` and `unzip`. `scripts/e2e.sh --project=desktop` runs one group and `--keep`
+leaves the servers running while you write tests.
+
+Continuous integration (`.github/workflows/ci.yml`) runs lint, type checks, tests, the GUI
+tests and the desktop, hub image and Android builds on every pull request; tagged `v*-alpha` releases
 publish the unsigned installers, the parent app's APK and the hub image
 (`docs/RELEASING.md`).
 

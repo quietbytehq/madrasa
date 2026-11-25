@@ -61,7 +61,7 @@ export function Welcome() {
       <div className="mt-6 flex flex-col gap-3">
         <Link
           to="/code"
-          className="flex min-h-12 items-center justify-center rounded bg-blue px-4 text-sm font-medium text-white hover:bg-blue/90"
+          className="flex min-h-12 items-center justify-center rounded bg-blue px-4 text-sm font-medium text-on-blue hover:bg-blue/90"
         >
           {t("parent.welcome.haveCode")}
         </Link>

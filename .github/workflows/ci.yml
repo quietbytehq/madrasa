@@ -104,6 +104,72 @@ jobs:
       - name: Build server with bundled PostgreSQL
         run: cargo build -p madrasa-api --features embedded-postgres --bin madrasa-server
 
+  e2e:
+    # The front ends in a real browser against real servers (scripts/e2e.sh): the desktop app
+    # with a demo school and a client PC's proxy, the parent app at phone size against a hub,
+    # and the hub console. Screenshots of what failed are kept as an artifact.
+    name: GUI tests (Playwright; desktop, parent app, hub console)
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v5
+      # psql to make the test databases, pdftotext to read the PDFs the tests download.
+      - name: Install PostgreSQL client and PDF tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client poppler-utils unzip
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: e2e
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm e2e:typecheck
+      - run: pnpm e2e:format:check
+      - name: Install the test browser
+        run: pnpm exec playwright install --with-deps chromium
+      - name: GUI tests
+        env:
+          MADRASA_E2E_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+          E2E_WORK: ${{ runner.temp }}/e2e
+        run: scripts/e2e.sh
+      # What the screens looked like where a test failed, the browser's own report, and the
+      # servers' logs.
+      - name: Keep screenshots and logs of failures
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: e2e-failures
+          path: |
+            e2e/test-results
+            e2e/report
+            ${{ runner.temp }}/e2e/*.log
+          retention-days: 14
+      # Light and dark, English and Urdu: every main screen, on every run.
+      - name: Keep the theme screenshots
+        if: success()
+        uses: actions/upload-artifact@v6
+        with:
+          name: e2e-screens
+          path: e2e/test-results/screens
+          retention-days: 14
+
   rust-windows:
     # Windows runners have no service containers; database-backed tests skip themselves.
     name: Rust (Windows)

@@ -22,6 +22,9 @@ apps/parent/src-tauri/target
 # Android packages built locally (scripts/build-parent-apk.sh)
 /dist-apk
 /dist-manual
+# Automated GUI tests (scripts/e2e.sh): screenshots, downloads and the HTML report
+/e2e/test-results
+/e2e/report
 
 # Editors / OS
 .vscode/*
