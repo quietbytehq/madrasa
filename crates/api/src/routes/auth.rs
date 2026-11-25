@@ -3,7 +3,7 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use chrono::{DateTime, Utc};
 use madrasa_core::edition::Feature;
-use madrasa_core::password::verify_password;
+use madrasa_core::password::{hash_password, validate_password, verify_password};
 use madrasa_core::session_token;
 use madrasa_db::{directory, roles, schools, sessions, users};
 
@@ -46,10 +46,21 @@ pub fn router() -> Router<AppState> {
         .route("/auth/login", post(login))
         .route("/auth/logout", post(logout))
         .route("/auth/me", get(me))
+        .route("/auth/password", post(change_own_password))
 }
 
-/// Dummy hash used to keep timing similar when the username does not exist.
-const DUMMY_HASH: &str = "$argon2id$v=19$m=19456,t=2,p=1$c29tZXNhbHRzb21lc2FsdA$Q0M2Qz6Uq2kZ0t4uY3O0+3o2wFzqJ3Yw1x0o0Zy5x2E";
+/// What a login is told when the username is not an account: exactly what a wrong password
+/// on a real account is told, at the same cost.
+fn unknown_user(state: &AppState, username: &str, password: &str, now: DateTime<Utc>) -> ApiError {
+    if state
+        .unknown_logins
+        .refuse(&state.lockout, username, password, now)
+    {
+        ApiError::account_locked()
+    } else {
+        ApiError::invalid_credentials()
+    }
+}
 
 async fn options(State(state): State<AppState>) -> ApiResult<Json<AuthOptions>> {
     let mut conn = state.pool.acquire().await?;
@@ -103,8 +114,7 @@ async fn login(
         let dir_user = match found {
             Ok(d) => d,
             Err(DirectoryError::NotFound) if user.is_none() => {
-                let _ = verify_password(&req.password, DUMMY_HASH);
-                return Err(ApiError::invalid_credentials());
+                return Err(unknown_user(&state, &req.username, &req.password, now));
             }
             Err(DirectoryError::BadPassword) | Err(DirectoryError::NotFound) => {
                 if let Some(u) = &user {
@@ -175,15 +185,14 @@ async fn login(
     }
 
     let Some(user) = user else {
-        let _ = verify_password(&req.password, DUMMY_HASH);
-        return Err(ApiError::invalid_credentials());
+        return Err(unknown_user(&state, &req.username, &req.password, now));
     };
     if state.lockout.is_locked(user.locked_until, now) {
         return Err(ApiError::account_locked());
     }
-    if !user.is_active {
-        return Err(ApiError::account_inactive());
-    }
+    // A disabled account is only told so once the password is right: with a wrong password
+    // it answers like any other account, so the login screen does not confirm that the
+    // username exists.
     if !verify_password(&req.password, &user.password_hash) {
         let next = state
             .lockout
@@ -201,6 +210,9 @@ async fn login(
         } else {
             ApiError::invalid_credentials()
         });
+    }
+    if !user.is_active {
+        return Err(ApiError::account_inactive());
     }
 
     users::record_successful_login(&mut conn, &state.hlc, user.id).await?;
@@ -229,4 +241,61 @@ async fn me(current: CurrentUser) -> Json<MeResponse> {
         user: UserSummary::from_user(&current.user, current.roles.clone()),
         permissions: current.permissions.codes(),
     })
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ChangePasswordRequest {
+    pub current_password: String,
+    pub new_password: String,
+}
+
+/// Change one's own password: the current one is asked for, the new one must meet the usual
+/// rule, and every other session of the user is ended. Until v0.5.1 only an administrator
+/// could set a password, so the administrator knew everyone's.
+async fn change_own_password(
+    State(state): State<AppState>,
+    current: CurrentUser,
+    body: Result<Json<ChangePasswordRequest>, axum::extract::rejection::JsonRejection>,
+) -> ApiResult<axum::http::StatusCode> {
+    let Json(req) = body?;
+    if current.user.auth_source != "local" {
+        return Err(ApiError::validation(
+            "This login is checked by the school's directory. Change the password there.",
+        ));
+    }
+    let now = Utc::now();
+    let mut tx = state.pool.begin().await?;
+    // Read again inside the transaction: the lock and the hash as they are now.
+    let user = users::get(&mut tx, current.user.id).await?;
+    if state.lockout.is_locked(user.locked_until, now) {
+        return Err(ApiError::account_locked());
+    }
+    if !verify_password(&req.current_password, &user.password_hash) {
+        // Counted like a failed login, so a session left open cannot be used to guess.
+        let next = state
+            .lockout
+            .after_failure(user.failed_login_count.max(0) as u32, now);
+        users::record_failed_login(
+            &mut tx,
+            &state.hlc,
+            user.id,
+            next.failed_count as i32,
+            next.locked_until,
+        )
+        .await?;
+        tx.commit().await?;
+        return Err(ApiError::validation("The current password is not right."));
+    }
+    validate_password(&req.new_password)
+        .map_err(|e| ApiError::validation(format!("New password: {e}.")))?;
+    if req.new_password == req.current_password {
+        return Err(ApiError::validation(
+            "The new password must be different from the current one.",
+        ));
+    }
+    let hash = hash_password(&req.new_password)?;
+    users::set_password(&mut tx, &state.hlc, current.actor(), user.id, &hash).await?;
+    sessions::revoke_all_for_user(&mut tx, &state.hlc, user.id, Some(current.session.id)).await?;
+    tx.commit().await?;
+    Ok(axum::http::StatusCode::NO_CONTENT)
 }

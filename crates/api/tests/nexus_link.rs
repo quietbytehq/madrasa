@@ -182,6 +182,7 @@ impl LiveHub {
             public_url: None,
             setup_token: Some("test-setup-token".into()),
             console_dir: None,
+            trusted_proxies: 0,
         };
         let (state, _) = HubState::new(pool, &config).await.unwrap();
         let (tx, rx) = tokio::sync::oneshot::channel::<()>();

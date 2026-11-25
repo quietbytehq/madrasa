@@ -60,10 +60,9 @@ impl Rule {
             _ => Rule::AnyOf(
                 cell.split(" or ")
                     .map(|p| {
-                        p.trim()
-                            .trim_matches('`')
-                            .parse()
-                            .unwrap_or_else(|_| panic!("unknown permission in the routes table: {p}"))
+                        p.trim().trim_matches('`').parse().unwrap_or_else(|_| {
+                            panic!("unknown permission in the routes table: {p}")
+                        })
                     })
                     .collect(),
             ),
@@ -207,7 +206,10 @@ impl App {
         let res = self.app.clone().oneshot(req).await.unwrap();
         let status = res.status();
         let bytes = res.into_body().collect().await.unwrap().to_bytes();
-        (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
     }
 
     async fn login(&self, username: &str, password: &str) -> String {
@@ -445,7 +447,10 @@ fn the_code_table_the_document_and_the_routes_agree() {
         unlisted.join("\n  ")
     );
     let stale = names(code.keys().filter(|r| !source.contains(*r)).collect());
-    assert!(stale.is_empty(), "authz.rs lists routes that no longer exist: {stale:?}");
+    assert!(
+        stale.is_empty(),
+        "authz.rs lists routes that no longer exist: {stale:?}"
+    );
     for (route, rule) in &code {
         assert_eq!(
             documented.get(route),
@@ -455,7 +460,11 @@ fn the_code_table_the_document_and_the_routes_agree() {
             route.1
         );
     }
-    assert_eq!(documented.len(), code.len(), "the document lists extra routes");
+    assert_eq!(
+        documented.len(),
+        code.len(),
+        "the document lists extra routes"
+    );
 }
 
 #[test]

@@ -16,9 +16,13 @@ pub async fn bind(
     let local = listener.local_addr()?;
     let app = crate::router(state);
     let fut = async move {
-        axum::serve(listener, app)
-            .with_graceful_shutdown(shutdown)
-            .await
+        // The peer address is needed to count attempts per client (throttle.rs).
+        axum::serve(
+            listener,
+            app.into_make_service_with_connect_info::<SocketAddr>(),
+        )
+        .with_graceful_shutdown(shutdown)
+        .await
     };
     Ok((local, fut))
 }

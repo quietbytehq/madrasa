@@ -93,6 +93,12 @@ var baseEnvironment = [
     name: 'NEXUS_PUBLIC_URL'
     value: publicAddress
   }
+  {
+    // The Container Apps ingress is the one proxy before the hub: the last
+    // X-Forwarded-For entry is the client, which the hub counts sign-in attempts by.
+    name: 'NEXUS_TRUSTED_PROXIES'
+    value: '1'
+  }
 ]
 var setupEnvironment = empty(setupToken) ? [] : [
   {

@@ -38,9 +38,6 @@ pub fn router() -> Router<HubState> {
         .route("/auth/me", get(me))
 }
 
-/// Dummy hash used to keep timing similar when the username does not exist.
-const DUMMY_HASH: &str = "$argon2id$v=19$m=19456,t=2,p=1$c29tZXNhbHRzb21lc2FsdA$Q0M2Qz6Uq2kZ0t4uY3O0+3o2wFzqJ3Yw1x0o0Zy5x2E";
-
 async fn login(
     State(state): State<HubState>,
     body: JsonBody<LoginRequest>,
@@ -49,8 +46,18 @@ async fn login(
     let now = Utc::now();
     let mut conn = state.pool.acquire().await?;
     let Some(user) = store::find_user(&mut conn, &req.username).await? else {
-        let _ = verify_password(&req.password, DUMMY_HASH);
-        return Err(HubError::invalid_credentials());
+        // Answered, counted and locked exactly like a wrong password on a real account, so
+        // the answers do not tell which usernames exist.
+        return Err(
+            if state
+                .unknown_logins
+                .refuse(&state.lockout, &req.username, &req.password, now)
+            {
+                HubError::account_locked()
+            } else {
+                HubError::invalid_credentials()
+            },
+        );
     };
     if state.lockout.is_locked(user.locked_until, now) {
         return Err(HubError::account_locked());

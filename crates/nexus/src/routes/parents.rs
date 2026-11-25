@@ -425,9 +425,6 @@ pub struct LoginBody {
     pub password: String,
 }
 
-/// Dummy hash used to keep timing similar when no account has the phone number.
-const DUMMY_HASH: &str = "$argon2id$v=19$m=19456,t=2,p=1$c29tZXNhbHRzb21lc2FsdA$Q0M2Qz6Uq2kZ0t4uY3O0+3o2wFzqJ3Yw1x0o0Zy5x2E";
-
 async fn login(
     State(state): State<HubState>,
     body: JsonBody<LoginBody>,
@@ -445,8 +442,18 @@ async fn login(
     };
     let mut conn = state.pool.acquire().await?;
     let Some(parent) = parents::find_by_phone(&mut conn, &phone).await? else {
-        let _ = verify_password(&b.password, DUMMY_HASH);
-        return Err(wrong());
+        // Like a wrong password on a real account, lock included: the answers do not tell
+        // which phone numbers have an account.
+        return Err(
+            if state
+                .unknown_logins
+                .refuse(&state.lockout, &phone, &b.password, Utc::now())
+            {
+                HubError::account_locked()
+            } else {
+                wrong()
+            },
+        );
     };
     check_password(&state, &mut conn, &parent, &b.password).await?;
     Ok(Json(open_session(&state, &mut conn, parent.id).await?))

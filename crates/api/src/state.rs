@@ -49,6 +49,9 @@ pub struct AppState {
     edition: Arc<RwLock<Edition>>,
     profile: Arc<RwLock<SchoolProfile>>,
     pub lockout: LockoutPolicy,
+    /// Failed logins for usernames that are not accounts, counted like real ones so the
+    /// answers cannot tell the two apart (routes/auth.rs).
+    pub unknown_logins: Arc<madrasa_core::password::UnknownLogins>,
     pub version: &'static str,
     /// Timetable generation runs in progress (Standard stage 1).
     pub timetable_jobs: Arc<TimetableJobs>,
@@ -80,6 +83,7 @@ impl AppState {
             edition: Arc::new(RwLock::new(edition)),
             profile: Arc::new(RwLock::new(profile)),
             lockout: LockoutPolicy::default(),
+            unknown_logins: Arc::new(madrasa_core::password::UnknownLogins::default()),
             version: VERSION,
             directory: Arc::new(LdapDirectory),
             ro_limits: Arc::new(RateLimits::default()),

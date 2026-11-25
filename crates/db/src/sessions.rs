@@ -38,10 +38,12 @@ pub async fn find_live(
 ) -> DbResult<Option<(Session, User)>> {
     let session = sqlx::query_as::<_, Session>(
         "SELECT id, school_id, user_id, token_hash, expires_at, last_seen_at, revoked_at, created_at, hlc
-         FROM sessions WHERE token_hash = $1 AND revoked_at IS NULL AND expires_at > $2 AND deleted_at IS NULL",
+         FROM sessions WHERE token_hash = $1 AND revoked_at IS NULL AND expires_at > $2
+           AND created_at > $3 AND deleted_at IS NULL",
     )
     .bind(token_hash)
     .bind(now)
+    .bind(now - madrasa_core::session_token::max_lifetime())
     .fetch_optional(&mut *conn)
     .await?;
     let Some(session) = session else {
@@ -99,4 +101,26 @@ pub async fn revoke(conn: &mut PgConnection, hlc: &Hlc, session: &Session) -> Db
     )
     .await?;
     Ok(())
+}
+
+/// End every live session of a user, except `keep` (the session doing the asking). Used
+/// when a password changes: whoever knew the old one is signed out everywhere. Returns how
+/// many sessions were ended.
+pub async fn revoke_all_for_user(
+    conn: &mut PgConnection,
+    hlc: &Hlc,
+    user_id: uuid::Uuid,
+    keep: Option<uuid::Uuid>,
+) -> DbResult<u64> {
+    let done = sqlx::query(
+        "UPDATE sessions SET revoked_at = now(), updated_at = now(), hlc = $3
+         WHERE user_id = $1 AND revoked_at IS NULL AND deleted_at IS NULL
+           AND ($2::uuid IS NULL OR id <> $2)",
+    )
+    .bind(user_id)
+    .bind(keep)
+    .bind(hlc.now().to_string())
+    .execute(conn)
+    .await?;
+    Ok(done.rows_affected())
 }

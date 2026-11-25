@@ -42,6 +42,9 @@ services:
       NEXUS_DATABASE_URL: postgres://nexus:${NEXUS_DB_PASSWORD}@db:5432/nexus
       NEXUS_PUBLIC_URL: ${NEXUS_PUBLIC_URL:-}
       NEXUS_SETUP_TOKEN: ${NEXUS_SETUP_TOKEN:-}
+      # How many reverse proxies stand in front (0: none, the hub is reached directly;
+      # 1: Caddy from the https profile, or your own proxy). See .env.example.
+      NEXUS_TRUSTED_PROXIES: ${NEXUS_TRUSTED_PROXIES:-0}
       RUST_LOG: ${RUST_LOG:-info}
     ports:
       # Loopback only by default: plain HTTP must not face the internet.

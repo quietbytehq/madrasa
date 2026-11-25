@@ -163,6 +163,7 @@ key and its scopes, not a user's login (docs/spec.md §15).
 | POST | `/auth/logout` | signed in |
 | GET | `/auth/me` | signed in |
 | GET | `/auth/options` | public |
+| POST | `/auth/password` | signed in |
 | GET | `/backup/files` | `backup.manage` |
 | POST | `/backup/password` | `backup.manage` |
 | POST | `/backup/preview` | `backup.manage` |

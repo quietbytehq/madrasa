@@ -21,6 +21,11 @@ pub struct HubState {
     pub pool: PgPool,
     pub hlc: Arc<Hlc>,
     pub lockout: LockoutPolicy,
+    /// Failed sign-ins for names that are not accounts, counted like real ones.
+    pub unknown_logins: Arc<madrasa_core::password::UnknownLogins>,
+    /// Attempts at the doors that take a secret (throttle.rs).
+    pub throttle: Arc<crate::throttle::Throttle>,
+    pub trusted_proxies: usize,
     pub version: &'static str,
     pub public_url: Option<String>,
     /// Folder of the built web console, when there is one.
@@ -53,6 +58,9 @@ impl HubState {
                 pool,
                 hlc: Arc::new(Hlc::new(node)),
                 lockout: LockoutPolicy::default(),
+                unknown_logins: Arc::new(Default::default()),
+                throttle: Arc::new(Default::default()),
+                trusted_proxies: config.trusted_proxies,
                 version: VERSION,
                 public_url: config.public_url.clone(),
                 console_dir: config.console_dir.clone(),

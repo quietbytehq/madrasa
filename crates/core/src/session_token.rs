@@ -12,6 +12,12 @@ pub fn default_lifetime() -> Duration {
     Duration::hours(12)
 }
 
+/// However much it is used, a session ends this long after it was started and the user signs
+/// in again: a token that leaked cannot be kept alive for ever by using it twice a day.
+pub fn max_lifetime() -> Duration {
+    Duration::days(7)
+}
+
 /// A freshly generated token and its storable hash.
 #[derive(Debug, Clone)]
 pub struct NewToken {

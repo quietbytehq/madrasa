@@ -18,6 +18,10 @@ pub struct Config {
     /// Folder holding the built web console (`index.html` and its assets). The container
     /// image sets it; without it the hub serves the API only.
     pub console_dir: Option<std::path::PathBuf>,
+    /// How many reverse proxies stand in front of the hub (`NEXUS_TRUSTED_PROXIES`, default
+    /// 0). Decides whether, and how far, `X-Forwarded-For` is believed when attempts are
+    /// counted per client address (throttle.rs).
+    pub trusted_proxies: usize,
 }
 
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
@@ -68,6 +72,9 @@ impl Config {
             public_url,
             setup_token: var("NEXUS_SETUP_TOKEN"),
             console_dir: var("NEXUS_CONSOLE_DIR").map(std::path::PathBuf::from),
+            trusted_proxies: var("NEXUS_TRUSTED_PROXIES")
+                .and_then(|v| v.trim().parse().ok())
+                .unwrap_or(0),
         })
     }
 }

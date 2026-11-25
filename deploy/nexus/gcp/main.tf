@@ -241,6 +241,13 @@ resource "google_cloud_run_v2_service" "hub" {
         }
       }
 
+      # Cloud Run's front end is the one proxy before the hub: the last X-Forwarded-For
+      # entry is the client, which the hub counts sign-in attempts by.
+      env {
+        name  = "NEXUS_TRUSTED_PROXIES"
+        value = "1"
+      }
+
       volume_mounts {
         name       = "cloudsql"
         mount_path = "/cloudsql"
