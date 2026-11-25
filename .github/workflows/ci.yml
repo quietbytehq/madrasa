@@ -50,10 +50,12 @@ jobs:
         run: cargo deny check
       - uses: pnpm/action-setup@v5
       # No dependency cache here: the audit reads the lockfile and installs nothing, and
-      # setup-node fails the job when it finds no pnpm store to save.
+      # setup-node fails the job when it finds no pnpm store to save. It caches by itself
+      # when package.json names a package manager, so this has to be said.
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+          package-manager-cache: false
       # High and critical advisories in the JavaScript dependencies fail the build.
       - name: pnpm audit
         run: pnpm audit --audit-level high
