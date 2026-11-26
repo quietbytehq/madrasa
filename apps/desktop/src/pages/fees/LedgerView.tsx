@@ -230,7 +230,7 @@ export function LedgerView({ studentId }: { studentId: string }) {
       <div className="grid gap-4 xl:grid-cols-2">
         <Card title={t("fees.ledger.receipts")} padded={false}>
           {l.receipts.length === 0 ? (
-            <EmptyState title={t("fees.ledger.receipts")} />
+            <EmptyState title={t("fees.ledger.receipts.empty")} />
           ) : (
             <ul className="divide-y divide-border text-sm">
               {l.receipts.map((r) => (
@@ -283,7 +283,7 @@ export function LedgerView({ studentId }: { studentId: string }) {
           }
         >
           {l.concessions.length === 0 ? (
-            <EmptyState title={t("fees.ledger.concessions")} />
+            <EmptyState title={t("fees.ledger.concessions.empty")} />
           ) : (
             <ul className="divide-y divide-border text-sm">
               {l.concessions.map((c) => (

@@ -38,6 +38,9 @@ const MAX_SHEET_ROWS: u32 = 200_000;
 /// Cells of the rectangle a sheet spans (the reader keeps one slot for each).
 const MAX_SHEET_CELLS: u64 = 3_000_000;
 
+/// A workbook that will not open: what to do about it, not only that it failed.
+const UNREADABLE_SHEET: &str = "The sheet could not be read. Open the file in Excel, save it again as an Excel workbook (.xlsx) and choose it again.";
+
 fn too_big() -> ApiError {
     ApiError::validation(
         "This file is too large to import. Keep one sheet with the columns you need and at most 5,000 rows, save it as .xlsx or .csv, and try again.",
@@ -76,7 +79,7 @@ fn check_unpacked_size(bytes: &[u8]) -> Result<(), ApiError> {
 /// Read the cells of one `.xlsx` sheet as a stream and refuse a sheet that spans more than
 /// a real list does, before anything lays it out as a grid.
 fn check_sheet_span(bytes: &[u8], sheet: &str) -> Result<(), ApiError> {
-    let unreadable = || ApiError::validation("The sheet could not be read.");
+    let unreadable = || ApiError::validation(UNREADABLE_SHEET);
     let mut wb: calamine::Xlsx<_> =
         calamine::open_workbook_from_rs(Cursor::new(bytes)).map_err(|_| unreadable())?;
     let mut cells = wb.worksheet_cells_reader(sheet).map_err(|_| unreadable())?;
@@ -236,7 +239,7 @@ pub fn parse_file(
         }
         let range = wb
             .worksheet_range(&chosen)
-            .map_err(|_| ApiError::validation("The sheet could not be read."))?;
+            .map_err(|_| ApiError::validation(UNREADABLE_SHEET))?;
         let mut rows_iter = range.rows();
         let headers: Vec<String> = rows_iter
             .next()
@@ -279,7 +282,11 @@ pub fn parse_file(
         let mut headers = Vec::new();
         let mut rows = Vec::new();
         for (i, rec) in reader.records().enumerate() {
-            let rec = rec.map_err(|_| ApiError::validation("The CSV file could not be read."))?;
+            let rec = rec.map_err(|_| {
+                ApiError::validation(
+                    "The CSV file could not be read. Save it again from Excel as \"CSV UTF-8\" and choose it again.",
+                )
+            })?;
             let cells: Vec<String> = rec.iter().map(str::to_owned).collect();
             if i == 0 {
                 headers = cells;

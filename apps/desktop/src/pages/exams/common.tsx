@@ -27,9 +27,20 @@ export function num(v: string | number | null | undefined): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, "");
 }
 
+/**
+ * A percentage as the printed report card shows it: one decimal place, a half rounded to
+ * the even digit (78.25 → 78.2, 78.35 → 78.4), which is how the server rounds for the PDF.
+ * The list and the paper must not differ by a digit.
+ */
 export function pct(v: string | number | null | undefined): string {
   if (v === null || v === undefined || v === "") return "—";
-  return `${Number(v).toFixed(2)}%`;
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "—";
+  const hundredths = Math.round(Math.abs(n) * 100);
+  let tenths = Math.floor(hundredths / 10);
+  const rest = hundredths % 10;
+  if (rest > 5 || (rest === 5 && tenths % 2 === 1)) tenths += 1;
+  return `${n < 0 && tenths > 0 ? "-" : ""}${(tenths / 10).toFixed(1)}%`;
 }
 
 /** Active year, its assessments and the caller's sections; shared by the exam tabs. */

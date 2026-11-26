@@ -145,7 +145,8 @@ export function Shell() {
             <LogOut className="h-4 w-4 rtl:-scale-x-100" aria-hidden />
           </button>
         </header>
-        <main className="min-h-0 flex-1 overflow-y-auto p-4">
+        {/* Reachable from the keyboard so that a long page (the activity list) can be scrolled. */}
+        <main tabIndex={0} className="min-h-0 flex-1 overflow-y-auto p-4">
           {pages.length === 0 ? (
             <p role="status" className="text-sm text-muted">
               {t("hub.noAccess")}

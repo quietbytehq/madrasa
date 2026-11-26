@@ -2134,6 +2134,83 @@ dashboard, the check line, the "checking" state and the run history; two browser
   can show it afterwards.
 - The Urdu of the new backup strings is the developer's (list for a native reader, stage 5).
 
+### 2026-11-26 — Stage 5: Polish from the test reports, accessibility (branch `claude/kind-franklin-ac2vjh-s5-polish`)
+
+Two halves: the small things still open from the test reports, and whether Madrasa can be
+used from the keyboard and with a screen reader, which had been claimed since M0 and never
+tested.
+
+**Open "minor" and "note" items.** The findings of the alpha test rounds were all closed in
+their own fix rounds (v0.2.1, v0.3.1, 0.4.3, 0.5.1). What was still open were the three
+things seen and put aside in stage 2 of this run, and a sweep of every empty state and of
+the server's messages:
+
+- **The report card list showed the overall percentage to two decimals and the PDF to one.**
+  The list now rounds as the paper does: one decimal, a half to the even digit, which is
+  how the server rounds (78.25 → 78.2 on both).
+- **A receipt printed "PKR 500.00"** where the rest of the app writes "Rs 500.00". Receipts
+  and provisional receipts now use the school's symbol, also for the balance line.
+- **Back from a receipt returned to an empty Collect tab.** The student being worked on is
+  now part of the address, so Back returns to their ledger. Before anything is typed the tab
+  says what to type.
+- **Empty states.** All 125 were read. Four said nothing useful (a card headed "Receipts"
+  whose empty state said "Receipts"; "Nothing to show."): they now say what is missing and
+  what to do.
+- **Error messages.** All 171 of the server's refusals were read. Changed: a record that is
+  not there ("student was not found.") now starts with a capital and says what to do; a
+  fault on the server says what to try and whom to tell; a file that cannot be read says
+  how to save it so that it can. The three messages that are the same everywhere (a server
+  fault, no permission, signed out) are now said by the app in the person's language, not
+  in the server's English.
+- **Urdu.** No Urdu in Madrasa has ever been read by a native speaker; that had not been
+  written down anywhere. `docs/urdu-review.md` says where all of it is (about 2,590 screen
+  strings, 300 on printed reports, 150 in the import templates, the guide and the manual),
+  what to read first, what was written in this run, and the word choices the developer was
+  unsure of (for example "لاگ ان" and "سائن ان" are both in use; "واؤچر" or "چالان"). A
+  scan found no string left in English by mistake. Nothing was "improved" by guessing.
+
+Checked and left as they are: an import's work is kept for the app session only; a sibling
+whose guardian's name is spelt differently gets a second guardian record (merging guardians
+is not built); "Class" and "CNIC" are not renamed for other countries. These are for the
+owner's list, not polish. O4, O6 and O7 of the v0.2.0 report and B6 of the v0.5.0 report are
+named in no fix note; the reports themselves are not in the repository, so whether they
+were closed under another name cannot be checked from here.
+
+**Accessibility.** New browser tests (`e2e/desktop/11-accessibility.spec.ts`, helpers in
+`e2e/support/a11y.ts`), in CI with the rest:
+
+- **By machine (axe, WCAG 2.1 A and AA): every main screen and every tab on it**, the
+  sign-in screen, the menus, search, Help and the payment dialog opened, the seven Standard
+  modules, six screens in Urdu, the parent app's seven screens and the hub console's five.
+  Found and fixed: the connection badge and the user menu were announced by a fixed label
+  that hid what they show ("Offline · 3 waiting", the user's name); the menu's entries were
+  menu items outside a menu; free beds on the hostel board were announced by a room number
+  without the word on the button; links inside sentences were told apart by colour alone;
+  three scrolling areas could not be reached from the keyboard (a student's attendance
+  list, the parent app's screen, the hub console's page).
+- **Keyboard.** The first Tab offers "Skip to content". Tab strips now move with the arrow
+  keys, Home and End, mirrored in Urdu (one listener for all thirteen strips). Menus open
+  with Enter, move with Up and Down and give the focus back on Esc. A dialog takes the
+  focus, keeps Tab inside, and on Esc gives the focus back to the button that opened it:
+  **this did not work for dialogs that open after asking the server or that focus a field
+  of their own** (the payment dialog and others like it; the focus was dropped on the page).
+- **Every form on the main screens**: 18 forms on 11 screens (student admission and edit
+  also in Urdu), the payment dialog and the sign-in form are walked with Tab. Every control is reached, in the form's order, never jumping back up the
+  page, each with a visible focus ring and a label or name. No fault found; the test now
+  keeps it so.
+- User guide, new section 20, "Using Madrasa from the keyboard" (English and Urdu).
+
+Tests: unit tests for the percentage rounding, the three localised errors, the new wording
+of a missing record and of a server fault; the browser tests above (nine new in the desktop
+group, the scan added to the parent and console groups) and the fee test extended for the
+receipt's wording and Back.
+
+**Not proven:** nobody used a real screen reader (NVDA, Orca, TalkBack); the machine checks
+find missing names and roles, not whether what is announced makes sense. Forms inside
+dialogs other than the payment dialog, and the Standard modules' forms, were scanned by axe
+but not walked with Tab. The parent app was not tried with a phone's keyboard or switch
+access.
+
 ## Brand identity
 
 The brand sheet (`assets/brand/Madrasa_Brand_Identity_Showcase.png`) applied across the

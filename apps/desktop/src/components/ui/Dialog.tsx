@@ -21,6 +21,19 @@ const sizeClass = { sm: "max-w-sm", md: "max-w-lg", lg: "max-w-2xl" };
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+/** Where the keyboard last was outside any dialog (see the effect below). */
+let lastOutside: HTMLElement | null = null;
+if (typeof document !== "undefined") {
+  document.addEventListener(
+    "focusin",
+    (e) => {
+      const el = e.target as HTMLElement | null;
+      if (el && el !== document.body && !el.closest?.('[role="dialog"]')) lastOutside = el;
+    },
+    true,
+  );
+}
+
 export function Dialog({
   open,
   onClose,
@@ -36,14 +49,24 @@ export function Dialog({
   const descId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Move focus into the dialog on open, restore on close.
+  // Move focus into the dialog on open, restore on close. A dialog often opens a moment
+  // after its button was pressed (it first asks the server for something), and by then the
+  // button, busy and disabled, no longer has the focus: so the last place the keyboard was
+  // outside any dialog is remembered, and that is where it goes back to.
   useEffect(() => {
     if (!open) return;
-    const previous = document.activeElement as HTMLElement | null;
+    const active = document.activeElement as HTMLElement | null;
     const panel = panelRef.current;
-    const first = panel?.querySelector<HTMLElement>(FOCUSABLE);
-    (first ?? panel)?.focus();
-    return () => previous?.focus?.();
+    // A field of the dialog that takes the focus for itself (autoFocus) already has it.
+    const inside = !!active && !!panel?.contains(active);
+    const previous = active && active !== document.body && !inside ? active : lastOutside;
+    if (!inside) {
+      const first = panel?.querySelector<HTMLElement>(FOCUSABLE);
+      (first ?? panel)?.focus();
+    }
+    return () => {
+      if (previous?.isConnected) previous.focus();
+    };
   }, [open]);
 
   useEffect(() => {

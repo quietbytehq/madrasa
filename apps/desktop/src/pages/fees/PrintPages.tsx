@@ -9,7 +9,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { useState } from "react";
 import { useToast } from "@/components/ui/Toast";
 import { useI18n } from "@/i18n";
-import { formatMoney, monthLabel } from "@/lib/money";
+import { monthLabel } from "@/lib/money";
 import { useMoney } from "@/lib/useMoney";
 import {
   balanceAfterWaiting,
@@ -200,6 +200,7 @@ function VoucherCopy({ v, copy }: { v: VoucherDetail; copy: string }) {
 export function ReceiptPrintPage() {
   const { id = "" } = useParams();
   const { t, formatDate } = useI18n();
+  const money = useMoney();
   const r = useAsync(() => api.receipt(id), [id]);
   if (r.loading && !r.data)
     return (
@@ -269,12 +270,12 @@ export function ReceiptPrintPage() {
           <span
             className={`text-xl font-bold tabular-nums ${reversal ? "text-danger" : "text-navy"}`}
           >
-            {d.school.currency} {formatMoney(d.amount)}
+            {money(d.amount)}
           </span>
         </div>
         <div className="mt-1 flex justify-between text-xs text-muted">
           <span>
-            {t("fees.balance")}: {formatMoney(d.voucher_balance_after)}
+            {t("fees.balance")}: {money(d.voucher_balance_after)}
           </span>
           <span>
             {t("fees.print.receivedBy")}: {d.received_by_name}
@@ -307,6 +308,7 @@ export function ReceiptPrintPage() {
 export function ProvisionalReceiptPage() {
   const { number = "" } = useParams();
   const { t, formatDate } = useI18n();
+  const money = useMoney();
   const r = useAsync(() => provisionalReceipt(number), [number]);
   if (r.loading && !r.data)
     return (
@@ -402,9 +404,7 @@ export function ProvisionalReceiptPage() {
         </dl>
         <div className="mt-3 flex items-baseline justify-between border-t border-border pt-2">
           <span className="text-xs uppercase text-muted">{t("fees.print.amountInWords")}</span>
-          <span className="text-xl font-bold tabular-nums text-navy">
-            {v?.school.currency ?? ""} {formatMoney(p.amount)}
-          </span>
+          <span className="text-xl font-bold tabular-nums text-navy">{money(p.amount)}</span>
         </div>
         {!p.receipt_no && (
           <p className="mt-3 text-xs" data-testid="provisional-status">

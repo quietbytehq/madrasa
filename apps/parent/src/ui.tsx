@@ -88,7 +88,11 @@ export function Screen({
           {actions}
         </div>
       </header>
-      <main className="scrollbar-thin flex-1 overflow-y-auto px-3 py-3">{children}</main>
+      {/* The screen scrolls inside this area: with a keyboard attached it must be reachable
+          to be scrolled (a results table has nothing else in it to tab to). */}
+      <main tabIndex={0} className="scrollbar-thin flex-1 overflow-y-auto px-3 py-3">
+        {children}
+      </main>
       {footer}
     </div>
   );

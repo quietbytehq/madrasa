@@ -184,7 +184,7 @@ describe("HostelPage", () => {
     const b = await screen.findByTestId("board");
     expect(b).toHaveTextContent("Ali Khan");
     expect(b).toHaveTextContent("1 / 2 beds taken");
-    await userEvent.click(within(b).getByRole("button", { name: "G-1 2" }));
+    await userEvent.click(within(b).getByRole("button", { name: "Free: G-1 2" }));
     const dialog = await screen.findByRole("dialog");
     await userEvent.type(within(dialog).getByLabelText("Student"), "Sa");
     await userEvent.click(await within(dialog).findByText("Sara Noor"));
@@ -204,7 +204,7 @@ describe("HostelPage", () => {
   it("hides the allocate controls from readers", async () => {
     renderPage(["hostel.read"]);
     const b = await screen.findByTestId("board");
-    expect(within(b).queryByRole("button", { name: "G-1 2" })).not.toBeInTheDocument();
+    expect(within(b).queryByRole("button", { name: "Free: G-1 2" })).not.toBeInTheDocument();
     expect(b).toHaveTextContent("Free");
   });
 

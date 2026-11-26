@@ -53,8 +53,11 @@ export function ConnectionBadge() {
         onClick={() => setOpen(true)}
         className="flex h-8 items-center gap-1.5 rounded border border-border px-2 text-xs text-text hover:bg-hover"
         data-testid="connection-badge"
-        aria-label={t("offline.badge.label")}
       >
+        {/* What a screen reader says is what the eye sees, with what the button is in front:
+            a label of its own would hide "Offline · 3 waiting" from the person who cannot
+            see the dot. */}
+        <span className="sr-only">{t("offline.badge.label")}: </span>
         <span className={cn("h-2 w-2 shrink-0 rounded-full", DOT[link])} aria-hidden />
         <span data-testid="connection-link">{t(`offline.link.${link}`)}</span>
         {waiting > 0 && (

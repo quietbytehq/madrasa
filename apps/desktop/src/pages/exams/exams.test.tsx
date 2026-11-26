@@ -601,12 +601,12 @@ describe("ResultSheetView and ReportCardView", () => {
     expect(screen.getByRole("status")).toHaveTextContent("not approved yet");
     const aliRow = screen.getByText("Ali Khan").closest("tr")!;
     expect(within(aliRow).getByText("85/100")).toBeInTheDocument();
-    expect(within(aliRow).getByText("85.00%")).toBeInTheDocument();
+    expect(within(aliRow).getByText("85.0%")).toBeInTheDocument();
     expect(within(aliRow).getByText("A")).toBeInTheDocument();
     const saraRow = screen.getByText("Sara Khan").closest("tr")!;
     expect(within(saraRow).getByText("A", { selector: "td" })).toHaveClass("text-danger");
     expect(saraRow.lastElementChild).toHaveTextContent("2");
-    expect(screen.getByText("90.00%", { selector: "td" })).toBeInTheDocument();
+    expect(screen.getByText("90.0%", { selector: "td" })).toBeInTheDocument();
   });
 
   it("renders a report card with weighted results, position, attendance and signatures", () => {
@@ -614,7 +614,7 @@ describe("ResultSheetView and ReportCardView", () => {
     renderWithProviders(<ReportCardView card={card} t={t as never} />);
     expect(screen.getByText("Gulshan High")).toBeInTheDocument();
     expect(screen.getAllByText("45/50")).toHaveLength(2);
-    expect(screen.getAllByText("90.00%").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("90.0%").length).toBeGreaterThan(0);
     expect(screen.getByText("Position 1 of 30")).toBeInTheDocument();
     expect(screen.getByText("Pass")).toBeInTheDocument();
     expect(screen.getByText("Outstanding")).toBeInTheDocument();
@@ -657,7 +657,7 @@ describe("ResultSheetView and ReportCardView", () => {
     expect(within(header).getByText("Term 2")).toBeInTheDocument();
     const result = screen.getByTestId("term-result");
     expect(result).toHaveTextContent("Term result");
-    expect(result).toHaveTextContent("90.00% · A+");
+    expect(result).toHaveTextContent("90.0% · A+");
     expect(result).toHaveTextContent("—");
   });
 });

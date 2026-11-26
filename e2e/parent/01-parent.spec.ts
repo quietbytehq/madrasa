@@ -1,5 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { expect, test } from "@playwright/test";
+import { a11yProblems } from "../support/a11y";
 import { clippedText, lowContrast } from "../support/checks";
 import { PARENT_PHONE, PASSWORD, URLS } from "../support/env";
 import { openParent } from "../support/parent";
@@ -190,6 +191,9 @@ test.describe("parent app on a phone (390×844)", () => {
         await testInfo.attach(file, { body: shot, contentType: "image/png" });
         const low = await lowContrast(page);
         if (low.length) problems[name] = low;
+        // Names, labels and roles for a screen reader, once (they do not change with the theme).
+        const a11y = theme === "light" ? await a11yProblems(page, name) : [];
+        if (a11y.length) problems[`${name} (screen reader)`] = a11y;
       };
       await expect(page.locator('[data-testid^="child-"]').first()).toBeVisible();
       await check("children");

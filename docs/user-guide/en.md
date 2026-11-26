@@ -612,3 +612,22 @@ readable by others is put right the next time Madrasa starts.
 The badge at the top of every screen shows whether the school network can be reached.
 Offline, the app shows what it last loaded, and a message you were writing is kept as a draft
 on the phone.
+
+## 20. Using Madrasa from the keyboard
+
+Everything can be done without the mouse.
+
+- **Tab** moves to the next field or button and **Shift+Tab** to the one before; the place
+  the keyboard is at has a blue outline. The first Tab on any screen offers **Skip to
+  content**, which jumps over the side menu.
+- **Enter** presses the button the keyboard is on; **Space** ticks a box.
+- On a row of tabs (Fees: Vouchers, Collect, Defaulters…) the **Left** and **Right** arrows,
+  **Home** and **End** move between the tabs. In Urdu the arrows are mirrored, like the
+  screen.
+- A menu (your name at the top) opens with Enter; **Up** and **Down** move through it and
+  **Esc** closes it.
+- A dialog keeps the keyboard inside it until it is closed; **Esc** closes it and the
+  keyboard goes back to the button that opened it.
+- **Ctrl+K** opens the search box from anywhere.
+- When marking attendance and entering marks, Enter moves down the list (see sections 4
+  and 5).

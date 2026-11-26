@@ -69,11 +69,21 @@ impl ApiError {
         )
     }
 
+    /// `what` names the missing thing ("student", "The conversation"). The message starts
+    /// with a capital and says what to do: such a record has usually just been removed by
+    /// someone else, or the list on screen is old.
     pub fn not_found(what: &str) -> Self {
+        let mut name = what.to_string();
+        if let Some(first) = name.get(0..1) {
+            let upper = first.to_uppercase();
+            name.replace_range(0..1, &upper);
+        }
         Self::new(
             StatusCode::NOT_FOUND,
             "not_found",
-            format!("{what} was not found."),
+            format!(
+                "{name} was not found. It may have been removed: go back and open the list again."
+            ),
         )
     }
 
@@ -110,10 +120,14 @@ impl ApiError {
         Self::new(
             StatusCode::INTERNAL_SERVER_ERROR,
             "internal",
-            "Something went wrong. Please try again.",
+            INTERNAL_MESSAGE,
         )
     }
 }
+
+/// What a person reads when the fault is the server's: what happened, what to try, and
+/// whom to tell. (The app shows its own words for this in the person's language.)
+pub const INTERNAL_MESSAGE: &str = "Something went wrong on the school server. Please try again. If it happens again, note what you were doing and tell the person who looks after Madrasa at your school.";
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
@@ -199,5 +213,34 @@ mod tests {
         assert_eq!(sentence("Really? "), "Really?");
         let e: ApiError = madrasa_db::DbError::Conflict("The dates overlap.".into()).into();
         assert_eq!(e.message, "The dates overlap.");
+    }
+}
+
+#[cfg(test)]
+mod wording_tests {
+    use super::*;
+
+    #[test]
+    fn a_missing_record_is_named_with_a_capital_and_says_what_to_do() {
+        let e = ApiError::not_found("student");
+        assert_eq!(
+            e.message,
+            "Student was not found. It may have been removed: go back and open the list again."
+        );
+        assert!(ApiError::not_found("The conversation")
+            .message
+            .starts_with("The conversation was not found."));
+        assert!(ApiError::not_found("API key")
+            .message
+            .starts_with("API key was not found."));
+    }
+
+    #[test]
+    fn a_server_fault_says_what_to_try_and_whom_to_tell() {
+        let e = ApiError::internal();
+        assert!(e.message.contains("Please try again"));
+        assert!(e
+            .message
+            .contains("tell the person who looks after Madrasa"));
     }
 }

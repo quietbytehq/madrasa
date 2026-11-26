@@ -47,7 +47,12 @@ export function StudentAttendanceView({ studentId }: { studentId: string }) {
         {v.days.length === 0 ? (
           <EmptyState title={t("attendance.profile.empty")} />
         ) : (
-          <ul className="max-h-96 divide-y divide-border overflow-y-auto text-sm">
+          <ul
+            // Long lists scroll inside the card: reachable and scrollable from the keyboard.
+            tabIndex={0}
+            aria-label={t("attendance.profile.range")}
+            className="max-h-96 divide-y divide-border overflow-y-auto text-sm"
+          >
             {v.days.map((d) => (
               <li key={d.date} className="flex items-center gap-3 px-4 py-1.5">
                 <span className="w-28 text-muted">{formatDate(d.date)}</span>

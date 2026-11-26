@@ -1,3 +1,4 @@
+import { useTabKeys } from "@/lib/tabKeys";
 import { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
 import { useI18n } from "@/i18n";
@@ -18,6 +19,7 @@ export function AppShell() {
     }
   });
 
+  useTabKeys();
   useEffect(() => {
     try {
       globalThis.localStorage?.setItem(COLLAPSE_KEY, collapsed ? "1" : "0");

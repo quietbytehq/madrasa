@@ -10,6 +10,10 @@ export const ur: Translation = {
   "app.comingSoonBody": "یہ ماڈیول ابھی دستیاب نہیں ہے۔ یہ آئندہ ریلیز میں شامل ہوگا۔",
   "app.loading": "لوڈ ہو رہا ہے…",
   "app.error.generic": "کچھ غلط ہو گیا۔ براہِ کرم دوبارہ کوشش کریں۔",
+  "app.error.server":
+    "اسکول سرور پر کچھ غلط ہو گیا۔ دوبارہ کوشش کریں۔ اگر دوبارہ ہو تو لکھ لیں کہ آپ کیا کر رہے تھے اور اپنے اسکول میں مدرسہ سنبھالنے والے کو بتائیں۔",
+  "app.error.forbidden": "آپ کو یہ کرنے کی اجازت نہیں۔ ضرورت ہو تو منتظم سے کہیں۔",
+  "app.error.signedOut": "آپ سائن آؤٹ ہو چکے ہیں۔ جاری رکھنے کے لیے دوبارہ سائن ان کریں۔",
   "app.error.network": "مدرسہ سروس تک رسائی نہیں ہو سکی۔ کیا ایپلیکیشن ابھی شروع ہو رہی ہے؟",
 
   "action.save": "محفوظ کریں",
@@ -490,7 +494,9 @@ export const ur: Translation = {
   "fees.ledger": "فیس کھاتہ",
   "fees.ledger.empty": "اس طالب علم کے لیے ابھی کوئی واؤچر نہیں۔",
   "fees.ledger.receipts": "رسیدیں",
+  "fees.ledger.receipts.empty": "اس طالب علم سے ابھی تک کوئی ادائیگی وصول نہیں ہوئی۔",
   "fees.ledger.concessions": "رعایات",
+  "fees.ledger.concessions.empty": "اس طالب علم کی کوئی رعایت یا وظیفہ نہیں۔",
   "fees.concession.add": "رعایت شامل کریں",
   "fees.concession.kind": "قسم",
   "fees.concession.kind.staff_child": "عملے کا بچہ",
@@ -538,6 +544,8 @@ export const ur: Translation = {
   "fees.setup.structure.hint":
     "منتخب تعلیمی سال کے لیے فی جماعت ماہانہ رقوم۔ کسی مد کو چھوڑنے کے لیے 0 رہنے دیں۔",
   "fees.setup.structure.noHeads": "پہلے فیس مدات شامل کریں۔",
+  "fees.collect.hint":
+    "طالب علم کی فیس کھولنے کے لیے نام کے کم از کم دو حروف یا طالب علم نمبر لکھیں۔",
   "fees.student.search": "نام یا نمبر سے طالب علم تلاش کریں",
   "fees.student.open": "کھاتہ کھولیں",
   "fees.prefix.month": "{month}",
@@ -1816,7 +1824,7 @@ export const ur: Translation = {
   "lib.loans.issued": "جاری",
   "lib.loans.returned": "واپس",
   "lib.loans.renewals": "تجدیدیں",
-  "lib.loans.empty": "دکھانے کے لیے کچھ نہیں۔",
+  "lib.loans.empty": "اس فلٹر کے مطابق کچھ نہیں۔ اوپر سے کوئی اور فلٹر چنیں۔",
   "lib.fine.due": "جرمانہ",
   "lib.fine.waive": "معاف",
   "lib.fine.waiveAmount": "معاف کرنے کی رقم",
@@ -1947,7 +1955,8 @@ export const ur: Translation = {
   "hst.register.hint":
     "رخصت (مکین گھر یا باہر جاتا ہے، ہاسٹل کے تقاضے پر سرپرست کی اجازت کے ساتھ) اور ملاقاتی۔",
   "hst.register.add": "نیا اندراج",
-  "hst.register.empty": "دکھانے کے لیے کچھ نہیں۔",
+  "hst.register.empty":
+    "اس فلٹر کے لیے رجسٹر میں کچھ درج نہیں۔ اوپر سے کوئی اور فلٹر چنیں، یا اندراج شامل کریں۔",
   "hst.register.openOnly": "صرف کھلے",
   "hst.register.kind": "قسم",
   "hst.register.kind.leave_out": "رخصت",
