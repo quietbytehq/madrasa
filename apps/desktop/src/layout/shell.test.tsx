@@ -182,7 +182,7 @@ describe("App shell", () => {
     );
     try {
       renderShell();
-      await userEvent.click(screen.getByRole("button", { name: "User menu" }));
+      await userEvent.click(screen.getByRole("button", { name: /^User menu/ }));
       await userEvent.click(screen.getByRole("menuitem", { name: "اردو" }));
       expect(document.documentElement.dir).toBe("rtl");
       expect(screen.getByRole("navigation", { name: "ماڈیولز" })).toBeInTheDocument();
@@ -204,7 +204,7 @@ describe("App shell", () => {
     );
     try {
       renderShell();
-      await userEvent.click(screen.getByRole("button", { name: "User menu" }));
+      await userEvent.click(screen.getByRole("button", { name: /^User menu/ }));
       await userEvent.click(screen.getByRole("menuitem", { name: "Change password" }));
       const dialog = screen.getByRole("dialog", { name: "Change password" });
       const submit = within(dialog).getByRole("button", { name: "Change password" });

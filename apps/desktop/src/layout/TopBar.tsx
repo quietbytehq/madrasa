@@ -80,6 +80,7 @@ export function TopBar() {
 
       <Menu
         label={t("topbar.notifications")}
+        role="region"
         trigger={({ open, toggle, id }) => (
           <button
             type="button"
@@ -117,11 +118,11 @@ export function TopBar() {
           <button
             type="button"
             onClick={toggle}
-            aria-label={t("topbar.userMenu")}
             aria-expanded={open}
             aria-controls={id}
             className="flex h-8 items-center gap-2 rounded px-1.5 hover:bg-hover aria-expanded:bg-hover"
           >
+            <span className="sr-only">{t("topbar.userMenu")}: </span>
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-lavender text-navy">
               <UserRound className="h-3.5 w-3.5" aria-hidden />
             </span>

@@ -11,17 +11,49 @@ export interface MenuProps {
   children: (close: () => void) => ReactNode;
   label: string;
   width?: string;
+  /**
+   * What the panel is to a screen reader: a `menu` of actions to pick from (the default),
+   * or a `region` that only shows something (notifications).
+   */
+  role?: "menu" | "region";
 }
 
-export function Menu({ trigger, children, label, width = "w-64" }: MenuProps) {
+export function Menu({ trigger, children, label, width = "w-64", role = "menu" }: MenuProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const id = useId();
 
   useEffect(() => {
     if (!open) return;
+    const root = rootRef.current;
+    const opener = root?.querySelector<HTMLElement>("[aria-controls]") ?? null;
+    const items = () =>
+      Array.from(
+        root?.querySelectorAll<HTMLElement>(`#${CSS.escape(id)} button, #${CSS.escape(id)} a`) ??
+          [],
+      ).filter((el) => !el.hasAttribute("disabled"));
+    // Opened from the keyboard, the first entry is where the person is next; Up and Down
+    // walk the entries; Escape closes and goes back to the button that opened the menu.
+    if (opener && document.activeElement === opener) items()[0]?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        setOpen(false);
+        opener?.focus();
+        return;
+      }
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Home" && e.key !== "End")
+        return;
+      const list = items();
+      const at = list.indexOf(document.activeElement as HTMLElement);
+      if (list.length === 0 || (at < 0 && !root?.contains(document.activeElement))) return;
+      e.preventDefault();
+      const to =
+        e.key === "Home"
+          ? 0
+          : e.key === "End"
+            ? list.length - 1
+            : (at + (e.key === "ArrowDown" ? 1 : -1) + list.length) % list.length;
+      list[to]?.focus();
     };
     const onClick = (e: MouseEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
@@ -32,7 +64,7 @@ export function Menu({ trigger, children, label, width = "w-64" }: MenuProps) {
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("mousedown", onClick);
     };
-  }, [open]);
+  }, [open, id]);
 
   return (
     <div ref={rootRef} className="relative">
@@ -40,7 +72,7 @@ export function Menu({ trigger, children, label, width = "w-64" }: MenuProps) {
       {open && (
         <div
           id={id}
-          role="region"
+          role={role}
           aria-label={label}
           className={cn(
             "absolute end-0 top-full z-40 mt-1 rounded-lg border border-border bg-card p-1 shadow-pop",

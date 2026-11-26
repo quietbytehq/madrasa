@@ -106,6 +106,33 @@ test.describe("fees", () => {
       token: await tokenFor("admin"),
     });
     expect(Number(after.net_paid)).toBe(1000);
+
+    // The printed receipt writes the amount as the rest of the app does ("Rs", not the
+    // currency's code), and Back returns to this student's ledger, not to an empty search.
+    expect(page.url()).toContain(`student=${voucher.student_id}`);
+    await page
+      .getByRole("listitem")
+      .filter({ hasText: receiptNo })
+      .getByRole("link")
+      .first()
+      .click();
+    await expect(page.getByRole("heading", { level: 1 })).toContainText(receiptNo);
+    await expect(page.getByText("Rs 1,000.00", { exact: true })).toBeVisible();
+    await expect(page.getByText(/PKR/)).toHaveCount(0);
+    await page.getByRole("button", { name: "Back" }).click();
+    await expect(page.locator("tbody tr", { hasText: voucher.voucher_no })).toBeVisible();
+    await expect(page.getByRole("listitem").filter({ hasText: receiptNo })).toBeVisible();
+    await context.close();
+  });
+
+  test("the Collect tab says what to type before anything is typed", async ({ browser }) => {
+    const { page, context } = await openDesktop(browser, { route: "/fees?tab=collect" });
+    await expect(page.getByTestId("collect-hint")).toHaveText(
+      "Type at least two letters of a name, or a student number, to open that student's fees.",
+    );
+    await page.getByLabel("Find a student by name or number").fill("zzzzqq");
+    await expect(page.getByTestId("collect-hint")).toHaveCount(0);
+    await expect(page.getByText("No students match.")).toBeVisible();
     await context.close();
   });
 });

@@ -149,7 +149,7 @@ export function Dashboard() {
                   : t("backup.status.ok")
               : t("dashboard.card.placeholder")}{" "}
             {can("backup.manage") && (
-              <Link to="/backup" className="text-blue hover:underline">
+              <Link to="/backup" className="text-blue underline">
                 {t("dashboard.backup.open")}
               </Link>
             )}

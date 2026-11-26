@@ -39,7 +39,7 @@ export function BackupAlert({ status, link }: { status: BackupStatus | null; lin
         <p>
           {t(failed ? "backup.alert.failed.do" : "backup.alert.check.do")}{" "}
           {link && (
-            <Link to="/backup" className="font-medium text-blue hover:underline">
+            <Link to="/backup" className="font-medium text-blue underline">
               {t("dashboard.backup.open")}
             </Link>
           )}

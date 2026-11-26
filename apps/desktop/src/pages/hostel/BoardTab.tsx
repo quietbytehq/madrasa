@@ -140,7 +140,7 @@ export function BoardTab({ manage }: { manage: boolean }) {
                             type="button"
                             className="text-blue hover:underline"
                             onClick={() => setAllocating({ roomId: room.id, bedNo: bed.bed_no })}
-                            aria-label={`${room.name} ${bed.bed_no}`}
+                            aria-label={`${t("hst.board.free")}: ${room.name} ${bed.bed_no}`}
                           >
                             {t("hst.board.free")}
                           </button>

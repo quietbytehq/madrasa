@@ -13,6 +13,11 @@ export const en = {
   "app.comingSoonBody": "This module is not available yet. It will arrive in a later release.",
   "app.loading": "Loading…",
   "app.error.generic": "Something went wrong. Please try again.",
+  "app.error.server":
+    "Something went wrong on the school server. Please try again. If it happens again, note what you were doing and tell the person who looks after Madrasa at your school.",
+  "app.error.forbidden":
+    "You do not have permission to do this. Ask an administrator if you need it.",
+  "app.error.signedOut": "You are signed out. Please sign in again to continue.",
   "app.error.network": "Cannot reach the Madrasa service. Is the application still starting?",
 
   // Common actions
@@ -505,7 +510,9 @@ export const en = {
   "fees.ledger": "Fee ledger",
   "fees.ledger.empty": "No vouchers yet for this student.",
   "fees.ledger.receipts": "Receipts",
+  "fees.ledger.receipts.empty": "No payment has been received from this student yet.",
   "fees.ledger.concessions": "Concessions",
+  "fees.ledger.concessions.empty": "This student has no concession or scholarship.",
   "fees.concession.add": "Add concession",
   "fees.concession.kind": "Type",
   "fees.concession.kind.staff_child": "Staff child",
@@ -553,6 +560,8 @@ export const en = {
   "fees.setup.structure.hint":
     "Monthly amounts per class for the selected academic year. Leave 0 to skip a head.",
   "fees.setup.structure.noHeads": "Add fee heads first.",
+  "fees.collect.hint":
+    "Type at least two letters of a name, or a student number, to open that student's fees.",
   "fees.student.search": "Find a student by name or number",
   "fees.student.open": "Open ledger",
   "fees.prefix.month": "{month}",
@@ -1836,7 +1845,7 @@ export const en = {
   "lib.loans.issued": "Issued",
   "lib.loans.returned": "Returned",
   "lib.loans.renewals": "Renewals",
-  "lib.loans.empty": "Nothing to show.",
+  "lib.loans.empty": "Nothing matches this filter. Choose another one above.",
   "lib.fine.due": "Fine",
   "lib.fine.waive": "Waive",
   "lib.fine.waiveAmount": "Amount to waive",
@@ -1968,7 +1977,8 @@ export const en = {
   "hst.register.hint":
     "Leave-outs (a resident goes home or out, with the guardian's consent when the hostel asks for it) and visitors.",
   "hst.register.add": "New entry",
-  "hst.register.empty": "Nothing to show.",
+  "hst.register.empty":
+    "Nothing is written in the register for this filter. Choose another one above, or add an entry.",
   "hst.register.openOnly": "Open only",
   "hst.register.kind": "Kind",
   "hst.register.kind.leave_out": "Leave-out",

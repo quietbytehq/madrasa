@@ -23,6 +23,7 @@
     "e2e:format:check": "pnpm --filter madrasa-desktop exec prettier --config ../../e2e/.prettierrc --check \"../../e2e/**/*.{ts,mjs}\""
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.1",
     "@playwright/test": "1.63.0",
     "@types/node": "^26.6.6",
     "playwright": "1.63.0",

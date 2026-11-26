@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { expect, test } from "@playwright/test";
+import { a11yProblems } from "../support/a11y";
 import { clippedText, lowContrast } from "../support/checks";
 import { openConsole } from "../support/console";
 import { openDesktop } from "../support/desktop";
@@ -201,7 +202,9 @@ test.describe("hub console", () => {
         });
         const clipped = await clippedText(page);
         const low = await lowContrast(page);
-        if (clipped.length || low.length) problems[`${lang} ${theme} ${route}`] = { clipped, low };
+        const a11y = await a11yProblems(page, route);
+        if (clipped.length || low.length || a11y.length)
+          problems[`${lang} ${theme} ${route}`] = { clipped, low, a11y };
       }
       await context.close();
     }
