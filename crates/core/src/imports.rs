@@ -16,6 +16,10 @@ pub enum ImportKind {
     OpeningBalances,
     /// Admission enquiries (Standard stage 3).
     Enquiries,
+    /// Guardians of students who are already in Madrasa (pilot onboarding).
+    Guardians,
+    /// What each class pays under each fee head in the active year (pilot onboarding).
+    FeeStructure,
 }
 
 impl ImportKind {
@@ -25,6 +29,8 @@ impl ImportKind {
             ImportKind::Staff => "staff",
             ImportKind::OpeningBalances => "opening_balances",
             ImportKind::Enquiries => "enquiries",
+            ImportKind::Guardians => "guardians",
+            ImportKind::FeeStructure => "fee_structure",
         }
     }
 }
@@ -37,6 +43,8 @@ impl std::str::FromStr for ImportKind {
             "staff" => Ok(ImportKind::Staff),
             "opening_balances" => Ok(ImportKind::OpeningBalances),
             "enquiries" => Ok(ImportKind::Enquiries),
+            "guardians" => Ok(ImportKind::Guardians),
+            "fee_structure" => Ok(ImportKind::FeeStructure),
             other => Err(format!("unknown import kind: {other}")),
         }
     }
@@ -405,6 +413,7 @@ pub const STUDENT_FIELDS: &[FieldDef] = &[
             "parent/guardian 2 relationship",
             "secondary guardian relationship",
             "second guardian relationship",
+            "دوسرے سرپرست کا رشتہ",
         ],
         "mother",
     ),
@@ -420,6 +429,7 @@ pub const STUDENT_FIELDS: &[FieldDef] = &[
             "secondary guardian phone",
             "second guardian phone",
             "secondary contact phone",
+            "دوسرے سرپرست کا فون",
         ],
         "0301-7654321",
     ),
@@ -433,6 +443,7 @@ pub const STUDENT_FIELDS: &[FieldDef] = &[
             "parent/guardian 2 email",
             "secondary guardian email",
             "second guardian email",
+            "دوسرے سرپرست کی ای میل",
         ],
         "fatima@example.com",
     ),
@@ -446,6 +457,7 @@ pub const STUDENT_FIELDS: &[FieldDef] = &[
             "parent 2 cnic",
             "parent 2 id",
             "secondary guardian cnic",
+            "دوسرے سرپرست کا شناختی کارڈ",
         ],
         "42101-7654321-2",
     ),
@@ -713,13 +725,283 @@ pub const BALANCE_FIELDS: &[FieldDef] = &[
     ),
 ];
 
+/// Guardians for students already on file: one row per guardian and child. The student is
+/// found by number or legacy ID; a guardian already known (same ID number, or same phone
+/// and name) is linked, not created again, which is how siblings share a parent.
+pub const GUARDIAN_FIELDS: &[FieldDef] = &[
+    f(
+        "student_number",
+        "Student number",
+        false,
+        &[
+            "student number",
+            "student no",
+            "student id",
+            "admission no",
+            "gr no",
+            "طالب علم نمبر",
+        ],
+        "KHI-MC-2026-00417",
+    ),
+    f(
+        "legacy_id",
+        "Legacy ID",
+        false,
+        &["legacy id", "old id", "old number", "پرانا نمبر"],
+        "S-417",
+    ),
+    f(
+        "guardian_name",
+        "Guardian name",
+        true,
+        &[
+            "guardian name",
+            "guardian",
+            "parent name",
+            "parent",
+            "name",
+            "سرپرست کا نام",
+            "سرپرست",
+        ],
+        "Ahmed Khan",
+    ),
+    f(
+        "guardian_relationship",
+        "Relationship",
+        false,
+        &["relationship", "relation", "guardian relationship", "رشتہ"],
+        "father",
+    ),
+    f(
+        "guardian_phone",
+        "Phone",
+        false,
+        &[
+            "phone",
+            "mobile",
+            "contact",
+            "guardian phone",
+            "parent phone",
+            "phone number",
+            "cell",
+            "فون",
+            "موبائل",
+        ],
+        "0300-1234567",
+    ),
+    f(
+        "guardian_cnic",
+        "CNIC / ID number",
+        false,
+        &[
+            "cnic",
+            "guardian cnic",
+            "parent cnic",
+            "id number",
+            "national id",
+            "شناختی کارڈ",
+        ],
+        "42101-1234567-1",
+    ),
+    f(
+        "guardian_email",
+        "Email",
+        false,
+        &["email", "e-mail", "guardian email", "ای میل"],
+        "ahmed@example.com",
+    ),
+    f(
+        "guardian_occupation",
+        "Occupation",
+        false,
+        &["occupation", "profession", "job", "پیشہ"],
+        "Shopkeeper",
+    ),
+    f(
+        "address",
+        "Address",
+        false,
+        &["address", "home address", "پتہ"],
+        "House 12, Street 4",
+    ),
+    f(
+        "primary",
+        "Primary contact",
+        false,
+        &[
+            "primary",
+            "primary contact",
+            "main contact",
+            "is primary",
+            "بنیادی رابطہ",
+        ],
+        "yes",
+    ),
+];
+
+/// The fee structure: what one class pays under one fee head. One row per class and head;
+/// the amounts are for the active academic year. A head that does not exist yet is created.
+pub const FEE_STRUCTURE_FIELDS: &[FieldDef] = &[
+    f(
+        "class",
+        "Class",
+        true,
+        &["class", "grade", "class name", "standard", "جماعت"],
+        "6",
+    ),
+    f(
+        "fee_head",
+        "Fee head",
+        true,
+        &[
+            "fee head",
+            "head",
+            "fee",
+            "fee type",
+            "fee name",
+            "particulars",
+            "فیس کی مد",
+            "مد",
+        ],
+        "Tuition fee",
+    ),
+    f(
+        "amount",
+        "Amount",
+        true,
+        &["amount", "fee amount", "monthly fee", "rate", "رقم"],
+        "3500",
+    ),
+];
+
 pub fn fields(kind: ImportKind) -> &'static [FieldDef] {
     match kind {
         ImportKind::Students => STUDENT_FIELDS,
         ImportKind::Staff => STAFF_FIELDS,
         ImportKind::OpeningBalances => BALANCE_FIELDS,
         ImportKind::Enquiries => ENQUIRY_FIELDS,
+        ImportKind::Guardians => GUARDIAN_FIELDS,
+        ImportKind::FeeStructure => FEE_STRUCTURE_FIELDS,
     }
+}
+
+/// The Urdu heading a field also answers to (its first alias in Urdu script), for the Urdu
+/// instructions sheet of a template.
+pub fn urdu_label(field: &FieldDef) -> Option<&'static str> {
+    field
+        .aliases
+        .iter()
+        .copied()
+        .find(|a| a.chars().any(|c| ('\u{0600}'..='\u{06FF}').contains(&c)))
+}
+
+/// The instructions that go with a template, in English and in Urdu: what the file is for
+/// and the rules a person filling it needs. The columns themselves are listed from `fields`.
+pub struct TemplateNotes {
+    pub en: &'static [&'static str],
+    pub ur: &'static [&'static str],
+}
+
+const COMMON_EN: &[&str] = &[
+    "Fill the first sheet, one row per record. Do not change the headings; you may delete columns you do not use, except the required ones.",
+    "Delete the example row before you import.",
+    "Dates: YYYY-MM-DD (2015-03-14) or the way your country writes them (14/03/2015 in Pakistan).",
+    "Madrasa first shows a dry run: what will be created, what will be skipped and why, likely duplicates, and classes or sections that are missing. Nothing is saved until you confirm.",
+    "An import can be undone afterwards from Import → Past imports.",
+    "At most 5,000 rows in one file. Save as .xlsx or .csv.",
+];
+const COMMON_UR: &[&str] = &[
+    "پہلی شیٹ بھریں، ہر ریکارڈ کے لیے ایک سطر۔ سرخیاں تبدیل نہ کریں؛ جو کالم استعمال نہیں کرتے وہ حذف کر سکتے ہیں، سوائے لازمی کالموں کے۔",
+    "درآمد سے پہلے مثال والی سطر حذف کر دیں۔",
+    "تاریخیں: YYYY-MM-DD (2015-03-14) یا جیسے آپ کے ملک میں لکھی جاتی ہیں (پاکستان میں 14/03/2015)۔",
+    "مدرسہ پہلے آزمائشی جائزہ دکھاتا ہے: کیا بنے گا، کیا چھوڑا جائے گا اور کیوں، ممکنہ دہرے ریکارڈ، اور کون سی جماعتیں یا سیکشن موجود نہیں۔ آپ کی تصدیق تک کچھ محفوظ نہیں ہوتا۔",
+    "درآمد کو بعد میں \"درآمد ← پچھلی درآمدات\" سے واپس کیا جا سکتا ہے۔",
+    "ایک فائل میں زیادہ سے زیادہ 5,000 سطریں۔ فائل .xlsx یا .csv کے طور پر محفوظ کریں۔",
+];
+
+/// What is particular to each kind, placed before the common rules.
+pub fn template_notes(kind: ImportKind) -> (TemplateNotes, TemplateNotes) {
+    let own = match kind {
+        ImportKind::Students => TemplateNotes {
+            en: &[
+                "Students: one row per student, with the class and section they are in this year and, if you have them, the guardian's name and phone.",
+                "Set up the classes and sections first (Settings → Academic structure). A class or section that does not exist is reported in the dry run, and its rows are not imported.",
+                "Leave Student number empty to let Madrasa number the students; fill Legacy ID with the number from your old register so that guardians and opening balances can be matched later.",
+                "Brothers and sisters: give the same Family ID, or the same guardian phone and name, and they will share one guardian record.",
+            ],
+            ur: &[
+                "طلبہ: ہر طالب علم کے لیے ایک سطر، اس سال کی جماعت اور سیکشن کے ساتھ، اور اگر موجود ہو تو سرپرست کا نام اور فون۔",
+                "پہلے جماعتیں اور سیکشن بنائیں (ترتیبات ← تعلیمی ڈھانچہ)۔ جو جماعت یا سیکشن موجود نہ ہو وہ آزمائشی جائزے میں بتایا جاتا ہے اور اس کی سطریں درآمد نہیں ہوتیں۔",
+                "طالب علم نمبر خالی چھوڑیں تو مدرسہ خود نمبر دے گا؛ پرانے رجسٹر کا نمبر \"پرانا نمبر\" میں لکھیں تاکہ بعد میں سرپرست اور ابتدائی بقایا جات ملائے جا سکیں۔",
+                "بہن بھائی: ایک ہی خاندان نمبر، یا سرپرست کا ایک ہی فون اور نام دیں تو ان کا سرپرست کا ریکارڈ ایک ہی رہے گا۔",
+            ],
+        },
+        ImportKind::Guardians => TemplateNotes {
+            en: &[
+                "Guardians: one row per guardian and child. Import the students first.",
+                "Give the Student number, or the Legacy ID from your old register, so Madrasa knows whose guardian this is.",
+                "A parent of several children: repeat the row for each child with the same phone and name (or the same CNIC). Madrasa keeps one guardian record and links it to each child.",
+                "Relationship: father, mother, guardian or other. Primary contact: yes for the person the school calls first.",
+            ],
+            ur: &[
+                "سرپرست: ہر سرپرست اور بچے کے لیے ایک سطر۔ پہلے طلبہ درآمد کریں۔",
+                "طالب علم نمبر، یا پرانے رجسٹر کا نمبر دیں، تاکہ مدرسہ کو معلوم ہو کہ یہ کس کا سرپرست ہے۔",
+                "کئی بچوں کے والدین: ہر بچے کے لیے سطر دہرائیں، وہی فون اور نام (یا وہی شناختی کارڈ نمبر) لکھیں۔ مدرسہ سرپرست کا ایک ہی ریکارڈ رکھتا ہے اور اسے ہر بچے سے جوڑ دیتا ہے۔",
+                "رشتہ: والد، والدہ، سرپرست یا دیگر۔ بنیادی رابطہ: جس سے اسکول پہلے رابطہ کرے اس کے لیے yes لکھیں۔",
+            ],
+        },
+        ImportKind::Staff => TemplateNotes {
+            en: &[
+                "Staff: one row per member of staff, teaching or not.",
+                "Leave Staff number empty to let Madrasa number them. A row whose staff number or CNIC is already on file is the same person: it is skipped, or updated if you choose so.",
+                "Importing staff does not create logins. Create those under Settings → Users and logins.",
+            ],
+            ur: &[
+                "عملہ: عملے کے ہر فرد کے لیے ایک سطر، تدریسی ہو یا غیر تدریسی۔",
+                "عملہ نمبر خالی چھوڑیں تو مدرسہ خود نمبر دے گا۔ جس سطر کا عملہ نمبر یا شناختی کارڈ نمبر پہلے سے موجود ہو وہ وہی فرد ہے: اسے چھوڑ دیا جاتا ہے، یا آپ چاہیں تو تازہ کر دیا جاتا ہے۔",
+                "عملہ درآمد کرنے سے لاگ اِن نہیں بنتے۔ وہ \"ترتیبات ← صارفین اور لاگ اِن\" میں بنائیں۔",
+            ],
+        },
+        ImportKind::FeeStructure => TemplateNotes {
+            en: &[
+                "Fee structure: one row for each class and fee head, with the amount that class pays. The amounts are for the academic year that is active now.",
+                "A fee head that does not exist yet (for example \"Computer fee\") is created. A class must exist already.",
+                "An amount of 0 removes that head from the class. A row that repeats what is already set is skipped.",
+                "Monthly vouchers use these amounts from the next time vouchers are generated; vouchers already made do not change.",
+            ],
+            ur: &[
+                "فیس کا ڈھانچہ: ہر جماعت اور فیس کی مد کے لیے ایک سطر، اس رقم کے ساتھ جو وہ جماعت ادا کرتی ہے۔ رقوم اس تعلیمی سال کی ہیں جو اس وقت جاری ہے۔",
+                "جو فیس کی مد پہلے موجود نہ ہو (مثلاً \"کمپیوٹر فیس\") وہ بنا دی جاتی ہے۔ جماعت کا پہلے سے موجود ہونا ضروری ہے۔",
+                "رقم 0 لکھنے سے وہ مد اس جماعت سے ہٹ جاتی ہے۔ جو سطر پہلے سے طے شدہ رقم دہرائے وہ چھوڑ دی جاتی ہے۔",
+                "ماہانہ واؤچر اگلی بار بنتے وقت یہی رقوم استعمال کرتے ہیں؛ جو واؤچر بن چکے ہیں وہ نہیں بدلتے۔",
+            ],
+        },
+        ImportKind::OpeningBalances => TemplateNotes {
+            en: &[
+                "Opening balances: what each student still owed in your old register on the day you start with Madrasa. One row per student who owes something.",
+                "Give the Student number, or the Legacy ID from your old register. Import the students first.",
+                "Each balance becomes an \"Opening balance\" voucher. It shows as arrears on the student's first monthly voucher and in the ledger, and is paid off like any other fee.",
+                "A student may have one opening balance. To correct one, undo the import (Import → Past imports) and import again.",
+            ],
+            ur: &[
+                "ابتدائی بقایا جات: مدرسہ شروع کرنے کے دن آپ کے پرانے رجسٹر میں ہر طالب علم پر جو رقم واجب الادا تھی۔ ہر اس طالب علم کے لیے ایک سطر جس پر کچھ واجب ہے۔",
+                "طالب علم نمبر، یا پرانے رجسٹر کا نمبر دیں۔ پہلے طلبہ درآمد کریں۔",
+                "ہر بقایا \"ابتدائی بقایا\" کا واؤچر بن جاتا ہے۔ یہ طالب علم کے پہلے ماہانہ واؤچر پر سابقہ بقایا کے طور پر اور کھاتے میں نظر آتا ہے، اور کسی بھی فیس کی طرح ادا ہوتا ہے۔",
+                "ایک طالب علم کا ایک ہی ابتدائی بقایا ہو سکتا ہے۔ درست کرنے کے لیے درآمد واپس کریں (درآمد ← پچھلی درآمدات) اور دوبارہ درآمد کریں۔",
+            ],
+        },
+        ImportKind::Enquiries => TemplateNotes {
+            en: &["Admission enquiries: one row per child who has asked about a place."],
+            ur: &["داخلے کی پوچھ گچھ: ہر اس بچے کے لیے ایک سطر جس کے داخلے کے بارے میں پوچھا گیا ہے۔"],
+        },
+    };
+    (
+        own,
+        TemplateNotes {
+            en: COMMON_EN,
+            ur: COMMON_UR,
+        },
+    )
 }
 
 /// Admission enquiries (Standard stage 3): the applicant, the guardian and the class applied
@@ -880,7 +1162,19 @@ pub fn auto_map(kind: ImportKind, headers: &[String]) -> BTreeMap<String, usize>
     let normalized: Vec<String> = headers.iter().map(|h| normalize_header(h)).collect();
     let mut map = BTreeMap::new();
     let mut used = vec![false; headers.len()];
+    // A heading that is a field's own label is that field, whatever else it could be: a
+    // file made from Madrasa's template always comes back whole.
     for field in fields(kind) {
+        let label = normalize_header(field.label);
+        if let Some(i) = (0..headers.len()).find(|i| !used[*i] && normalized[*i] == label) {
+            used[i] = true;
+            map.insert(field.key.to_string(), i);
+        }
+    }
+    for field in fields(kind) {
+        if map.contains_key(field.key) {
+            continue;
+        }
         let key_alias = field.key.replace('_', " ");
         let hit = normalized.iter().enumerate().find(|(i, h)| {
             !used[*i] && (h.as_str() == key_alias || field.aliases.contains(&h.as_str()))
@@ -1332,6 +1626,12 @@ pub fn clean_row(
             "family_id" => {
                 row.values.insert("family_id".into(), value.to_uppercase());
             }
+            "primary" => match parse_yes_no(&value) {
+                Some(yes) => {
+                    row.values.insert("primary".into(), yes.to_string());
+                }
+                None => row.err("primary", "Primary contact must be yes or no"),
+            },
             "status" => match parse_student_status(&value) {
                 Some(s) => {
                     row.values.insert("status".into(), s.into());
@@ -1372,13 +1672,38 @@ pub fn clean_row(
         row.values
             .insert("guardian2_relationship".into(), "guardian".into());
     }
-    if kind == ImportKind::OpeningBalances
+    if matches!(kind, ImportKind::OpeningBalances | ImportKind::Guardians)
         && row.get("student_number").is_none()
         && row.get("legacy_id").is_none()
     {
         row.err("student_number", "Give the student number or the legacy ID");
     }
+    // A guardian with nothing to tell them apart by cannot be matched to an existing one
+    // for the next child: say so rather than quietly making a second record.
+    if kind == ImportKind::Guardians
+        && row.get("guardian_name").is_some()
+        && row.get("guardian_phone").is_none()
+        && row.get("guardian_cnic").is_none()
+    {
+        row.warn(
+            "guardian_phone",
+            "No phone or ID number: this guardian cannot be recognised again for a brother or sister",
+        );
+    }
+    if kind == ImportKind::Guardians && row.get("guardian_relationship").is_none() {
+        row.values
+            .insert("guardian_relationship".into(), "guardian".into());
+    }
     row
+}
+
+/// Yes/no as people write it in a register, English and Urdu.
+pub fn parse_yes_no(input: &str) -> Option<bool> {
+    match clean_text(input).to_lowercase().as_str() {
+        "yes" | "y" | "true" | "1" | "primary" | "ہاں" | "جی" | "جی ہاں" => Some(true),
+        "no" | "n" | "false" | "0" | "نہیں" | "جی نہیں" => Some(false),
+        _ => None,
+    }
 }
 
 /// Key that identifies a student row for duplicate checks inside one file.
@@ -1402,6 +1727,188 @@ pub fn student_file_key(row: &CleanRow) -> Option<String> {
             d
         )),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod onboarding_tests {
+    use super::*;
+
+    fn map(kind: ImportKind, headers: &[&str]) -> BTreeMap<String, usize> {
+        auto_map(
+            kind,
+            &headers.iter().map(|h| h.to_string()).collect::<Vec<_>>(),
+        )
+    }
+    fn row(cells: &[&str]) -> Vec<String> {
+        cells.iter().map(|c| c.to_string()).collect()
+    }
+    fn rules() -> RowRules {
+        RowRules::new("PK", NaiveDate::from_ymd_opt(2026, 11, 25).unwrap())
+    }
+
+    #[test]
+    fn the_new_kinds_have_names_and_fields() {
+        for kind in [ImportKind::Guardians, ImportKind::FeeStructure] {
+            assert_eq!(kind.as_str().parse::<ImportKind>().unwrap(), kind);
+            assert!(fields(kind).iter().any(|f| f.required));
+        }
+    }
+
+    #[test]
+    fn every_template_column_has_an_urdu_heading_and_every_kind_has_notes_in_both_languages() {
+        for kind in [
+            ImportKind::Students,
+            ImportKind::Guardians,
+            ImportKind::Staff,
+            ImportKind::FeeStructure,
+            ImportKind::OpeningBalances,
+        ] {
+            for f in fields(kind) {
+                assert!(
+                    urdu_label(f).is_some(),
+                    "{} / {} has no Urdu heading",
+                    kind.as_str(),
+                    f.key
+                );
+            }
+            let (own, common) = template_notes(kind);
+            assert!(
+                own.en.len() >= 3 && own.en.len() == own.ur.len(),
+                "{}",
+                kind.as_str()
+            );
+            assert_eq!(common.en.len(), common.ur.len());
+            for line in own.ur.iter().chain(common.ur) {
+                assert!(line.chars().any(|c| ('\u{0600}'..='\u{06FF}').contains(&c)));
+            }
+        }
+    }
+
+    #[test]
+    fn a_guardian_row_is_cleaned_like_the_guardian_columns_of_a_student() {
+        let headers = [
+            "Student number",
+            "Guardian name",
+            "Relationship",
+            "Phone",
+            "CNIC",
+            "Primary contact",
+        ];
+        let mapping = map(ImportKind::Guardians, &headers);
+        assert_eq!(mapping.len(), headers.len(), "{mapping:?}");
+        let r = clean_row(
+            ImportKind::Guardians,
+            2,
+            &row(&[
+                "khi-1",
+                " Ahmed  Khan ",
+                "Abu",
+                "0300 1234567",
+                "4210112345671",
+                "Yes",
+            ]),
+            &mapping,
+            &rules(),
+        );
+        assert!(r.errors.is_empty(), "{:?}", r.errors);
+        assert_eq!(r.get("guardian_name"), Some("Ahmed Khan"));
+        assert_eq!(r.get("guardian_relationship"), Some("father"));
+        assert_eq!(r.get("guardian_phone"), Some("03001234567"));
+        assert_eq!(r.get("guardian_cnic"), Some("42101-1234567-1"));
+        assert_eq!(r.get("primary"), Some("true"));
+    }
+
+    #[test]
+    fn a_guardian_row_needs_a_student_and_a_name_and_warns_when_nothing_identifies_the_guardian() {
+        let headers = [
+            "Student number",
+            "Legacy ID",
+            "Guardian name",
+            "Phone",
+            "Primary contact",
+        ];
+        let mapping = map(ImportKind::Guardians, &headers);
+        let r = clean_row(
+            ImportKind::Guardians,
+            2,
+            &row(&["", "", "", "", "maybe"]),
+            &mapping,
+            &rules(),
+        );
+        let fields: Vec<&str> = r.errors.iter().map(|e| e.field.as_str()).collect();
+        assert!(fields.contains(&"guardian_name"));
+        assert!(fields.contains(&"student_number"));
+        assert!(fields.contains(&"primary"));
+
+        let r = clean_row(
+            ImportKind::Guardians,
+            3,
+            &row(&["", "S-417", "Sana Bibi", "", ""]),
+            &mapping,
+            &rules(),
+        );
+        assert!(r.errors.is_empty(), "{:?}", r.errors);
+        assert!(r.warnings.iter().any(|w| w.field == "guardian_phone"));
+        assert_eq!(r.get("guardian_relationship"), Some("guardian"));
+    }
+
+    #[test]
+    fn a_fee_structure_row_needs_class_head_and_a_proper_amount() {
+        let headers = ["Class", "Fee head", "Amount"];
+        let mapping = map(ImportKind::FeeStructure, &headers);
+        assert_eq!(mapping.len(), 3);
+        let ok = clean_row(
+            ImportKind::FeeStructure,
+            2,
+            &row(&["Class 6", " Tuition  fee ", "Rs 3,500"]),
+            &mapping,
+            &rules(),
+        );
+        assert!(ok.errors.is_empty(), "{:?}", ok.errors);
+        assert_eq!(ok.get("fee_head"), Some("Tuition fee"));
+        assert_eq!(ok.get("amount"), Some("3500"));
+        let bad = clean_row(
+            ImportKind::FeeStructure,
+            3,
+            &row(&["", "Tuition fee", "-5"]),
+            &mapping,
+            &rules(),
+        );
+        let fields: Vec<&str> = bad.errors.iter().map(|e| e.field.as_str()).collect();
+        assert_eq!(fields, ["class", "amount"]);
+    }
+
+    #[test]
+    fn a_file_made_from_a_template_maps_every_column_back() {
+        for kind in [
+            ImportKind::Students,
+            ImportKind::Guardians,
+            ImportKind::Staff,
+            ImportKind::FeeStructure,
+            ImportKind::OpeningBalances,
+            ImportKind::Enquiries,
+        ] {
+            let headers: Vec<String> = fields(kind).iter().map(|f| f.label.to_string()).collect();
+            let mapping = auto_map(kind, &headers);
+            for (i, f) in fields(kind).iter().enumerate() {
+                assert_eq!(
+                    mapping.get(f.key),
+                    Some(&i),
+                    "{} / {}",
+                    kind.as_str(),
+                    f.label
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn yes_and_no_are_read_in_english_and_urdu() {
+        assert_eq!(parse_yes_no(" YES "), Some(true));
+        assert_eq!(parse_yes_no("جی ہاں"), Some(true));
+        assert_eq!(parse_yes_no("نہیں"), Some(false));
+        assert_eq!(parse_yes_no("perhaps"), None);
     }
 }
 

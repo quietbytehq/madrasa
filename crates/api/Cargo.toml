@@ -40,7 +40,10 @@ tracing-subscriber = { workspace = true }
 uuid = { workspace = true }
 postgresql_embedded = { version = "0.22", default-features = false, features = ["bundled", "tls-rustls-ring", "tokio"], optional = true }
 dirs = "6"
-rust_xlsxwriter = { workspace = true }
+# Rows of the full export are read from the database as a stream.
+futures-util = "0.3"
+# constant_memory: the full export writes sheets to disk as it reads them.
+rust_xlsxwriter = { workspace = true, features = ["constant_memory"] }
 csv = { workspace = true }
 calamine = { workspace = true }
 # Only to measure an uploaded workbook before it is opened (imports.rs); the version calamine
@@ -66,5 +69,4 @@ async-trait = "0.1"
 [dev-dependencies]
 madrasa-db = { workspace = true, features = ["testing"] }
 madrasa-nexus = { workspace = true }
-futures-util = "0.3"
 rust_decimal_macros = "1"

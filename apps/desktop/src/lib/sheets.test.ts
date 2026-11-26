@@ -16,3 +16,14 @@ describe("pickSheet", () => {
     expect(pickSheet("students", [])).toBeUndefined();
   });
 });
+
+describe("pickSheet with Madrasa's own templates", () => {
+  it("reads the records sheet, never the instructions in English or Urdu", () => {
+    expect(pickSheet("guardians", ["Guardians", "Read me", "ہدایات"])).toBe("Guardians");
+    expect(pickSheet("fee_structure", ["Read me", "ہدایات", "Fee structure"])).toBe(
+      "Fee structure",
+    );
+    // A school that renamed the records sheet still gets it, not the instructions.
+    expect(pickSheet("students", ["Read me", "ہدایات", "Class 5 list"])).toBe("Class 5 list");
+  });
+});

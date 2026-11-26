@@ -227,9 +227,12 @@ impl App {
 
     /// Call a route the way the matrix does: made-up ids, an empty JSON body.
     async fn probe(&self, method: &str, route: &str, token: Option<&str>) -> Outcome {
-        let path = concrete(route);
+        self.probe_path(method, &concrete(route), token).await
+    }
+
+    async fn probe_path(&self, method: &str, path: &str, token: Option<&str>) -> Outcome {
         let body = (method != "GET" && method != "DELETE").then(|| json!({}));
-        let (status, value) = self.call(method, &path, token, body).await;
+        let (status, value) = self.call(method, path, token, body).await;
         let code = value["error"]["code"].as_str().unwrap_or("").to_string();
         match (status, code.as_str()) {
             (StatusCode::UNAUTHORIZED, "unauthenticated") => Outcome::Unauthenticated,
@@ -238,6 +241,16 @@ impl App {
         }
     }
 }
+
+/// What may be imported, and the permission each needs (enquiries are a Standard feature
+/// and answer "not in this edition" before any permission is looked at).
+const IMPORT_KINDS: &[(&str, Permission)] = &[
+    ("students", Permission::StudentsManage),
+    ("guardians", Permission::StudentsManage),
+    ("opening_balances", Permission::StudentsManage),
+    ("staff", Permission::TeachersManage),
+    ("fee_structure", Permission::FeesManage),
+];
 
 /// Fill a route's `{parameters}` with harmless made-up values.
 fn concrete(route: &str) -> String {
@@ -389,14 +402,46 @@ async fn every_route_as_every_role_matches_the_permissions_document() {
                 ));
             }
         }
-        for (role, token) in &tokens {
-            let got = app.probe(method, route, Some(token)).await;
+        // A route whose path names what is imported is asked once for each kind, and each
+        // kind is held to its own permission (the table lists them all).
+        let variants: Vec<(String, Option<Permission>)> =
+            if route.starts_with("/imports/") && route.contains("{kind}") {
+                IMPORT_KINDS
+                    .iter()
+                    .map(|(kind, p)| (kind.to_string(), Some(*p)))
+                    .collect()
+            } else {
+                vec![(String::new(), None)]
+            };
+        for ((role, token), (kind, needs)) in tokens
+            .iter()
+            .flat_map(|t| variants.iter().map(move |v| (t, v)))
+        {
+            let (key, got) = if kind.is_empty() {
+                (key.clone(), app.probe(method, route, Some(token)).await)
+            } else {
+                let path = concrete(route).replace("/students", &format!("/{kind}"));
+                (
+                    format!("{key} [{kind}]"),
+                    app.probe_path(method, &path, Some(token)).await,
+                )
+            };
             observed
                 .entry(key.clone())
                 .or_default()
                 .insert(role.code().to_string(), format!("{got:?}"));
             let Some(rule) = rule else { continue };
-            let allowed = rule.allows(*role);
+            let allowed = match needs {
+                // The table must allow the kind's permission, and the role must hold it.
+                Some(p) => {
+                    assert!(
+                        matches!(rule, Rule::AnyOf(list) if list.contains(p)),
+                        "{key}: the table does not list {p:?}"
+                    );
+                    role.default_permissions().contains(p)
+                }
+                None => rule.allows(*role),
+            };
             match (&got, allowed) {
                 (Outcome::Forbidden, false) => {}
                 (Outcome::Other(..), true) => {}

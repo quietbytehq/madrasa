@@ -931,7 +931,8 @@ export const ur: Translation = {
   "dashboard.backup.open": "بیک اپ کھولیں",
   // Import wizard and export (M1 stage 6)
   "import.title": "ایکسل سے درآمد",
-  "import.subtitle": "طلبہ، عملہ یا فیس کے ابتدائی بقایا جات اسپریڈ شیٹ سے لائیں۔",
+  "import.subtitle":
+    "طلبہ، سرپرست، عملہ، فیس کا ڈھانچہ یا فیس کے ابتدائی بقایا جات اسپریڈ شیٹ سے لائیں۔ ہر ٹیمپلیٹ میں انگریزی اور اردو میں ہدایات کی شیٹ ہے۔",
   "import.step.type": "کیا درآمد کریں",
   "import.step.file": "فائل",
   "import.step.mapping": "کالم",
@@ -2747,4 +2748,86 @@ export const ur: Translation = {
     "اسکول نیٹ ورک نے ابھی جواب دینا بند کیا ہے۔ دوبارہ کوشش ہو رہی ہے۔",
   "parent.link.explain.offline":
     "اسکول نیٹ ورک سے رابطہ نہیں۔ آپ وہی دیکھ رہے ہیں جو آخری بار لوڈ ہوا تھا؛ آپ کے لکھے پیغامات اس فون پر مسودے کے طور پر محفوظ رہتے ہیں۔",
+  // Pilot onboarding (written by the developer; on the list for a native review)
+  "import.kind.guardians": "سرپرست",
+  "import.kind.guardians.hint":
+    "ان طلبہ کے والدین اور سرپرست جو پہلے سے مدرسہ میں موجود ہیں، طالب علم نمبر یا پرانے نمبر کے ذریعے۔",
+  "import.kind.fee_structure": "فیس کا ڈھانچہ",
+  "import.kind.fee_structure.hint":
+    "اس سال ہر جماعت ہر فیس کی مد میں کتنی رقم ادا کرتی ہے۔ نئی مدیں خود بن جاتی ہیں۔",
+  "import.dry.title": "آزمائشی جائزہ",
+  "import.dry.nothingSaved": "ابھی کچھ محفوظ نہیں ہوا۔ یہ فائل درآمد کرنے سے یہ ہوگا۔",
+  "import.dry.download": "آزمائشی جائزے کی رپورٹ ڈاؤن لوڈ کریں",
+  "import.dry.label.create": "نئے بنیں گے",
+  "import.dry.label.update": "تازہ ہوں گے",
+  "import.dry.label.skip": "چھوڑ دیے جائیں گے",
+  "import.dry.label.error": "درآمد نہیں ہو سکتے",
+  "import.dry.create": "{count} نئے بنیں گے",
+  "import.dry.update": "{count} تازہ ہوں گے",
+  "import.dry.skip": "{count} چھوڑ دیے جائیں گے",
+  "import.dry.error": "{count} درآمد نہیں ہو سکتے اور شامل نہیں ہوں گے",
+  "import.dry.missing": "جماعتیں اور سیکشن جو ابھی نہیں بنے",
+  "import.dry.missing.hint":
+    "انہیں ترتیبات ← تعلیمی ڈھانچہ میں بنائیں، پھر فائل دوبارہ جانچیں۔ تب تک ان کی قطاریں درآمد نہیں ہو سکتیں۔",
+  "import.dry.missing.class": "جماعت {name}",
+  "import.dry.missing.section": "سیکشن {name}",
+  "import.dry.rows": "(قطاریں {rows})",
+  "import.dry.duplicates": "ممکنہ دہرے ریکارڈ: {count}",
+  "import.dry.duplicates.hint":
+    "یہ قطاریں کسی موجود ریکارڈ جیسی نہیں مگر اس سے ملتی جلتی ہیں۔ اگر آپ انہیں فائل سے نہ نکالیں تو یہ درآمد ہو جائیں گی۔",
+  "import.dry.duplicates.item": "قطار {row}، {name}: ملتا جلتا ریکارڈ {like}",
+  "import.dry.reasons": "قطاریں کیوں چھوڑی جا رہی ہیں یا درآمد نہیں ہو سکتیں",
+  "import.confirm.title": "ابھی درآمد کریں؟",
+  "import.confirm.undo":
+    "اب تک کچھ محفوظ نہیں ہوا۔ درآمد کے بعد بھی آپ اسی صفحے کی تاریخ سے پوری درآمد واپس کر سکتے ہیں۔",
+  "health.title": "ڈیٹا کی جانچ",
+  "health.subtitle":
+    "اسکول کے ریکارڈ میں کس چیز پر توجہ درکار ہے، اکثر درآمد کے بعد۔ ریکارڈ کھول کر درست کریں، پھر دوبارہ جانچیں۔",
+  "health.recheck": "دوبارہ جانچیں",
+  "health.allClear": "کسی چیز پر توجہ درکار نہیں۔",
+  "health.summary": "توجہ درکار ہے — مسائل: {problems}، تنبیہات: {warnings}۔",
+  "health.none": "کچھ نہیں ملا",
+  "health.more": "اور {count} مزید",
+  "health.area.students": "طلبہ",
+  "health.area.guardians": "سرپرست",
+  "health.area.fees": "فیس",
+  "health.area.classes": "جماعتیں",
+  "health.check.students_without_section": "فعال طلبہ جن کی اس سال کوئی جماعت اور سیکشن نہیں",
+  "health.why.students_without_section":
+    "یہ کسی حاضری شیٹ پر نہیں آتے اور ان کا فیس واؤچر نہیں بنتا۔ طالب علم کھول کر سیکشن منتخب کریں۔",
+  "health.check.students_in_two_sections": "طلبہ جو اس سال دو سیکشنوں میں ہیں",
+  "health.why.students_in_two_sections":
+    "یہ دو حاضری شیٹوں پر آتے ہیں اور ان سے دو بار فیس لی جا سکتی ہے۔ ایک سیکشن رکھیں۔",
+  "health.check.students_without_guardian": "فعال طلبہ جن کا کوئی سرپرست نہیں",
+  "health.why.students_without_guardian":
+    'اسکول کے پاس رابطے کے لیے کوئی نہیں اور والدین کی ایپ میں بچہ کسی کو نظر نہیں آتا۔ طالب علم کے "سرپرست" ٹیب میں سرپرست شامل کریں۔',
+  "health.check.duplicate_student_names": "طلبہ جن کا نام اور والد کا نام ایک جیسا ہے",
+  "health.why.duplicate_student_names":
+    "ہو سکتا ہے ایک ہی بچہ دو بار درج ہو گیا ہو، یا واقعی بھائیوں یا کزنز کے نام ایک جیسے ہوں۔ جانچ کر غلط اندراج ہٹا دیں۔",
+  "health.check.doubtful_dates_of_birth": "تاریخِ پیدائش جو درست نہیں ہو سکتی",
+  "health.why.doubtful_dates_of_birth":
+    "1990 سے پہلے، یا دو سال سے کم پرانی: عموماً پرانے رجسٹر میں تاریخ غائب یا غلط لکھی ہوتی ہے۔",
+  "health.check.duplicate_roll_numbers": "ایک سیکشن میں ایک ہی رول نمبر دو بار",
+  "health.why.duplicate_roll_numbers":
+    "نمبروں کی شیٹیں اور رجسٹر رول نمبر کی ترتیب سے بنتے ہیں۔ ہر طالب علم کو الگ رول نمبر دیں۔",
+  "health.check.guardians_without_phone": "سرپرست جن کا فون نمبر نہیں",
+  "health.why.guardians_without_phone":
+    "اسکول ان سے رابطہ نہیں کر سکتا، اور انہیں والدین کی ایپ تک رسائی نہیں دی جا سکتی۔",
+  "health.check.guardian_phone_shared": "ایک فون نمبر مختلف سرپرستوں کے نام پر",
+  "health.why.guardian_phone_shared":
+    "اکثر ایک ہی شخص کا نام دو طرح لکھا ہوتا ہے، جس سے بہن بھائی آپس میں نہیں جڑتے۔ کبھی کبھی خاندان واقعی ایک نمبر استعمال کرتا ہے۔",
+  "health.check.classes_without_fee_structure": "جماعتیں جن میں طلبہ ہیں مگر فیس کا ڈھانچہ نہیں",
+  "health.why.classes_without_fee_structure":
+    "واؤچر بناتے وقت یہ جماعتیں چھوڑ دی جاتی ہیں۔ فیس ← ترتیب میں ان کی فیس مقرر کریں، یا فیس کا ڈھانچہ درآمد کریں۔",
+  "health.check.vouchers_without_fee_head": "واؤچر جن میں فیس کی مد نہیں",
+  "health.why.vouchers_without_fee_head":
+    "جس واؤچر پر یہ نہ لکھا ہو کہ وہ کس چیز کا ہے، وہ والدین کو سمجھایا نہیں جا سکتا اور مد وار فیس رپورٹوں میں نہیں آتا۔",
+  "health.check.sections_without_class_teacher": "سیکشن جن کا کلاس ٹیچر مقرر نہیں",
+  "health.why.sections_without_class_teacher":
+    "عام طور پر حاضری صرف کلاس ٹیچر لگاتا ہے، اور والدین کے پاس لکھنے کے لیے کوئی نہیں ہوتا۔ ترتیبات ← تعلیمی ڈھانچہ میں مقرر کریں۔",
+  "backup.exportAll": "سب کچھ برآمد کریں",
+  "backup.exportAll.hint":
+    "اسکول کا ہر ریکارڈ ایک ایکسل ورک بک میں، پاس ورڈ اور کلیدوں کے بغیر۔ بحالی کے لیے اب بھی بیک اپ ہی استعمال ہوتا ہے۔",
+  "backup.exportAll.done":
+    "ورک بک ڈاؤن لوڈ ہو گئی ہے۔ اس میں اسکول کا ہر ریکارڈ ہے: اسے محفوظ جگہ رکھیں۔",
 };

@@ -27,6 +27,9 @@ import type { Feature } from "@/api/types";
 import type { TranslationKey } from "@/i18n";
 import { PARENT_APP_PERMISSIONS } from "./parentAppPermissions";
 
+/** Who may open the import page: anyone who may import at least one kind of record. */
+export const IMPORT_PERMISSIONS = ["students.manage", "teachers.manage", "fees.manage"] as const;
+
 export interface NavItem {
   path: string;
   labelKey: TranslationKey;
@@ -65,7 +68,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: FileSpreadsheet,
     feature: "students",
     available: true,
-    permission: "students.manage",
+    // Each kind of import needs its own permission; the page offers what the user may do.
+    anyPermission: IMPORT_PERMISSIONS,
   },
   {
     path: "/attendance",

@@ -174,6 +174,7 @@ async fn soft_delete(
         "staff",
         "board_results",
         "admission_applications",
+        "fee_heads",
     ];
     if !allowed.contains(&table) {
         return Err(DbError::Conflict(format!("cannot roll back {table}")));
@@ -359,6 +360,41 @@ pub async fn rollback(
             ("created", "fee_voucher") => {
                 crate::fees::cancel_voucher(&mut *conn, hlc, actor, id, "Import rolled back")
                     .await?;
+            }
+            // A fee head the import made: taken away again (its amounts go with the lines
+            // below, which were recorded after it).
+            ("created", "fee_head") => soft_delete(&mut *conn, hlc, actor, "fee_heads", id).await?,
+            // An amount the import set: back to what it was (nothing, if it was new).
+            ("updated", "fee_structure") => {
+                let old = r.old_value.as_ref().unwrap_or(&Value::Null);
+                let part = |k: &str| {
+                    old.get(k)
+                        .and_then(Value::as_str)
+                        .and_then(|v| v.parse::<Uuid>().ok())
+                };
+                let (Some(year), Some(class), Some(head)) = (
+                    part("academic_year_id"),
+                    part("class_id"),
+                    part("fee_head_id"),
+                ) else {
+                    continue;
+                };
+                let amount: rust_decimal::Decimal = old
+                    .get("amount")
+                    .and_then(Value::as_str)
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or_default();
+                crate::fees::set_structure(
+                    &mut *conn,
+                    hlc,
+                    actor,
+                    batch.school_id,
+                    year,
+                    class,
+                    head,
+                    amount,
+                )
+                .await?;
             }
             ("updated", "student") => {
                 restore_old(

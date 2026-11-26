@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { AppShell } from "@/layout/AppShell";
 import { AttendancePage } from "@/pages/attendance/AttendancePage";
 import { BackupPage } from "@/pages/backup/BackupPage";
+import { DataHealthPage } from "@/pages/health/DataHealthPage";
 import { ImportPage } from "@/pages/import/ImportPage";
 import { ExamsPage } from "@/pages/exams/ExamsPage";
 import { ReportCardsPrintPage, ResultSheetPrintPage } from "@/pages/exams/PrintPages";
@@ -32,6 +33,7 @@ import { LibraryPage } from "@/pages/library/LibraryPage";
 import { TransportPage } from "@/pages/transport/TransportPage";
 import { HostelPage } from "@/pages/hostel/HostelPage";
 import { ParentAppPage } from "@/pages/parentapp/ParentAppPage";
+import { IMPORT_PERMISSIONS } from "@/app/navigation";
 import { PARENT_APP_PERMISSIONS } from "@/app/parentApp";
 import { InventoryPage } from "@/pages/inventory/InventoryPage";
 import { TeacherAllocationPage } from "@/pages/staff/TeacherAllocationPage";
@@ -77,6 +79,17 @@ export function RequirePermission({
   return can(permission) ? <>{children}</> : <NoAccess />;
 }
 
+/** The import page is for anyone who may import something; it offers only what they may. */
+function ImportRoute() {
+  const { can } = useSession();
+  return IMPORT_PERMISSIONS.some((p) => can(p)) ? <ImportPage /> : <NoAccess />;
+}
+
+function DataHealthRoute() {
+  const { can } = useSession();
+  return can("students.manage") || can("settings.manage") ? <DataHealthPage /> : <NoAccess />;
+}
+
 /** The Parent app area is for anyone with one of its permissions; each tab checks its own. */
 function ParentAppRoute() {
   const { can } = useSession();
@@ -119,14 +132,8 @@ export function AppRoutes({ login, setup }: AppRoutesProps) {
             />
             <Route path="/students/:id" element={<StudentProfile />} />
             <Route path="/students/:id/edit" element={<StudentFormPage />} />
-            <Route
-              path="/import"
-              element={
-                <RequirePermission permission="students.manage">
-                  <ImportPage />
-                </RequirePermission>
-              }
-            />
+            <Route path="/import" element={<ImportRoute />} />
+            <Route path="/data-health" element={<DataHealthRoute />} />
           </>
         )}
         {has("fees") && (

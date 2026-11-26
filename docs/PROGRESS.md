@@ -1923,6 +1923,69 @@ shell itself (window, tray, installer, the WebView on Windows), a real Android p
 printers, and Windows at all: the GUI tests run on Linux only. The 0.5.1 lab run on the
 installed `.deb` remains the evidence for the shell.
 
+### 2026-11-25 — Stage 3: Pilot onboarding tools (branch `claude/kind-franklin-ac2vjh-s3-onboarding`)
+
+What a school needs on its first day: its old register in, a look at what is wrong, and a
+way out with everything. The import engine of M1 was extended rather than replaced; the
+user guide has a new section 1a (English and Urdu).
+
+- **Import templates** for students, guardians, staff, the fee structure and opening
+  balances. Each `.xlsx` has the records sheet, a **Read me** in English and **ہدایات** in
+  Urdu (right to left): what the file is for, the rules, and every column with whether it is
+  required, an example and its Urdu heading. A filled template always comes back whole: a
+  heading that is a field's own label maps to that field (three student columns did not).
+- **Two new imports.** *Guardians*: one row per guardian and child, by student number or
+  legacy ID; a parent of several children stays one record. *Fee structure*: one row per
+  class and fee head; missing heads are created; an amount already set is only replaced
+  when the person chooses "update". Both undo like any other import. An accountant
+  (`fees.manage`) can now open Import and sees only the fee structure enabled.
+- **Dry-run report.** The check step now says in words what will happen: created, updated,
+  skipped, cannot be imported; **why**, one line per reason with row numbers; **classes
+  and sections that are not set up**; **likely duplicates** (the same name with the same
+  father, or the same name and birthday, as a student on file or an earlier row). It
+  downloads as a workbook. Nothing is written by checking or downloading, and Import now
+  asks for a confirmation that repeats the four numbers.
+- **Opening balances on the first vouchers.** See the bug below. After the fix: the
+  balance is arrears on the student's first monthly voucher, in the ledger once, and never
+  earns a late fee.
+- **Data health** page (button on the Import page): eleven checks, each with why it
+  matters, a count, the first records and a link to fix them: students without a section,
+  in two sections, without a guardian; duplicate names; doubtful dates of birth; duplicate
+  roll numbers; guardians without a phone; one phone under several names; classes without a
+  fee structure; vouchers without a fee head; sections without a class teacher.
+- **Export everything** (Backup page): the whole school as one workbook, readable sheets
+  first, then every other table as stored; no password hashes, sessions, keys or tokens;
+  needs `backup.manage`; each export is in the audit log.
+
+**Bugs found by the new tests, fixed in this stage:**
+
+1. **An imported opening balance took the place of the student's first monthly voucher.**
+   The opening voucher was billed to the first month of the year, and generating that
+   month's vouchers skipped every student who had one, so their first month's fee was never
+   billed. It is now billed to the month before the year starts. It also no longer earns a
+   late fee (it was "due" on the day it was imported). In the product since M1; it only
+   bites a school that imports balances and then generates the year's first month, which is
+   exactly what a pilot school does.
+2. **Every file the app downloaded was saved as "download"** (`download.xlsx`,
+   `download.pdf`): the API did not let the app read the file name it sends. In the product
+   since the first export; the browser tests of stage 2 had only looked at the extension.
+3. Three columns of the students template did not map back to their own fields.
+
+Tests: 7 unit tests of the new rules (`madrasa_core::imports`), 8 database tests
+(`crates/api/tests/onboarding.rs`: templates read back sheet by sheet; the dry run and that
+it writes nothing; guardians with siblings and undo; fee structure with new heads, update
+and undo in two steps; an accountant's reach; the opening balance through voucher
+generation, the ledger, the late fee and a payment; data health on a clean and on a messy
+school; the full export checked cell by cell against the real password hashes and keys),
+the route matrix now holds each import kind to its own permission, 5 UI tests, and 4
+browser tests (template, guardian import with dry run and confirmation, data health, export).
+
+**Not proven:** the templates were opened with a spreadsheet library, not with Excel or
+LibreOffice by a person (how the Urdu sheet looks there is unseen). The Urdu of the
+instructions and of the new screens is the developer's and is on the list for a native
+reader. Export everything was run on small schools here; its speed and size on a large one
+are measured in stage 4.
+
 ## Brand identity
 
 The brand sheet (`assets/brand/Madrasa_Brand_Identity_Showcase.png`) applied across the

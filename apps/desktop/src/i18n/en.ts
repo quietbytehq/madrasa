@@ -950,7 +950,8 @@ export const en = {
   "dashboard.backup.open": "Open backup",
   // Import wizard and export (M1 stage 6)
   "import.title": "Import from Excel",
-  "import.subtitle": "Bring students, staff or opening fee balances in from a spreadsheet.",
+  "import.subtitle":
+    "Bring students, guardians, staff, the fee structure or opening fee balances in from a spreadsheet. Each template has a Read me sheet in English and Urdu.",
   "import.step.type": "What to import",
   "import.step.file": "File",
   "import.step.mapping": "Columns",
@@ -2770,6 +2771,89 @@ export const en = {
     "The school network stopped answering a moment ago. Trying again.",
   "parent.link.explain.offline":
     "No connection to the school network. You see what was last loaded; messages you write are kept as drafts on this phone.",
+  // Pilot onboarding: dry run, guardians and fee structure imports, data health, export
+  "import.kind.guardians": "Guardians",
+  "import.kind.guardians.hint":
+    "Parents and guardians of students who are already in Madrasa, by student number or legacy ID.",
+  "import.kind.fee_structure": "Fee structure",
+  "import.kind.fee_structure.hint":
+    "What each class pays under each fee head this year. New fee heads are created.",
+  "import.dry.title": "Dry run",
+  "import.dry.nothingSaved":
+    "Nothing has been saved yet. This is what importing this file would do.",
+  "import.dry.download": "Download dry-run report",
+  "import.dry.label.create": "Will be created",
+  "import.dry.label.update": "Will be updated",
+  "import.dry.label.skip": "Will be skipped",
+  "import.dry.label.error": "Cannot be imported",
+  "import.dry.create": "{count} will be created",
+  "import.dry.update": "{count} will be updated",
+  "import.dry.skip": "{count} will be skipped",
+  "import.dry.error": "{count} cannot be imported and will be left out",
+  "import.dry.missing": "Classes and sections that are not set up",
+  "import.dry.missing.hint":
+    "Create them under Settings → Academic structure, then check the file again. Until then their rows cannot be imported.",
+  "import.dry.missing.class": "Class {name}",
+  "import.dry.missing.section": "Section {name}",
+  "import.dry.rows": "(rows {rows})",
+  "import.dry.duplicates": "Likely duplicates: {count}",
+  "import.dry.duplicates.hint":
+    "These rows are not the same as a record on file, but look like one. They will be imported unless you take them out of the file.",
+  "import.dry.duplicates.item": "Row {row}, {name}: looks like {like}",
+  "import.dry.reasons": "Why rows are skipped or cannot be imported",
+  "import.confirm.title": "Import now?",
+  "import.confirm.undo":
+    "Nothing has been saved so far. After importing you can still undo the whole import from the history on this page.",
+  "health.title": "Data health",
+  "health.subtitle":
+    "What in the school's records needs a person's attention, most often after an import. Open a record to fix it, then check again.",
+  "health.recheck": "Check again",
+  "health.allClear": "Nothing needs attention.",
+  "health.summary": "Needs attention — problems: {problems}, warnings: {warnings}.",
+  "health.none": "Nothing found",
+  "health.more": "and {count} more",
+  "health.area.students": "Students",
+  "health.area.guardians": "Guardians",
+  "health.area.fees": "Fees",
+  "health.area.classes": "Classes",
+  "health.check.students_without_section": "Active students without a class and section this year",
+  "health.why.students_without_section":
+    "They are on no attendance sheet and get no fee voucher. Open the student and choose the section.",
+  "health.check.students_in_two_sections": "Students in two sections this year",
+  "health.why.students_in_two_sections":
+    "They appear on two attendance sheets and may be billed twice. Keep one section.",
+  "health.check.students_without_guardian": "Active students without a guardian",
+  "health.why.students_without_guardian":
+    "The school has nobody to call and the parent app has nobody to show the child to. Add a guardian on the student's Guardians tab.",
+  "health.check.duplicate_student_names": "Students with the same name and father's name",
+  "health.why.duplicate_student_names":
+    "They may be the same child entered twice, or brothers and cousins who really share the names. Check and remove the one that is a mistake.",
+  "health.check.doubtful_dates_of_birth": "Dates of birth that cannot be right",
+  "health.why.doubtful_dates_of_birth":
+    "Before 1990, or less than two years ago: usually a missing or mistyped date in the old register.",
+  "health.check.duplicate_roll_numbers": "The same roll number twice in a section",
+  "health.why.duplicate_roll_numbers":
+    "Marks sheets and registers are ordered by roll number. Give each student their own.",
+  "health.check.guardians_without_phone": "Guardians without a phone number",
+  "health.why.guardians_without_phone":
+    "The school cannot reach them, and they cannot be given parent app access.",
+  "health.check.guardian_phone_shared": "One phone number under different guardian names",
+  "health.why.guardian_phone_shared":
+    "Often the same person spelled two ways, which keeps brothers and sisters from being linked. Sometimes a number a family really shares.",
+  "health.check.classes_without_fee_structure": "Classes with students and no fee structure",
+  "health.why.classes_without_fee_structure":
+    "Generating vouchers skips these classes. Set their fees under Fees → Setup, or import the fee structure.",
+  "health.check.vouchers_without_fee_head": "Vouchers without a fee head",
+  "health.why.vouchers_without_fee_head":
+    "A voucher that does not say what it is for cannot be explained to a parent and is missing from fee reports by head.",
+  "health.check.sections_without_class_teacher": "Sections without a class teacher",
+  "health.why.sections_without_class_teacher":
+    "Only the class teacher marks attendance by default, and parents have nobody to write to. Choose one under Settings → Academic structure.",
+  "backup.exportAll": "Export everything",
+  "backup.exportAll.hint":
+    "Every record of the school as one Excel workbook, without passwords or keys. A backup is still what you restore from.",
+  "backup.exportAll.done":
+    "The workbook has been downloaded. It holds every record of the school: keep it somewhere safe.",
 } as const;
 
 export type TranslationKey = keyof typeof en;

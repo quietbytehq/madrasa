@@ -10,6 +10,7 @@ pub mod bootstrap;
 pub mod clock;
 pub mod directory;
 pub mod error;
+pub mod everything;
 pub mod export;
 pub mod imports;
 pub mod lan;
@@ -74,6 +75,7 @@ pub fn router(state: AppState) -> Router {
         .merge(routes::boards::router())
         .merge(routes::imports::router())
         .merge(routes::export::router())
+        .merge(routes::onboarding::router())
         .merge(routes::reports::router())
         // A change sent twice (queued offline on a LAN client, ADR 0009) is applied once.
         .layer(axum::middleware::from_fn_with_state(
@@ -99,7 +101,10 @@ pub fn router(state: AppState) -> Router {
             is_app_origin(origin.as_bytes())
         }))
         .allow_methods(Any)
-        .allow_headers(Any);
+        .allow_headers(Any)
+        // A download says its file name in this header; without leave to read it the app
+        // saved every file as "download".
+        .expose_headers([axum::http::header::CONTENT_DISPOSITION]);
 
     Router::new()
         .nest(API_PREFIX, api)

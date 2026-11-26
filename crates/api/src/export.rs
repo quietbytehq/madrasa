@@ -59,6 +59,65 @@ pub fn xlsx(sheet: &str, headers: &[String], rows: &[Vec<String>]) -> Result<Vec
     wb.save_to_buffer().map_err(|_| ApiError::internal())
 }
 
+/// One sheet of a workbook built by `workbook`.
+pub struct Sheet<'a> {
+    pub name: &'a str,
+    pub headers: Vec<String>,
+    pub rows: Vec<Vec<String>>,
+}
+
+impl<'a> Sheet<'a> {
+    pub fn text(name: &'a str, headers: &[&str], rows: Vec<Vec<String>>) -> Self {
+        Sheet {
+            name,
+            headers: headers.iter().map(|h| h.to_string()).collect(),
+            rows,
+        }
+    }
+}
+
+/// A workbook of several sheets, each with a bold heading row. Every cell is written as
+/// text: nothing a file or a user typed is ever a formula, and numbers keep their zeros.
+pub fn workbook(sheets: &[Sheet<'_>]) -> Result<Vec<u8>, ApiError> {
+    let fail = |_| ApiError::internal();
+    let mut wb = Workbook::new();
+    let bold = Format::new().set_bold();
+    for sheet in sheets {
+        let ws = wb.add_worksheet();
+        let name: String = sheet
+            .name
+            .chars()
+            .filter(|c| !matches!(c, '[' | ']' | ':' | '*' | '?' | '/' | '\\'))
+            .take(31)
+            .collect();
+        ws.set_name(&name).map_err(fail)?;
+        for (c, h) in sheet.headers.iter().enumerate() {
+            ws.write_string_with_format(0, c as u16, h, &bold)
+                .map_err(fail)?;
+            let width = sheet
+                .rows
+                .iter()
+                .take(500)
+                .filter_map(|r| r.get(c))
+                .map(|v| v.chars().count())
+                .chain(std::iter::once(h.chars().count()))
+                .max()
+                .unwrap_or(10)
+                .clamp(8, 60);
+            let _ = ws.set_column_width(c as u16, width as f64 + 2.0);
+        }
+        for (r, row) in sheet.rows.iter().enumerate() {
+            for (c, v) in row.iter().enumerate() {
+                if !v.is_empty() {
+                    ws.write_string((r + 1) as u32, c as u16, v).map_err(fail)?;
+                }
+            }
+        }
+        let _ = ws.set_freeze_panes(1, 0);
+    }
+    wb.save_to_buffer().map_err(fail)
+}
+
 /// A download response.
 pub fn file_response(file_name: &str, bytes: Vec<u8>) -> Response {
     let mime = if file_name.ends_with(".xlsx") {

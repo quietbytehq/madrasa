@@ -233,8 +233,10 @@ key and its scopes, not a user's login (docs/spec.md §15).
 | POST | `/exams/sheets/{id}/approve` | `exams.approve` |
 | POST | `/exams/sheets/{id}/reopen` | `exams.approve` |
 | POST | `/exams/sheets/{id}/submit` | `exams.manage` |
+| GET | `/data-health` | `students.manage` or `settings.manage` |
 | GET | `/export/attendance/absentees` | `attendance.read` |
 | GET | `/export/attendance/register` | `attendance.read` |
+| GET | `/export/everything` | `backup.manage` |
 | GET | `/export/exams/results` | `exams.read` |
 | GET | `/export/fees/defaulters` | `fees.read` |
 | GET | `/export/fees/vouchers` | `fees.read` |
@@ -282,15 +284,16 @@ key and its scopes, not a user's login (docs/spec.md §15).
 | GET | `/hostel/residents` | `hostel.read` |
 | PUT | `/hostel/rooms/{id}` | `hostel.manage` |
 | DELETE | `/hostel/rooms/{id}` | `hostel.manage` |
-| POST | `/imports/apply` | `students.manage` or `teachers.manage` or `admissions.manage` |
-| GET | `/imports/batches` | `students.manage` or `teachers.manage` or `admissions.manage` |
-| POST | `/imports/batches/{id}/rollback` | `students.manage` or `teachers.manage` or `admissions.manage` or `academics.manage` |
-| GET | `/imports/fields/{kind}` | `students.manage` or `teachers.manage` or `admissions.manage` |
-| GET | `/imports/mappings/{kind}` | `students.manage` or `teachers.manage` or `admissions.manage` |
-| PUT | `/imports/mappings/{kind}` | `students.manage` or `teachers.manage` or `admissions.manage` |
-| POST | `/imports/parse` | `students.manage` or `teachers.manage` or `admissions.manage` |
-| POST | `/imports/preview` | `students.manage` or `teachers.manage` or `admissions.manage` |
-| GET | `/imports/templates/{kind}` | `students.manage` or `teachers.manage` or `admissions.manage` |
+| POST | `/imports/apply` | `students.manage` or `teachers.manage` or `admissions.manage` or `fees.manage` |
+| GET | `/imports/batches` | `students.manage` or `teachers.manage` or `admissions.manage` or `fees.manage` |
+| POST | `/imports/batches/{id}/rollback` | `students.manage` or `teachers.manage` or `admissions.manage` or `academics.manage` or `fees.manage` |
+| GET | `/imports/fields/{kind}` | `students.manage` or `teachers.manage` or `admissions.manage` or `fees.manage` |
+| GET | `/imports/mappings/{kind}` | `students.manage` or `teachers.manage` or `admissions.manage` or `fees.manage` |
+| PUT | `/imports/mappings/{kind}` | `students.manage` or `teachers.manage` or `admissions.manage` or `fees.manage` |
+| POST | `/imports/parse` | `students.manage` or `teachers.manage` or `admissions.manage` or `fees.manage` |
+| POST | `/imports/preview` | `students.manage` or `teachers.manage` or `admissions.manage` or `fees.manage` |
+| POST | `/imports/report` | `students.manage` or `teachers.manage` or `admissions.manage` or `fees.manage` |
+| GET | `/imports/templates/{kind}` | `students.manage` or `teachers.manage` or `admissions.manage` or `fees.manage` |
 | GET | `/inventory/assets` | `inventory.read` |
 | POST | `/inventory/assets` | `inventory.manage` |
 | PUT | `/inventory/assets/{id}` | `inventory.manage` |

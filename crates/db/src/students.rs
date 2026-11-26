@@ -558,6 +558,27 @@ pub struct DuplicateMatch {
 }
 
 /// Existing students that look like the probe (CNIC, or name + DOB + father's name).
+/// Who is on file, by the facts a register identifies a child with: for spotting rows of an
+/// import that look like someone already here without being an exact match.
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct Identity {
+    pub id: Uuid,
+    pub student_number: String,
+    pub full_name: String,
+    pub father_name: String,
+    pub date_of_birth: chrono::NaiveDate,
+}
+
+pub async fn identities(conn: &mut PgConnection, school_id: Uuid) -> DbResult<Vec<Identity>> {
+    Ok(sqlx::query_as::<_, Identity>(
+        "SELECT id, student_number, full_name, father_name, date_of_birth FROM students
+         WHERE school_id = $1 AND deleted_at IS NULL",
+    )
+    .bind(school_id)
+    .fetch_all(conn)
+    .await?)
+}
+
 pub async fn find_duplicates(
     conn: &mut PgConnection,
     school_id: Uuid,

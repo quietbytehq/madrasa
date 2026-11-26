@@ -249,6 +249,7 @@ import type {
   ConsentRecordRequest,
   SectionConsents,
   ConsentBulkLine,
+  HealthCheck,
 } from "./types";
 
 function qs(params: object): string {
@@ -618,6 +619,11 @@ export const api = {
     request<ImportPreview>("/imports/preview", { method: "POST", body }),
   applyImport: (body: ImportRequest) =>
     request<ImportResult>("/imports/apply", { method: "POST", body }),
+  /** The dry run as a workbook to keep; writes nothing. */
+  downloadImportReport: (body: ImportRequest) => download("/imports/report", body),
+  dataHealth: () => request<HealthCheck[]>("/data-health"),
+  /** The whole school as one workbook. */
+  exportEverything: () => download("/export/everything"),
   boards: () => request<ExamBoard[]>("/boards"),
   createBoard: (body: BoardRequest) => request<ExamBoard>("/boards", { method: "POST", body }),
   updateBoard: (id: string, body: BoardRequest) =>

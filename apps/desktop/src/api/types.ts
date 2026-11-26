@@ -1206,7 +1206,8 @@ export interface BackupStatus {
 
 // ---- M1 stage 6: imports and export -------------------------------------------------------
 
-export type ImportKind = "students" | "staff" | "opening_balances" | "enquiries";
+export type ImportKind =
+  "students" | "guardians" | "staff" | "fee_structure" | "opening_balances" | "enquiries";
 export type DuplicatePolicy = "skip" | "update" | "merge";
 
 export interface ImportField {
@@ -1282,11 +1283,71 @@ export interface ImportSummary {
   error: number;
 }
 
+/** Why some rows will not be imported, said once for all the rows it applies to. */
+export interface DryRunReason {
+  action: "skip" | "error";
+  reason: string;
+  count: number;
+  /** The file's row numbers, the first fifty. */
+  rows: number[];
+}
+
+/** A class or section the file names and the school has not set up. */
+export interface DryRunMissing {
+  name: string;
+  rows: number[];
+}
+
+/** A row that is not the same as an existing record but looks like one. */
+export interface DryRunLookalike {
+  row_no: number;
+  name: string;
+  looks_like: string;
+}
+
+/** Mirrors `DryRun` in `crates/api/src/imports.rs`. */
+export interface DryRun {
+  reasons: DryRunReason[];
+  missing_classes: DryRunMissing[];
+  missing_sections: DryRunMissing[];
+  likely_duplicates: DryRunLookalike[];
+}
+
 export interface ImportPreview {
   rows: RowOutcome[];
   summary: ImportSummary;
   /** File columns mapped to nothing; shown so no column is dropped unseen. */
   unmapped: string[];
+  report: DryRun;
+}
+
+/** One record a data health check found; `link` is where in the app to fix it. */
+export interface HealthFound {
+  label: string;
+  detail: string;
+  link: string | null;
+}
+
+export type HealthCode =
+  | "students_without_section"
+  | "students_in_two_sections"
+  | "students_without_guardian"
+  | "duplicate_student_names"
+  | "doubtful_dates_of_birth"
+  | "duplicate_roll_numbers"
+  | "guardians_without_phone"
+  | "guardian_phone_shared"
+  | "classes_without_fee_structure"
+  | "vouchers_without_fee_head"
+  | "sections_without_class_teacher";
+
+/** Mirrors `HealthCheck` in `crates/api/src/routes/onboarding.rs`. */
+export interface HealthCheck {
+  code: HealthCode;
+  severity: "problem" | "warning";
+  area: "students" | "guardians" | "fees" | "classes";
+  count: number;
+  sample: HealthFound[];
 }
 
 export interface ImportBatch {

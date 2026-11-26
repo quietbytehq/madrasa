@@ -1,5 +1,7 @@
-//! Import wizard endpoints. Everything needs `students.manage` (students, opening balances)
-//! or `teachers.manage` (staff); rollback needs the same permission as the batch's kind.
+//! Import wizard endpoints. Everything needs the permission of what is imported:
+//! `students.manage` (students, guardians, opening balances), `teachers.manage` (staff),
+//! `fees.manage` (fee structure), `admissions.manage` (enquiries). Rollback needs the same
+//! permission as the batch's kind.
 
 use axum::extract::{Path, Query, State};
 use axum::response::Response;
@@ -24,6 +26,7 @@ pub fn router() -> Router<AppState> {
             get(get_mapping).put(put_mapping),
         )
         .route("/imports/preview", post(preview))
+        .route("/imports/report", post(report))
         .route("/imports/apply", post(apply))
         .route("/imports/batches", get(batches))
         .route("/imports/batches/{id}/rollback", post(rollback))
@@ -33,13 +36,18 @@ type JsonBody<T> = Result<Json<T>, axum::extract::rejection::JsonRejection>;
 
 fn kind_of(s: &str) -> ApiResult<ImportKind> {
     s.parse().map_err(|_| {
-        ApiError::validation("Import type must be students, staff or opening_balances.")
+        ApiError::validation(
+            "Import type must be students, guardians, staff, fee_structure or opening_balances.",
+        )
     })
 }
 
 fn permission_for(kind: ImportKind) -> Permission {
     match kind {
-        ImportKind::Students | ImportKind::OpeningBalances => Permission::StudentsManage,
+        ImportKind::Students | ImportKind::OpeningBalances | ImportKind::Guardians => {
+            Permission::StudentsManage
+        }
+        ImportKind::FeeStructure => Permission::FeesManage,
         ImportKind::Staff => Permission::TeachersManage,
         ImportKind::Enquiries => Permission::AdmissionsManage,
     }
@@ -179,6 +187,26 @@ async fn preview(
     ))
 }
 
+/// The dry run as a workbook: what the preview says, to keep or to send to whoever has to
+/// fix the file. Writes nothing.
+async fn report(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    body: JsonBody<ImportRequest>,
+) -> ApiResult<Response> {
+    let Json(req) = body?;
+    user.require(permission_for(req.kind))?;
+    check_mapping(&req)?;
+    let preview = imports::preview(&state, user.user.school_id, &req).await?;
+    let bytes = imports::report_workbook(&req, &preview)?;
+    let name = format!(
+        "madrasa-{}-dry-run-{}.xlsx",
+        req.kind.as_str().replace('_', "-"),
+        crate::clock::today()
+    );
+    Ok(crate::export::file_response(&name, bytes))
+}
+
 async fn apply(
     State(state): State<AppState>,
     user: CurrentUser,
@@ -203,7 +231,10 @@ async fn batches(
     State(state): State<AppState>,
     user: CurrentUser,
 ) -> ApiResult<Json<Vec<ImportBatch>>> {
-    if !user.can(Permission::StudentsManage) && !user.can(Permission::TeachersManage) {
+    if !user.can(Permission::StudentsManage)
+        && !user.can(Permission::TeachersManage)
+        && !user.can(Permission::FeesManage)
+    {
         return Err(ApiError::forbidden());
     }
     let mut c = state.pool.acquire().await?;

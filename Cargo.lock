@@ -5297,6 +5297,7 @@ version = "0.104.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee612c64af12d945f0431952837e0a9fa3693a23d982f1862e975ffff7b24828"
 dependencies = [
+ "tempfile",
  "zip",
 ]
 
