@@ -190,6 +190,20 @@ records. Fix them and press **Check again**.
   new install that has not made a backup yet it says **No backup yet — run one now** instead
   (and warns once the school is more than two days old and still has none).
 - **Back up now** makes a backup immediately.
+- **Every backup is checked.** After the file is written Madrasa reads it back from the disk
+  and compares it with what it wrote, then restores the backup into a temporary database,
+  counts the records of every table against the school's, and removes the temporary database
+  again. The Backup page then says **Checked after writing: restored into a temporary
+  database and every record counted**. The nightly backup is checked before it counts as
+  done; after **Back up now** the check follows within a minute. The check needs free disk
+  space about the size of the database.
+- **When a backup fails, or does not pass its check, a red notice says so** at the top of the
+  dashboard and of the Backup page, for everyone who can see the dashboard: what went wrong,
+  the date of the last good backup (nothing entered since then is backed up), and what to do,
+  usually: check that the backup folder or drive is connected and has free space, then press
+  **Back up now**. The notice stays until a backup succeeds and passes its check. A backup
+  that did not pass its check must not be relied on: the notice says to back up to another
+  folder or drive.
 - **Export everything** downloads every record of the school as one Excel workbook: students,
   guardians, staff, fees, attendance, marks and every other table, without passwords or keys.
   It is the school's own copy in a form any spreadsheet opens, so a school can always leave

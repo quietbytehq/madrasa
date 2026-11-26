@@ -1986,6 +1986,154 @@ instructions and of the new screens is the developer's and is on the list for a 
 reader. Export everything was run on small schools here; its speed and size on a large one
 are measured in stage 4.
 
+### 2026-11-26 — Stage 4: Reliability and performance (branch `claude/kind-franklin-ac2vjh-s4-reliability`)
+
+Four things were asked: a load test at 5,000 students, a long-run test, backups that are
+checked and say so when they fail, and an upgrade test from 0.4.1. Each is a script in
+`scripts/` that anyone can run again (spec §19). The long-run test found the most serious
+fault of this whole run; it is the first thing below.
+
+**The fault that matters: work "saved" on a broken database connection could be lost.**
+When a request is dropped at the very moment it opens a transaction (its client went away:
+a closed window, a client PC switched off, the client proxy giving up on a slow read), the
+database library (sqlx 0.9.0) gave the connection back to the pool with that transaction
+still open. Whatever later requests saved on that connection, each on its own (a sign-in, a
+payment), sat inside a transaction nobody would commit: the person was told it was saved,
+and it was undone by the next unrelated rollback on that connection or lost at a restart.
+It is in every version up to 0.5.1 and needs nothing unusual to happen, only bad timing; how
+often it has happened at a tester's school cannot be known. Fixed twice over (ADR 0011):
+every request now runs to its end whether or not its client is still there, and every
+connection is cleared of any transaction when it comes back to the pool. Tests: the fault
+shown on an unguarded pool and absent on Madrasa's (`crates/db/tests/pool.rs`); a request
+whose client has gone is still carried out (verified to fail without the fix).
+
+Two more of the same family, both found by the long-run test's habit of closing
+connections in the middle of things:
+- "Export everything" (stage 3, not in any release) opened its transaction by hand; an
+  export abandoned half-way left the connection in a read-only transaction and every later
+  request that got it failed. Now sqlx's own transaction; test added (fails on the old code).
+- The headless server (`madrasa-server`, used by the tests and by a server without a
+  window) shut its database before its school-network listener, so a client PC got "Something
+  went wrong" during a shutdown instead of a closed door. The desktop app already stopped
+  in the right order. Fixed.
+
+**1. Load test** (`scripts/load-test.sh`, about ten minutes after the build). A made-up
+school of 5,040 students in 144 sections, 1,680 guardians, 250 staff, three years of
+records: 156,240 fee vouchers, 154,728 receipts, 80,784 attendance sheets with 2.8 million
+entries, 443,520 marks; a 1.16 GB database (`scripts/load/seed.sql`, straight SQL, 2½
+minutes). A release build of the server, the real front end in Chromium, the 23 main
+screens opened three times each and timed from the click to the last answer.
+
+| Promise | Before the fixes | After |
+| --- | --- | --- |
+| Every main screen opens in under 1 s | 22 of 23; Data health 1.2 s; Students and Teachers 0.9 s | all 23; slowest 0.78 s (defaulters, first opening), Data health 0.28 s, Students 0.11 s |
+| Vouchers for the whole school in under 60 s | 11.6 s for 5,040 vouchers | 11.7 s |
+| A backup in under 2 min | 11.8 s (84 MB file) | 7.1 s (85 MB file); its check takes another 86 s |
+| After a day of 300 payments, the day's lists | not measured | collections 0.12 s, defaulters 0.17 s, dashboard 0.27 s |
+| Export everything (no limit set) | 27 s, 112 MB workbook | 26 s |
+| Server memory at the peak | **1.8 GB** (during the backup) | 0.33 GB during the backup and its check, 0.21 GB during the export |
+
+What was slow and why:
+- **The sections list asked the database two questions per section** (teacher's name, head
+  count): 864 questions for three years of sections, on every screen with a class picker.
+  Now two questions in all.
+- **Data health read every voucher twice** to find vouchers without a fee head. Now two
+  plain questions and a small index (migration 0033).
+- **Defaulters read the whole voucher table from the disk** on the first opening of the
+  day. An index on open vouchers (0033) makes it read three pages.
+- **A backup held the whole database in memory**, uncompressed: 1.8 GB for this school.
+  The dump now goes from the database into the compressor a few megabytes at a time
+  (ADR 0010); the file format is the same.
+
+The numbers are from one machine (4 cores, 15 GB of memory, a virtual disk) with the
+database on the same machine. A school's server PC will differ; the test is there to be run
+on one.
+
+**2. Backups are checked, and a failure is an alert** (ADR 0010, migration 0032).
+- After the file is written it is read back and compared, then its records are restored
+  into a temporary database and **every table is counted** against the counts taken in the
+  dump's own snapshot; the temporary database is removed whatever happens. The result is
+  stored with the run and shown on the Backup page and in the run history. A scheduled
+  backup counts as done after its check; "Back up now" answers when the file is written and
+  the page then shows "Checking the backup…" until the result is in.
+- A failed backup, or a failed check, is a red notice on the dashboard and the Backup page
+  for everyone who can see the dashboard: the reason, the date of the last good backup,
+  what to do. It stays until a backup succeeds and passes.
+- Not proven by the check, and said so in the ADR and the guide: that the backup password
+  opens the file. The file is sealed for the school's key and nothing on the computer can
+  open it; only a restore proves that.
+
+**3. Long-run test** (`scripts/soak-test.sh [minutes]`, driver `scripts/load/soak.mjs`). A
+server with the bundled PostgreSQL, six people at a time doing the day's work through the
+API (sign in, search, profiles and ledgers, fee payments, printed vouchers, attendance,
+reports), half of them through two client PCs' proxies that are switched off and on every
+half minute or so (half of the time by killing them), people who close the window in the
+middle of a download, people who never sign out, a backup with its check and an export every
+quarter of an hour, and the school server itself restarted three times, once by a power cut.
+It fails if a request fails while every machine it went through was up, if the server's
+memory, open files or database processes grow, if a database process is left behind after
+a stop, or if a client still holds unsent changes at the end.
+
+Results so far:
+- **Five-minute run, bundled database: passed.** 4,679 requests, none failed while its
+  machines were up; 4 backups made and checked, 4 exports; client PCs switched off and on 6
+  times; after each of the three clean stops 0 database processes were left; after the
+  power cut the 6 orphaned database processes were cleared by the next start, which ended
+  with one database server; both clients' queues empty at the end.
+- **Eight-hour run: started 2026-11-26 06:01 UTC on this stage's build, still running when
+  this was written.** After 30 minutes: 26,268 requests, none failed. The result goes into
+  the close-out entry (stage 6) as it is, whatever it is. A first attempt at 05:32 is void:
+  the build machine's disk filled up after eleven minutes and killed the test driver.
+- In CI: six minutes on every push (the same checks; growth of memory is judged only from
+  30 minutes up, a shorter run cannot tell).
+
+**4. Upgrade from 0.4.1** (`scripts/upgrade-test.sh`, in CI).
+
+The 0.4.1 server is built from its tag, sets up the demo school, and a person's work is
+added through its API (a new student, a fee payment, an attendance sheet, a backup). This
+build then starts on the same database and data folder. Result: **database steps 28 → 33;
+88 tables, 31,500 rows, all still there with the same values**; the student, the receipt,
+the attendance mark, a fee ledger and the defaulters list read the same through the new
+API; the administrator's password signs in; a new backup is made and checked.
+- The comparison is row by row on the columns the old version had; new columns and tables
+  are fine. Left out, with the reason in the script: sign-ins (they end with a restart by
+  design) and the values of settings (compared by key).
+- **A backup made by 0.4.1 cannot be restored by this build** ("This backup was made with a
+  different version of Madrasa; update the app to the version that made it before
+  restoring"). That is the rule since M1 (spec §5.8) and the test only checks that it is
+  said in words and changes nothing. It is in the decisions for the owner: after an
+  upgrade the old backups need the old installer.
+- The first run of the test "found" 17 changed vouchers. It was the daily late-fee pass,
+  which a server makes soon after it starts and which the old server had not yet made; the
+  test now makes it on the old version first. Not a fault.
+
+**CI:** a new job, *Reliability (upgrade from 0.4.1, short long-run test)*: the upgrade test
+and six minutes of the long-run test with the bundled database on every push. The 0.4.1
+build is cached. The load test is not in CI (ten minutes, and timings on shared runners
+would only make noise); it is a script to run before a release, and TESTING.md will say so.
+
+Tests added: the two for the lost-work fault and the abandoned export (above); database tests for the check (verified; counts wrong; contents cut short, as
+records and as a compressed stream; a table missing; the file changed on the disk; the file
+gone), for a failed backup staying reported until the next good one, for a dump written in
+many small records and restored, for the rewritten voucher check and section counts, and
+for an export abandoned half-way; UI tests for the alert on the Backup page and the
+dashboard, the check line, the "checking" state and the run history; two browser tests
+(`e2e/desktop/10-backup.spec.ts`).
+
+**Not proven:**
+- The eight-hour run is not finished (see above).
+- The load test's timings are from one machine: 4 cores, 15 GB of memory, a virtual disk,
+  the database on the same machine. Not run on a school's PC, and not on Windows.
+- The long-run test drives the API, not the screens, and the headless server, not the
+  desktop app's window (the app shares the code that matters here, but its own start and
+  stop were last proven in the v0.5.1 lab, not here).
+- The upgrade test starts from the 0.4.1 *server built from its tag*, not from the 0.4.1
+  installer, and upgrades the small demo school. Upgrades from 0.5.0 and 0.5.1 are not
+  tested separately (their database steps are a subset of what 0.4.1 goes through).
+- How often the lost-work fault happened in real use is unknown; nothing in a database
+  can show it afterwards.
+- The Urdu of the new backup strings is the developer's (list for a native reader, stage 5).
+
 ## Brand identity
 
 The brand sheet (`assets/brand/Madrasa_Brand_Identity_Showcase.png`) applied across the

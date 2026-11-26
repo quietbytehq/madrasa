@@ -42,6 +42,9 @@ const status: BackupStatus = {
   directory: "/home/u/Documents/Madrasa Backups",
   unattended_ready: true,
   last_error: null,
+  last_failed_at: null,
+  check: null,
+  check_message: null,
 };
 const settings: BackupSettings = { enabled: true, time: "02:00", directory: null, keep: 30 };
 const preview: RestorePreview = {
@@ -97,6 +100,9 @@ describe("BackupPage", () => {
       file_path: "/x/madrasa-khi-mc-20261030-100000.mbk",
       file_size: 4096,
       error: null,
+      verify_status: null,
+      verify_message: null,
+      verified_at: null,
     });
     render();
     expect(await screen.findByText("Backups are up to date.")).toBeInTheDocument();
@@ -118,6 +124,121 @@ describe("BackupPage", () => {
     await userEvent.click(button);
     expect(api.exportEverything).toHaveBeenCalledTimes(1);
     expect(await screen.findByText(/It holds every record of the school/)).toBeInTheDocument();
+  });
+
+  it("after Back up now it says the check is running, and then its result", async () => {
+    vi.mocked(api.backupSettings).mockResolvedValue(settings);
+    vi.mocked(api.backupFiles).mockResolvedValue([]);
+    vi.mocked(api.runBackup).mockResolvedValue({
+      id: "r2",
+      school_id: "s",
+      trigger: "manual",
+      status: "ok",
+      started_at: "2026-10-30T10:00:00Z",
+      finished_at: "2026-10-30T10:00:05Z",
+      file_path: "/x/new.mbk",
+      file_size: 4096,
+      error: null,
+      verify_status: null,
+      verify_message: null,
+      verified_at: null,
+    });
+    // The backup before this one was checked; the new one is not yet, then it is.
+    vi.mocked(api.backupStatus)
+      .mockResolvedValueOnce({ ...status, check: "verified", check_message: "old" })
+      .mockResolvedValueOnce({ ...status, check: null })
+      .mockResolvedValue({
+        ...status,
+        check: "verified",
+        check_message:
+          "Restored into a temporary database and counted: all 5120 records are there.",
+      });
+    render();
+    expect(await screen.findByTestId("backup-check")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Back up now" }));
+    expect(await screen.findByTestId("backup-checking")).toHaveTextContent(
+      "Checking the backup: it is being restored into a temporary database and counted…",
+    );
+    expect(screen.queryByTestId("backup-check")).not.toBeInTheDocument();
+    const done = await screen.findByTestId("backup-check", {}, { timeout: 6000 });
+    expect(done).toHaveAttribute("title", expect.stringContaining("all 5120 records"));
+    expect(screen.queryByTestId("backup-checking")).not.toBeInTheDocument();
+  }, 10_000);
+
+  it("says when the last backup was checked, and alerts when it did not pass", async () => {
+    vi.mocked(api.backupSettings).mockResolvedValue(settings);
+    vi.mocked(api.backupFiles).mockResolvedValue([]);
+    vi.mocked(api.backupStatus).mockResolvedValue({
+      ...status,
+      check: "verified",
+      check_message: "Restored into a temporary database and counted: all 5120 records are there.",
+    });
+    const run = {
+      id: "r1",
+      school_id: "s",
+      trigger: "scheduled" as const,
+      status: "ok" as const,
+      started_at: "2026-10-30T02:00:00Z",
+      finished_at: "2026-10-30T02:00:05Z",
+      file_path: "/x/a.mbk",
+      file_size: 4096,
+      error: null,
+      verify_status: "verified" as const,
+      verify_message: "Restored into a temporary database and counted: all 5120 records are there.",
+      verified_at: "2026-10-30T02:00:09Z",
+    };
+    vi.mocked(api.backupRuns).mockResolvedValueOnce([
+      run,
+      {
+        ...run,
+        id: "r0",
+        file_path: "/x/b.mbk",
+        verify_status: "failed",
+        verify_message: "students: 10 of 12",
+      },
+    ]);
+    const first = render();
+    // The history says for each backup whether it was checked.
+    expect(await screen.findByText("Checked")).toHaveAttribute(
+      "title",
+      expect.stringContaining("all 5120 records"),
+    );
+    expect(screen.getByText("Check failed")).toHaveAttribute("title", "students: 10 of 12");
+    const line = await screen.findByTestId("backup-check");
+    expect(line).toHaveTextContent("Checked after writing: restored into a temporary database");
+    expect(line).toHaveAttribute("title", expect.stringContaining("all 5120 records"));
+    expect(screen.queryByTestId("backup-alert")).not.toBeInTheDocument();
+    first.unmount();
+
+    vi.mocked(api.backupStatus).mockResolvedValue({
+      ...status,
+      check: "failed",
+      check_message:
+        "Restored into a temporary database, but some records are missing (students: 10 of 12).",
+    });
+    render();
+    const alert = within(await screen.findByTestId("backup-alert"));
+    expect(alert.getByText("The last backup did not pass its check")).toBeInTheDocument();
+    expect(alert.getByText(/students: 10 of 12/)).toBeInTheDocument();
+    expect(alert.getByText(/Do not rely on it/)).toBeInTheDocument();
+    expect(screen.queryByTestId("backup-check")).not.toBeInTheDocument();
+  });
+
+  it("with no good backup at all, the alert says nothing is backed up", async () => {
+    vi.mocked(api.backupSettings).mockResolvedValue(settings);
+    vi.mocked(api.backupFiles).mockResolvedValue([]);
+    vi.mocked(api.backupStatus).mockResolvedValue({
+      ...status,
+      never: true,
+      last_backup_at: null,
+      last_backup_file: null,
+      last_error: "The backup folder cannot be used (E:\\Backups): not found",
+      last_failed_at: "2026-11-25T02:00:05Z",
+    });
+    render();
+    const alert = within(await screen.findByTestId("backup-alert"));
+    expect(alert.getByText(/The backup folder cannot be used/)).toBeInTheDocument();
+    expect(alert.getByText("There is no good backup yet: nothing is backed up.")).toBeVisible();
   });
 
   it("on a new install says there is no backup yet, without the two-day warning", async () => {
@@ -145,7 +266,12 @@ describe("BackupPage", () => {
     vi.mocked(api.unlockBackups).mockResolvedValue(undefined);
     render();
     expect(await screen.findByText("The last backup is older than 2 days.")).toBeInTheDocument();
-    expect(screen.getByText("Last attempt failed: disk full")).toBeInTheDocument();
+    // The failure is said in an alert of its own, with the last good backup and what to do.
+    const alert = within(screen.getByTestId("backup-alert"));
+    expect(alert.getByText("The last backup failed")).toBeInTheDocument();
+    expect(alert.getByText("disk full")).toBeInTheDocument();
+    expect(alert.getByText(/The last good backup is from .*Nothing entered since/)).toBeVisible();
+    expect(alert.getByText(/then press Back up now/)).toBeInTheDocument();
     await userEvent.type(screen.getAllByLabelText("Backup password")[0]!, "backup-password-1");
     await userEvent.click(screen.getByRole("button", { name: "Enable automatic backups" }));
     await waitFor(() =>

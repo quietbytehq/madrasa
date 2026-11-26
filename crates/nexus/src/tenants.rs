@@ -133,7 +133,7 @@ pub async fn begin<'a>(
 pub(crate) async fn scoped_pool(pool: &PgPool, schema: &str) -> anyhow::Result<PgPool> {
     anyhow::ensure!(is_schema_name(schema), "not a school schema name");
     let set_path = format!("SET search_path TO \"{schema}\"");
-    Ok(sqlx::postgres::PgPoolOptions::new()
+    Ok(madrasa_db::pool_options()
         .max_connections(1)
         .after_connect(move |conn, _meta| {
             let set_path = set_path.clone();

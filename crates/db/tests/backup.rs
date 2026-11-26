@@ -64,7 +64,7 @@ async fn tables_are_ordered_parents_first_and_dump_round_trips() {
     assert!(pos("mark_sheets") < pos("marks"));
     assert!(!order.iter().any(|t| t == "_sqlx_migrations"));
     let versions = backup::migration_versions(&mut c).await.unwrap();
-    assert_eq!(versions.len(), 31);
+    assert_eq!(versions.len(), 33);
     backup::check_schema(&versions, &versions).unwrap();
     assert!(matches!(
         backup::check_schema(&versions, &versions[..13]),
@@ -134,6 +134,27 @@ async fn tables_are_ordered_parents_first_and_dump_round_trips() {
     // Restoring the same dump again is idempotent.
     let again = backup::restore(&mut c, &dump).await.unwrap();
     assert_eq!(again, report);
+    // A big table is written as several records (here: every few rows), and comes back the
+    // same. The counts are taken in the dump's own snapshot, for every table.
+    let everything = backup::table_counts(&mut c).await.unwrap();
+    let mut pieces = Vec::new();
+    let counted = backup::dump_segmented(&mut c, &mut pieces, 64)
+        .await
+        .unwrap();
+    assert_eq!(counted, everything);
+    assert!(counted.len() > 50 && counted["audit_log"] > 1);
+    assert!(
+        pieces.len() > dump.len(),
+        "more records, so more headings: {} vs {}",
+        pieces.len(),
+        dump.len()
+    );
+    let from_pieces = backup::restore(&mut c, &pieces).await.unwrap();
+    assert_eq!(
+        (from_pieces.tables, from_pieces.rows),
+        (report.tables, report.rows)
+    );
+    assert_eq!(backup::table_counts(&mut c).await.unwrap(), everything);
     // Garbage and a truncated dump are refused before anything is touched.
     assert!(matches!(
         backup::restore(&mut c, b"not a dump").await,
@@ -141,6 +162,28 @@ async fn tables_are_ordered_parents_first_and_dump_round_trips() {
     ));
     assert!(matches!(
         backup::restore(&mut c, &dump[..dump.len() / 2]).await,
+        Err(DbError::Conflict(_))
+    ));
+    assert!(matches!(
+        backup::restore(&mut c, &pieces[..pieces.len() - 3]).await,
+        Err(DbError::Conflict(_))
+    ));
+    // Cut exactly between two records, where what is left reads like a whole, shorter
+    // dump: the end marker (four bytes and the count of records) is missing, so it is
+    // refused too. Without the marker such a dump restored "successfully" with the later
+    // tables empty.
+    for whole in [&dump, &pieces] {
+        assert!(matches!(
+            backup::restore(&mut c, &whole[..whole.len() - 12]).await,
+            Err(DbError::Conflict(_))
+        ));
+    }
+    // A marker that counts fewer records than came before it is not believed either.
+    let mut miscounted = dump.clone();
+    let at = miscounted.len() - 1;
+    miscounted[at] = miscounted[at].wrapping_add(1);
+    assert!(matches!(
+        backup::restore(&mut c, &miscounted).await,
         Err(DbError::Conflict(_))
     ));
     assert_eq!(

@@ -26,6 +26,9 @@ const backupOk = {
   directory: "/backups",
   unattended_ready: true,
   last_error: null,
+  last_failed_at: null,
+  check: null,
+  check_message: null,
 };
 import { MarkTab } from "./tabs/MarkTab";
 import { StaffTab } from "./tabs/StaffTab";
@@ -431,6 +434,37 @@ describe("Dashboard attendance card", () => {
     );
     expect(await screen.findByText("No school today: weekend")).toBeInTheDocument();
     expect(screen.getByText("The last backup is older than 2 days.")).toBeInTheDocument();
+  });
+
+  it("shows a red alert when the last backup failed, to people who cannot manage backups too", async () => {
+    vi.mocked(api.dashboard).mockResolvedValue({
+      date: "2026-04-07",
+      day_kind: { kind: "school" },
+      attendance: { totals: status.totals, unmarked: [] },
+      backup: {
+        ...backupOk,
+        last_error: "The backup folder cannot be used (E:\\Backups): not found",
+        last_failed_at: "2026-04-07T02:00:04Z",
+      },
+      students_active: null,
+      staff_active: null,
+      fees: null,
+    });
+    renderWithProviders(
+      <FeaturesProvider initial={{ edition: "lite", features: ["dashboard", "attendance"] }}>
+        <SessionProvider initial={{ user, permissions: TEACHER }}>
+          <Dashboard />
+        </SessionProvider>
+      </FeaturesProvider>,
+    );
+    const alert = within(await screen.findByRole("alert"));
+    expect(alert.getByText("The last backup failed")).toBeInTheDocument();
+    expect(alert.getByText(/The backup folder cannot be used/)).toBeInTheDocument();
+    expect(
+      alert.getByText(/The last good backup is from .* Nothing entered since then/),
+    ).toBeVisible();
+    // A teacher cannot open the Backup page, so there is no link to it.
+    expect(alert.queryByRole("link")).toBeNull();
   });
 
   // Sanity test of v0.5.0: with every section marked the panel was still headed "Not yet

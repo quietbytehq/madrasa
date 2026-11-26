@@ -172,6 +172,79 @@ jobs:
           path: e2e/test-results/screens
           retention-days: 14
 
+  reliability:
+    # Two checks that need whole servers rather than unit tests:
+    #  - scripts/upgrade-test.sh: a school on 0.4.1 with data in it is upgraded in place to
+    #    this build; every row of every table must still be there, unchanged.
+    #  - scripts/soak-test.sh, for six minutes: a server with the bundled PostgreSQL used by
+    #    people and client PCs that come and go, restarted three times (once by a power
+    #    cut). No request may fail while its server is up and no database process may be
+    #    left behind. The 8-hour run that also judges memory is done by hand before a
+    #    release (docs/TESTING.md).
+    name: Reliability (upgrade from 0.4.1, short long-run test)
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v5
+      - name: Fetch the version to upgrade from
+        run: git fetch --depth 1 origin refs/tags/v0.4.1-alpha:refs/tags/v0.4.1-alpha
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client jq
+      - uses: dtolnay/rust-toolchain@stable
+        id: rust
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: reliability
+      # The old version never changes, so its build is kept until the compiler does.
+      - name: Cache the 0.4.1 build
+        uses: actions/cache@v5
+        with:
+          path: ${{ runner.temp }}/upgrade-old
+          key: upgrade-old-v0.4.1-alpha-${{ runner.os }}-${{ steps.rust.outputs.cachekey }}
+      - name: Cache bundled PostgreSQL archive
+        uses: actions/cache@v5
+        with:
+          path: ~/.theseus/postgresql
+          key: theseus-postgresql-${{ runner.os }}-${{ hashFiles('.cargo/config.toml') }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Upgrade from 0.4.1 with data
+        env:
+          MADRASA_UPGRADE_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+          UPGRADE_OLD_TARGET: ${{ runner.temp }}/upgrade-old
+        run: scripts/upgrade-test.sh
+      - name: Long-run test, six minutes
+        env:
+          SOAK_PROFILE: dev
+          SOAK_WORK: ${{ runner.temp }}/soak
+        run: scripts/soak-test.sh 6
+      - name: Keep the long-run test's results and logs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: soak
+          path: |
+            ${{ runner.temp }}/soak/results.md
+            ${{ runner.temp }}/soak/samples.csv
+            ${{ runner.temp }}/soak/*.log
+          retention-days: 14
+
   rust-windows:
     # Windows runners have no service containers; database-backed tests skip themselves.
     name: Rust (Windows)

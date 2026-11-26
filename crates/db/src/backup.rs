@@ -122,75 +122,111 @@ pub async fn record_counts(conn: &mut PgConnection) -> DbResult<BTreeMap<String,
     Ok(out)
 }
 
-/// Dump every table in one repeatable-read transaction.
-pub async fn dump(conn: &mut PgConnection) -> DbResult<Vec<u8>> {
+/// Rows of every table, by name.
+pub type TableCounts = BTreeMap<String, i64>;
+
+/// How much of a table goes into one record of the dump. A big table is written as several
+/// records one after the other, so no more than this much of the database is ever held in
+/// memory at a time, whatever the size of the school.
+const SEGMENT: usize = 4 * 1024 * 1024;
+
+/// Written after the last record, with the number of records before it: a dump that stops
+/// early, even exactly between two tables, is known to be incomplete.
+const END: [u8; 4] = [0xFF; 4];
+
+fn io_failed(e: std::io::Error) -> DbError {
+    DbError::Conflict(format!("the backup could not be written: {e}"))
+}
+
+fn write_record<W: std::io::Write>(
+    out: &mut W,
+    table: &str,
+    cols: &str,
+    data: &[u8],
+) -> std::io::Result<()> {
+    out.write_all(&(table.len() as u32).to_be_bytes())?;
+    out.write_all(table.as_bytes())?;
+    out.write_all(&(cols.len() as u32).to_be_bytes())?;
+    out.write_all(cols.as_bytes())?;
+    out.write_all(&(data.len() as u64).to_be_bytes())?;
+    out.write_all(data)
+}
+
+/// Rows of every table (the tables a dump holds), counted now.
+pub async fn table_counts(conn: &mut PgConnection) -> DbResult<TableCounts> {
+    let mut out = BTreeMap::new();
+    for t in table_order(&mut *conn).await? {
+        let n: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+            "SELECT count(*) FROM {}",
+            ident(&t)
+        )))
+        .fetch_one(&mut *conn)
+        .await?;
+        out.insert(t, n);
+    }
+    Ok(out)
+}
+
+/// Dump every table in one repeatable-read transaction, writing as it goes (into a
+/// compressor, for a backup), and say how many rows of each table that snapshot held.
+pub async fn dump_into<W: std::io::Write + Send>(
+    conn: &mut PgConnection,
+    out: &mut W,
+) -> DbResult<TableCounts> {
+    dump_segmented(conn, out, SEGMENT).await
+}
+
+/// [`dump_into`] with the record size given (tests make a small table span many records).
+#[doc(hidden)]
+pub async fn dump_segmented<W: std::io::Write + Send>(
+    conn: &mut PgConnection,
+    out: &mut W,
+    segment_size: usize,
+) -> DbResult<TableCounts> {
     let mut tx = conn.begin().await?;
     sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
         .execute(&mut *tx)
         .await?;
     let tables = table_order(&mut tx).await?;
-    let mut out = Vec::new();
-    out.extend_from_slice(MAGIC);
+    out.write_all(MAGIC).map_err(io_failed)?;
+    let mut segment: Vec<u8> = Vec::with_capacity(segment_size.min(SEGMENT) + 64 * 1024);
+    let mut records = 0u64;
     for table in &tables {
         let cols = columns(&mut tx, table).await?;
-        let sql = format!("COPY \"{table}\" ({}) TO STDOUT", quoted(&cols));
-        let mut stream = tx.copy_out_raw(&sql).await?;
-        let mut data = Vec::new();
-        while let Some(chunk) = stream.try_next().await? {
-            data.extend_from_slice(&chunk);
-        }
+        let sql = format!("COPY {} ({}) TO STDOUT", ident(table), quoted(&cols));
         let cols_joined = cols.join(",");
-        out.extend_from_slice(&(table.len() as u32).to_be_bytes());
-        out.extend_from_slice(table.as_bytes());
-        out.extend_from_slice(&(cols_joined.len() as u32).to_be_bytes());
-        out.extend_from_slice(cols_joined.as_bytes());
-        out.extend_from_slice(&(data.len() as u64).to_be_bytes());
-        out.extend_from_slice(&data);
+        let mut written = false;
+        {
+            let mut stream = tx.copy_out_raw(&sql).await?;
+            while let Some(chunk) = stream.try_next().await? {
+                segment.extend_from_slice(&chunk);
+                if segment.len() >= segment_size {
+                    write_record(out, table, &cols_joined, &segment).map_err(io_failed)?;
+                    segment.clear();
+                    written = true;
+                    records += 1;
+                }
+            }
+        }
+        // An empty table is written too: a restore checks its columns.
+        if !segment.is_empty() || !written {
+            write_record(out, table, &cols_joined, &segment).map_err(io_failed)?;
+            segment.clear();
+            records += 1;
+        }
     }
+    out.write_all(&END).map_err(io_failed)?;
+    out.write_all(&records.to_be_bytes()).map_err(io_failed)?;
+    let counts = table_counts(&mut tx).await?;
     tx.commit().await?;
+    Ok(counts)
+}
+
+/// [`dump_into`] a buffer: the whole dump in memory. For tests and small databases.
+pub async fn dump(conn: &mut PgConnection) -> DbResult<Vec<u8>> {
+    let mut out = Vec::new();
+    dump_into(conn, &mut out).await?;
     Ok(out)
-}
-
-struct DumpTable<'a> {
-    name: String,
-    cols: Vec<String>,
-    data: &'a [u8],
-}
-
-fn parse(container: &[u8]) -> DbResult<Vec<DumpTable<'_>>> {
-    let bad = || DbError::Conflict("the backup contents are not a Madrasa dump".into());
-    if !container.starts_with(MAGIC) {
-        return Err(bad());
-    }
-    let mut pos = MAGIC.len();
-    let mut tables = Vec::new();
-    let take = |pos: &mut usize, n: usize| -> DbResult<&[u8]> {
-        let end = pos.checked_add(n).ok_or_else(bad)?;
-        let slice = container.get(*pos..end).ok_or_else(bad)?;
-        *pos = end;
-        Ok(slice)
-    };
-    while pos < container.len() {
-        let name_len =
-            u32::from_be_bytes(take(&mut pos, 4)?.try_into().map_err(|_| bad())?) as usize;
-        let name = String::from_utf8(take(&mut pos, name_len)?.to_vec()).map_err(|_| bad())?;
-        let cols_len =
-            u32::from_be_bytes(take(&mut pos, 4)?.try_into().map_err(|_| bad())?) as usize;
-        let cols = String::from_utf8(take(&mut pos, cols_len)?.to_vec()).map_err(|_| bad())?;
-        let data_len =
-            u64::from_be_bytes(take(&mut pos, 8)?.try_into().map_err(|_| bad())?) as usize;
-        let data = take(&mut pos, data_len)?;
-        tables.push(DumpTable {
-            name,
-            cols: cols
-                .split(',')
-                .filter(|c| !c.is_empty())
-                .map(str::to_owned)
-                .collect(),
-            data,
-        });
-    }
-    Ok(tables)
 }
 
 /// Tables and rows loaded by a restore.
@@ -221,23 +257,73 @@ pub async fn restore(conn: &mut PgConnection, container: &[u8]) -> DbResult<Rest
 /// [`restore`] inside a transaction the caller holds, so that what must happen with the
 /// restore (keeping a school's link to its Nexus hub) commits or fails together with it.
 pub async fn restore_in(tx: &mut PgConnection, container: &[u8]) -> DbResult<RestoreReport> {
-    let tables = parse(container)?;
-    let existing = table_order(&mut *tx).await?;
-    for t in &tables {
-        if !existing.contains(&t.name) {
-            return Err(DbError::Conflict(format!(
-                "the backup contains a table this version does not know: {}",
-                t.name
-            )));
-        }
-        let cols = columns(&mut *tx, &t.name).await?;
-        if t.cols != cols {
-            return Err(DbError::Conflict(format!(
-                "the columns of {} differ from this version",
-                t.name
-            )));
-        }
+    restore_stream(tx, container).await
+}
+
+/// One record's heading in a dump.
+struct RecordHead {
+    table: String,
+    cols: Vec<String>,
+    len: u64,
+}
+
+fn not_a_dump() -> DbError {
+    DbError::Conflict("the backup contents are not a Madrasa dump".into())
+}
+
+/// The next record's heading, or `None` at the end marker when it names `seen` records.
+/// A dump that simply stops, wherever it stops, is not a dump.
+fn read_head<R: std::io::Read>(reader: &mut R, seen: u64) -> DbResult<Option<RecordHead>> {
+    let mut len4 = [0u8; 4];
+    reader.read_exact(&mut len4).map_err(|_| not_a_dump())?;
+    if len4 == END {
+        let mut count = [0u8; 8];
+        reader.read_exact(&mut count).map_err(|_| not_a_dump())?;
+        return if u64::from_be_bytes(count) == seen {
+            Ok(None)
+        } else {
+            Err(not_a_dump())
+        };
     }
+    fn text<R: std::io::Read>(reader: &mut R, len: usize) -> DbResult<String> {
+        // Names and column lists are short; a wild length means a damaged file.
+        if len > 1024 * 1024 {
+            return Err(not_a_dump());
+        }
+        let mut buf = vec![0u8; len];
+        reader.read_exact(&mut buf).map_err(|_| not_a_dump())?;
+        String::from_utf8(buf).map_err(|_| not_a_dump())
+    }
+    let table = text(reader, u32::from_be_bytes(len4) as usize)?;
+    let mut cols_len = [0u8; 4];
+    reader.read_exact(&mut cols_len).map_err(|_| not_a_dump())?;
+    let cols = text(reader, u32::from_be_bytes(cols_len) as usize)?;
+    let mut len8 = [0u8; 8];
+    reader.read_exact(&mut len8).map_err(|_| not_a_dump())?;
+    Ok(Some(RecordHead {
+        table,
+        cols: cols
+            .split(',')
+            .filter(|c| !c.is_empty())
+            .map(str::to_owned)
+            .collect(),
+        len: u64::from_be_bytes(len8),
+    }))
+}
+
+/// Replace every table's contents with a dump that is read as it is loaded (from memory, or
+/// straight out of a decompressor), inside the caller's transaction: a dump that turns out
+/// to be damaged or from another version fails the transaction and changes nothing.
+pub async fn restore_stream<R: std::io::Read + Send>(
+    tx: &mut PgConnection,
+    mut reader: R,
+) -> DbResult<RestoreReport> {
+    let mut magic = [0u8; 7];
+    debug_assert_eq!(magic.len(), MAGIC.len());
+    if reader.read_exact(&mut magic).is_err() || magic != MAGIC {
+        return Err(not_a_dump());
+    }
+    let existing = table_order(&mut *tx).await?;
     for name in &existing {
         sqlx::query(sqlx::AssertSqlSafe(format!(
             "ALTER TABLE {} DISABLE TRIGGER USER",
@@ -252,17 +338,60 @@ pub async fn restore_in(tx: &mut PgConnection, container: &[u8]) -> DbResult<Res
         .execute(&mut *tx)
         .await?;
     let mut rows = 0u64;
-    // Load in the current dependency order so foreign keys are satisfied row by row.
-    for name in &existing {
-        let Some(t) = tables.iter().find(|t| &t.name == name) else {
-            continue;
-        };
-        if t.data.is_empty() {
-            continue;
+    let mut tables = 0usize;
+    let mut buf = vec![0u8; 1024 * 1024];
+    // The dump lists parents before children, so loading in its order satisfies the foreign
+    // keys. The records of one table follow each other and go into one COPY.
+    let mut records = 0u64;
+    let mut next = read_head(&mut reader, records)?;
+    while let Some(head) = next.take() {
+        records += 1;
+        if !existing.contains(&head.table) {
+            return Err(DbError::Conflict(format!(
+                "the backup contains a table this version does not know: {}",
+                head.table
+            )));
         }
-        let sql = format!("COPY {} ({}) FROM STDIN", ident(&t.name), quoted(&t.cols));
+        if columns(&mut *tx, &head.table).await? != head.cols {
+            return Err(DbError::Conflict(format!(
+                "the columns of {} differ from this version",
+                head.table
+            )));
+        }
+        tables += 1;
+        let sql = format!(
+            "COPY {} ({}) FROM STDIN",
+            ident(&head.table),
+            quoted(&head.cols)
+        );
         let mut sink = tx.copy_in_raw(&sql).await?;
-        sink.send(t.data).await?;
+        let mut left = head.len;
+        loop {
+            while left > 0 {
+                let take = left.min(buf.len() as u64) as usize;
+                if reader.read_exact(&mut buf[..take]).is_err() {
+                    sink.abort("the backup ends in the middle of a table")
+                        .await?;
+                    return Err(not_a_dump());
+                }
+                sink.send(&buf[..take]).await?;
+                left -= take as u64;
+            }
+            match read_head(&mut reader, records) {
+                Ok(Some(more)) if more.table == head.table && more.cols == head.cols => {
+                    records += 1;
+                    left = more.len;
+                }
+                Ok(other) => {
+                    next = other;
+                    break;
+                }
+                Err(e) => {
+                    sink.abort("the backup is damaged").await?;
+                    return Err(e);
+                }
+            }
+        }
         rows += sink.finish().await?;
     }
     for name in &existing {
@@ -281,10 +410,7 @@ pub async fn restore_in(tx: &mut PgConnection, container: &[u8]) -> DbResult<Res
     )
     .execute(&mut *tx)
     .await?;
-    Ok(RestoreReport {
-        tables: tables.len(),
-        rows,
-    })
+    Ok(RestoreReport { tables, rows })
 }
 
 // ---- run history --------------------------------------------------------------------------
@@ -299,7 +425,7 @@ pub async fn start_run(
     let run = sqlx::query_as::<_, BackupRun>(
         "INSERT INTO backup_runs (id, school_id, trigger, status, updated_by, hlc)
          VALUES ($1, $2, $3, 'running', $4, $5)
-         RETURNING id, school_id, trigger, status, started_at, finished_at, file_path, file_size, error",
+         RETURNING id, school_id, trigger, status, started_at, finished_at, file_path, file_size, error, verify_status, verify_message, verified_at",
     )
     .bind(new_id())
     .bind(school_id)
@@ -339,7 +465,7 @@ pub async fn finish_run(
         "UPDATE backup_runs SET status = $2, finished_at = now(), file_path = $3, file_size = $4, error = $5,
             updated_at = now(), updated_by = $6, hlc = $7
          WHERE id = $1
-         RETURNING id, school_id, trigger, status, started_at, finished_at, file_path, file_size, error",
+         RETURNING id, school_id, trigger, status, started_at, finished_at, file_path, file_size, error, verify_status, verify_message, verified_at",
     )
     .bind(id)
     .bind(status)
@@ -369,7 +495,7 @@ pub async fn finish_run(
 
 pub async fn last_ok_run(conn: &mut PgConnection, school_id: Uuid) -> DbResult<Option<BackupRun>> {
     Ok(sqlx::query_as::<_, BackupRun>(
-        "SELECT id, school_id, trigger, status, started_at, finished_at, file_path, file_size, error
+        "SELECT id, school_id, trigger, status, started_at, finished_at, file_path, file_size, error, verify_status, verify_message, verified_at
          FROM backup_runs WHERE school_id = $1 AND status = 'ok' AND deleted_at IS NULL
          ORDER BY finished_at DESC LIMIT 1",
     )
@@ -384,7 +510,7 @@ pub async fn recent_runs(
     limit: i64,
 ) -> DbResult<Vec<BackupRun>> {
     Ok(sqlx::query_as::<_, BackupRun>(
-        "SELECT id, school_id, trigger, status, started_at, finished_at, file_path, file_size, error
+        "SELECT id, school_id, trigger, status, started_at, finished_at, file_path, file_size, error, verify_status, verify_message, verified_at
          FROM backup_runs WHERE school_id = $1 AND deleted_at IS NULL
          ORDER BY started_at DESC LIMIT $2",
     )
@@ -392,6 +518,43 @@ pub async fn recent_runs(
     .bind(limit)
     .fetch_all(conn)
     .await?)
+}
+
+/// Record what the check of a finished backup found: `verified`, `failed` or `skipped`,
+/// with a sentence a person can read.
+pub async fn set_verification(
+    conn: &mut PgConnection,
+    hlc: &Hlc,
+    actor: Actor,
+    id: Uuid,
+    status: &str,
+    message: &str,
+) -> DbResult<BackupRun> {
+    let run = sqlx::query_as::<_, BackupRun>(
+        "UPDATE backup_runs SET verify_status = $2, verify_message = $3, verified_at = now(),
+            updated_at = now(), updated_by = $4, hlc = $5
+         WHERE id = $1
+         RETURNING id, school_id, trigger, status, started_at, finished_at, file_path, file_size, error, verify_status, verify_message, verified_at",
+    )
+    .bind(id)
+    .bind(status)
+    .bind(message)
+    .bind(actor.user_id)
+    .bind(hlc.now().to_string())
+    .fetch_one(&mut *conn)
+    .await?;
+    audit::record(
+        conn,
+        hlc,
+        actor,
+        Action::Backup,
+        "backup",
+        Some(run.id),
+        None,
+        Some(serde_json::json!({ "check": status, "message": message })),
+    )
+    .await?;
+    Ok(run)
 }
 
 /// Mark runs left 'running' by a crash as failed.

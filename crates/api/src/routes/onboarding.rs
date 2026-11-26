@@ -164,12 +164,20 @@ const CHECKS: &[(&str, &str, &str, Permission, &str)] = &[
         "problem",
         "fees",
         Permission::FeesRead,
-        "SELECT v.voucher_no AS label, s.full_name || ' (' || s.student_number || '), ' || to_char(v.billing_month, 'Mon YYYY') AS detail,
+        // Two plain questions instead of two per voucher: vouchers with no line at all, and
+        // lines without a fee head (found through their own small index). On a school with
+        // 150,000 vouchers the per-voucher form took over half a second.
+        "WITH bad AS (
+           SELECT v.id FROM fee_vouchers v
+           WHERE v.school_id = $1 AND v.deleted_at IS NULL AND v.status <> 'cancelled'
+             AND NOT EXISTS (SELECT 1 FROM fee_voucher_lines l WHERE l.voucher_id = v.id AND l.deleted_at IS NULL)
+           UNION
+           SELECT l.voucher_id FROM fee_voucher_lines l
+           WHERE l.school_id = $1 AND l.deleted_at IS NULL AND l.fee_head_id IS NULL)
+         SELECT v.voucher_no AS label, s.full_name || ' (' || s.student_number || '), ' || to_char(v.billing_month, 'Mon YYYY') AS detail,
                 '/fees/vouchers/' || v.id || '/print' AS link, count(*) OVER () AS total
-         FROM fee_vouchers v JOIN students s ON s.id = v.student_id
-         WHERE v.school_id = $1 AND v.deleted_at IS NULL AND v.status <> 'cancelled'
-           AND (NOT EXISTS (SELECT 1 FROM fee_voucher_lines l WHERE l.voucher_id = v.id AND l.deleted_at IS NULL)
-             OR EXISTS (SELECT 1 FROM fee_voucher_lines l WHERE l.voucher_id = v.id AND l.deleted_at IS NULL AND l.fee_head_id IS NULL))
+         FROM bad JOIN fee_vouchers v ON v.id = bad.id AND v.deleted_at IS NULL AND v.status <> 'cancelled'
+         JOIN students s ON s.id = v.student_id
          ORDER BY v.billing_month DESC, v.voucher_no LIMIT $2",
     ),
     (

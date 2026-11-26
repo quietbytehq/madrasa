@@ -328,13 +328,18 @@ pub struct Exported {
 
 /// Build the workbook for one school.
 pub async fn export(pool: &sqlx::PgPool, school_id: Uuid) -> Result<Exported, ApiError> {
-    let mut conn = pool.acquire().await?;
-    // One consistent picture of the school, however long the export takes.
-    sqlx::query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY")
-        .execute(&mut *conn)
+    // One consistent picture of the school, however long the export takes. The transaction
+    // is sqlx's own, not a hand-written BEGIN: when the person closes the window half-way
+    // the request is dropped at whatever line it had reached, and only a transaction that
+    // rolls itself back on drop gives the connection back to the pool clean. (With a
+    // hand-written BEGIN the connection went back inside a read-only transaction, and every
+    // later request that got it failed.)
+    let mut tx = pool.begin().await?;
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        .execute(&mut *tx)
         .await?;
-    let result = export_in(&mut conn, school_id).await;
-    let _ = sqlx::query("ROLLBACK").execute(&mut *conn).await;
+    let result = export_in(&mut tx, school_id).await;
+    let _ = tx.rollback().await;
     result
 }
 

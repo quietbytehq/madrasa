@@ -39,6 +39,19 @@ const CONSOLE_CSP: &str = "default-src 'self'; style-src 'self' 'unsafe-inline';
      img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; \
      base-uri 'self'; form-action 'self'";
 
+/// Every request is carried out to its end, whether or not whoever sent it is still there
+/// (the same promise, for the same reasons, as `madrasa_api::to_completion`).
+async fn to_completion(
+    req: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    match tokio::spawn(next.run(req)).await {
+        Ok(response) => response,
+        Err(_) => axum::http::StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+}
+
 async fn no_such_api() -> HubError {
     HubError::new(
         StatusCode::NOT_FOUND,
@@ -77,7 +90,9 @@ pub fn router(state: HubState) -> Router {
             throttle::layer,
         ))
         .with_state(state.clone());
-    let app = Router::new().nest(API_PREFIX, api);
+    let app = Router::new()
+        .nest(API_PREFIX, api)
+        .layer(axum::middleware::from_fn(to_completion));
     let app = match console {
         Some(dir) => {
             // Built files have a content hash in their names and never change; the page

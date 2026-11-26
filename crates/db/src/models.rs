@@ -734,6 +734,11 @@ pub struct BackupRun {
     pub file_path: Option<String>,
     pub file_size: Option<i64>,
     pub error: Option<String>,
+    /// The check made after the backup was written: `verified`, `failed`, `skipped`, or
+    /// nothing while it has not been made.
+    pub verify_status: Option<String>,
+    pub verify_message: Option<String>,
+    pub verified_at: Option<DateTime<Utc>>,
 }
 
 // ---- M1 stage 6: imports -------------------------------------------------------------------

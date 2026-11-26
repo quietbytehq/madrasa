@@ -326,21 +326,244 @@ pub async fn run_backup(
     let run = repo::start_run(&mut c, &state.hlc, actor, school_id, trigger).await?;
     let outcome = produce(state, &mut c, school_id).await;
     let result = match &outcome {
-        Ok((path, size)) => Ok((path.display().to_string(), *size)),
+        Ok(made) => Ok((made.path.display().to_string(), made.size)),
         Err(e) => Err(e.message.clone()),
     };
     let run = repo::finish_run(&mut c, &state.hlc, actor, run.id, result).await?;
-    match outcome {
-        Ok(_) => Ok(run),
-        Err(e) => Err(e),
+    drop(c);
+    let made = outcome?;
+    // The check: is what was just written a backup this school could be restored from?
+    // A scheduled backup waits for the answer (nobody is waiting for it); "Back up now"
+    // answers at once and the check follows behind.
+    if trigger == "scheduled" {
+        return check_and_record(state.clone(), actor, run.id, made).await;
     }
+    let checking = check_and_record(state.clone(), actor, run.id, made);
+    tokio::spawn(async move {
+        if let Err(e) = checking.await {
+            tracing::warn!(error = %e, "the backup check could not be recorded");
+        }
+    });
+    Ok(run)
+}
+
+/// What `produce` made: the file, and what is needed to check it afterwards.
+struct Made {
+    path: PathBuf,
+    size: i64,
+    /// The records as they were sealed into the file (compressed, not yet encrypted).
+    dump: Vec<u8>,
+    /// Rows of every table in the snapshot the records were taken from.
+    counts: std::collections::BTreeMap<String, i64>,
+    /// SHA-256 of the sealed file as it was handed to the disk.
+    digest: [u8; 32],
+}
+
+/// The outcome of a check, as stored with the run.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Check {
+    Verified(String),
+    Failed(String),
+    Skipped(String),
+}
+
+impl Check {
+    fn parts(&self) -> (&'static str, String) {
+        match self {
+            Check::Verified(m) => ("verified", m.clone()),
+            Check::Failed(m) => ("failed", m.clone()),
+            Check::Skipped(m) => ("skipped", m.clone()),
+        }
+    }
+}
+
+/// Runs on a thread of its own: the check holds a whole copy of the school's records and a
+/// second database connection for as long as a restore takes, and must not sit on the
+/// threads that answer requests.
+async fn check_and_record(
+    state: AppState,
+    actor: Actor,
+    run_id: Uuid,
+    made: Made,
+) -> Result<BackupRun, ApiError> {
+    let runtime = tokio::runtime::Handle::current();
+    tokio::task::spawn_blocking(move || {
+        runtime.block_on(check_and_record_inner(state, actor, run_id, made))
+    })
+    .await
+    .map_err(|_| ApiError::internal())?
+}
+
+async fn check_and_record_inner(
+    state: AppState,
+    actor: Actor,
+    run_id: Uuid,
+    made: Made,
+) -> Result<BackupRun, ApiError> {
+    let path = made.path.clone();
+    let check = check(state.clone(), made).await;
+    let (status, message) = check.parts();
+    match &check {
+        Check::Failed(m) => tracing::error!(file = %path.display(), "backup check FAILED: {m}"),
+        Check::Skipped(m) => tracing::warn!("backup check skipped: {m}"),
+        Check::Verified(_) => tracing::info!(file = %path.display(), "backup checked"),
+    }
+    let mut c = state.pool.acquire().await?;
+    Ok(repo::set_verification(&mut c, &state.hlc, actor, run_id, status, &message).await?)
+}
+
+/// Check a backup that was just written:
+///
+/// 1. the file on the disk is, byte for byte, what was written (a failing USB stick or a
+///    full disk shows here);
+/// 2. the records in it restore into an empty database of their own, and every table then
+///    holds the number of records it held when the backup was made.
+///
+/// The second step works on the records as they were sealed, not on the sealed file: only
+/// the backup password or the recovery key opens that, and neither is kept on this
+/// computer. What is proven is that the contents are complete and restorable; that the
+/// password opens the file is proven only by a restore.
+async fn check(state: AppState, made: Made) -> Check {
+    if let Err(why) = file_matches(&made.path, &made.digest).await {
+        return Check::Failed(why);
+    }
+    verify_dump(state, made.dump, made.counts).await
+}
+
+/// Is the file on the disk, byte for byte, what was written (by its SHA-256)?
+pub async fn file_matches(path: &Path, digest: &[u8; 32]) -> Result<(), String> {
+    use sha2::{Digest, Sha256};
+    match tokio::fs::read(path).await {
+        Ok(bytes) if Sha256::digest(&bytes).as_slice() == digest => Ok(()),
+        Ok(_) => Err(format!(
+            "The file read back from {} is not what was written. The disk or USB drive may be failing: back up to another one.",
+            path.parent().unwrap_or(path).display()
+        )),
+        Err(e) => Err(format!(
+            "The backup file could not be read back ({e}). Back up again, to another folder or drive if this repeats."
+        )),
+    }
+}
+
+/// Restore the records of a backup (`dump`: compressed, as they were sealed) into a temporary
+/// database and compare what arrives, table by table, with the counts taken when the
+/// backup was made.
+pub async fn verify_dump(
+    state: AppState,
+    dump: Vec<u8>,
+    counts: std::collections::BTreeMap<String, i64>,
+) -> Check {
+    match restore_into_scratch(state, dump).await {
+        Ok(found) => {
+            let wrong: Vec<String> = counts
+                .iter()
+                .filter(|(table, n)| found.get(*table) != Some(n))
+                .map(|(table, n)| {
+                    format!("{table}: {} of {n}", found.get(table).copied().unwrap_or(0))
+                })
+                .collect();
+            if wrong.is_empty() {
+                Check::Verified(format!(
+                    "Restored into a temporary database and counted: all {} records are there.",
+                    counts.values().sum::<i64>()
+                ))
+            } else {
+                Check::Failed(format!(
+                    "Restored into a temporary database, but some records are missing ({}). Do not rely on this backup; back up again.",
+                    wrong.join(", ")
+                ))
+            }
+        }
+        Err(Scratch::NotAllowed(e)) => Check::Skipped(format!(
+            "The file was read back and is intact. It could not be test-restored: the database account may not create a temporary database ({e})."
+        )),
+        Err(Scratch::Failed(e)) => Check::Failed(format!(
+            "The backup could not be restored into a temporary database ({e}). Do not rely on it; back up again."
+        )),
+    }
+}
+
+enum Scratch {
+    /// This database account cannot create databases (a school on its own PostgreSQL).
+    NotAllowed(String),
+    Failed(String),
+}
+
+/// Restore a compressed dump into a new, empty database next to the school's, count what
+/// arrived, and remove the database again whatever happened.
+async fn restore_into_scratch(
+    state: AppState,
+    dump: Vec<u8>,
+) -> Result<std::collections::BTreeMap<String, i64>, Scratch> {
+    use sqlx::ConnectOptions;
+    fn failed(e: sqlx::Error) -> Scratch {
+        Scratch::Failed(e.to_string())
+    }
+    let mut admin = state.pool.acquire().await.map_err(failed)?;
+    // Named after this database, so two schools on one server never touch each other's.
+    let home: String = sqlx::query_scalar("SELECT current_database()::text")
+        .fetch_one(&mut *admin)
+        .await
+        .map_err(failed)?;
+    let prefix = format!("{}_check_", home.chars().take(40).collect::<String>());
+    // One left behind by a check that was cut short (power cut, forced stop).
+    let old: Vec<String> =
+        sqlx::query_scalar("SELECT datname::text FROM pg_database WHERE datname LIKE $1")
+            .bind(format!("{}%", prefix.replace('_', "\\_")))
+            .fetch_all(&mut *admin)
+            .await
+            .map_err(failed)?;
+    for name in old {
+        let _ = sqlx::query(sqlx::AssertSqlSafe(format!(
+            "DROP DATABASE IF EXISTS \"{}\" WITH (FORCE)",
+            name.replace('"', "\"\"")
+        )))
+        .execute(&mut *admin)
+        .await;
+    }
+    let name = format!("{prefix}{}", Uuid::now_v7().simple());
+    let quoted = format!("\"{}\"", name.replace('"', "\"\""));
+    sqlx::query(sqlx::AssertSqlSafe(format!("CREATE DATABASE {quoted}")))
+        .execute(&mut *admin)
+        .await
+        .map_err(
+            |e| match e.as_database_error().and_then(|d| d.code()).as_deref() {
+                Some("42501") => Scratch::NotAllowed(e.to_string()),
+                _ => Scratch::Failed(e.to_string()),
+            },
+        )?;
+    let options = (*state.pool.connect_options()).clone().database(&name);
+    let result = async {
+        let mut c = options.connect().await.map_err(failed)?;
+        madrasa_db::MIGRATOR
+            .run(&mut c)
+            .await
+            .map_err(|e| Scratch::Failed(e.to_string()))?;
+        let mut tx = sqlx::Connection::begin(&mut c).await.map_err(failed)?;
+        repo::restore_stream(&mut tx, archive::decompressor(&dump))
+            .await
+            .map_err(|e| Scratch::Failed(e.to_string()))?;
+        tx.commit().await.map_err(failed)?;
+        let counts = repo::table_counts(&mut c)
+            .await
+            .map_err(|e| Scratch::Failed(e.to_string()))?;
+        let _ = c.close().await;
+        Ok(counts)
+    }
+    .await;
+    let _ = sqlx::query(sqlx::AssertSqlSafe(format!(
+        "DROP DATABASE IF EXISTS {quoted} WITH (FORCE)"
+    )))
+    .execute(&mut *admin)
+    .await;
+    result
 }
 
 async fn produce(
     state: &AppState,
     c: &mut sqlx::PgConnection,
     school_id: Uuid,
-) -> Result<(PathBuf, i64), ApiError> {
+) -> Result<Made, ApiError> {
     let settings = load_settings(c, school_id).await?;
     let set = key_set(c, school_id).await?;
     if set.public_key.is_none() {
@@ -357,13 +580,31 @@ async fn produce(
         school_name: school.name.clone(),
         school_code: school.code.clone(),
         migrations: repo::migration_versions(c).await?,
-        counts: repo::record_counts(c).await?,
+        counts: Default::default(),
     };
-    let dump = repo::dump(c).await?;
-    let bytes = tokio::task::spawn_blocking(move || archive::seal(&meta, &set, &dump))
-        .await
-        .map_err(|_| ApiError::internal())?
+    // The records go from the database straight into the compressor, a few megabytes at a
+    // time: a big school's backup needs no more memory than a small one's. The counts are
+    // taken in the same snapshot as the records, so the two always agree.
+    let mut compressor = archive::Compressor::new();
+    let counts = repo::dump_into(c, &mut compressor).await?;
+    let dump = compressor
+        .finish()
         .map_err(|e| ApiError::conflict(e.to_string()))?;
+    let mut meta = meta;
+    meta.counts = repo::COUNTED_TABLES
+        .iter()
+        .map(|t| ((*t).to_string(), counts.get(*t).copied().unwrap_or(0)))
+        .collect();
+    let (bytes, dump) = tokio::task::spawn_blocking(move || {
+        archive::seal_compressed(&meta, &set, &dump).map(|sealed| (sealed, dump))
+    })
+    .await
+    .map_err(|_| ApiError::internal())?
+    .map_err(|e| ApiError::conflict(e.to_string()))?;
+    let digest: [u8; 32] = {
+        use sha2::{Digest, Sha256};
+        Sha256::digest(&bytes).into()
+    };
     let dir = settings.directory();
     make_folder(&dir).map_err(|e| {
         ApiError::conflict(format!(
@@ -394,7 +635,13 @@ async fn produce(
             ))
         })?;
     prune(&dir, settings.keep as usize);
-    Ok((path, bytes.len() as i64))
+    Ok(Made {
+        path,
+        size: bytes.len() as i64,
+        dump,
+        counts,
+        digest,
+    })
 }
 
 /// Remove the oldest Madrasa backup files beyond `keep`.
@@ -726,7 +973,15 @@ pub struct BackupStatus {
     pub time: String,
     pub directory: String,
     pub unattended_ready: bool,
+    /// Why the most recent backup failed, when it did. While this is set the school's
+    /// newest records are not backed up.
     pub last_error: Option<String>,
+    /// When that failed backup was tried.
+    pub last_failed_at: Option<DateTime<Utc>>,
+    /// The check of the last good backup: `verified`, `failed`, `skipped`, or nothing while
+    /// it is still being made (or for a backup from before checks existed).
+    pub check: Option<String>,
+    pub check_message: Option<String>,
 }
 
 /// More than two days have passed since `since` (the last backup, or the school's set-up).
@@ -755,9 +1010,13 @@ pub async fn status(
             set_up.is_none_or(|at| overdue(at, Utc::now()))
         }
     };
+    let failed = recent.first().filter(|r| r.status == "failed");
     Ok(BackupStatus {
         never: last_at.is_none(),
         last_backup_at: last_at,
+        last_failed_at: failed.and_then(|r| r.finished_at.or(Some(r.started_at))),
+        check: last.as_ref().and_then(|r| r.verify_status.clone()),
+        check_message: last.as_ref().and_then(|r| r.verify_message.clone()),
         last_backup_file: last.and_then(|r| r.file_path),
         stale,
         enabled: s.enabled,
