@@ -311,7 +311,7 @@ then the AEAD tag) and the restore is refused as tampered.
 **Dump** (`madrasa_db::backup`): every table except `_sqlx_migrations`, parents before
 children, as `COPY … TO STDOUT` text inside one repeatable-read transaction, written straight
 into the compressor a few megabytes at a time (a large table is several consecutive records
-of the container), so a backup needs the same memory for a large school as for a small one
+of the container, which ends with a marker counting its records), so a backup needs the same memory for a large school as for a small one
 (ADR 0010). The rows of every table are counted in the same snapshot. **Restore**
 reads the dump as a stream, empties every table and reloads it in one transaction with user
 triggers disabled (so the append-only audit log and the immutable receipts reload), then

@@ -38,8 +38,10 @@ decrypt the file it has just written.
 4. **The dump is streamed.** Rows go from `COPY … TO STDOUT` into the gzip compressor a few
    megabytes at a time; a large table is written as several consecutive records of the dump
    container. A restore reads the container as a stream and feeds consecutive records of a
-   table into one `COPY … FROM STDIN`. The `.mbk` file format does not change (header,
-   AES-256-GCM over the gzip, SHA-256 trailer).
+   table into one `COPY … FROM STDIN`. The container ends with a marker that counts its
+   records, so a dump that stops early is refused wherever it stops, also exactly between
+   two tables. The `.mbk` file format does not change (header, AES-256-GCM over the gzip,
+   SHA-256 trailer).
 
 ## Consequences
 

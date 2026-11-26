@@ -168,6 +168,24 @@ async fn tables_are_ordered_parents_first_and_dump_round_trips() {
         backup::restore(&mut c, &pieces[..pieces.len() - 3]).await,
         Err(DbError::Conflict(_))
     ));
+    // Cut exactly between two records, where what is left reads like a whole, shorter
+    // dump: the end marker (four bytes and the count of records) is missing, so it is
+    // refused too. Without the marker such a dump restored "successfully" with the later
+    // tables empty.
+    for whole in [&dump, &pieces] {
+        assert!(matches!(
+            backup::restore(&mut c, &whole[..whole.len() - 12]).await,
+            Err(DbError::Conflict(_))
+        ));
+    }
+    // A marker that counts fewer records than came before it is not believed either.
+    let mut miscounted = dump.clone();
+    let at = miscounted.len() - 1;
+    miscounted[at] = miscounted[at].wrapping_add(1);
+    assert!(matches!(
+        backup::restore(&mut c, &miscounted).await,
+        Err(DbError::Conflict(_))
+    ));
     assert_eq!(
         academics::list_classes(&mut c, school_id)
             .await

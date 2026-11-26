@@ -130,6 +130,10 @@ pub type TableCounts = BTreeMap<String, i64>;
 /// memory at a time, whatever the size of the school.
 const SEGMENT: usize = 4 * 1024 * 1024;
 
+/// Written after the last record, with the number of records before it: a dump that stops
+/// early, even exactly between two tables, is known to be incomplete.
+const END: [u8; 4] = [0xFF; 4];
+
 fn io_failed(e: std::io::Error) -> DbError {
     DbError::Conflict(format!("the backup could not be written: {e}"))
 }
@@ -186,6 +190,7 @@ pub async fn dump_segmented<W: std::io::Write + Send>(
     let tables = table_order(&mut tx).await?;
     out.write_all(MAGIC).map_err(io_failed)?;
     let mut segment: Vec<u8> = Vec::with_capacity(segment_size.min(SEGMENT) + 64 * 1024);
+    let mut records = 0u64;
     for table in &tables {
         let cols = columns(&mut tx, table).await?;
         let sql = format!("COPY {} ({}) TO STDOUT", ident(table), quoted(&cols));
@@ -199,6 +204,7 @@ pub async fn dump_segmented<W: std::io::Write + Send>(
                     write_record(out, table, &cols_joined, &segment).map_err(io_failed)?;
                     segment.clear();
                     written = true;
+                    records += 1;
                 }
             }
         }
@@ -206,8 +212,11 @@ pub async fn dump_segmented<W: std::io::Write + Send>(
         if !segment.is_empty() || !written {
             write_record(out, table, &cols_joined, &segment).map_err(io_failed)?;
             segment.clear();
+            records += 1;
         }
     }
+    out.write_all(&END).map_err(io_failed)?;
+    out.write_all(&records.to_be_bytes()).map_err(io_failed)?;
     let counts = table_counts(&mut tx).await?;
     tx.commit().await?;
     Ok(counts)
@@ -262,19 +271,19 @@ fn not_a_dump() -> DbError {
     DbError::Conflict("the backup contents are not a Madrasa dump".into())
 }
 
-/// The next record's heading, or `None` at the clean end of the dump.
-fn read_head<R: std::io::Read>(reader: &mut R) -> DbResult<Option<RecordHead>> {
+/// The next record's heading, or `None` at the end marker when it names `seen` records.
+/// A dump that simply stops, wherever it stops, is not a dump.
+fn read_head<R: std::io::Read>(reader: &mut R, seen: u64) -> DbResult<Option<RecordHead>> {
     let mut len4 = [0u8; 4];
-    // The end is only clean between two records.
-    let mut got = 0;
-    while got < 4 {
-        match reader.read(&mut len4[got..]) {
-            Ok(0) if got == 0 => return Ok(None),
-            Ok(0) => return Err(not_a_dump()),
-            Ok(n) => got += n,
-            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
-            Err(_) => return Err(not_a_dump()),
-        }
+    reader.read_exact(&mut len4).map_err(|_| not_a_dump())?;
+    if len4 == END {
+        let mut count = [0u8; 8];
+        reader.read_exact(&mut count).map_err(|_| not_a_dump())?;
+        return if u64::from_be_bytes(count) == seen {
+            Ok(None)
+        } else {
+            Err(not_a_dump())
+        };
     }
     fn text<R: std::io::Read>(reader: &mut R, len: usize) -> DbResult<String> {
         // Names and column lists are short; a wild length means a damaged file.
@@ -333,8 +342,10 @@ pub async fn restore_stream<R: std::io::Read + Send>(
     let mut buf = vec![0u8; 1024 * 1024];
     // The dump lists parents before children, so loading in its order satisfies the foreign
     // keys. The records of one table follow each other and go into one COPY.
-    let mut next = read_head(&mut reader)?;
+    let mut records = 0u64;
+    let mut next = read_head(&mut reader, records)?;
     while let Some(head) = next.take() {
+        records += 1;
         if !existing.contains(&head.table) {
             return Err(DbError::Conflict(format!(
                 "the backup contains a table this version does not know: {}",
@@ -366,8 +377,9 @@ pub async fn restore_stream<R: std::io::Read + Send>(
                 sink.send(&buf[..take]).await?;
                 left -= take as u64;
             }
-            match read_head(&mut reader) {
+            match read_head(&mut reader, records) {
                 Ok(Some(more)) if more.table == head.table && more.cols == head.cols => {
+                    records += 1;
                     left = more.len;
                 }
                 Ok(other) => {
