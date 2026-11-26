@@ -501,3 +501,197 @@ async fn pruning_keeps_the_newest_files() {
     std::fs::remove_dir_all(&dir).ok();
     app.finish().await;
 }
+
+/// Wait for the check that follows "Back up now" and return the status once it is in.
+async fn checked(app: &App, admin: &str) -> Value {
+    for _ in 0..150 {
+        let (_, status) = app.get("/backup/status", admin).await;
+        if !status["check"].is_null() {
+            return status;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    }
+    panic!("the backup was never checked");
+}
+
+async fn scratch_databases(app: &App) -> i64 {
+    sqlx::query_scalar(
+        "SELECT count(*) FROM pg_database WHERE datname LIKE current_database() || '\\_check\\_%'",
+    )
+    .fetch_one(&app.state.pool)
+    .await
+    .unwrap()
+}
+
+#[tokio::test]
+async fn a_backup_is_checked_by_restoring_it_into_a_temporary_database() {
+    let app = app!();
+    let (admin, school_id, ids) = app.seed().await;
+    let dir = temp_dir("check");
+    app.put("/backup/settings", &admin, json!({ "enabled": false, "time": "02:00", "directory": dir.display().to_string(), "keep": 5 })).await;
+    app.student(&admin, "Ali", &ids["s1"]).await;
+    app.student(&admin, "Sara", &ids["s1"]).await;
+
+    // "Back up now" answers at once; the check follows and is stored with the run.
+    let (s, run) = app.post("/backup/run", &admin, json!({})).await;
+    assert_eq!(s, StatusCode::OK, "{run}");
+    let status = checked(&app, &admin).await;
+    assert_eq!(status["check"], "verified", "{status}");
+    let message = status["check_message"].as_str().unwrap();
+    assert!(
+        message.starts_with("Restored into a temporary database and counted: all "),
+        "{message}"
+    );
+    assert!(status["last_error"].is_null() && status["last_failed_at"].is_null());
+    let (_, runs) = app.get("/backup/runs", &admin).await;
+    assert_eq!(runs[0]["verify_status"], "verified");
+    assert!(!runs[0]["verified_at"].is_null());
+    // The temporary database is gone, and the school's own records are untouched.
+    assert_eq!(scratch_databases(&app).await, 0);
+    let (_, list) = app.get("/students", &admin).await;
+    assert_eq!(list["total"], 2);
+    let (_, dash) = app.get("/dashboard", &admin).await;
+    assert_eq!(dash["backup"]["check"], "verified");
+
+    // A scheduled backup waits for its check: the run comes back with the verdict.
+    let sid: uuid::Uuid = school_id.parse().unwrap();
+    tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
+    let run = madrasa_api::backup::run_backup(&app.state, Actor::system_for(sid), sid, "scheduled")
+        .await
+        .unwrap();
+    assert_eq!(
+        (run.status.as_str(), run.verify_status.as_deref()),
+        ("ok", Some("verified"))
+    );
+    assert_eq!(scratch_databases(&app).await, 0);
+    std::fs::remove_dir_all(&dir).ok();
+    app.finish().await;
+}
+
+#[tokio::test]
+async fn a_backup_that_cannot_be_restored_whole_fails_its_check() {
+    use madrasa_api::backup::{file_matches, verify_dump, Check};
+    let app = app!();
+    let (admin, _school_id, ids) = app.seed().await;
+    app.student(&admin, "Ali", &ids["s1"]).await;
+    use madrasa_core::backup::archive;
+    // The records as a backup seals them (compressed), and the rows of every table.
+    let (plain, counts) = {
+        let mut c = app.state.pool.acquire().await.unwrap();
+        let mut plain = Vec::new();
+        let counts = madrasa_db::backup::dump_into(&mut c, &mut plain)
+            .await
+            .unwrap();
+        (plain, counts)
+    };
+    assert!(
+        counts.len() > 50 && counts["students"] == 1,
+        "every table is counted: {counts:?}"
+    );
+    let dump = archive::compress(&plain).unwrap();
+
+    // As it should be.
+    let good = verify_dump(app.state.clone(), dump.clone(), counts.clone()).await;
+    assert!(matches!(good, Check::Verified(_)), "{good:?}");
+
+    // The heading promises a student the contents do not hold.
+    let mut promised = counts.clone();
+    *promised.get_mut("students").unwrap() += 1;
+    match verify_dump(app.state.clone(), dump.clone(), promised).await {
+        Check::Failed(why) => {
+            assert!(why.contains("students: 1 of 2"), "{why}");
+            assert!(why.contains("Do not rely on this backup"), "{why}");
+        }
+        other => panic!("{other:?}"),
+    }
+
+    // Contents cut short: the records end half-way, or the compressed stream itself does.
+    for cut in [
+        archive::compress(&plain[..plain.len() / 2]).unwrap(),
+        dump[..dump.len() / 2].to_vec(),
+    ] {
+        match verify_dump(app.state.clone(), cut, counts.clone()).await {
+            Check::Failed(why) => assert!(
+                why.contains("could not be restored") || why.contains("missing"),
+                "{why}"
+            ),
+            other => panic!("{other:?}"),
+        }
+    }
+    // A table that is in the school and not in the backup at all.
+    let mut extra = counts.clone();
+    extra.insert("students_of_another_kind".into(), 3);
+    match verify_dump(app.state.clone(), dump.clone(), extra).await {
+        Check::Failed(why) => assert!(why.contains("students_of_another_kind: 0 of 3"), "{why}"),
+        other => panic!("{other:?}"),
+    }
+    assert_eq!(
+        scratch_databases(&app).await,
+        0,
+        "every temporary database is removed, also after a failure"
+    );
+
+    // The file on the disk is not what was written.
+    use sha2::{Digest, Sha256};
+    let dir = temp_dir("readback");
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("x.mbk");
+    std::fs::write(&file, b"what was written").unwrap();
+    let digest: [u8; 32] = Sha256::digest(b"what was written").into();
+    assert!(file_matches(&file, &digest).await.is_ok());
+    std::fs::write(&file, b"what was writteN").unwrap();
+    let why = file_matches(&file, &digest).await.unwrap_err();
+    assert!(
+        why.contains("is not what was written") && why.contains("back up to another one"),
+        "{why}"
+    );
+    std::fs::remove_file(&file).unwrap();
+    assert!(file_matches(&file, &digest)
+        .await
+        .unwrap_err()
+        .contains("could not be read back"));
+    std::fs::remove_dir_all(&dir).ok();
+    app.finish().await;
+}
+
+#[tokio::test]
+async fn a_failed_backup_is_reported_until_the_next_good_one() {
+    let app = app!();
+    let (admin, _school_id, _ids) = app.seed().await;
+    let good = temp_dir("alert-good");
+    app.put("/backup/settings", &admin, json!({ "enabled": true, "time": "02:00", "directory": good.display().to_string(), "keep": 5 })).await;
+    let (s, _) = app.post("/backup/run", &admin, json!({})).await;
+    assert_eq!(s, StatusCode::OK);
+    checked(&app, &admin).await;
+
+    // The folder goes away (a USB drive that was pulled): a file stands where it was.
+    let blocked = temp_dir("alert-blocked");
+    let (s, body) = app.put("/backup/settings", &admin, json!({ "enabled": true, "time": "02:00", "directory": blocked.display().to_string(), "keep": 5 })).await;
+    assert_eq!(s, StatusCode::OK, "{body}");
+    std::fs::remove_dir_all(&blocked).unwrap();
+    std::fs::write(&blocked, b"not a folder").unwrap();
+    let (s, body) = app.post("/backup/run", &admin, json!({})).await;
+    assert_eq!(s, StatusCode::CONFLICT, "{body}");
+    let (_, status) = app.get("/backup/status", &admin).await;
+    let why = status["last_error"].as_str().unwrap();
+    assert!(why.contains("The backup folder cannot be used"), "{why}");
+    assert!(!status["last_failed_at"].is_null());
+    // The last good backup is still named, so the alert can say how old it is.
+    assert!(!status["last_backup_at"].is_null());
+    let (_, dash) = app.get("/dashboard", &admin).await;
+    assert_eq!(dash["backup"]["last_error"], status["last_error"]);
+
+    // Fixed: the alert is gone with the next good backup.
+    app.put("/backup/settings", &admin, json!({ "enabled": true, "time": "02:00", "directory": good.display().to_string(), "keep": 5 })).await;
+    tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
+    let (s, _) = app.post("/backup/run", &admin, json!({})).await;
+    assert_eq!(s, StatusCode::OK);
+    let (_, status) = app.get("/backup/status", &admin).await;
+    assert!(
+        status["last_error"].is_null() && status["last_failed_at"].is_null(),
+        "{status}"
+    );
+    std::fs::remove_file(&blocked).ok();
+    std::fs::remove_dir_all(&good).ok();
+    app.finish().await;
+}

@@ -109,8 +109,29 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .nest(API_PREFIX, api)
         .nest(ro::RO_PREFIX, ro::router(state))
+        .layer(axum::middleware::from_fn(to_completion))
         .layer(cors)
         .layer(TraceLayer::new_for_http())
+}
+
+/// Every request is carried out to its end, whether or not whoever sent it is still there.
+///
+/// Without this a request is dropped at whatever line it has reached the moment its client
+/// goes away (a closed window, a client PC switched off, a proxy that stopped waiting). Half
+/// of a change is then undone by its transaction, which is right, but a request dropped
+/// between two steps that are not in one transaction leaves the first one done, and one
+/// dropped while it opens a transaction left the database connection unusable (see
+/// `madrasa_db::pool_options`). Finishing what was started is the simpler promise; a change
+/// sent again by a client PC is recognised by its `Idempotency-Key` and not applied twice.
+pub async fn to_completion(
+    req: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    match tokio::spawn(next.run(req)).await {
+        Ok(response) => response,
+        Err(_) => ApiError::internal().into_response(),
+    }
 }
 
 /// Is this `Origin` the Madrasa app itself (packaged, or its development server)? Anything

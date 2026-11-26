@@ -1152,6 +1152,10 @@ export interface BackupRun {
   file_path: string | null;
   file_size: number | null;
   error: string | null;
+  /** The check of the file after it was written (ADR 0010); null until it is done. */
+  verify_status: "verified" | "failed" | "skipped" | null;
+  verify_message: string | null;
+  verified_at: string | null;
 }
 
 export interface BackupFile {
@@ -1201,7 +1205,12 @@ export interface BackupStatus {
   time: string;
   directory: string;
   unattended_ready: boolean;
+  /** Why the most recent backup failed, when it did. */
   last_error: string | null;
+  last_failed_at: string | null;
+  /** The check of the last good backup, once made. */
+  check: "verified" | "failed" | "skipped" | null;
+  check_message: string | null;
 }
 
 // ---- M1 stage 6: imports and export -------------------------------------------------------

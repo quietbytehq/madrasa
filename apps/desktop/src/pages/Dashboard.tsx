@@ -10,6 +10,7 @@ import { useAsync } from "@/lib/useAsync";
 import { useFeatures } from "@/app/features";
 import { useSession } from "@/app/session";
 import { PageHeader } from "./PageHeader";
+import { BackupAlert } from "./backup/BackupAlert";
 import { MyTimetableCard } from "./timetable/MyTimetableCard";
 
 function todayIso(): string {
@@ -84,6 +85,7 @@ export function Dashboard() {
       <p className="mb-4 text-sm text-muted">
         {t("dashboard.welcome", { name: user?.full_name ?? "" })}
       </p>
+      <BackupAlert status={backup} link={can("backup.manage")} />
       {(can("reports.read") || can("attendance.read")) && (
         <nav aria-label={t("reports.title")} className="mb-3 flex flex-wrap gap-2 text-sm">
           {can("reports.read") && (

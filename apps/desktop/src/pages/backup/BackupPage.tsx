@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { DatabaseBackup, FileSpreadsheet } from "lucide-react";
 import { api } from "@/api/endpoints";
@@ -16,6 +16,7 @@ import type { TranslationKey } from "@/i18n";
 import { errorMessage, useAsync } from "@/lib/useAsync";
 import { useSession } from "@/app/session";
 import { PageHeader } from "../PageHeader";
+import { BackupAlert } from "./BackupAlert";
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -54,11 +55,32 @@ export function BackupPage() {
     void files.reload();
     void runs.reload();
   };
+  // After "Back up now" the file is there at once and its check follows on its own (a
+  // restore into a temporary database: seconds for a small school, a minute or two for a
+  // large one). Ask again until the result is in, for ten minutes at most.
+  const [checkingSince, setCheckingSince] = useState<number | null>(null);
+  const checkKnown = status.data ? status.data.check !== null : false;
+  const reloadStatus = status.reload;
+  useEffect(() => {
+    if (checkingSince === null) return;
+    if (checkKnown) {
+      setCheckingSince(null);
+      return;
+    }
+    const id = window.setInterval(() => {
+      if (Date.now() - checkingSince > 10 * 60_000) setCheckingSince(null);
+      else void reloadStatus();
+    }, 3000);
+    return () => window.clearInterval(id);
+  }, [checkingSince, checkKnown, reloadStatus]);
   const runNow = async () => {
     setRunning(true);
     try {
       const run = await api.runBackup();
       toast.push({ kind: "success", title: t("backup.run.done", { file: run.file_path ?? "" }) });
+      // The status still holds the check of the backup before this one.
+      status.setData(status.data ? { ...status.data, check: null, check_message: null } : null);
+      setCheckingSince(Date.now());
       refresh();
     } catch (err) {
       fail(err);
@@ -103,6 +125,7 @@ export function BackupPage() {
           )
         }
       />
+      <BackupAlert status={s ?? null} />
       {!s ? (
         <div className="flex justify-center py-10">
           <Spinner size="lg" />
@@ -135,9 +158,18 @@ export function BackupPage() {
               <dt className="text-muted">{t("backup.status.folder")}</dt>
               <dd className="break-all font-mono">{s.directory}</dd>
             </dl>
-            {s.last_error && (
-              <p className="mt-2 text-xs text-danger">
-                {t("backup.status.lastError", { error: s.last_error })}
+            {checkingSince !== null && !s.check && (
+              <p className="mt-1 text-xs text-muted" role="status" data-testid="backup-checking">
+                {t("backup.check.pending")}
+              </p>
+            )}
+            {!s.never && s.check && s.check !== "failed" && (
+              <p
+                className={`mt-1 text-xs ${s.check === "verified" ? "text-success" : "text-muted"}`}
+                data-testid="backup-check"
+                title={s.check_message ?? undefined}
+              >
+                {t(`backup.check.${s.check}`)}
               </p>
             )}
             {!s.unattended_ready && manage && <UnlockForm onDone={refresh} onError={fail} />}
@@ -219,6 +251,21 @@ export function BackupPage() {
                       >
                         {t(`backup.runs.${r.status}` as TranslationKey)}
                       </Badge>
+                      {r.verify_status && (
+                        <Badge
+                          tone={
+                            r.verify_status === "verified"
+                              ? "success"
+                              : r.verify_status === "failed"
+                                ? "danger"
+                                : "neutral"
+                          }
+                        >
+                          <span title={r.verify_message ?? undefined}>
+                            {t(`backup.runs.check.${r.verify_status}` as TranslationKey)}
+                          </span>
+                        </Badge>
+                      )}
                       <span className="flex-1" />
                       <span className="font-mono text-xs text-muted">
                         {r.file_path?.split(/[\\/]/).pop() ?? r.error ?? ""}

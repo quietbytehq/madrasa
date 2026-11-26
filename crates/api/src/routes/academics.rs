@@ -7,6 +7,7 @@ use madrasa_core::permissions::Permission;
 use madrasa_db::academics;
 use madrasa_db::models::{AcademicYear, Class, Section, Subject};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::auth::CurrentUser;
@@ -356,25 +357,38 @@ async fn list_sections(
         academics::list_sections(&mut c, user.user.school_id, q.academic_year_id, q.class_id)
             .await?;
     let classes = academics::list_classes(&mut c, user.user.school_id).await?;
+    // Teacher names and head counts for all the sections at once: a school with three
+    // years of sections has hundreds of them, and a question per section made this list
+    // take most of a second.
+    let ids: Vec<Uuid> = sections.iter().map(|s| s.id).collect();
+    let counts: HashMap<Uuid, i64> = sqlx::query_as::<_, (Uuid, i64)>(
+        "SELECT e.section_id, count(*) FROM enrollments e
+         JOIN students st ON st.id = e.student_id AND st.deleted_at IS NULL AND st.status = 'active'
+         WHERE e.section_id = ANY($1) AND e.deleted_at IS NULL
+         GROUP BY e.section_id",
+    )
+    .bind(&ids)
+    .fetch_all(&mut *c)
+    .await?
+    .into_iter()
+    .collect();
+    let teacher_ids: Vec<Uuid> = sections.iter().filter_map(|s| s.class_teacher_id).collect();
+    let teachers: HashMap<Uuid, String> = sqlx::query_as::<_, (Uuid, String)>(
+        "SELECT id, full_name FROM staff WHERE id = ANY($1) AND deleted_at IS NULL",
+    )
+    .bind(&teacher_ids)
+    .fetch_all(&mut *c)
+    .await?
+    .into_iter()
+    .collect();
     let mut out = Vec::with_capacity(sections.len());
     for s in sections {
         let class = classes.iter().find(|k| k.id == s.class_id);
-        let teacher = match s.class_teacher_id {
-            Some(id) => madrasa_db::staff::get(&mut c, id)
-                .await
-                .ok()
-                .map(|t| t.full_name),
-            None => None,
-        };
-        let count: i64 = sqlx::query_scalar("SELECT count(*) FROM enrollments e JOIN students st ON st.id = e.student_id AND st.deleted_at IS NULL AND st.status = 'active' WHERE e.section_id = $1 AND e.deleted_at IS NULL")
-            .bind(s.id)
-            .fetch_one(&mut *c)
-            .await?;
         out.push(SectionView {
             class_name: class.map(|k| k.name.clone()).unwrap_or_default(),
             class_level: class.map(|k| k.level).unwrap_or_default(),
-            class_teacher_name: teacher,
-            student_count: count,
+            class_teacher_name: s.class_teacher_id.and_then(|id| teachers.get(&id).cloned()),
+            student_count: counts.get(&s.id).copied().unwrap_or(0),
             section: s,
         });
     }

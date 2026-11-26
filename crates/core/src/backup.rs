@@ -311,11 +311,58 @@ pub mod archive {
             .ok_or(ArchiveError::Tampered)
     }
 
+    /// The compressor a dump is written into as it is made, so that the whole database is
+    /// never held in memory uncompressed. [`Compressor::finish`] gives what
+    /// [`seal_compressed`] seals.
+    pub struct Compressor(GzEncoder<Vec<u8>>);
+
+    impl Compressor {
+        #[allow(clippy::new_without_default)]
+        pub fn new() -> Self {
+            Self(GzEncoder::new(Vec::new(), Compression::default()))
+        }
+
+        pub fn finish(self) -> Result<Vec<u8>, ArchiveError> {
+            self.0.finish().map_err(|_| ArchiveError::Encrypt)
+        }
+    }
+
+    impl Write for Compressor {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.write(buf)
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            self.0.flush()
+        }
+    }
+
+    /// Compress a dump held in memory (what [`Compressor`] does as a dump is written).
+    pub fn compress(plaintext: &[u8]) -> Result<Vec<u8>, ArchiveError> {
+        let mut gz = Compressor::new();
+        gz.write_all(plaintext).map_err(|_| ArchiveError::Encrypt)?;
+        gz.finish()
+    }
+
+    /// Read a compressed dump back as it was written, piece by piece.
+    pub fn decompressor(compressed: &[u8]) -> impl Read + Send + '_ {
+        GzDecoder::new(compressed)
+    }
+
     /// Encrypt and sign a dump for the school whose key set is given.
     pub fn seal(
         meta: &BackupMeta,
         key_set: &BackupKeySet,
         plaintext: &[u8],
+    ) -> Result<Vec<u8>, ArchiveError> {
+        seal_compressed(meta, key_set, &compress(plaintext)?)
+    }
+
+    /// [`seal`] a dump that was compressed as it was made (see [`Compressor`]).
+    pub fn seal_compressed(
+        meta: &BackupMeta,
+        key_set: &BackupKeySet,
+        compressed: &[u8],
     ) -> Result<Vec<u8>, ArchiveError> {
         let recipient = decode32(
             key_set
@@ -348,15 +395,12 @@ pub mod archive {
             payload_nonce: STANDARD.encode(payload_nonce),
         };
         let header_bytes = serde_json::to_vec(&header).map_err(|_| ArchiveError::Encrypt)?;
-        let mut gz = GzEncoder::new(Vec::new(), Compression::default());
-        gz.write_all(plaintext).map_err(|_| ArchiveError::Encrypt)?;
-        let compressed = gz.finish().map_err(|_| ArchiveError::Encrypt)?;
         let ciphertext = Aes256Gcm::new_from_slice(&file_key)
             .map_err(|_| ArchiveError::Encrypt)?
             .encrypt(
                 Nonce::from_slice(&payload_nonce),
                 Payload {
-                    msg: &compressed,
+                    msg: compressed,
                     aad: &header_bytes,
                 },
             )

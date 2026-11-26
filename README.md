@@ -112,8 +112,21 @@ The script creates and drops databases named `e2e_*` on that server and needs `p
 `pdftotext` and `unzip`. `scripts/e2e.sh --project=desktop` runs one group and `--keep`
 leaves the servers running while you write tests.
 
+Three reliability tests are scripts of their own (each says at the top what it needs):
+
+```bash
+export MADRASA_TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres
+scripts/load-test.sh        # 5,000 students, three years of records: screens under 1 s,
+                            # vouchers under 60 s, backup under 2 min (about 10 minutes)
+scripts/upgrade-test.sh     # a school on 0.4.1 with data, upgraded in place: nothing lost
+scripts/soak-test.sh 480    # 8 hours of use with clients coming and going, restarts and a
+                            # power cut: no failed request, no memory growth, no database
+                            # process left behind (bundled PostgreSQL; not as root)
+```
+
 Continuous integration (`.github/workflows/ci.yml`) runs lint, type checks, tests, the GUI
-tests and the desktop, hub image and Android builds on every pull request; tagged `v*-alpha` releases
+tests, the upgrade test, six minutes of the long-run test and the desktop, hub image and
+Android builds on every pull request; tagged `v*-alpha` releases
 publish the unsigned installers, the parent app's APK and the hub image
 (`docs/RELEASING.md`).
 

@@ -1942,6 +1942,18 @@ async fn restoring_an_older_backup_while_joined_resets_head_offices_copy() {
     let backup = || async {
         let (s, run) = app.post("/backup/run", &admin, json!({})).await;
         assert_eq!(s, StatusCode::OK, "{run}");
+        // The backup's check follows on its own and writes its result when it is done. Wait
+        // for it here, so that it does not land in the middle of what the test does next (a
+        // change made after a sync is, rightly, one more change to send).
+        for _ in 0..400 {
+            let (_, st) = app
+                .call(Method::GET, "/backup/status", Some(&admin), None)
+                .await;
+            if !st["check"].is_null() {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
         run["file_path"].as_str().unwrap().to_string()
     };
 

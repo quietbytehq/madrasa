@@ -5,7 +5,6 @@
 //! that call [`TestDb::new`] return `None` and should skip.
 
 use crate::PgPool;
-use sqlx::postgres::PgPoolOptions;
 use sqlx::Connection;
 
 pub const ENV_VAR: &str = "MADRASA_TEST_DATABASE_URL";
@@ -48,7 +47,7 @@ impl TestDb {
             .expect("create test database");
         admin.close().await.ok();
         let url = replace_database(&admin_url, &name);
-        let pool = PgPoolOptions::new()
+        let pool = crate::pool_options()
             .max_connections(4)
             .connect(&url)
             .await
@@ -83,7 +82,7 @@ impl TestDb {
         .expect("clone test database");
         admin.close().await.ok();
         let url = replace_database(&self.admin_url, &name);
-        let pool = PgPoolOptions::new()
+        let pool = crate::pool_options()
             .max_connections(4)
             .connect(&url)
             .await

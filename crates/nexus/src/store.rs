@@ -6,7 +6,6 @@ use madrasa_core::hlc::Hlc;
 use madrasa_core::ids::new_id;
 use serde::Serialize;
 use serde_json::{json, Value};
-use sqlx::postgres::PgPoolOptions;
 use sqlx::{Connection, PgConnection, PgPool};
 use uuid::Uuid;
 
@@ -28,7 +27,8 @@ pub async fn connect(database_url: &str) -> Result<PgPool, sqlx::Error> {
         .execute(&mut conn)
         .await?;
     conn.close().await.ok();
-    PgPoolOptions::new()
+    // Cleared of any transaction on the way back to the pool (see `madrasa_db::pool_options`).
+    madrasa_db::pool_options()
         .max_connections(16)
         .acquire_timeout(std::time::Duration::from_secs(30))
         .after_connect(|conn, _meta| {

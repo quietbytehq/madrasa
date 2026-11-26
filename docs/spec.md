@@ -294,7 +294,7 @@ away from zero to two places):
 
 | Table | Purpose |
 | --- | --- |
-| `backup_runs` | Every manual or scheduled run: `trigger`, `status` (running, ok, failed), `started_at`, `finished_at`, `file_path`, `file_size`, `error`. |
+| `backup_runs` | Every manual or scheduled run: `trigger`, `status` (running, ok, failed), `started_at`, `finished_at`, `file_path`, `file_size`, `error`, and the check of the file after it was written: `verify_status` (verified, failed, skipped), `verify_message`, `verified_at`. |
 
 Settings: `backup.schedule` (`enabled`, default true; `time`, local `HH:MM`, default 02:00;
 `directory`, default `Documents/Madrasa Backups`; `keep`, default 30 files) and `backup.keys`
@@ -309,9 +309,13 @@ backups never need the password. Any change to the header or payload is detected
 then the AEAD tag) and the restore is refused as tampered.
 
 **Dump** (`madrasa_db::backup`): every table except `_sqlx_migrations`, parents before
-children, as `COPY … TO STDOUT` text inside one repeatable-read transaction. **Restore**
-empties every table and reloads the dump in one transaction with user triggers disabled (so the
-append-only audit log and the immutable receipts reload), then re-enables them. A dump made with
+children, as `COPY … TO STDOUT` text inside one repeatable-read transaction, written straight
+into the compressor a few megabytes at a time (a large table is several consecutive records
+of the container), so a backup needs the same memory for a large school as for a small one
+(ADR 0010). The rows of every table are counted in the same snapshot. **Restore**
+reads the dump as a stream, empties every table and reloads it in one transaction with user
+triggers disabled (so the append-only audit log and the immutable receipts reload), then
+re-enables them. A dump made with
 a different migration set is refused: update the app to the version that made the backup first.
 Sessions are part of the data, so everyone logs in again after a restore.
 
@@ -319,7 +323,19 @@ Sessions are part of the data, so everyone logs in again after a restore.
 - Scheduled backups run in the server (and the desktop shell) once a day at the configured time
   when none succeeded that day; a failed attempt is retried after an hour. Older files beyond
   `keep` are removed from the folder after each new backup.
+- **Every backup is checked after it is written** (ADR 0010): the file is read back and
+  compared (SHA-256) with what was written, then its records are restored into a temporary
+  database (`<database>_check_<id>`), the rows of every table are compared with the counts of
+  the dump's snapshot, and the temporary database is dropped, as is any left by a check that
+  was cut short. A scheduled backup counts as done after its check; "Back up now" answers
+  when the file is written and the check follows. Where the database account may not create
+  a database the test restore is `skipped` and said so. Not proven by the check: that the
+  backup password opens the file (only a restore proves that).
 - The dashboard shows the last backup; it is a warning when none succeeded in the last 48 hours.
+- **A failed backup, or one that failed its check, is an alert**: a red notice on the
+  dashboard and the Backup page for everyone who sees the dashboard, with the reason, the
+  date of the last good backup and what to do; it stays until a backup succeeds and passes
+  (`GET /backup/status`: `last_error`, `last_failed_at`, `check`, `check_message`).
 - Restore needs `backup.manage` and the backup password or the recovery key from setup; the
   preview (date, school, app version, counts in the backup and now, schema match) needs no key.
 - Changing the backup password re-wraps the DEK; the recovery key keeps working; backups made
@@ -1204,7 +1220,7 @@ admin has `academics.manage` for setup but not `exams.approve` unless granted.
 
 | Method | Path | Permission | Purpose |
 | --- | --- | --- | --- |
-| GET | `/backup/status` | any user | Last backup, staleness, schedule, folder, last error |
+| GET | `/backup/status` | any user | Last backup, staleness, schedule, folder, last error and when, the last backup's check |
 | GET/PUT | `/backup/settings` | `backup.manage` | Schedule, folder, files to keep |
 | POST | `/backup/run` | `backup.manage` | Back up now |
 | GET | `/backup/runs`, `/backup/files` | `backup.manage` | Run history; `.mbk` files in the folder |
@@ -2670,3 +2686,30 @@ Everything overwritten is shown in the connection panel until the user clears it
 - **Closing.** When the window is closed the shell waits (up to 30 s) for the backend to stop
   the API and shut the bundled database down before the process exits, so the cluster is
   left "shut down", not "in production", and the next start needs no recovery.
+
+## 19. Reliability (pilot stage 4; ADR 0010, ADR 0011)
+
+### 19.1 Requests and database connections
+
+- **A request is carried out to its end** whether or not its client is still there
+  (`madrasa_api::to_completion`, and the same layer in the hub). The client proxy stops
+  waiting for slow reads and people close windows; a request dropped half-way must not
+  leave half of its work.
+- **A database connection comes back to the pool clean** (`madrasa_db::pool_options`): any
+  transaction left on it is ended before the next borrower gets it. No hand-written
+  `BEGIN`/`COMMIT` on pooled connections.
+- **Stopping.** The server stops answering on both listeners (loopback and the school
+  network) before the database is shut down, so a request that arrives while it stops
+  finds the door closed, and a client PC keeps the change to send later.
+
+### 19.2 The three tests
+
+| Script | What it does | What it must show |
+| --- | --- | --- |
+| `scripts/load-test.sh` | A school of 5,040 students with three years of fees, attendance and marks (`scripts/load/seed.sql`), a release build, the real front end in a browser. | Each of the 23 main screens opens in under 1 s; vouchers for the whole school in under 60 s; a backup in under 2 min and its check passes; after 300 payments the day's lists open in under 1 s. Also reported: export time and size, memory at the peak. |
+| `scripts/soak-test.sh [minutes]` | A server with the bundled PostgreSQL used through the API by six people at a time, half through two client proxies that are switched off and on (half the time killed); abandoned downloads; a backup with its check and an export every quarter of an hour; three restarts of the server, one a power cut. Default 8 hours. | No request fails while every machine it went through was up; server memory, open files and database processes do not grow (judged from 30 minutes up); no database process is left after a stop; one database server after a power cut and restart; no change left waiting in a client. |
+| `scripts/upgrade-test.sh` | The 0.4.1 server (built from its tag) sets up the demo school and a person's work is added; this build then starts on the same database and data folder. | Every row of every table of the old database is still there with the same values (new columns and tables are fine; sign-ins end by design); the work reads back the same through the new API; the administrator's password signs in; a 0.4.1 backup is refused in words and changes nothing. |
+
+CI runs the upgrade test and six minutes of the long-run test on every push (job
+*Reliability*). The load test and the 8-hour run are done by hand before a release
+(TESTING.md).

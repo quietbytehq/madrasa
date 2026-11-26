@@ -2854,6 +2854,25 @@ export const en = {
     "Every record of the school as one Excel workbook, without passwords or keys. A backup is still what you restore from.",
   "backup.exportAll.done":
     "The workbook has been downloaded. It holds every record of the school: keep it somewhere safe.",
+  // Pilot stage 4: backup check and the alert when a backup fails
+  "backup.alert.failed.title": "The last backup failed",
+  "backup.alert.failed.lastGood":
+    "The last good backup is from {date}. Nothing entered since then is backed up.",
+  "backup.alert.failed.noGood": "There is no good backup yet: nothing is backed up.",
+  "backup.alert.failed.do":
+    "Check that the backup folder or drive is connected and has free space, then press Back up now.",
+  "backup.alert.check.title": "The last backup did not pass its check",
+  "backup.alert.check.do":
+    "Do not rely on it. Press Back up now; if this happens again, back up to another drive.",
+  "backup.runs.check.verified": "Checked",
+  "backup.runs.check.failed": "Check failed",
+  "backup.runs.check.skipped": "File checked only",
+  "backup.check.pending":
+    "Checking the backup: it is being restored into a temporary database and counted…",
+  "backup.check.verified":
+    "Checked after writing: restored into a temporary database and every record counted.",
+  "backup.check.skipped":
+    "The file was read back intact. A test restore was not possible on this database.",
 } as const;
 
 export type TranslationKey = keyof typeof en;

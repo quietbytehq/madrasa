@@ -1328,3 +1328,252 @@ async fn export_everything_is_the_whole_school_readable_and_without_secrets() {
     }
     app.finish().await;
 }
+
+/// The voucher check asks two plain questions (vouchers with no line; lines with no fee
+/// head) instead of two per voucher, and the sections list counts its students in one
+/// question: both must still find exactly what the slow forms found.
+#[tokio::test]
+async fn vouchers_without_a_fee_head_are_found_and_sections_count_their_students() {
+    let app = app!();
+    let (admin, ids) = app.seed().await;
+    let (_, tuition) = app
+        .post(
+            "/fees/heads",
+            &admin,
+            json!({ "name": "Tuition fee", "code": "TUITION", "is_recurring": true }),
+        )
+        .await;
+    for class in ["c1", "c2"] {
+        app.call(Method::PUT, "/fees/structure", Some(&admin), Some(json!({ "academic_year_id": ids["year"], "class_id": ids[class], "lines": [{ "fee_head_id": tuition["id"], "amount": "2500" }] }))).await;
+    }
+    for (name, father, section) in [
+        ("Ali Raza", "Imran Raza", "s1a"),
+        ("Sara Khan", "Bilal Khan", "s1a"),
+        ("Hina Shah", "Asif Shah", "s2a"),
+        ("Omar Aziz", "Tariq Aziz", "s2a"),
+    ] {
+        app.student(&admin, name, father, "2015-03-14", &ids[section])
+            .await;
+    }
+    // Someone who left is not counted in the section.
+    let left = app
+        .student(
+            &admin,
+            "Zain Malik",
+            "Adil Malik",
+            "2015-03-14",
+            &ids["s1a"],
+        )
+        .await;
+    let mut c = app.state.pool.acquire().await.unwrap();
+    sqlx::query("UPDATE students SET status = 'left' WHERE id = $1::uuid")
+        .bind(left["id"].as_str().unwrap())
+        .execute(&mut *c)
+        .await
+        .unwrap();
+
+    let (_, sections) = app.get("/sections", &admin).await;
+    let count = |id: &Value| {
+        sections
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|s| &s["id"] == id)
+            .unwrap()["student_count"]
+            .clone()
+    };
+    assert_eq!(
+        (count(&ids["s1a"]), count(&ids["s1b"]), count(&ids["s2a"])),
+        (json!(2), json!(0), json!(2))
+    );
+
+    let (s, generated) = app
+        .post(
+            "/fees/vouchers/generate",
+            &admin,
+            json!({ "month": "2026-04-01" }),
+        )
+        .await;
+    assert_eq!(
+        (s, generated["created"].clone()),
+        (StatusCode::OK, json!(4))
+    );
+    let (_, health) = app.get("/data-health", &admin).await;
+    assert_eq!(check(&health, "vouchers_without_fee_head")["count"], 0);
+
+    let voucher = |i: usize| generated["voucher_ids"][i].as_str().unwrap().to_string();
+    // One voucher has a line without a fee head, one has lost its lines altogether, and a
+    // third is wrong in the same way but cancelled, so nobody needs to look at it.
+    sqlx::query("UPDATE fee_voucher_lines SET fee_head_id = NULL WHERE voucher_id = $1::uuid")
+        .bind(voucher(0))
+        .execute(&mut *c)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE fee_voucher_lines SET deleted_at = now() WHERE voucher_id = $1::uuid")
+        .bind(voucher(1))
+        .execute(&mut *c)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE fee_voucher_lines SET fee_head_id = NULL WHERE voucher_id = $1::uuid")
+        .bind(voucher(2))
+        .execute(&mut *c)
+        .await
+        .unwrap();
+    let (s, b) = app
+        .post(
+            &format!("/fees/vouchers/{}/cancel", voucher(2)),
+            &admin,
+            json!({ "reason": "made by mistake" }),
+        )
+        .await;
+    assert!(s.is_success(), "{b}");
+    drop(c);
+
+    let (_, health) = app.get("/data-health", &admin).await;
+    let found = check(&health, "vouchers_without_fee_head");
+    assert_eq!(found["count"], 2, "{found}");
+    let mut numbers: Vec<String> = Vec::new();
+    for id in [voucher(0), voucher(1)] {
+        let (_, v) = app.get(&format!("/fees/vouchers/{id}"), &admin).await;
+        numbers.push(
+            v["voucher"]["voucher_no"]
+                .as_str()
+                .or(v["voucher_no"].as_str())
+                .unwrap()
+                .to_string(),
+        );
+    }
+    let mut labels: Vec<String> = found["sample"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| f["label"].as_str().unwrap().to_string())
+        .collect();
+    labels.sort();
+    numbers.sort();
+    assert_eq!(labels, numbers);
+    assert!(found["sample"][0]["link"]
+        .as_str()
+        .unwrap()
+        .ends_with("/print"));
+    app.finish().await;
+}
+
+/// Found by the long-run test: someone closes the window while "Export everything" is being
+/// made. The request is dropped at whatever line it had reached; the database connection it
+/// held must go back to the pool clean. (It went back inside a read-only transaction, and
+/// from then on every request that happened to get that connection failed.)
+#[tokio::test]
+async fn an_export_abandoned_half_way_leaves_every_connection_usable() {
+    let app = app!();
+    let (admin, ids) = app.seed().await;
+    for i in 0..30 {
+        app.student(
+            &admin,
+            &format!("Student {i}"),
+            "Father",
+            "2015-03-14",
+            &ids["s1a"],
+        )
+        .await;
+    }
+    let school_id: uuid::Uuid = {
+        let mut c = app.state.pool.acquire().await.unwrap();
+        sqlx::query_scalar("SELECT id FROM schools LIMIT 1")
+            .fetch_one(&mut *c)
+            .await
+            .unwrap()
+    };
+    // Abandoned at many different moments, some of them certainly in the middle.
+    let mut abandoned = 0;
+    for i in 0..40u64 {
+        let cut = std::time::Duration::from_micros(300 * i);
+        if tokio::time::timeout(
+            cut,
+            madrasa_api::everything::export(&app.state.pool, school_id),
+        )
+        .await
+        .is_err()
+        {
+            abandoned += 1;
+        }
+    }
+    assert!(abandoned >= 10, "only {abandoned} exports were cut short");
+    // Every connection the pool holds, all at once: none is inside a transaction, and each
+    // can still write.
+    // (A transaction left open would have started a while ago by now.)
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    let mut held = Vec::new();
+    for _ in 0..app.state.pool.size().max(1) {
+        held.push(app.state.pool.acquire().await.unwrap());
+    }
+    for c in &mut held {
+        let (read_only, in_tx): (String, bool) = sqlx::query_as(
+            "SELECT current_setting('transaction_read_only'), now() < clock_timestamp() - interval '150 milliseconds'",
+        )
+        .fetch_one(&mut **c)
+        .await
+        .unwrap();
+        assert_eq!((read_only.as_str(), in_tx), ("off", false));
+        sqlx::query("CREATE TEMP TABLE IF NOT EXISTS still_writable (n int)")
+            .execute(&mut **c)
+            .await
+            .unwrap();
+    }
+    drop(held);
+    // And the app works: a whole export, and a change.
+    let (s, _) = app
+        .raw(Method::GET, "/export/everything", Some(&admin), None)
+        .await;
+    assert_eq!(s, StatusCode::OK);
+    app.student(&admin, "After", "Father", "2015-03-14", &ids["s1a"])
+        .await;
+    app.finish().await;
+}
+
+/// Found by the long-run test, with the one before. A request is carried out to its end
+/// even when whoever sent it has gone (a closed window, a client PC switched off): the
+/// alternative is a request dropped at whatever line it had reached.
+#[tokio::test]
+async fn a_request_whose_client_has_gone_is_still_carried_out() {
+    use std::future::Future;
+    let app = app!();
+    let (admin, ids) = app.seed().await;
+    for i in 0..8 {
+        let body = json!({ "full_name": format!("Left Early {i}"), "father_name": "Father", "date_of_birth": "2015-03-14", "gender": "male", "admission_date": "2026-04-01", "section_id": ids["s1a"] });
+        let req = Request::builder()
+            .method(Method::POST)
+            .uri("/api/v1/students")
+            .header(header::AUTHORIZATION, format!("Bearer {admin}"))
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(body.to_string()))
+            .unwrap();
+        let fut = app.app.clone().oneshot(req);
+        tokio::pin!(fut);
+        // The request has been taken up, no more: then the client is gone.
+        let done =
+            std::future::poll_fn(|cx| std::task::Poll::Ready(fut.as_mut().poll(cx).is_ready()))
+                .await;
+        assert!(
+            !done,
+            "the request was answered at once, so nothing was abandoned"
+        );
+    }
+    let mut found = 0;
+    for _ in 0..100 {
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        let (_, list) = app.get("/students?q=Left%20Early", &admin).await;
+        found = list["total"].as_i64().unwrap_or(0);
+        if found == 8 {
+            break;
+        }
+    }
+    assert_eq!(
+        found, 8,
+        "every student whose request was abandoned was admitted all the same"
+    );
+    // Each once, and whole: enrolled in the section and written in the audit log.
+    assert_eq!(app.count("students").await, 8);
+    assert_eq!(app.count("enrollments").await, 8);
+    app.finish().await;
+}

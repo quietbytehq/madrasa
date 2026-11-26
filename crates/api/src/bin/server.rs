@@ -41,26 +41,42 @@ async fn main() -> anyhow::Result<()> {
     madrasa_api::backup::spawn_scheduler(state.clone());
     madrasa_api::late_fees::spawn_scheduler(state.clone());
     madrasa_api::nexus_link::spawn_scheduler(state.clone());
-    if let Ok(lan_bind) = std::env::var("MADRASA_LAN_BIND") {
+    // Both listeners stop taking requests before the database goes away: a request that
+    // arrives while the server is stopping must find the door closed (a client PC then
+    // keeps the change and sends it later), not an open door and no database behind it.
+    let (stop_tx, _) = tokio::sync::broadcast::channel::<()>(1);
+    let lan = if let Ok(lan_bind) = std::env::var("MADRASA_LAN_BIND") {
         let tls_dir = madrasa_api::bootstrap::default_data_dir().join("tls");
         let identity = madrasa_api::lan::load_or_create_identity(&tls_dir)?;
-        let (lan_addr, lan) = madrasa_api::lan::serve_tls(
-            lan_bind.parse()?,
-            state.clone(),
-            &identity,
-            std::future::pending(),
-        )
-        .await?;
+        let mut stop_lan = stop_tx.subscribe();
+        let (lan_addr, lan) =
+            madrasa_api::lan::serve_tls(lan_bind.parse()?, state.clone(), &identity, async move {
+                let _ = stop_lan.recv().await;
+            })
+            .await?;
         madrasa_api::private::write_private(
             &tls_dir.join("fingerprint.txt"),
             identity.fingerprint.as_bytes(),
         )?;
         tracing::info!(addr = %lan_addr, fingerprint = %identity.fingerprint, "also listening over TLS");
-        tokio::spawn(lan);
-    }
-    let (addr, fut) = server::bind(bind, state, shutdown_signal()).await?;
+        Some(tokio::spawn(lan))
+    } else {
+        None
+    };
+    let mut stop_local = stop_tx.subscribe();
+    let (addr, fut) = server::bind(bind, state, async move {
+        let _ = stop_local.recv().await;
+    })
+    .await?;
     tracing::info!(%addr, edition = "see /system/features", "madrasa-server listening");
+    tokio::spawn(async move {
+        shutdown_signal().await;
+        let _ = stop_tx.send(());
+    });
     fut.await?;
+    if let Some(lan) = lan {
+        let _ = lan.await;
+    }
     db.shutdown().await;
     Ok(())
 }
