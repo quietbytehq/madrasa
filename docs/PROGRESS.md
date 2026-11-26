@@ -2080,10 +2080,11 @@ Results so far:
   times; after each of the three clean stops 0 database processes were left; after the
   power cut the 6 orphaned database processes were cleared by the next start, which ended
   with one database server; both clients' queues empty at the end.
-- **Eight-hour run: started 2026-11-26 06:01 UTC on this stage's build, still running when
-  this was written.** After 30 minutes: 26,268 requests, none failed. The result goes into
-  the close-out entry (stage 6) as it is, whatever it is. A first attempt at 05:32 is void:
-  the build machine's disk filled up after eleven minutes and killed the test driver.
+- **Eight-hour run: started 2026-11-26 06:01 UTC on this stage's build; it did not finish.**
+  The cloud machine was restarted under it after 5 h 53 min. 303,824 requests, none
+  failed, but the server's memory was not flat. The figures are in the close-out entry
+  (stage 6). A first attempt at 05:32 is void: the build machine's disk filled up after
+  eleven minutes and killed the test driver.
 - In CI: six minutes on every push (the same checks; growth of memory is judged only from
   30 minutes up, a shorter run cannot tell).
 
@@ -2121,7 +2122,8 @@ dashboard, the check line, the "checking" state and the run history; two browser
 (`e2e/desktop/10-backup.spec.ts`).
 
 **Not proven:**
-- The eight-hour run is not finished (see above).
+- Eight hours without memory growth: the run was cut at 5 h 53 min and memory rose in it
+  (see above and the close-out entry).
 - The load test's timings are from one machine: 4 cores, 15 GB of memory, a virtual disk,
   the database on the same machine. Not run on a school's PC, and not on Windows.
 - The long-run test drives the API, not the screens, and the headless server, not the
@@ -2210,6 +2212,193 @@ find missing names and roles, not whether what is announced makes sense. Forms i
 dialogs other than the payment dialog, and the Standard modules' forms, were scanned by axe
 but not walked with Tab. The parent app was not tried with a phone's keyboard or switch
 access.
+
+### 2026-11-26 — Stage 6: Close-out (branch `claude/kind-franklin-ac2vjh-s6-closeout`)
+
+- **Manual.** All screenshots were made again from this build, in English and Urdu
+  (139 in each, two of them new), and both PDFs typeset (103 pages in English, 106 in Urdu). New in the book: the import
+  templates for guardians, fee structure and opening balances; the dry run and its report
+  (new screenshot); Data health (new screenshot); the backup check, the red notice and
+  Export everything; using Madrasa from the keyboard. One scene had to follow the user
+  menu's fuller name from stage 5.
+- **TESTING.md**, new section 12 "New since v0.5.1": tasks 82 to 107 for a person at a PC
+  (passwords, import with the dry run, opening balances, Data health, Export everything, the
+  checked backup and the failed one, larger schools, wording, keyboard, Urdu), the three
+  scripts, and the rule about backups and versions.
+- **The eight-hour long-run test.** **Cut short at 5 h 53 min; it has no verdict, and what it
+  showed about memory is not a pass.** Started 2026-11-26 06:01 UTC on the stage 4 build
+  (its first commit: without the end marker of the dump and without stage 5). At 11:55 UTC
+  the cloud machine this work runs on was restarted by its host and took the test with it:
+  the driver never reached its end-of-run checks and wrote no result file. What follows is
+  read from the samples it wrote every minute (353 of them) and its log.
+  - **Requests: 303,824, none failed** while every machine they went through was up. Six
+    people at a time, the two client PCs switched off and on throughout, a backup with its
+    check and an export every quarter of an hour (the backup folder held the newest three,
+    the last of 11:47).
+  - **Restarts:** a clean stop at 08:01 and a power cut at 10:01, both as planned; after the
+    power cut the next start found the orphaned database, stopped it and went on with one
+    database server. The third restart (12:01) and the final stop were never reached.
+  - **Open files and database processes: flat.** Open files 24 to 26 at the middle of each
+    stretch between restarts (short peaks to 180 during downloads); database processes 14,
+    between 12 and 16 throughout.
+  - **Memory of the school server: not flat.** Per stretch between restarts (proportional
+    set size, one sample a minute):
+
+    | Stretch | At start | Middle | At end | Trend after warm-up | The script's own rule |
+    | --- | --- | --- | --- | --- | --- |
+    | 06:02 to 08:01 | 424 MB | 421 MB | 428 MB | +16 MB an hour | within (25 MB of 84 allowed) |
+    | 08:02 to 10:01 | 181 MB | 235 MB | 241 MB | +20 MB an hour, flattening: +6 MB in the last 40 minutes | within (32 MB of 47 allowed) |
+    | 10:02 to 11:54 | 203 MB | 265 MB | 286 MB | +36 MB an hour, still rising when the run was cut | **over** (54 MB against 53 allowed) |
+
+    So the promise "no memory growth" is **not shown**, and on the third stretch the
+    script's rule would have said "grew". What it is, is not established. One look at the
+    live process at 11:45 (290 MB resident): 3 MB in the program's main heap, 247 MB in
+    twelve of the C library's per-thread memory pools, 40 MB of program files. Memory held
+    in those pools and not handed back is a known habit of that allocator and would level
+    off; the first stretch, which sat at 400 to 430 MB from its first minute to its last,
+    fits that. A real leak is not ruled out by any of this. The database's own memory rose
+    too (about 200 MB to 265 MB over the run), while the database itself grew with the
+    work done.
+  - **Not checked at all in this run** because it never ended: that no database process is
+    left after the last stop, that both clients' queues were empty, the memory verdict of
+    the script itself. The five-minute run of stage 4 and the six-minute run in CI do check
+    the first two on every push, and pass.
+  - It was not started again: eight more hours on a machine that has just shown it does
+    not stay up that long would prove nothing more. It needs a machine that stays on
+    (decision 12 below).
+- **CI.** Two jobs were re-run in the whole run, once each, both for `apt-get` in the Linux
+  desktop build: in stage 5 it hung for an hour (cancelled, passed on the second go; the
+  same commit's other run had built it without trouble), and in stage 6 it got a 404 for
+  one package from Ubuntu's security mirror (passed on the second go).
+- The summary below.
+
+## Summary for the owner — Pilot readiness
+
+Six stages, six pull requests (67 to 72), each merged on a green CI. The version is still
+0.5.1 and nothing was tagged or released. This is what a pilot school would get from `main`
+today, what it would not get from the `v0.5.1-alpha` download, and what only you can decide.
+
+### What was done
+
+| Stage | In one line | Pull request |
+| --- | --- | --- |
+| 1 Security | Sixteen findings fixed; every route (387 then) held to a written permission table by a test; dependency audit in CI; `docs/SECURITY.md` | 67 |
+| 2 GUI tests | The three front ends driven in a real browser against real servers in CI; PDFs downloaded and read; Urdu, contrast and offline checked by machine | 68 |
+| 3 Onboarding | Templates with instructions in two languages, a dry run that writes nothing, guardians and fee-structure imports, opening balances on the first voucher, Data health, Export everything | 69 |
+| 4 Reliability | Load test at 5,040 students, long-run test, upgrade test from 0.4.1 (in CI), every backup checked by a restore, a red notice when a backup fails | 70 |
+| 5 Polish, accessibility | Open wording items closed; keyboard and screen-reader checks on every main screen, in CI; the Urdu review list | 71 |
+| 6 Close-out | Manual made again, TESTING.md, this summary | 72 |
+
+**The faults that mattered**, all found by the new tests, none by reading:
+
+1. **Work shown as saved could be lost** (stage 4). A request abandoned at the instant it
+   opened a transaction left its database connection inside that transaction; what later
+   requests saved on that connection was never committed. In every version up to 0.5.1.
+   Fixed twice over, with tests (ADR 0011).
+2. **An imported opening balance took the place of the student's first monthly voucher**, so
+   that month's fee was never billed (stage 3). In the product since M1; it bites exactly
+   the school that imports balances and then bills its first month.
+3. **The parent app said "Offline" after half a minute with everything working** (stage 2).
+   In 0.5.0 and 0.5.1.
+4. **A backup needed 1.8 GB of memory** for a large school, and a backup that could not be
+   restored would only have been found out on the day it was needed (stage 4). Backups are
+   now streamed (0.33 GB) and each is restored into a temporary database and counted.
+5. Smaller: every download was saved as "download"; three slow lists at 5,000 students;
+   Urdu letters clipped and text below the contrast standard; a dialog that dropped the
+   keyboard's focus; logins that told real usernames from invented ones; the WebView's
+   folder readable by other accounts on Linux.
+
+**What CI now runs on every pull request that it did not before:** dependency audit
+(Rust and JavaScript), the route permission matrix, 53 browser tests of the three front
+ends including accessibility, the upgrade from 0.4.1, and six minutes of the long-run test.
+
+### What is not proven
+
+Listed by how much it matters for a pilot.
+
+1. **Windows, by a person.** Everything in this run was done on Linux. The Windows build and
+   the Rust tests run in CI; nobody installed this build on Windows, pulled a USB drive out,
+   closed the window, or looked at the data folder's permissions.
+2. **The eight-hour run.** It ran 5 h 53 min of the 8 and was then killed by a restart
+   of the cloud machine, so there is no eight-hour result. In that time: 303,824 requests,
+   none failed; a clean restart and a power cut survived; open files and database processes
+   flat. **The server's memory was not flat**: it rose by 16, 20 and 36 MB an hour in the
+   three stretches between restarts and was still rising in the third when the run ended
+   (203 MB to 286 MB in under two hours; the first stretch sat at about 420 MB throughout).
+   Whether that is the allocator keeping memory it will reuse, which levels off, or a leak,
+   is not established. The figures are in the stage 6 entry above. Until it is settled, a
+   school server that is left on for weeks is the case to be careful with; at the worst
+   rate seen, and under a load far heavier than a school office's, a server switched off
+   every night would gain a few hundred megabytes in a day.
+3. **A school's own PC.** The load test's figures (every screen under a second at 5,040
+   students, vouchers in 12 s, backup in 7 s) are from a 4-core machine with 15 GB of memory
+   and a virtual disk. A school's server PC may be much slower. The script is there to run
+   on one.
+4. **Urdu.** No Urdu string has been read by a native speaker (`docs/urdu-review.md`).
+5. **A real screen reader.** The accessibility checks are a machine's: names, roles, order,
+   focus. Nobody listened to the app.
+6. **The installed program.** The browser tests drive the front ends, not the desktop shell
+   (window, tray, installer). The last evidence for the shell is the v0.5.1 lab run of
+   16 November; the stage 1 lab run checked the security changes in the real window.
+7. **The import templates in Excel.** They were opened with a spreadsheet library, not by a
+   person in Excel or LibreOffice; how the Urdu sheet looks there is unseen.
+8. **Upgrades from an installer.** The upgrade test starts from the 0.4.1 server built from
+   its tag, with the small demo school.
+9. **How often fault 1 has already happened** at a tester's school. Nothing in a database
+   can show it afterwards.
+10. **Real phones, printers, a real school network cable**: as before this run.
+11. **Fifteen remaining security risks** are written down in `docs/SECURITY.md` §5; the ones
+    a pilot should know are: set the school up before the PC is on the school's network;
+    use disk encryption on school PCs; anyone on the school network can lock an account for
+    fifteen minutes.
+
+### Decisions for you
+
+1. **Make a release before any pilot, and stop handing out v0.5.1-alpha.** The tag
+   `v0.5.1-alpha` points at a commit that only changed version numbers: it has neither the
+   fixes of 16 November nor anything from this run, including the lost-work fault. `main`
+   has all of it. I did not tag or change the version, as instructed. You decide the number
+   (0.5.2 or 0.6.0) and when; `docs/RELEASING.md` has the steps.
+2. **Tell the current testers** about fault 1? Anyone using 0.5.1 or earlier with client PCs
+   could have lost a saved change without a trace. A short note with the new build would be
+   honest.
+3. **Who reads the Urdu**, and by when. Three word choices should be settled first because
+   they are everywhere: "لاگ ان" or "سائن ان"; "واؤچر" or "چالان"; "ہیڈ آفس" or "صدر دفتر".
+4. **Backups do not survive an upgrade.** A backup can only be restored by the version that
+   made it (the rule since M1; the upgrade test now shows it in words). For a pilot this
+   means: after each upgrade the old backups need the old installer. Choices: accept it and
+   say so in the upgrade notes (TESTING.md now does); or have a later version upgrade an
+   old backup while restoring it (real work, not started).
+5. **Signing the installers.** Windows warns on every install and nothing proves a download
+   is yours. A code-signing certificate costs money and needs an identity check.
+6. **Turn on private vulnerability reporting** for the repository on GitHub (Settings →
+   Security). `SECURITY.md` tells people to use it.
+7. **The pilot school's hardware.** Decide a minimum (memory, disk free for the backup
+   check, which needs about the size of the database) and run `scripts/load-test.sh` on one
+   such PC before the pilot.
+8. **A day of testing on Windows by a person**, with TESTING.md section 12 (tasks 82 to
+   107), before the pilot. It is the largest gap.
+9. **The database library's fault** (sqlx 0.9.0 leaves an abandoned `BEGIN` open) is worked
+   around, with a test that will say when it is fixed upstream. Reporting it to the
+   library's authors is a public post under the project's name; I have not done it. Say if
+   you want it written up.
+10. **Small things I left because they are choices, not polish:** a sibling whose guardian's
+    name is spelt differently gets a second guardian record (merging guardians is not
+    built); "Class" and "CNIC" are not renamed for other countries; an import's work is lost
+    if the app is closed before it is confirmed; hub console users cannot change their own
+    password. And two I could not check: items O4, O6, O7 of the v0.2.0 report and B6 of the
+    v0.5.0 report appear in no fix note, and the reports are not in the repository.
+11. Earlier owner decisions (parent app signing key, forgotten passwords, attendance per
+    period and the rest) are unchanged and are in the summaries below.
+12. **The server's memory over a long day** (not proven, item 2). It needs a machine that
+    stays on, which this cloud session is not. Two runs would settle it, each a single
+    command: `scripts/soak-test.sh 1440` for 24 hours, and the same with the environment
+    variable `MALLOC_ARENA_MAX=2` set, which caps the allocator's pools. If memory levels
+    off in the first, nothing needs doing. If it only levels off in the second, the fix is
+    to cap the pools or change the allocator in the server (a small change; I have not made
+    it, because I have not shown it is the cause). If it grows in both, there is a leak to
+    find before a pilot school leaves its server on for weeks. Say if you want me to do
+    this in a later session, on a machine of yours or in CI as a nightly job.
 
 ## Brand identity
 

@@ -69,7 +69,8 @@ scene("the screen at a glance", ["overview-dashboard", "overview-usermenu", "ove
   const page = await s.desktop();
   const $ = by(s, page);
   await s.snap(page, "overview-dashboard");
-  await click($.button("topbar.userMenu"));
+  // The button's name is "User menu: <the person's name>".
+  await click(page.getByRole("button", { name: new RegExp(`^${s.L("topbar.userMenu")}`) }));
   await s.snap(page, "overview-usermenu");
   await page.keyboard.press("Escape");
   await click($.button("topbar.help"));
@@ -183,12 +184,36 @@ scene("students", ["students-list", "students-add", "students-profile", "student
   await page.context().close();
 });
 
-scene("import", ["import-start", "import-students"], async (s) => {
+scene("import", ["import-start", "import-students", "import-dry-run", "data-health"], async (s) => {
   const page = await s.desktop({ route: "/import" });
   await s.snap(page, "import-start");
   await click(page.getByRole("button", { name: new RegExp(`^${s.L("import.kind.students")}`) }));
   await settle(page, 500);
   await s.snap(page, "import-students");
+
+  // A guardians file with two children of one father and a row nobody matches: the dry run
+  // says what will happen and why, and nothing is saved.
+  const token = await s.token("demo.khadija.iqbal");
+  const res = await fetch(`${URLS.school}/api/v1/students?page_size=2`, { headers: { authorization: `Bearer ${token}` } });
+  const two = (await res.json()).items;
+  const csv = [
+    "Student number,Guardian name,Relationship,Phone,Primary contact",
+    `${two[0].student_number},Tariq Mehmood,uncle,0300-5550142,no`,
+    `${two[1].student_number},Tariq Mehmood,uncle,0300-5550142,no`,
+    "OLD-0417,Nasreen Akhtar,mother,0300-5550199,yes",
+  ].join("\n");
+  await page.goto(`${URLS.desktop}/import`);
+  await click(page.getByRole("button", { name: new RegExp(`^${s.L("import.kind.guardians")}`) }));
+  await page.getByLabel(s.L("import.file.choose")).setInputFiles({ name: "guardians.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
+  await click(page.getByRole("button", { name: s.L("import.preview.run"), exact: true }));
+  await page.getByTestId("dry-run").waitFor();
+  await settle(page, 600);
+  await s.snap(page, "import-dry-run", { target: page.getByTestId("dry-run"), maxHeight: 700 });
+
+  await page.goto(`${URLS.desktop}/data-health`);
+  await page.getByTestId("health-summary").waitFor();
+  await settle(page, 600);
+  await s.snap(page, "data-health");
   await page.context().close();
 });
 

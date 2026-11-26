@@ -667,7 +667,155 @@ Fixes for what the v0.5.0-alpha test found. Tasks 66, 67 and 69 above changed to
     Task Manager → Details; Linux: `pgrep -u $USER postgres` prints nothing), and Madrasa
     opens again without delay.
 
-## 12. Report a problem
+## 12. New since v0.5.1
+
+Everything below was added after v0.5.1-alpha and is **not in that download**: it is on the
+`main` branch and will be in the next build. Until then these tasks can only be done on a
+build made from `main` (see README). The version number still says 0.5.1.
+
+### Signing in and passwords
+
+82. **Change your own password.** Click your name (top right) → *Change password*. Give the
+    current password and a new one twice: "Password changed.", and you stay signed in. Sign
+    out and in again: the old password is refused, the new one works.
+83. **A reset signs the person out.** As administrator, Settings → Users → reset another
+    user's password while that user is signed in on another PC (or another browser profile).
+    On their next click they are returned to the sign-in screen, not left on a screen full of
+    errors.
+84. **Wrong name or wrong password look the same.** At the sign-in screen try a username
+    that does not exist, then a real one with a wrong password: the message is the same for
+    both.
+85. **The log file.** After a start there is a file `logs/madrasa.log` in Madrasa's folder
+    (section 1 says where). It holds no password. If Madrasa shows its error screen, this is
+    the file it means.
+
+### Bringing a school's records in (Import)
+
+86. **Templates with instructions.** Import → choose *Students*, then *Guardians*, *Staff*,
+    *Fee structure* and *Opening fee balances*; for each press *Excel template*. Open the file in
+    Excel or LibreOffice: a sheet for the records, a sheet **Read me** and a sheet **ہدایات**
+    (Urdu, right to left). Tell us if the Urdu sheet does not display properly or its wording
+    is unclear.
+87. **The dry run.** Fill a few rows of the Guardians template: two children of the same
+    father (use real student numbers from Students), and one row with a student number that
+    does not exist. Choose the file → *Check the file*. It says 2 will be created and 1
+    cannot be imported, **why** (no student with this number) and the row number. *Download
+    dry-run report* gives the same as a workbook. Nothing has been saved yet: check a
+    student's Guardians tab.
+88. **Confirm, then undo.** Press *Import 2 rows*: a question repeats the numbers. Confirm.
+    Both children now show the same guardian (one record, not two). Under *Import history*
+    press *Roll back*: the guardian is gone from both.
+89. **Fee structure.** Fill the Fee structure template with a fee head that does not exist
+    yet (say "Computer fee") for two classes, and import. Fees → Setup shows the new head
+    with its amounts.
+90. **Opening balances.** Import an opening balance of Rs 3,000 for one student, then
+    generate this month's vouchers (Fees → Vouchers → *Generate vouchers*). That student's voucher
+    shows **Arrears 3,000** above this month's fee, and the student also got this month's
+    voucher (in v0.5.1 the balance took the place of the month's voucher). The opening
+    balance never earns a late fee.
+91. **Likely duplicates and missing classes.** Import a students sheet with one child who is
+    already on file (same name and father's name) and one row for class "13": the dry run
+    lists the first under *Likely duplicates* and "13" under *Classes and sections that are
+    not set up*.
+92. **An accountant** signed in can open Import, and of the kinds only *Fee structure* can
+    be chosen.
+
+### Data health
+
+93. **Find what is wrong.** Import → *Data health*. Each line is a check with a count.
+    Add a student without choosing a class and section, and a guardian without a phone
+    number, then *Check again*: both are listed, each with why it matters and a link that
+    opens the record.
+
+### Leaving with your data
+
+94. **Export everything.** Backup → *Export everything*. One workbook downloads, named with
+    the school and the date. It has a first sheet *About this file*, then Students,
+    Guardians, Staff, Fee vouchers, Fee receipts, Attendance, Marks and the rest. Search it
+    for a password or for the word "argon": nothing. A teacher has no such button.
+
+### Backups that are checked
+
+95. **The check.** Backup → *Back up now*. The file is written at once ("Backup written
+    to …"); below the date a line says *Checking the backup…* and within a minute *Checked
+    after writing: restored into a temporary database and every record counted*. The run
+    history shows **Checked** beside the backup.
+96. **A backup that fails.** Set the backup folder to a USB drive, make one backup, pull the
+    drive out and press *Back up now*. A **red notice** at the top of the Backup page, and of
+    the dashboard for every user, says the backup failed, why, how old the last good backup
+    is and what to do. Plug the drive back and back up again: the notice goes.
+97. **Free space.** The check needs free disk space about the size of the database. Tell us
+    what the notice says if the disk is nearly full.
+
+### Larger schools
+
+98. **Speed.** If your school has more than 1,000 students, or you loaded several years of
+    records: open Students, Fees → Defaulters, Fees → Daily collection, Data health and the
+    dashboard, and tell us any screen that takes more than a second or two to show.
+99. **Vouchers for the whole school.** Fees → Vouchers → *Generate vouchers* for a month,
+    all classes:
+    tell us how long it took and for how many students. (Our own test: 5,040 students in 12
+    seconds on a 4-core machine.)
+
+### Clearer wording
+
+100. **Receipts.** Print any receipt: the amount is written "Rs 500.00" like everywhere
+     else (in v0.5.1 it said "PKR 500.00").
+101. **Back from a receipt.** Fees → Collect → find a student → open one of their receipts →
+     *Back*: you are on that student's ledger again, not on an empty search.
+102. **Report cards.** Exams → Report cards: the percentage in the list is the same figure
+     as on the printed card (one decimal place).
+103. **Empty lists** say what is missing and what to do, for example a student with no
+     payments: "No payment has been received from this student yet."
+
+### Keyboard and screen readers
+
+104. **Without the mouse.** Press Tab on any screen: the first stop is *Skip to content*.
+     Admit a student using only the keyboard (Tab, Shift+Tab, Enter, Space): every field is
+     reached in order and you can always see where you are.
+105. **Tabs, menus and dialogs.** On Fees, with a tab focused, the Left and Right arrows
+     move between Vouchers, Collect, Defaulters… (in Urdu the arrows are mirrored). Open
+     your name's menu with Enter, move with Up and Down, close with Esc. Open *Record
+     payment* with Enter, close it with Esc: the keyboard is back on the *Record payment*
+     button.
+106. **A screen reader**, if you use one (NVDA on Windows, Orca on Linux, TalkBack with the
+     parent app): we have not been able to test with a real one. Tell us what is announced
+     wrongly, or not at all.
+
+### Urdu
+
+107. **Read the Urdu.** No Urdu in Madrasa has been read by a native speaker yet.
+     `docs/urdu-review.md` says where it all is and which words we were unsure of (for
+     example "لاگ ان" and "سائن ان" are both in use). Any correction is welcome, in any
+     form.
+
+### For the person who installs (not everyday use)
+
+Three scripts in `scripts/` test what a tester cannot do by hand; each says at its top what
+it needs. They are run by us before a release; a school does not need them.
+
+- `scripts/load-test.sh`: a made-up school of 5,000 students with three years of records;
+  every main screen must open within a second, vouchers for the school within a minute, a
+  backup within two.
+- `scripts/soak-test.sh 480`: eight hours of use with client PCs switched off and on, the
+  server restarted and its power cut; no request may fail, memory must not grow, no
+  database process may be left behind.
+  Our own eight-hour run of 26 November was cut off after 5 h 53 min by the machine it ran
+  on. No request had failed, but the server's memory was still rising, so this one is
+  **not passed yet** and has to be run again on a PC that stays on (docs/PROGRESS.md,
+  "Summary for the owner", decision 12).
+- `scripts/upgrade-test.sh`: a school on 0.4.1 is upgraded in place; every record must
+  still be there.
+
+**Upgrading and old backups.** A backup file can only be restored by the version of Madrasa
+that made it. After installing a new version, make a new backup the same day (the nightly
+one does this by itself) and keep the old installer next to the old backup files.
+
+**Not tested by us:** all of the above on Windows by hand; a real USB drive pulled out; a
+real screen reader; the import templates opened in Excel by a person; a school's own PC
+under the load test.
+
+## 13. Report a problem
 
 Please report anything, including small things, at
 <https://github.com/quietbytehq/madrasa/issues/new>. If you do not have a GitHub account,
@@ -685,7 +833,8 @@ For each problem, tell us:
   database).
 
 Things we already know about in this build: installers are unsigned (hence the Windows
-warning); everything is in English and Urdu only. The version number is under the **Help**
+warning); everything is in English and Urdu only, and the Urdu has not yet been read by a
+native speaker (task 107). The version number is under the **Help**
 button (top bar) → About; please quote it in reports. Teachers see only the modules
 their role can use (no Fees, Settings, Backup or Import) and no colleagues' phone numbers.
 
