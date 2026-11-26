@@ -33,7 +33,7 @@ Lite is built first. Write Lite so Standard and Nexus plug in later without rewr
 Light, compact, information-dense desktop UI. No hero banners.
 - Colors (brand, assets/brand): bg #F7F9FC, card #FFFFFF, navy #0B2557, blue #0757BA,
   gold #F5B13B, selection #E6EFFC, success #19835A/#DDF3E8, warning #D99A27/#FFF0D5,
-  lavender #E8E1FA, text #15264A, muted #64748B, border #DEE6F2. Dark values: docs/spec.md §8.1.
+  lavender #E8E1FA, text #15264A, muted #5A6A82, border #DEE6F2. Dark values: docs/spec.md §8.1.
 - Font: Inter, system sans fallback; Merriweather Black (`font-display`) only for the product
   name. Thin borders, subtle shadows, restrained radii.
 - Logo and icons: assets/brand. Edit assets/brand/tools/build_svg.py, not the SVGs; regenerate

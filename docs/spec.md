@@ -1645,13 +1645,22 @@ parent app and the Nexus console use the same ones). Colours follow the brand
 | `--navy` | `#0B2557` | `#CFDBF0` (navy as text on dark) |
 | `--blue` | `#0757BA` | `#5B9BF0` |
 | `--gold` / `--gold-bg` | `#F5B13B` / `#FFF4DC` | `#F7BE55` / `#3A2E12` |
-| `--selection` | `#E6EFFC` | `#1A3260` |
+| `--selection` | `#E6EFFC` | `#172D57` |
 | `--success` / `--success-bg` | `#19835A` / `#DDF3E8` | `#48BE88` / `#14382A` |
+| `--success-ink` (green as text) | `#14704C` | `#48BE88` |
 | `--warning` / `--warning-bg` | `#D99A27` / `#FFF0D5` | `#EAB448` / `#403014` |
+| `--warning-ink` (amber as text) | `#8A5A00` | `#EAB448` |
 | `--lavender` | `#E8E1FA` | `#383060` |
 | `--text` | `#15264A` | `#E3EAF6` |
-| `--muted` | `#64748B` | `#94A3BD` |
+| `--muted` | `#5A6A82` | `#94A3BD` |
 | `--border` | `#DEE6F2` | `#24365A` |
+| `--on-blue` / `--on-danger` (text on a filled button) | `#FFFFFF` | `#0A1428` |
+
+Every text colour meets WCAG AA (4.5:1; 3:1 for large text) on every background it is used
+on, in both themes; `e2e/desktop/07-theme.spec.ts` measures it on the main screens. That is
+why status words use the darker "ink" of green and amber (the brand colours stay for fills,
+dots and borders), why `--muted` is a little darker than the brand grey `#64748B`, and why
+filled buttons carry dark text in the dark theme.
 
 Fonts: Inter (Latin), Noto Nastaliq Urdu (Urdu), both bundled; `font-display` is the
 wordmark's serif (Merriweather Black, bundled), used only for the product name. Thin borders,

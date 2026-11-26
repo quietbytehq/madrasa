@@ -1855,6 +1855,74 @@ the content security policy in WebView2; that the far-corner workbook really sto
 (read from the library's code, not reproduced); scoping inside a permission was not
 re-audited (the module tests cover it). `docs/SECURITY.md` §5 lists fifteen remaining risks.
 
+### 2026-11-25 — Stage 2: Automated GUI tests (branch `claude/kind-franklin-ac2vjh-s2-e2e`)
+
+`scripts/e2e.sh` starts real servers on made-up data and drives the three front ends in a
+real browser (Playwright, Chromium): 37 tests in `e2e/`, run on every pull request by the
+new CI job *GUI tests*. Nothing is mocked except the desktop shell's four commands (which
+address is the API at, which mode is this PC in): the pages, the API, the database, the
+client proxy with its queue, the hub and the PDFs are the real ones.
+
+What runs:
+
+- a school server on a small demo school (60 students), also listening over TLS as on a
+  school network; a client PC's proxy to it with the offline queue; the hub with the demo
+  network and its console; the desktop and parent front ends from Vite.
+- `madrasa-server` gained what this needed and nothing else: `MADRASA_LAN_BIND` (serve
+  the TLS port without the desktop shell) and `madrasa-server proxy` (the client proxy on
+  its own). Both are the code the desktop app already runs.
+
+What is now checked by a machine instead of a person:
+
+| Area | Tests |
+| --- | --- |
+| Login | wrong password in plain words; session kept over a reload; logged out stays out |
+| Students | paging, search, profile tabs; a new student with a guardian is on the server |
+| Fees | list in the school's currency, status filter; **voucher PDF downloaded and read: voucher number, student, and "Rs 8,064.00" as real text**; a payment from Collect issues a receipt and the server holds exactly that amount |
+| Attendance | a correction on a submitted day survives a reload and is in the history; register and absentees open |
+| Exams | reopen an approved sheet, a mark above the maximum is refused, save, submit, approve; **report card PDF downloaded and read: student, school, subjects, overall %, Pass/Fail** |
+| Urdu | switch from the user menu: `dir="rtl"`, `lang="ur"`, Nastaliq loaded, sidebar on the right, kept over a reload; **no text cut off** on nine screens at 1024×768, 1366×768 and 1920×1080 (and English at 1024) |
+| Light / dark | switch and "Follow system"; a screenshot of seven screens in each theme and language (kept as a CI artifact); **WCAG AA contrast measured on every text**; a printed voucher is dark on white even in the dark theme |
+| Connection badge and offline | server PC: Connected, with its explanation; client PC: the school server is frozen (a pulled cable) → Reconnecting… → Offline; a payment taken while offline gets a provisional receipt and "1 waiting"; the server is thawed → Connected, nothing waiting, **the server holds the payment once** and the panel shows the provisional number replaced by the real one |
+| Parent app at 390×844 | sign-in (plain-http address refused, wrong password, right password, sign out); attendance, results, fees, notices of a child; a message to the class teacher; the badge stays Connected for 40 s and goes Reconnecting… → Offline → Connected when the hub is cut off; Urdu at 390 and 360 wide with nothing cut off; light and dark contrast |
+| Hub console | sign-in; schools list and a school's page; a report on screen, **downloaded as .xlsx and opened** (and as CSV); **escrow end to end**: set up, invite a school, the school joins from its Settings and leaves its key, a wrong passphrase releases nothing, the right one with a reason releases it, the activity log has it and the school is told at its next sync; Urdu and dark checked |
+
+The cut-off check measures the drawn letters against the box that clips them (Nastaliq's
+line box is much taller than its ink, so line boxes alone give false alarms), and has a test
+of its own that plants a clipped label and expects to be told.
+
+**Bugs these tests found, fixed in this stage:**
+
+1. **Parent app: the connection badge turned to "Reconnecting…" after half a minute on any
+   screen, and to "Offline" after that, with the hub working.** The app's own check of the
+   hub (`/health`) was refused by the browser because the hub did not allow it from another
+   origin, which is how the installed app always calls. The hub now allows it (test in
+   `crates/nexus/tests/security.rs`; the 40-second GUI test above). This was in 0.5.0 and
+   0.5.1; it was not seen before because the app had only been looked at for less than
+   half a minute at a time.
+2. **Urdu: letters were clipped** in the DEMO banner (top 1.5 px) and in every label
+   shortened with an ellipsis (bottom 4 px, for example the search box). Fixed in
+   `styles/index.css` and the banner.
+3. **Contrast below WCAG AA**: amber status words ("Late", "Partial", "Draft") were 2.2:1 on
+   their tint and 2.4:1 on white; green ones 4.1:1; grey secondary text 4.2 to 4.5:1 on the
+   sidebar, table headings and tints; in the dark theme white on the blue and red buttons
+   was 2.8 to 3.0:1. Fixed with tokens, not per screen: `--success-ink` and `--warning-ink`
+   for text, `--muted` `#64748B` → `#5A6A82`, `--on-blue` / `--on-danger` for text on filled
+   buttons, dark `--selection` a shade darker (spec §8.1 and CLAUDE.md updated). The brand
+   green, amber and blue are unchanged as fills, dots and borders.
+4. The parent app's development server did not serve the bundled fonts (403), so
+   `pnpm dev:parent` showed fallback fonts. The built app was not affected.
+
+Seen and left for stage 5 (wording and polish): the report card list shows the overall
+percentage to two decimals and the PDF to one; the provisional receipt writes "PKR 500.00"
+where the rest of the app writes "Rs 500.00"; Back from a receipt returns to an empty
+Collect tab.
+
+**Not proven by this stage** (it is a browser, not the installed program): the desktop
+shell itself (window, tray, installer, the WebView on Windows), a real Android phone, real
+printers, and Windows at all: the GUI tests run on Linux only. The 0.5.1 lab run on the
+installed `.deb` remains the evidence for the shell.
+
 ## Brand identity
 
 The brand sheet (`assets/brand/Madrasa_Brand_Identity_Showcase.png`) applied across the

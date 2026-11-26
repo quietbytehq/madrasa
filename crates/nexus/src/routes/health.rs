@@ -14,7 +14,12 @@ pub struct Health {
 }
 
 pub fn router() -> Router<HubState> {
-    Router::new().route("/health", get(health))
+    // The parent app asks this from its own pages (another origin) to show whether the hub
+    // can be reached; without the header a browser refuses the answer and the app reports
+    // the hub as unreachable. Nothing here is private.
+    Router::new()
+        .route("/health", get(health))
+        .layer(super::parent_data::app_cors())
 }
 
 /// Liveness for container health checks: no session needed, nothing sensitive returned.

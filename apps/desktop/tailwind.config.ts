@@ -27,6 +27,14 @@ export default {
         border: token("border"),
         sidebar: token("sidebar"),
         hover: token("hover"),
+        "on-blue": token("on-blue"),
+        "on-danger": token("on-danger"),
+      },
+      // As text, green and amber use their darker "ink" so that status words pass WCAG AA
+      // on white and on their own tints; fills, dots and borders keep the brand colours.
+      textColor: {
+        success: token("success-ink"),
+        warning: token("warning-ink"),
       },
       fontFamily: {
         sans: ["Inter", "ui-sans-serif", "system-ui", "Segoe UI", "Roboto", "sans-serif"],

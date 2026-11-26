@@ -67,7 +67,7 @@ export function ConnectionBadge() {
         )}
         {attention > 0 && (
           <span
-            className="rounded-full bg-danger px-1.5 text-2xs font-semibold text-white"
+            className="rounded-full bg-danger px-1.5 text-2xs font-semibold text-on-danger"
             data-testid="connection-attention"
           >
             {attention}

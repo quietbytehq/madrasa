@@ -35,6 +35,14 @@
     padding-bottom: 0.25rem;
   }
 
+  /* Text shortened with an ellipsis hides what overflows, top and bottom included, and a
+     Nastaliq line is taller than its line box. Padding is inside the clip; the negative
+     margin gives the room back, so the layout does not move. */
+  html[lang="ur"] .truncate {
+    padding-block: 0.6em;
+    margin-block: -0.6em;
+  }
+
   *:focus-visible {
     outline: none;
     box-shadow: var(--focus-ring);

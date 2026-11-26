@@ -95,7 +95,7 @@ export function ChildLayout() {
                     <span
                       data-testid="nav-unread"
                       aria-label={t("parent.messages.unread", { count: o.unread })}
-                      className="absolute end-2 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue px-1 text-[0.625rem] font-semibold text-white"
+                      className="absolute end-2 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue px-1 text-[0.625rem] font-semibold text-on-blue"
                     >
                       {o.unread}
                     </span>

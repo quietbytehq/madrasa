@@ -17,9 +17,15 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "manual": "scripts/build-manual.sh",
-    "manual:screenshots": "scripts/manual-screenshots.sh"
+    "manual:screenshots": "scripts/manual-screenshots.sh",
+    "e2e": "scripts/e2e.sh",
+    "e2e:typecheck": "tsc -p e2e --noEmit",
+    "e2e:format:check": "pnpm --filter madrasa-desktop exec prettier --config ../../e2e/.prettierrc --check \"../../e2e/**/*.{ts,mjs}\""
   },
   "devDependencies": {
-    "playwright": "1.63.0"
+    "@playwright/test": "1.63.0",
+    "@types/node": "^26.6.6",
+    "playwright": "1.63.0",
+    "typescript": "^5.9.3"
   }
 }

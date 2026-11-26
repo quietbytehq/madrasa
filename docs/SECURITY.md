@@ -122,6 +122,8 @@ child that is not theirs.
   `Permissions-Policy`, `Cross-Origin-Opener-Policy`, and HSTS when the public address is
   `https://`. The console's API allows no other origin; the parent app's routes allow any
   origin because they trust only the token in the `Authorization` header and use no cookies.
+  The health check (`/health`: is the hub there, which version) also answers any origin: the
+  parent app asks it from its own pages, and it holds nothing private.
 - **Codes**: join codes are 160 random bits, used once; parent access codes are 60 random
   bits, used once, valid fourteen days.
 

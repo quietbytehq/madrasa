@@ -202,8 +202,22 @@ async fn every_answer_carries_the_security_headers() {
     assert!(get("permissions-policy").contains("camera=()"));
     assert_eq!(get("cross-origin-opener-policy"), "same-origin");
     assert_eq!(get("strict-transport-security"), "max-age=31536000");
-    // No cross-origin access to the console's API (only the parent app's routes allow it).
-    assert_eq!(get("access-control-allow-origin"), "");
+    // The parent app, served from inside the app, may ask whether the hub is there…
+    assert_eq!(get("access-control-allow-origin"), "*");
+    // …but there is no cross-origin access to the console's API.
+    let res = hub
+        .router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("{}/schools", madrasa_nexus::API_PREFIX))
+                .header(header::ORIGIN, "http://tauri.localhost")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert!(res.headers().get("access-control-allow-origin").is_none());
 
     // A hub reached over plain HTTP (a local test) must not send HSTS.
     let mut state = hub.state.clone();

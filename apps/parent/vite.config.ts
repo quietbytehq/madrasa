@@ -25,7 +25,8 @@ export default defineConfig({
     strictPort: true,
     host: host || false,
     hmr: host ? { protocol: "ws", host, port: 1441 } : undefined,
-    fs: { allow: [".."] },
+    // The desktop app's sources next door, and the fonts in the workspace's node_modules.
+    fs: { allow: ["..", "../../node_modules"] },
     watch: { ignored: ["**/src-tauri/**"] },
   },
   envPrefix: ["VITE_", "TAURI_ENV_*"],

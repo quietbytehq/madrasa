@@ -40,7 +40,7 @@ export function AppShell() {
           <div
             role="status"
             data-testid="demo-banner"
-            className="bg-warning-bg px-4 py-1 text-center text-xs font-semibold uppercase tracking-wide text-text"
+            className="bg-warning-bg px-4 py-1 text-center text-xs font-semibold uppercase tracking-wide text-text rtl:py-2"
           >
             {t("misc.demoBanner")}
           </div>
