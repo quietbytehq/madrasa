@@ -800,6 +800,10 @@ it needs. They are run by us before a release; a school does not need them.
 - `scripts/soak-test.sh 480`: eight hours of use with client PCs switched off and on, the
   server restarted and its power cut; no request may fail, memory must not grow, no
   database process may be left behind.
+  Our own eight-hour run of 26 November was cut off after 5 h 53 min by the machine it ran
+  on. No request had failed, but the server's memory was still rising, so this one is
+  **not passed yet** and has to be run again on a PC that stays on (docs/PROGRESS.md,
+  "Summary for the owner", decision 12).
 - `scripts/upgrade-test.sh`: a school on 0.4.1 is upgraded in place; every record must
   still be there.
 

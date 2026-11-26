@@ -2080,10 +2080,11 @@ Results so far:
   times; after each of the three clean stops 0 database processes were left; after the
   power cut the 6 orphaned database processes were cleared by the next start, which ended
   with one database server; both clients' queues empty at the end.
-- **Eight-hour run: started 2026-11-26 06:01 UTC on this stage's build, still running when
-  this was written.** After 30 minutes: 26,268 requests, none failed. The result goes into
-  the close-out entry (stage 6) as it is, whatever it is. A first attempt at 05:32 is void:
-  the build machine's disk filled up after eleven minutes and killed the test driver.
+- **Eight-hour run: started 2026-11-26 06:01 UTC on this stage's build; it did not finish.**
+  The cloud machine was restarted under it after 5 h 53 min. 303,824 requests, none
+  failed, but the server's memory was not flat. The figures are in the close-out entry
+  (stage 6). A first attempt at 05:32 is void: the build machine's disk filled up after
+  eleven minutes and killed the test driver.
 - In CI: six minutes on every push (the same checks; growth of memory is judged only from
   30 minutes up, a shorter run cannot tell).
 
@@ -2121,7 +2122,8 @@ dashboard, the check line, the "checking" state and the run history; two browser
 (`e2e/desktop/10-backup.spec.ts`).
 
 **Not proven:**
-- The eight-hour run is not finished (see above).
+- Eight hours without memory growth: the run was cut at 5 h 53 min and memory rose in it
+  (see above and the close-out entry).
 - The load test's timings are from one machine: 4 cores, 15 GB of memory, a virtual disk,
   the database on the same machine. Not run on a school's PC, and not on Windows.
 - The long-run test drives the API, not the screens, and the headless server, not the
@@ -2223,10 +2225,51 @@ access.
   (passwords, import with the dry run, opening balances, Data health, Export everything, the
   checked backup and the failed one, larger schools, wording, keyboard, Urdu), the three
   scripts, and the rule about backups and versions.
-- **The eight-hour long-run test.** <!-- soak:final -->Started 2026-11-26 06:01 UTC on the stage 4 build; still running when this was written (at 08:21: 121,835 requests, none failed, the first restart of the server done). Its result is added here when it ends.<!-- /soak:final -->
-- **CI.** One job was re-run in the whole run, once: the Linux desktop build of stage 5
-  hung for an hour in its `apt-get` step (the same commit's other run had built it
-  without trouble); it was cancelled and passed on the second go.
+- **The eight-hour long-run test.** **Cut short at 5 h 53 min; it has no verdict, and what it
+  showed about memory is not a pass.** Started 2026-11-26 06:01 UTC on the stage 4 build
+  (its first commit: without the end marker of the dump and without stage 5). At 11:55 UTC
+  the cloud machine this work runs on was restarted by its host and took the test with it:
+  the driver never reached its end-of-run checks and wrote no result file. What follows is
+  read from the samples it wrote every minute (353 of them) and its log.
+  - **Requests: 303,824, none failed** while every machine they went through was up. Six
+    people at a time, the two client PCs switched off and on throughout, a backup with its
+    check and an export every quarter of an hour (the backup folder held the newest three,
+    the last of 11:47).
+  - **Restarts:** a clean stop at 08:01 and a power cut at 10:01, both as planned; after the
+    power cut the next start found the orphaned database, stopped it and went on with one
+    database server. The third restart (12:01) and the final stop were never reached.
+  - **Open files and database processes: flat.** Open files 24 to 26 at the middle of each
+    stretch between restarts (short peaks to 180 during downloads); database processes 14,
+    between 12 and 16 throughout.
+  - **Memory of the school server: not flat.** Per stretch between restarts (proportional
+    set size, one sample a minute):
+
+    | Stretch | At start | Middle | At end | Trend after warm-up | The script's own rule |
+    | --- | --- | --- | --- | --- | --- |
+    | 06:02 to 08:01 | 424 MB | 421 MB | 428 MB | +16 MB an hour | within (25 MB of 84 allowed) |
+    | 08:02 to 10:01 | 181 MB | 235 MB | 241 MB | +20 MB an hour, flattening: +6 MB in the last 40 minutes | within (32 MB of 47 allowed) |
+    | 10:02 to 11:54 | 203 MB | 265 MB | 286 MB | +36 MB an hour, still rising when the run was cut | **over** (54 MB against 53 allowed) |
+
+    So the promise "no memory growth" is **not shown**, and on the third stretch the
+    script's rule would have said "grew". What it is, is not established. One look at the
+    live process at 11:45 (290 MB resident): 3 MB in the program's main heap, 247 MB in
+    twelve of the C library's per-thread memory pools, 40 MB of program files. Memory held
+    in those pools and not handed back is a known habit of that allocator and would level
+    off; the first stretch, which sat at 400 to 430 MB from its first minute to its last,
+    fits that. A real leak is not ruled out by any of this. The database's own memory rose
+    too (about 200 MB to 265 MB over the run), while the database itself grew with the
+    work done.
+  - **Not checked at all in this run** because it never ended: that no database process is
+    left after the last stop, that both clients' queues were empty, the memory verdict of
+    the script itself. The five-minute run of stage 4 and the six-minute run in CI do check
+    the first two on every push, and pass.
+  - It was not started again: eight more hours on a machine that has just shown it does
+    not stay up that long would prove nothing more. It needs a machine that stays on
+    (decision 12 below).
+- **CI.** Two jobs were re-run in the whole run, once each, both for `apt-get` in the Linux
+  desktop build: in stage 5 it hung for an hour (cancelled, passed on the second go; the
+  same commit's other run had built it without trouble), and in stage 6 it got a 404 for
+  one package from Ubuntu's security mirror (passed on the second go).
 - The summary below.
 
 ## Summary for the owner — Pilot readiness
@@ -2276,7 +2319,17 @@ Listed by how much it matters for a pilot.
 1. **Windows, by a person.** Everything in this run was done on Linux. The Windows build and
    the Rust tests run in CI; nobody installed this build on Windows, pulled a USB drive out,
    closed the window, or looked at the data folder's permissions.
-2. **The eight-hour run.** <!-- soak:summary -->Not finished when this was written; see the stage 6 entry above for where it stood.<!-- /soak:summary -->
+2. **The eight-hour run.** It ran 5 h 53 min of the 8 and was then killed by a restart
+   of the cloud machine, so there is no eight-hour result. In that time: 303,824 requests,
+   none failed; a clean restart and a power cut survived; open files and database processes
+   flat. **The server's memory was not flat**: it rose by 16, 20 and 36 MB an hour in the
+   three stretches between restarts and was still rising in the third when the run ended
+   (203 MB to 286 MB in under two hours; the first stretch sat at about 420 MB throughout).
+   Whether that is the allocator keeping memory it will reuse, which levels off, or a leak,
+   is not established. The figures are in the stage 6 entry above. Until it is settled, a
+   school server that is left on for weeks is the case to be careful with; at the worst
+   rate seen, and under a load far heavier than a school office's, a server switched off
+   every night would gain a few hundred megabytes in a day.
 3. **A school's own PC.** The load test's figures (every screen under a second at 5,040
    students, vouchers in 12 s, backup in 7 s) are from a 4-core machine with 15 GB of memory
    and a virtual disk. A school's server PC may be much slower. The script is there to run
@@ -2337,6 +2390,15 @@ Listed by how much it matters for a pilot.
     v0.5.0 report appear in no fix note, and the reports are not in the repository.
 11. Earlier owner decisions (parent app signing key, forgotten passwords, attendance per
     period and the rest) are unchanged and are in the summaries below.
+12. **The server's memory over a long day** (not proven, item 2). It needs a machine that
+    stays on, which this cloud session is not. Two runs would settle it, each a single
+    command: `scripts/soak-test.sh 1440` for 24 hours, and the same with the environment
+    variable `MALLOC_ARENA_MAX=2` set, which caps the allocator's pools. If memory levels
+    off in the first, nothing needs doing. If it only levels off in the second, the fix is
+    to cap the pools or change the allocator in the server (a small change; I have not made
+    it, because I have not shown it is the cause). If it grows in both, there is a leak to
+    find before a pilot school leaves its server on for weeks. Say if you want me to do
+    this in a later session, on a machine of yours or in CI as a nightly job.
 
 ## Brand identity
 
