@@ -145,6 +145,13 @@ child that is not theirs.
   way.
 - The hub prints its one-time setup token once in its own log when none was configured;
   the token stops working when setup is done.
+- **Export everything** (added in stage 3) writes every record of the school into one
+  workbook, on purpose: it is how a school leaves with its data. It needs `backup.manage`
+  (the people who can already take a backup), is written in the audit log each time, and
+  leaves out password hashes, sessions, API keys, the backup and instance keys, the hub
+  token and any setting whose name or contents speak of a secret (tested against the real
+  values in `crates/api/tests/onboarding.rs`). The file itself is not encrypted: it is as
+  sensitive as a printed register, and where it is saved is the user's choice.
 
 ### 4.6 Cryptography
 

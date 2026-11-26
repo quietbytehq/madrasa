@@ -531,6 +531,12 @@ pub const ROUTES: &[(&str, &str, Access)] = &[
         "/export/attendance/register",
         Access::Any(&[P::AttendanceRead]),
     ),
+    (
+        "GET",
+        "/data-health",
+        Access::Any(&[P::StudentsManage, P::SettingsManage]),
+    ),
+    ("GET", "/export/everything", Access::Any(&[P::BackupManage])),
     ("GET", "/export/exams/results", Access::Any(&[P::ExamsRead])),
     (
         "GET",
@@ -661,12 +667,22 @@ pub const ROUTES: &[(&str, &str, Access)] = &[
     (
         "POST",
         "/imports/apply",
-        Access::Any(&[P::StudentsManage, P::TeachersManage, P::AdmissionsManage]),
+        Access::Any(&[
+            P::StudentsManage,
+            P::TeachersManage,
+            P::AdmissionsManage,
+            P::FeesManage,
+        ]),
     ),
     (
         "GET",
         "/imports/batches",
-        Access::Any(&[P::StudentsManage, P::TeachersManage, P::AdmissionsManage]),
+        Access::Any(&[
+            P::StudentsManage,
+            P::TeachersManage,
+            P::AdmissionsManage,
+            P::FeesManage,
+        ]),
     ),
     (
         "POST",
@@ -676,37 +692,78 @@ pub const ROUTES: &[(&str, &str, Access)] = &[
             P::TeachersManage,
             P::AdmissionsManage,
             P::AcademicsManage,
+            P::FeesManage,
         ]),
     ),
     (
         "GET",
         "/imports/fields/{kind}",
-        Access::Any(&[P::StudentsManage, P::TeachersManage, P::AdmissionsManage]),
+        Access::Any(&[
+            P::StudentsManage,
+            P::TeachersManage,
+            P::AdmissionsManage,
+            P::FeesManage,
+        ]),
     ),
     (
         "GET",
         "/imports/mappings/{kind}",
-        Access::Any(&[P::StudentsManage, P::TeachersManage, P::AdmissionsManage]),
+        Access::Any(&[
+            P::StudentsManage,
+            P::TeachersManage,
+            P::AdmissionsManage,
+            P::FeesManage,
+        ]),
     ),
     (
         "PUT",
         "/imports/mappings/{kind}",
-        Access::Any(&[P::StudentsManage, P::TeachersManage, P::AdmissionsManage]),
+        Access::Any(&[
+            P::StudentsManage,
+            P::TeachersManage,
+            P::AdmissionsManage,
+            P::FeesManage,
+        ]),
     ),
     (
         "POST",
         "/imports/parse",
-        Access::Any(&[P::StudentsManage, P::TeachersManage, P::AdmissionsManage]),
+        Access::Any(&[
+            P::StudentsManage,
+            P::TeachersManage,
+            P::AdmissionsManage,
+            P::FeesManage,
+        ]),
     ),
     (
         "POST",
         "/imports/preview",
-        Access::Any(&[P::StudentsManage, P::TeachersManage, P::AdmissionsManage]),
+        Access::Any(&[
+            P::StudentsManage,
+            P::TeachersManage,
+            P::AdmissionsManage,
+            P::FeesManage,
+        ]),
+    ),
+    (
+        "POST",
+        "/imports/report",
+        Access::Any(&[
+            P::StudentsManage,
+            P::TeachersManage,
+            P::AdmissionsManage,
+            P::FeesManage,
+        ]),
     ),
     (
         "GET",
         "/imports/templates/{kind}",
-        Access::Any(&[P::StudentsManage, P::TeachersManage, P::AdmissionsManage]),
+        Access::Any(&[
+            P::StudentsManage,
+            P::TeachersManage,
+            P::AdmissionsManage,
+            P::FeesManage,
+        ]),
     ),
     // inventory
     ("GET", "/inventory/assets", Access::Any(&[P::InventoryRead])),

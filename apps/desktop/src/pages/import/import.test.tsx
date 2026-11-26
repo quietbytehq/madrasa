@@ -14,6 +14,7 @@ vi.mock("@/api/endpoints", () => ({
     parseImport: vi.fn(),
     previewImport: vi.fn(),
     applyImport: vi.fn(),
+    downloadImportReport: vi.fn().mockResolvedValue(undefined),
     rollbackImport: vi.fn(),
     downloadTemplate: vi.fn(async () => {}),
   },
@@ -82,6 +83,17 @@ const preview: ImportPreview = {
   ],
   summary: { total: 2, create: 1, update: 0, skip: 0, error: 1 },
   unmapped: [],
+  report: {
+    reasons: [
+      { action: "error", reason: "Date of birth is not a date", count: 1, rows: [3] },
+      { action: "error", reason: 'Class "7" is not set up in Settings', count: 1, rows: [3] },
+    ],
+    missing_classes: [{ name: "7", rows: [3] }],
+    missing_sections: [{ name: "2-C", rows: [3] }],
+    likely_duplicates: [
+      { row_no: 2, name: "Ali Raza", looks_like: "Ali Raza (KHI-1), same father's name" },
+    ],
+  },
 };
 
 function render() {
@@ -102,6 +114,20 @@ beforeEach(() => {
 });
 
 describe("ImportPage", () => {
+  it("offers each kind of import to whoever may do it", async () => {
+    renderWithProviders(
+      <SessionProvider initial={{ user, permissions: ["fees.manage"] }}>
+        <ImportPage />
+      </SessionProvider>,
+    );
+    // An accountant imports the fee structure and nothing else.
+    expect(await screen.findByRole("button", { name: /^Fee structure/ })).toBeEnabled();
+    for (const name of [/^Students and guardians/, /^Guardians/, /^Staff/, /^Opening fee/]) {
+      expect(screen.getByRole("button", { name })).toBeDisabled();
+    }
+    expect(screen.queryByRole("button", { name: "Data health" })).not.toBeInTheDocument();
+  });
+
   it("asks which sheet to read when a workbook has several, preselecting Students over Read Me", async () => {
     const multi: ParsedFile = {
       ...parsed,
@@ -186,6 +212,30 @@ describe("ImportPage", () => {
     expect(
       await screen.findByText("1 to add, 0 to update, 0 to skip, 1 with errors"),
     ).toBeInTheDocument();
+    // The dry run in words: nothing saved, the four counts, what is missing, who looks
+    // like someone on file, and why rows are left out. It can be downloaded.
+    const dry = screen.getByTestId("dry-run");
+    expect(within(dry).getByText(/Nothing has been saved yet/)).toBeInTheDocument();
+    expect(within(screen.getByTestId("dry-create")).getByText("1")).toBeInTheDocument();
+    expect(within(screen.getByTestId("dry-error")).getByText("Cannot be imported")).toBeVisible();
+    const missing = within(screen.getByTestId("dry-missing"));
+    expect(missing.getByText("Class 7")).toBeInTheDocument();
+    expect(missing.getByText("Section 2-C")).toBeInTheDocument();
+    expect(missing.getByText(/Settings → Academic structure/)).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("dry-duplicates")).getByText(
+        "Row 2, Ali Raza: looks like Ali Raza (KHI-1), same father's name",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("dry-reasons")).getByText('Class "7" is not set up in Settings'),
+    ).toBeInTheDocument();
+    await userEvent.click(within(dry).getByRole("button", { name: "Download dry-run report" }));
+    expect(api.downloadImportReport).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "students" }),
+    );
+    expect(api.applyImport).not.toHaveBeenCalled();
+
     const bad = screen.getByTestId("preview-row-3");
     expect(within(bad).getByText(/not a date/)).toBeInTheDocument();
     const dob = within(bad).getByLabelText("Row 3: DOB");
@@ -195,12 +245,19 @@ describe("ImportPage", () => {
       rows: preview.rows.map((r) => ({ ...r, errors: [], action: "create" as const })),
       summary: { total: 2, create: 2, update: 0, skip: 0, error: 0 },
       unmapped: [],
+      report: { reasons: [], missing_classes: [], missing_sections: [], likely_duplicates: [] },
     });
     await userEvent.click(screen.getAllByRole("button", { name: "Check the file" })[0]!);
     await waitFor(() =>
       expect(vi.mocked(api.previewImport).mock.calls.at(-1)![0].rows[1]![2]).toBe("2016-05-06"),
     );
+    // Nothing is written until the person confirms: the button asks first.
     await userEvent.click(await screen.findByRole("button", { name: "Import 2 rows" }));
+    const confirm = await screen.findByRole("dialog", { name: "Import now?" });
+    expect(within(confirm).getByText("2 will be created")).toBeInTheDocument();
+    expect(within(confirm).getByText(/you can still undo the whole import/)).toBeInTheDocument();
+    expect(api.applyImport).not.toHaveBeenCalled();
+    await userEvent.click(within(confirm).getByRole("button", { name: "Import now" }));
     await waitFor(() => expect(api.applyImport).toHaveBeenCalled());
     expect(await screen.findByRole("status")).toHaveTextContent(
       "Imported: 1 added, 0 updated, 1 skipped.",

@@ -44,7 +44,9 @@ pub async fn set_policy(
 
 /// A voucher that carries an opening balance brought over from the old register: one line
 /// under the "Opening balance" head (created on first use), due on issue. Later months carry
-/// it forward like any other unpaid balance.
+/// it forward like any other unpaid balance. It never earns a late fee: what the old
+/// register charged for lateness is already in the amount. The caller bills it to a month
+/// before the school's first monthly vouchers, so it takes no month's place.
 #[allow(clippy::too_many_arguments)]
 pub async fn create_opening_balance(
     conn: &mut PgConnection,
@@ -99,8 +101,8 @@ pub async fn create_opening_balance(
     let id = new_id();
     let voucher = sqlx::query_as::<_, FeeVoucher>(
         "INSERT INTO fee_vouchers (id, school_id, student_id, academic_year_id, section_id, voucher_no, billing_month, issue_date, due_date,
-            gross, sibling_discount, concession_discount, net_monthly, arrears, total_due, status, updated_by, hlc)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $7, $7, $8, 0, 0, $8, 0, $8, 'unpaid', $9, $10) RETURNING *",
+            gross, sibling_discount, concession_discount, net_monthly, arrears, total_due, status, late_fee_waived, updated_by, hlc)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $7, $7, $8, 0, 0, $8, 0, $8, 'unpaid', TRUE, $9, $10) RETURNING *",
     )
     .bind(id)
     .bind(school_id)

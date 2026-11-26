@@ -421,5 +421,25 @@ async fn only_the_app_may_read_answers_from_a_browser() {
     ] {
         assert_eq!(allowed(origin).await, None, "{origin}");
     }
+    // The app may also read the name a download gives itself (else every file it saves is
+    // called "download").
+    let res = app
+        .app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/health")
+                .header(header::ORIGIN, "tauri://localhost")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        res.headers()
+            .get(header::ACCESS_CONTROL_EXPOSE_HEADERS)
+            .and_then(|v| v.to_str().ok()),
+        Some("content-disposition")
+    );
     app.finish().await;
 }

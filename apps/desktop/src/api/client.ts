@@ -244,15 +244,22 @@ export async function ping(): Promise<boolean> {
   }
 }
 
-/** Fetch a file from the API (with the session token) and hand it to the browser as a download. */
-export async function download(path: string): Promise<void> {
+/**
+ * Fetch a file from the API (with the session token) and hand it to the browser as a download.
+ * With `post`, the file is asked for with that JSON body (a report on what was sent).
+ */
+export async function download(path: string, post?: unknown): Promise<void> {
   const base = await getBaseUrl();
   const headers: Record<string, string> = {};
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
+  if (post !== undefined) headers["Content-Type"] = "application/json";
   let res: Response;
   try {
-    res = await fetch(`${base}/api/v1${path}`, { headers });
+    res = await fetch(
+      `${base}/api/v1${path}`,
+      post === undefined ? { headers } : { method: "POST", headers, body: JSON.stringify(post) },
+    );
   } catch (err) {
     throw new NetworkError(err);
   }

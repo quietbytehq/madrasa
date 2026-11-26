@@ -58,7 +58,9 @@ test.describe("fees", () => {
     const { download, path } = await downloadFrom(page, () =>
       page.getByRole("button", { name: "Print / Save as PDF" }).click(),
     );
+    // Its own name, not "download": the app is allowed to read what the server called it.
     expect(download.suggestedFilename()).toMatch(/\.pdf$/);
+    expect(download.suggestedFilename()).toContain(voucher.voucher_no);
     expect(pdfPages(path)).toBeGreaterThanOrEqual(1);
     const text = pdfText(path);
     expect(text).toContain(voucher.voucher_no);

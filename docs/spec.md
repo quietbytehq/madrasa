@@ -388,6 +388,44 @@ Rules (`madrasa_core::imports` for cleanup, `madrasa_api::imports` for the datab
   register and result sheets as `.xlsx` (bold headings, frozen row) or `.csv` (UTF-8 with
   BOM so Excel shows Urdu), with the same filters, permissions and teacher scope as the list.
 
+#### Pilot onboarding (after v0.5.1)
+
+- **Kinds**: `guardians` (one row per guardian and child, the student found by number or
+  legacy ID; a guardian already known by ID number, or by phone and name, is linked and not
+  created again) and `fee_structure` (one row per class and fee head for the active year; a
+  head that does not exist is created; an amount already set is left alone unless the person
+  chooses "update"; 0 removes the line). Both roll back like any other batch.
+- **Templates** (`.xlsx`): three sheets. The records sheet is named after the kind
+  ("Students", "Guardians", "Staff", "Fee structure", "Opening balances") and is the one read
+  back; "Read me" explains the file and lists every column, whether it is required, an
+  example and its Urdu heading; "ہدایات" is the same in Urdu, laid out right to left. A
+  heading that is a field's own label always maps to that field.
+- **Dry run**: `POST /imports/preview` returns, besides every row's outcome, a `report`:
+  the reasons rows are skipped or refused (one line per reason with its row numbers),
+  the classes and sections the file names that are not set up, and likely duplicates (rows
+  that match no record exactly but share a name with the same father's name, or a name and a
+  date of birth, with a student on file or an earlier row). `POST /imports/report` gives the
+  same as a workbook. Neither writes anything; the app asks for a confirmation before
+  `POST /imports/apply`.
+- **Opening balances** are billed to the month before the academic year starts and never
+  earn a late fee: the balance shows as arrears on the student's first monthly voucher and
+  takes no month's place. (Before, the opening voucher sat in the year's first month, and
+  generating that month's vouchers skipped the student.)
+- **Data health** (`GET /data-health`, `students.manage` or `settings.manage`): eleven checks
+  over the records in use, each with a count and the first twenty-five records found, and a
+  link to where each is fixed: students without a section, in two sections or without a
+  guardian; the same name and father's name twice; dates of birth that cannot be right;
+  a roll number twice in a section; guardians without a phone; one phone under several
+  guardian names; classes with students and no fee structure; vouchers without a fee head;
+  sections without a class teacher. Fee checks need `fees.read`.
+- **Export everything** (`GET /export/everything`, `backup.manage`, audit-logged): one
+  workbook. Readable sheets for students, guardians, staff, logins (no password hashes),
+  classes and sections, fee structure, concessions, vouchers, voucher lines, receipts,
+  attendance, staff attendance and marks; a "Settings" sheet without anything secret; then
+  every other table the school owns as stored (`data <table>`). Sessions, keys, sync and
+  offline plumbing are never included. Sheets are written to disk as they are read and
+  continue on a second sheet past 1,000,000 rows.
+
 ### 5.10 Year rollover and dashboard (M1 stage 7)
 
 **Rollover** (`madrasa_db::rollover`, `academics.manage`): from the active year, open the
@@ -1185,13 +1223,15 @@ admin has `academics.manage` for setup but not `exams.approve` unless granted.
 | GET | `/imports/templates/{kind}` | kind's permission | Template (`format=xlsx|csv`) |
 | POST | `/imports/parse` | kind's permission | Read an uploaded file (base64): sheets, headings, rows, guessed or saved mapping |
 | GET/PUT | `/imports/mappings/{kind}` | kind's permission | Saved column mapping |
-| POST | `/imports/preview` | kind's permission | Dry run: row outcomes and summary |
+| POST | `/imports/preview` | kind's permission | Dry run: row outcomes, summary and the report (reasons, missing classes and sections, likely duplicates) |
+| POST | `/imports/report` | kind's permission | The dry run as a workbook |
 | POST | `/imports/apply` | kind's permission | Import as a batch |
 | GET | `/imports/batches` | `students.manage` or `teachers.manage` | Import history |
 | POST | `/imports/batches/{id}/rollback` | kind's permission | Undo a batch |
 | GET | `/export/students`, `/export/staff`, `/export/fees/vouchers`, `/export/fees/defaulters`, `/export/attendance/absentees`, `/export/attendance/register`, `/export/exams/results` | the list's permission | Download as `.xlsx` or `.csv` (`format`), with the list's filters |
 
-Students and opening balances need `students.manage`; staff needs `teachers.manage`.
+Students, guardians and opening balances need `students.manage`; staff needs
+`teachers.manage`; the fee structure needs `fees.manage`.
 
 ### 6.8 M1 stage 7 endpoints
 

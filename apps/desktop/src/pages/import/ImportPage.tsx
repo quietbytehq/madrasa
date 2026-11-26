@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent } from "react";
-import { FileSpreadsheet, Upload } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Download, FileSpreadsheet, Stethoscope, Upload } from "lucide-react";
 import { api } from "@/api/endpoints";
 import type {
+  DryRun,
   DuplicatePolicy,
   ImportBatch,
   ImportField,
@@ -31,7 +33,14 @@ import { useSession } from "@/app/session";
 import { PageHeader } from "../PageHeader";
 import { importDraft } from "./importDraft";
 
-const KINDS: ImportKind[] = ["students", "staff", "opening_balances", "enquiries"];
+const KINDS: ImportKind[] = [
+  "students",
+  "guardians",
+  "staff",
+  "fee_structure",
+  "opening_balances",
+  "enquiries",
+];
 const STEPS: TranslationKey[] = [
   "import.step.type",
   "import.step.file",
@@ -92,6 +101,7 @@ export function ImportPage() {
   const [busy, setBusy] = useState(false);
   const fields = useAsync(() => api.importFields(kind), [kind]);
   const batches = useAsync(() => api.importBatches(), []);
+  const navigate = useNavigate();
   const fail = (err: unknown) =>
     toast.push({ kind: "error", title: errorMessage(err, t("app.error.generic")) });
   const rows = edited ?? parsed?.rows ?? [];
@@ -100,7 +110,13 @@ export function ImportPage() {
   const allowed = (k: ImportKind) =>
     k === "enquiries"
       ? has("admissions") && can("admissions.manage")
-      : can(k === "staff" ? "teachers.manage" : "students.manage");
+      : can(
+          k === "staff"
+            ? "teachers.manage"
+            : k === "fee_structure"
+              ? "fees.manage"
+              : "students.manage",
+        );
 
   const onFile = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -198,6 +214,8 @@ export function ImportPage() {
     }
   };
 
+  const [confirmApply, setConfirmApply] = useState(false);
+
   const editCell = (rowNo: number, col: number, value: string) => {
     const base = (edited ?? parsed?.rows ?? []).map((r) => [...r]);
     const idx = rowNo - 2;
@@ -264,6 +282,17 @@ export function ImportPage() {
       <PageHeader
         title={t("import.title")}
         crumbs={[{ label: t("nav.dashboard"), to: "/" }, { label: t("import.title") }]}
+        actions={
+          (can("students.manage") || can("settings.manage")) && (
+            <Button
+              variant="secondary"
+              icon={<Stethoscope className="h-4 w-4" aria-hidden />}
+              onClick={() => navigate("/data-health")}
+            >
+              {t("health.title")}
+            </Button>
+          )
+        }
       />
       <p className="mb-3 text-sm text-muted">{t("import.subtitle")}</p>
       <ol className="mb-4 flex flex-wrap gap-2 text-xs" aria-label={t("import.title")}>
@@ -456,7 +485,7 @@ export function ImportPage() {
               <Button
                 loading={busy}
                 disabled={preview.summary.create + preview.summary.update === 0}
-                onClick={() => void applyNow()}
+                onClick={() => setConfirmApply(true)}
               >
                 {t("import.apply", { count: preview.summary.create + preview.summary.update })}
               </Button>
@@ -464,6 +493,13 @@ export function ImportPage() {
           }
           padded={false}
         >
+          <DryRunPanel
+            preview={preview}
+            onDownload={() => {
+              const req = request();
+              if (req) void api.downloadImportReport(req).catch(fail);
+            }}
+          />
           {preview.summary.error > 0 && (
             <p
               role="alert"
@@ -621,6 +657,38 @@ export function ImportPage() {
         )}
       </Card>
       <Dialog
+        open={confirmApply && preview !== null}
+        onClose={() => setConfirmApply(false)}
+        title={t("import.confirm.title")}
+        size="sm"
+      >
+        {preview && (
+          <div className="flex flex-col gap-3 text-sm" data-testid="import-confirm">
+            <ul className="list-disc ps-5">
+              <li>{t("import.dry.create", { count: preview.summary.create })}</li>
+              <li>{t("import.dry.update", { count: preview.summary.update })}</li>
+              <li>{t("import.dry.skip", { count: preview.summary.skip })}</li>
+              <li>{t("import.dry.error", { count: preview.summary.error })}</li>
+            </ul>
+            <p className="text-muted">{t("import.confirm.undo")}</p>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setConfirmApply(false)}>
+                {t("action.cancel")}
+              </Button>
+              <Button
+                loading={busy}
+                onClick={() => {
+                  setConfirmApply(false);
+                  void applyNow();
+                }}
+              >
+                {t("import.apply.confirm")}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Dialog>
+      <Dialog
         open={confirmRollback !== null}
         onClose={() => setConfirmRollback(null)}
         title={t("import.history.rollbackConfirmTitle")}
@@ -657,6 +725,132 @@ export function ImportPage() {
         </div>
       </Dialog>
     </>
+  );
+}
+
+/**
+ * The dry run in words, above the rows: nothing has been saved; what will be created,
+ * updated, skipped and refused; why; what the school has to set up first; and which rows
+ * look like a child who is already on file.
+ */
+function DryRunPanel({ preview, onDownload }: { preview: ImportPreview; onDownload: () => void }) {
+  const { t } = useI18n();
+  const { summary } = preview;
+  // A check kept from before this panel existed (a draft restored after an update) has no
+  // report: show the counts and nothing more.
+  const report: DryRun = preview.report ?? {
+    reasons: [],
+    missing_classes: [],
+    missing_sections: [],
+    likely_duplicates: [],
+  };
+  const rowsOf = (rows: number[], count: number) =>
+    rows.join(", ") + (count > rows.length ? " …" : "");
+  const missing = [
+    ...report.missing_classes.map((m) => ({ ...m, kind: "class" as const })),
+    ...report.missing_sections.map((m) => ({ ...m, kind: "section" as const })),
+  ];
+  return (
+    <section
+      aria-label={t("import.dry.title")}
+      data-testid="dry-run"
+      className="border-b border-border px-4 py-3 text-sm"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h3 className="font-semibold text-navy">{t("import.dry.title")}</h3>
+          <p className="text-xs text-muted">{t("import.dry.nothingSaved")}</p>
+        </div>
+        <Button
+          size="sm"
+          variant="secondary"
+          icon={<Download className="h-3.5 w-3.5" aria-hidden />}
+          onClick={onDownload}
+        >
+          {t("import.dry.download")}
+        </Button>
+      </div>
+      <dl className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
+        {(
+          [
+            ["create", summary.create, "text-success"],
+            ["update", summary.update, "text-blue"],
+            ["skip", summary.skip, "text-muted"],
+            ["error", summary.error, summary.error > 0 ? "text-danger" : "text-muted"],
+          ] as const
+        ).map(([key, count, tone]) => (
+          <div
+            key={key}
+            className="flex flex-col-reverse rounded border border-border bg-card px-3 py-2"
+            data-testid={`dry-${key}`}
+          >
+            <dt className="text-xs text-muted">{t(`import.dry.label.${key}`)}</dt>
+            <dd className={cn("text-xl font-semibold tabular-nums", tone)}>{count}</dd>
+          </div>
+        ))}
+      </dl>
+      {missing.length > 0 && (
+        <div className="mt-3" data-testid="dry-missing">
+          <h4 className="font-medium text-text">{t("import.dry.missing")}</h4>
+          <p className="text-xs text-muted">{t("import.dry.missing.hint")}</p>
+          <ul className="mt-1 list-disc ps-5 text-xs">
+            {missing.map((m) => (
+              <li key={`${m.kind}-${m.name}`}>
+                <span className="font-medium">
+                  {t(`import.dry.missing.${m.kind}`, { name: m.name })}
+                </span>{" "}
+                <span className="text-muted">
+                  {t("import.dry.rows", { rows: rowsOf(m.rows, m.rows.length) })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {report.likely_duplicates.length > 0 && (
+        <div className="mt-3" data-testid="dry-duplicates">
+          <h4 className="font-medium text-text">
+            {t("import.dry.duplicates", { count: report.likely_duplicates.length })}
+          </h4>
+          <p className="text-xs text-muted">{t("import.dry.duplicates.hint")}</p>
+          <ul className="mt-1 list-disc ps-5 text-xs">
+            {report.likely_duplicates.slice(0, 20).map((d) => (
+              <li key={d.row_no}>
+                {t("import.dry.duplicates.item", {
+                  row: d.row_no,
+                  name: d.name,
+                  like: d.looks_like,
+                })}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {report.reasons.length > 0 && (
+        <div className="mt-3" data-testid="dry-reasons">
+          <h4 className="font-medium text-text">{t("import.dry.reasons")}</h4>
+          <ul className="mt-1 text-xs">
+            {report.reasons.map((r) => (
+              <li
+                key={`${r.action}-${r.reason}`}
+                className="flex gap-2 border-t border-border py-1"
+              >
+                <span className="w-24 shrink-0">
+                  <ActionBadge action={r.action} t={t} />
+                </span>
+                <span className="flex-1">
+                  {r.reason}{" "}
+                  <span className="text-muted">
+                    {t("import.dry.rows", { rows: rowsOf(r.rows, r.count) })}
+                  </span>
+                </span>
+                <span className="tabular-nums text-muted">{r.count}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
   );
 }
 

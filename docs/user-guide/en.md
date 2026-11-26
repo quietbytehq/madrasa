@@ -49,6 +49,50 @@ Roles: **principal** (everything, approves marks), **admin** (everything except 
 marks), **accountant** (fees), **teacher** (attendance and marks for own sections). The full
 list is in `docs/permissions.md`.
 
+## 1a. Bringing your school's records in
+
+Do this once, when the school starts with Madrasa. Work in this order; each step is under
+**Import from Excel** in the sidebar.
+
+1. **Set up classes and sections** first (Settings → Academic structure). An import never
+   invents a class.
+2. **Students**, then **Guardians** (if they are in a separate list), **Staff**, the **Fee
+   structure**, and last the **Opening fee balances**.
+3. For each one, **download the Excel template**. It has three sheets: the records, a
+   **Read me** in English, and the same instructions in Urdu (ہدایات). The Read me lists every
+   column, says which are required and shows an example. Fill the first sheet, or paste from
+   your old register; headings in Urdu are recognised too.
+4. Upload the file and match the columns. Then **Check the file**. This is a **dry run**:
+   nothing is saved. It shows
+   - how many records will be created, updated and skipped, and how many cannot be imported;
+   - **why**, one line per reason with the row numbers;
+   - **classes and sections that are not set up** (create them and check again);
+   - **likely duplicates**: rows that are not the same as a record on file but look like one
+     (the same name with the same father, or the same name and date of birth).
+   **Download dry-run report** gives the same as a workbook, to send to whoever keeps the
+   register.
+5. Fix what is wrong, in the grid or in Excel, and check again. When the dry run says what you
+   expect, press **Import** and confirm. Nothing is written before that confirmation.
+6. Every import can be **undone** from the history at the bottom of the page.
+
+What each import does:
+
+- **Guardians**: one row per guardian and child, found by the student number or the number
+  from your old register (Legacy ID). A parent of several children is one record, linked to
+  each child, when the phone and name (or the CNIC) are the same on every row.
+- **Fee structure**: one row per class and fee head. A fee head that does not exist is
+  created. An amount already set is left alone unless you choose "Update it".
+- **Opening fee balances**: what each student still owed in the old register. The balance
+  shows as **arrears on the student's first monthly voucher** and in the ledger, and is paid
+  like any other fee. It does not take the place of that month's voucher, and no late fee is
+  added to it.
+
+Then open **Data health** (button at the top of the Import page). It lists what still needs a
+person: students without a class and section, students without a guardian, guardians without a
+phone, the same name twice, classes without a fee structure, vouchers without a fee head,
+sections without a class teacher, and more. Each line says why it matters and links to the
+records. Fix them and press **Check again**.
+
 ## 2. Students
 
 - **Students → Add student**: name, father's name, date of birth, gender, B-Form/CNIC,
@@ -146,6 +190,11 @@ list is in `docs/permissions.md`.
   new install that has not made a backup yet it says **No backup yet — run one now** instead
   (and warns once the school is more than two days old and still has none).
 - **Back up now** makes a backup immediately.
+- **Export everything** downloads every record of the school as one Excel workbook: students,
+  guardians, staff, fees, attendance, marks and every other table, without passwords or keys.
+  It is the school's own copy in a form any spreadsheet opens, so a school can always leave
+  with its data. It is not a backup: Madrasa restores from `.mbk` files only. Photographs are
+  in the backup, not in the workbook. Each export is written in the audit log.
 - **Restore**: pick a file, check its date and record counts, enter the backup password (or
   the recovery key) and confirm. Everything is replaced by the backup and everyone logs in
   again. Changed or damaged files are refused.

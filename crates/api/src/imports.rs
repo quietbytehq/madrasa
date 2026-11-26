@@ -7,7 +7,7 @@ use base64::Engine;
 use calamine::{Data, Reader};
 use chrono::NaiveDate;
 use madrasa_core::imports::{self as rules, CleanRow, ImportKind, Issue};
-use madrasa_db::models::{Class, ImportBatch, Section, Student};
+use madrasa_db::models::{Class, FeeHead, FeeStructure, ImportBatch, Section, Student};
 use madrasa_db::{
     academics, fees, guardians, imports as repo, schools, settings, staff, students, Actor,
 };
@@ -167,8 +167,11 @@ pub fn pick_sheet(kind: ImportKind, names: &[String]) -> Option<&str> {
             "applications",
             "leads",
         ],
+        ImportKind::Guardians => &["guardians", "guardian", "parents", "guardiandata"],
+        ImportKind::FeeStructure => &["feestructure", "structure", "fees", "feeheads"],
     };
     let skip = [
+        "ہدایات",
         "readme",
         "read",
         "instructions",
@@ -375,23 +378,143 @@ pub async fn parsed(
 
 // ---- templates ----------------------------------------------------------------------------
 
-/// Template with the field labels as headings and one example row.
+/// The name of the sheet a template's records go on (and the first name `pick_sheet` looks
+/// for when the filled file comes back).
+pub fn data_sheet_name(kind: ImportKind) -> &'static str {
+    match kind {
+        ImportKind::Students => "Students",
+        ImportKind::Staff => "Staff",
+        ImportKind::OpeningBalances => "Opening balances",
+        ImportKind::Enquiries => "Enquiries",
+        ImportKind::Guardians => "Guardians",
+        ImportKind::FeeStructure => "Fee structure",
+    }
+}
+
+/// The template for one kind of import. As a workbook it has three sheets: the records
+/// (field labels as headings and one example row), "Read me" in English, and the same
+/// instructions in Urdu. As CSV it is the headings and the example only.
 pub fn template(kind: ImportKind, xlsx: bool) -> Result<Vec<u8>, ApiError> {
     let fields = rules::fields(kind);
-    let headers: Vec<&str> = fields.iter().map(|f| f.label).collect();
-    let example: Vec<&str> = fields.iter().map(|f| f.example).collect();
-    if xlsx {
-        crate::export::xlsx(
-            kind.as_str(),
-            &headers.iter().map(|h| h.to_string()).collect::<Vec<_>>(),
-            &[example.iter().map(|e| e.to_string()).collect()],
-        )
-    } else {
-        Ok(crate::export::csv(
-            &headers.iter().map(|h| h.to_string()).collect::<Vec<_>>(),
-            &[example.iter().map(|e| e.to_string()).collect()],
-        ))
+    let headers: Vec<String> = fields.iter().map(|f| f.label.to_string()).collect();
+    let example: Vec<String> = fields.iter().map(|f| f.example.to_string()).collect();
+    if !xlsx {
+        return Ok(crate::export::csv(&headers, &[example]));
     }
+    use rust_xlsxwriter::{Format, FormatAlign, Workbook};
+    let fail = |_| ApiError::internal();
+    let mut wb = Workbook::new();
+    let bold = Format::new().set_bold();
+    let wrap = Format::new().set_text_wrap().set_align(FormatAlign::Top);
+    let title = Format::new().set_bold().set_font_size(14);
+
+    let ws = wb.add_worksheet();
+    ws.set_name(data_sheet_name(kind)).map_err(fail)?;
+    for (c, f) in fields.iter().enumerate() {
+        ws.write_string_with_format(0, c as u16, f.label, &bold)
+            .map_err(fail)?;
+        // The example is text even when it looks like a number: a phone keeps its zero.
+        ws.write_string(1, c as u16, f.example).map_err(fail)?;
+        let width = f.label.chars().count().max(f.example.chars().count());
+        let _ = ws.set_column_width(c as u16, width.clamp(10, 40) as f64 + 2.0);
+    }
+    let _ = ws.set_freeze_panes(1, 0);
+
+    let (own, common) = rules::template_notes(kind);
+    // (sheet, right-to-left, title, notes, table headings, table rows)
+    let english: Vec<[String; 4]> = fields
+        .iter()
+        .map(|f| {
+            [
+                f.label.to_string(),
+                if f.required { "Yes" } else { "" }.to_string(),
+                f.example.to_string(),
+                rules::urdu_label(f).unwrap_or("").to_string(),
+            ]
+        })
+        .collect();
+    let urdu: Vec<[String; 4]> = fields
+        .iter()
+        .map(|f| {
+            [
+                rules::urdu_label(f).unwrap_or(f.label).to_string(),
+                if f.required { "ہاں" } else { "" }.to_string(),
+                f.example.to_string(),
+                f.label.to_string(),
+            ]
+        })
+        .collect();
+    /// An instructions sheet: its name, whether it reads right to left, its title, the
+    /// notes, and the table of columns (headings and rows).
+    type Notes<'a> = (
+        &'a str,
+        bool,
+        &'a str,
+        Vec<&'a str>,
+        [&'a str; 4],
+        &'a Vec<[String; 4]>,
+    );
+    let sheets: [Notes; 2] = [
+        (
+            "Read me",
+            false,
+            "How to fill this file",
+            own.en.iter().chain(common.en).copied().collect(),
+            [
+                "Column",
+                "Required",
+                "Example",
+                "Heading in Urdu (also accepted)",
+            ],
+            &english,
+        ),
+        (
+            "ہدایات",
+            true,
+            "یہ فائل کیسے بھریں",
+            own.ur.iter().chain(common.ur).copied().collect(),
+            [
+                "کالم",
+                "لازمی",
+                "مثال",
+                "انگریزی سرخی (فائل میں یہی رہنے دیں)",
+            ],
+            &urdu,
+        ),
+    ];
+    for (name, rtl, heading, notes, table, rows) in sheets {
+        let ws = wb.add_worksheet();
+        ws.set_name(name).map_err(fail)?;
+        if rtl {
+            ws.set_right_to_left(true);
+        }
+        let _ = ws.set_column_width(0, 44.0);
+        let _ = ws.set_column_width(1, 12.0);
+        let _ = ws.set_column_width(2, 28.0);
+        let _ = ws.set_column_width(3, 40.0);
+        ws.write_string_with_format(0, 0, heading, &title)
+            .map_err(fail)?;
+        let mut r = 2u32;
+        for note in notes {
+            // One note across the four columns, wrapped, tall enough to be read whole.
+            ws.merge_range(r, 0, r, 3, note, &wrap).map_err(fail)?;
+            let lines = note.chars().count() / 95 + 1;
+            let _ = ws.set_row_height(r, 16.0 * lines as f64 + if rtl { 10.0 } else { 2.0 });
+            r += 1;
+        }
+        r += 1;
+        for (c, h) in table.iter().enumerate() {
+            ws.write_string_with_format(r, c as u16, *h, &bold)
+                .map_err(fail)?;
+        }
+        for row in rows {
+            r += 1;
+            for (c, v) in row.iter().enumerate() {
+                ws.write_string(r, c as u16, v).map_err(fail)?;
+            }
+        }
+    }
+    wb.save_to_buffer().map_err(fail)
 }
 
 // ---- preview and apply --------------------------------------------------------------------
@@ -459,6 +582,42 @@ pub struct ImportSummary {
     pub error: usize,
 }
 
+/// Why some rows will not be imported, said once for all the rows it applies to.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct Reason {
+    /// `skip` (left alone on purpose) or `error` (cannot be imported as it is).
+    pub action: RowAction,
+    pub reason: String,
+    pub count: usize,
+    /// The file's row numbers, the first fifty.
+    pub rows: Vec<usize>,
+}
+
+/// A class or section the file names and the school has not set up.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct Missing {
+    pub name: String,
+    pub rows: Vec<usize>,
+}
+
+/// A row that is not the same as an existing record but looks like one.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct Lookalike {
+    pub row_no: usize,
+    pub name: String,
+    pub looks_like: String,
+}
+
+/// The dry run in words: what a person needs to read before confirming. Mirrored by
+/// `DryRun` in the UI.
+#[derive(Debug, Clone, Serialize, Default)]
+pub struct DryRun {
+    pub reasons: Vec<Reason>,
+    pub missing_classes: Vec<Missing>,
+    pub missing_sections: Vec<Missing>,
+    pub likely_duplicates: Vec<Lookalike>,
+}
+
 /// Mirrored by `ImportPreview` in the UI.
 #[derive(Debug, Serialize)]
 pub struct ImportPreview {
@@ -466,6 +625,7 @@ pub struct ImportPreview {
     pub summary: ImportSummary,
     /// File columns not mapped to any field: shown before import so nothing is dropped unseen.
     pub unmapped: Vec<String>,
+    pub report: DryRun,
 }
 
 #[derive(Debug, Serialize)]
@@ -482,9 +642,18 @@ struct Ctx {
     year_start: Option<NaiveDate>,
     classes: Vec<Class>,
     sections: Vec<Section>,
+    /// Fee heads and this year's amounts (fee structure imports).
+    heads: Vec<FeeHead>,
+    structure: Vec<FeeStructure>,
+    /// Students on file by name, for rows that look like one of them (student imports).
+    identities: HashMap<String, Vec<students::Identity>>,
 }
 
-async fn ctx(conn: &mut sqlx::PgConnection, school_id: Uuid) -> Result<Ctx, ApiError> {
+async fn ctx(
+    conn: &mut sqlx::PgConnection,
+    school_id: Uuid,
+    kind: ImportKind,
+) -> Result<Ctx, ApiError> {
     let year = academics::active_year(conn, school_id).await?;
     let classes = academics::list_classes(conn, school_id).await?;
     let sections = match &year {
@@ -492,6 +661,23 @@ async fn ctx(conn: &mut sqlx::PgConnection, school_id: Uuid) -> Result<Ctx, ApiE
         None => Vec::new(),
     };
     let school = schools::get(conn, school_id).await?;
+    let (heads, structure) = match (kind, &year) {
+        (ImportKind::FeeStructure, Some(y)) => (
+            fees::list_heads(conn, school_id).await?,
+            fees::list_structure(conn, y.id, None).await?,
+        ),
+        (ImportKind::FeeStructure, None) => (fees::list_heads(conn, school_id).await?, Vec::new()),
+        _ => (Vec::new(), Vec::new()),
+    };
+    let mut identities: HashMap<String, Vec<students::Identity>> = HashMap::new();
+    if kind == ImportKind::Students {
+        for s in students::identities(conn, school_id).await? {
+            identities
+                .entry(madrasa_core::students::name_key(&s.full_name))
+                .or_default()
+                .push(s);
+        }
+    }
     Ok(Ctx {
         school_id,
         rules: rules::RowRules::new(&school.country, crate::clock::today()),
@@ -499,6 +685,9 @@ async fn ctx(conn: &mut sqlx::PgConnection, school_id: Uuid) -> Result<Ctx, ApiE
         year_start: year.as_ref().map(|y| y.start_date),
         classes,
         sections,
+        heads,
+        structure,
+        identities,
     })
 }
 
@@ -551,6 +740,23 @@ struct Plan {
     existing_staff: Option<madrasa_db::models::Staff>,
     section_id: Option<Uuid>,
     target_student: Option<Student>,
+    /// For the dry-run report.
+    missing_class: Option<String>,
+    missing_section: Option<String>,
+    lookalike: Option<String>,
+    /// A fee structure row, resolved.
+    fee: Option<FeePlan>,
+}
+
+/// One line of the fee structure: the class, the head (to be created when `head_id` is
+/// none) and the amount, with what is set now.
+#[derive(Debug, Clone)]
+struct FeePlan {
+    class_id: Uuid,
+    head_id: Option<Uuid>,
+    head_name: String,
+    amount: Decimal,
+    old: Option<Decimal>,
 }
 
 async fn plan_rows(
@@ -564,6 +770,8 @@ async fn plan_rows(
     // Guardian names already seen under each phone in this file (by family id when given,
     // so one family's rows never warn against each other).
     let mut seen_phones: HashMap<String, Vec<String>> = HashMap::new();
+    // Name and father's name of the rows so far (rows that look alike inside the file).
+    let mut seen_names: HashMap<(String, String), usize> = HashMap::new();
     for (i, raw) in req.rows.iter().enumerate() {
         let row_no = i + 2; // 1 is the heading row
         let mut row = rules::clean_row(req.kind, row_no, raw, &req.mapping, &c.rules);
@@ -572,18 +780,27 @@ async fn plan_rows(
         let mut existing_staff = None;
         let mut section_id = None;
         let mut target_student = None;
+        let mut missing_class = None;
+        let mut missing_section = None;
+        let mut lookalike = None;
+        let mut fee: Option<FeePlan> = None;
+        // The row is left alone on purpose, and why.
+        let mut skip_reason: Option<String> = None;
         match req.kind {
             ImportKind::Students => {
                 // Class and section must exist in the active year.
                 if let Some(class_key) = row.get("class").map(str::to_owned) {
                     match c.class(&class_key) {
-                        None => row.errors.push(Issue {
-                            field: "class".into(),
-                            message: format!(
-                                "Class \"{}\" is not set up in Settings",
-                                row.values["class"]
-                            ),
-                        }),
+                        None => {
+                            missing_class = Some(row.values["class"].clone());
+                            row.errors.push(Issue {
+                                field: "class".into(),
+                                message: format!(
+                                    "Class \"{}\" is not set up in Settings",
+                                    row.values["class"]
+                                ),
+                            })
+                        }
                         Some(class) => {
                             if c.year_id.is_none() {
                                 row.errors.push(Issue {
@@ -593,13 +810,16 @@ async fn plan_rows(
                             } else if let Some(sec) = row.get("section").map(str::to_owned) {
                                 match c.section(class.id, &sec) {
                                     Some(s) => section_id = Some(s.id),
-                                    None => row.errors.push(Issue {
-                                        field: "section".into(),
-                                        message: format!(
-                                            "Section \"{sec}\" of class {} is not set up",
-                                            class.name
-                                        ),
-                                    }),
+                                    None => {
+                                        missing_section = Some(format!("{}-{sec}", class.name));
+                                        row.errors.push(Issue {
+                                            field: "section".into(),
+                                            message: format!(
+                                                "Section \"{sec}\" of class {} is not set up",
+                                                class.name
+                                            ),
+                                        })
+                                    }
                                 }
                             } else {
                                 let mut secs = c.sections.iter().filter(|s| s.class_id == class.id);
@@ -722,6 +942,183 @@ async fn plan_rows(
                         matched = Some(format!("{} ({})", s.full_name, s.student_number));
                     }
                 }
+                // Not the same record, but close: the same name with the same father or the
+                // same birthday. Imported all the same; the office is told to look.
+                if row.errors.is_empty() && existing_student.is_none() {
+                    if let (Some(name), Some(father)) =
+                        (row.get("full_name"), row.get("father_name"))
+                    {
+                        let key = madrasa_core::students::name_key(name);
+                        let father_key = madrasa_core::students::name_key(father);
+                        let dob = row
+                            .get("date_of_birth")
+                            .and_then(|d| d.parse::<NaiveDate>().ok());
+                        let on_file = c.identities.get(&key).and_then(|same_name| {
+                            same_name.iter().find_map(|s| {
+                                let same_father =
+                                    madrasa_core::students::name_key(&s.father_name) == father_key;
+                                let same_birthday = dob == Some(s.date_of_birth);
+                                match (same_father, same_birthday) {
+                                    (true, false) => Some(format!(
+                                        "{} ({}), same father's name, born {}",
+                                        s.full_name, s.student_number, s.date_of_birth
+                                    )),
+                                    (false, true) => Some(format!(
+                                        "{} ({}), same date of birth, father {}",
+                                        s.full_name, s.student_number, s.father_name
+                                    )),
+                                    _ => None,
+                                }
+                            })
+                        });
+                        let in_file = seen_names
+                            .get(&(key.clone(), father_key.clone()))
+                            .map(|prev| format!("row {prev} of this file (another date of birth)"));
+                        seen_names.entry((key, father_key)).or_insert(row_no);
+                        if let Some(like) = on_file.or(in_file) {
+                            row.warnings.push(Issue {
+                                field: "full_name".into(),
+                                message: format!(
+                                    "Looks like {like}. Check that this is another child before importing"
+                                ),
+                            });
+                            lookalike = Some(like);
+                        }
+                    }
+                }
+            }
+            ImportKind::Guardians => {
+                if row.errors.is_empty() {
+                    let found = match (row.get("student_number"), row.get("legacy_id")) {
+                        (Some(n), _) => students::find_by_number(conn, c.school_id, n).await?,
+                        (None, Some(l)) => {
+                            students::find_by_legacy_id(conn, c.school_id, l).await?
+                        }
+                        _ => None,
+                    };
+                    match found {
+                        None => row.errors.push(Issue {
+                            field: "student_number".into(),
+                            message: "No student with this number or legacy ID".into(),
+                        }),
+                        Some(s) => {
+                            let name = row.get("guardian_name").unwrap_or("").to_string();
+                            let key =
+                                format!("{}|{}", s.id, madrasa_core::students::name_key(&name));
+                            if let Some(prev) = seen.get(&key) {
+                                row.errors.push(Issue {
+                                    field: "guardian_name".into(),
+                                    message: format!(
+                                        "Same guardian and student as row {prev} in this file"
+                                    ),
+                                });
+                            } else {
+                                seen.insert(key, row_no);
+                            }
+                            matched = Some(format!("{} ({})", s.full_name, s.student_number));
+                            // Known already (same ID number, or same phone and name)?
+                            let known = guardians::find_matching(
+                                conn,
+                                c.school_id,
+                                row.get("guardian_cnic"),
+                                row.get("guardian_phone"),
+                                &name,
+                            )
+                            .await?;
+                            if let Some(g) = known {
+                                if guardians::link_between(conn, s.id, g.id).await?.is_some() {
+                                    skip_reason = Some(format!(
+                                        "{} is already a guardian of this student",
+                                        g.full_name
+                                    ));
+                                } else {
+                                    row.warnings.push(Issue {
+                                        field: "guardian_name".into(),
+                                        message: format!(
+                                            "{} is already on file and will be linked to this student, not created again",
+                                            g.full_name
+                                        ),
+                                    });
+                                }
+                            }
+                            target_student = Some(s);
+                        }
+                    }
+                }
+            }
+            ImportKind::FeeStructure => {
+                let class = row.get("class").map(str::to_owned).and_then(|key| {
+                    let found = c.class(&key).cloned();
+                    if found.is_none() {
+                        missing_class = Some(row.values["class"].clone());
+                    }
+                    found
+                });
+                if let Some(name) = &missing_class {
+                    row.errors.push(Issue {
+                        field: "class".into(),
+                        message: format!("Class \"{name}\" is not set up in Settings"),
+                    });
+                }
+                if c.year_id.is_none() {
+                    row.errors.push(Issue {
+                        field: "amount".into(),
+                        message: "No active academic year".into(),
+                    });
+                }
+                if let (true, Some(class), Some(head_name), Some(amount)) = (
+                    row.errors.is_empty(),
+                    class,
+                    row.get("fee_head").map(str::to_owned),
+                    row.get("amount").and_then(|a| a.parse::<Decimal>().ok()),
+                ) {
+                    let key = format!("{}|{}", class.id, head_name.to_lowercase());
+                    if let Some(prev) = seen.get(&key) {
+                        row.errors.push(Issue {
+                            field: "fee_head".into(),
+                            message: format!("Same class and fee head as row {prev} in this file"),
+                        });
+                    } else {
+                        seen.insert(key, row_no);
+                        let head = c.heads.iter().find(|h| {
+                            h.name.eq_ignore_ascii_case(&head_name)
+                                || h.code.eq_ignore_ascii_case(&head_name)
+                        });
+                        let old = head.and_then(|h| {
+                            c.structure
+                                .iter()
+                                .find(|s| s.class_id == class.id && s.fee_head_id == h.id)
+                                .map(|s| s.amount)
+                        });
+                        match (head, old) {
+                            (_, Some(now)) if now == amount => {
+                                skip_reason = Some("Already set to this amount".into());
+                            }
+                            (_, None) if amount.is_zero() => {
+                                skip_reason =
+                                    Some("Amount is 0 and nothing is set: nothing to remove".into());
+                            }
+                            (None, _) => row.warnings.push(Issue {
+                                field: "fee_head".into(),
+                                message: format!(
+                                    "Fee head \"{head_name}\" does not exist yet and will be created"
+                                ),
+                            }),
+                            _ => {}
+                        }
+                        if let Some(now) = old.filter(|now| *now != amount) {
+                            matched =
+                                Some(format!("{} for class {}: now {now}", head_name, class.name));
+                        }
+                        fee = Some(FeePlan {
+                            class_id: class.id,
+                            head_id: head.map(|h| h.id),
+                            head_name,
+                            amount,
+                            old,
+                        });
+                    }
+                }
             }
             ImportKind::Staff => {
                 if row.errors.is_empty() {
@@ -797,14 +1194,26 @@ async fn plan_rows(
                 }
             }
         }
+        let already_set = fee.as_ref().is_some_and(|f| f.old.is_some());
         let action = if !row.errors.is_empty() {
             RowAction::Error
-        } else if existing_student.is_some() || existing_staff.is_some() {
+        } else if let Some(reason) = skip_reason {
+            row.warnings.push(Issue {
+                field: rules::fields(req.kind)[0].key.into(),
+                message: format!("{reason}; skipped"),
+            });
+            RowAction::Skip
+        } else if existing_student.is_some() || existing_staff.is_some() || already_set {
             match req.options.duplicates {
                 DuplicatePolicy::Skip => {
                     row.warnings.push(Issue {
-                        field: "full_name".into(),
-                        message: "Already exists; skipped".into(),
+                        field: if already_set { "amount" } else { "full_name" }.into(),
+                        message: if already_set {
+                            "An amount is already set; skipped (choose \"update\" to replace it)"
+                        } else {
+                            "Already exists; skipped"
+                        }
+                        .into(),
                     });
                     RowAction::Skip
                 }
@@ -821,6 +1230,10 @@ async fn plan_rows(
             existing_staff,
             section_id,
             target_student,
+            missing_class,
+            missing_section,
+            lookalike,
+            fee,
         });
     }
     Ok(plans)
@@ -837,8 +1250,9 @@ pub async fn preview(
         )));
     }
     let mut c = state.pool.acquire().await?;
-    let ctx = ctx(&mut c, school_id).await?;
+    let ctx = ctx(&mut c, school_id, req.kind).await?;
     let plans = plan_rows(&mut c, &ctx, req).await?;
+    let report = dry_run(&plans);
     let rows: Vec<RowOutcome> = plans
         .into_iter()
         .map(|p| outcome(p.row, p.action, p.matched))
@@ -855,7 +1269,218 @@ pub async fn preview(
         rows,
         summary,
         unmapped,
+        report,
     })
+}
+
+/// The same reason said about different rows is one reason: "row 12" becomes "an earlier
+/// row", so forty repeats are one line with forty row numbers.
+fn general(message: &str) -> String {
+    let mut out = String::with_capacity(message.len());
+    let mut words = message.split(' ').peekable();
+    while let Some(w) = words.next() {
+        if !out.is_empty() {
+            out.push(' ');
+        }
+        let number_next = words
+            .peek()
+            .is_some_and(|n| n.chars().next().is_some_and(|c| c.is_ascii_digit()));
+        if w == "row" && number_next {
+            out.push_str("an earlier row");
+            words.next();
+        } else {
+            out.push_str(w);
+        }
+    }
+    out
+}
+
+/// The dry run in words, from the planned rows.
+fn dry_run(plans: &[Plan]) -> DryRun {
+    const ROWS_SHOWN: usize = 50;
+    fn note(list: &mut Vec<Missing>, name: &str, row_no: usize) {
+        match list.iter_mut().find(|m| m.name.eq_ignore_ascii_case(name)) {
+            Some(m) => m.rows.push(row_no),
+            None => list.push(Missing {
+                name: name.to_string(),
+                rows: vec![row_no],
+            }),
+        }
+    }
+    let mut report = DryRun::default();
+    for p in plans {
+        let row_no = p.row.row_no;
+        if let Some(c) = &p.missing_class {
+            note(&mut report.missing_classes, c, row_no);
+        }
+        if let Some(s) = &p.missing_section {
+            note(&mut report.missing_sections, s, row_no);
+        }
+        if let Some(like) = &p.lookalike {
+            report.likely_duplicates.push(Lookalike {
+                row_no,
+                name: p
+                    .row
+                    .get("full_name")
+                    .or(p.row.get("guardian_name"))
+                    .unwrap_or("")
+                    .to_string(),
+                looks_like: like.clone(),
+            });
+        }
+        let why: Vec<String> = match p.action {
+            RowAction::Error => p.row.errors.iter().map(|e| general(&e.message)).collect(),
+            // The warning that says why it is skipped is the last one added.
+            RowAction::Skip => p
+                .row
+                .warnings
+                .last()
+                .map(|w| general(&w.message))
+                .into_iter()
+                .collect(),
+            _ => Vec::new(),
+        };
+        for reason in why {
+            match report
+                .reasons
+                .iter_mut()
+                .find(|r| r.action == p.action && r.reason == reason)
+            {
+                Some(r) => {
+                    r.count += 1;
+                    if r.rows.len() < ROWS_SHOWN {
+                        r.rows.push(row_no);
+                    }
+                }
+                None => report.reasons.push(Reason {
+                    action: p.action,
+                    reason,
+                    count: 1,
+                    rows: vec![row_no],
+                }),
+            }
+        }
+    }
+    report.reasons.sort_by_key(|r| std::cmp::Reverse(r.count));
+    report
+}
+
+/// The dry run as a workbook to keep or pass on: a summary with the reasons, every row with
+/// what would happen to it and why, what is missing, and the likely duplicates.
+pub fn report_workbook(req: &ImportRequest, preview: &ImportPreview) -> Result<Vec<u8>, ApiError> {
+    use crate::export::Sheet;
+    let text = |a: RowAction| match a {
+        RowAction::Create => "Will be created",
+        RowAction::Update => "Will be updated",
+        RowAction::Skip => "Will be skipped",
+        RowAction::Error => "Cannot be imported",
+    };
+    let rows_of = |rows: &[usize]| {
+        rows.iter()
+            .map(|r| r.to_string())
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let s = &preview.summary;
+    let mut summary: Vec<Vec<String>> = vec![
+        vec!["File".into(), req.file_name.clone()],
+        vec!["Kind".into(), data_sheet_name(req.kind).into()],
+        vec!["Checked on".into(), crate::clock::today().to_string()],
+        vec!["Nothing has been saved".into(), "This is a dry run.".into()],
+        vec![],
+        vec!["Rows in the file".into(), s.total.to_string()],
+        vec!["Will be created".into(), s.create.to_string()],
+        vec!["Will be updated".into(), s.update.to_string()],
+        vec!["Will be skipped".into(), s.skip.to_string()],
+        vec!["Cannot be imported".into(), s.error.to_string()],
+        vec![],
+        vec!["Why".into(), "Rows".into(), "Row numbers".into()],
+    ];
+    for r in &preview.report.reasons {
+        summary.push(vec![
+            format!("{}: {}", text(r.action), r.reason),
+            r.count.to_string(),
+            rows_of(&r.rows),
+        ]);
+    }
+    let fields = rules::fields(req.kind);
+    let mut headers: Vec<String> = vec![
+        "Row".into(),
+        "What will happen".into(),
+        "Why".into(),
+        "Matches".into(),
+    ];
+    headers.extend(fields.iter().map(|f| f.label.to_string()));
+    let rows: Vec<Vec<String>> = preview
+        .rows
+        .iter()
+        .map(|r| {
+            let why = r
+                .errors
+                .iter()
+                .chain(&r.warnings)
+                .map(|i| i.message.clone())
+                .collect::<Vec<_>>()
+                .join("; ");
+            let mut line = vec![
+                r.row_no.to_string(),
+                text(r.action).to_string(),
+                why,
+                r.matched.clone().unwrap_or_default(),
+            ];
+            line.extend(
+                fields
+                    .iter()
+                    .map(|f| r.values.get(f.key).cloned().unwrap_or_default()),
+            );
+            line
+        })
+        .collect();
+    let missing: Vec<Vec<String>> = preview
+        .report
+        .missing_classes
+        .iter()
+        .map(|m| ("Class", m))
+        .chain(
+            preview
+                .report
+                .missing_sections
+                .iter()
+                .map(|m| ("Section", m)),
+        )
+        .map(|(what, m)| {
+            vec![
+                what.to_string(),
+                m.name.clone(),
+                m.rows.len().to_string(),
+                rows_of(&m.rows),
+            ]
+        })
+        .collect();
+    let alike: Vec<Vec<String>> = preview
+        .report
+        .likely_duplicates
+        .iter()
+        .map(|l| vec![l.row_no.to_string(), l.name.clone(), l.looks_like.clone()])
+        .collect();
+    crate::export::workbook(&[
+        Sheet::text("Summary", &["Dry run", ""], summary),
+        Sheet::text(
+            "Rows",
+            &headers.iter().map(String::as_str).collect::<Vec<_>>(),
+            rows,
+        ),
+        Sheet::text(
+            "Missing classes, sections",
+            &["Missing", "Name", "Rows", "Row numbers"],
+            missing,
+        ),
+        Sheet::text(
+            "Likely duplicates",
+            &["Row", "Name in the file", "Looks like"],
+            alike,
+        ),
+    ])
 }
 
 /// Extra student fields kept in `custom`: family id and address parts.
@@ -915,7 +1540,7 @@ pub async fn apply(
         )));
     }
     let mut tx = state.pool.begin().await?;
-    let ctx = ctx(&mut tx, school_id).await?;
+    let ctx = ctx(&mut tx, school_id, req.kind).await?;
     let plans = plan_rows(&mut tx, &ctx, req).await?;
     let batch = repo::create_batch(
         &mut tx,
@@ -934,6 +1559,8 @@ pub async fn apply(
     let policy = req.options.duplicates;
     let mut outcomes = Vec::with_capacity(plans.len());
     let mut used_guardians: HashSet<Uuid> = HashSet::new();
+    // Fee heads this batch has created, by lower-case name (two classes, one new head).
+    let mut new_heads: HashMap<String, Uuid> = HashMap::new();
     for p in plans {
         let row_no = p.row.row_no as i32;
         match (p.action, req.kind) {
@@ -1229,7 +1856,17 @@ pub async fn apply(
                     .get("amount")
                     .and_then(|a| a.parse().ok())
                     .unwrap_or_default();
-                let month = ctx.year_start.unwrap_or_else(crate::clock::today);
+                // Billed to the month before the year begins: it then stands before every
+                // monthly voucher, shows as arrears on the first one, and does not take the
+                // first month's place (which left that month unbilled).
+                let month = {
+                    use chrono::Datelike;
+                    let start = ctx.year_start.unwrap_or_else(crate::clock::today);
+                    start
+                        .with_day(1)
+                        .and_then(|d| d.checked_sub_months(chrono::Months::new(1)))
+                        .unwrap_or(start)
+                };
                 let v = fees::create_opening_balance(
                     &mut tx,
                     &state.hlc,
@@ -1320,6 +1957,88 @@ pub async fn apply(
                 .await?;
             }
             (RowAction::Update, ImportKind::Enquiries) => {}
+            (RowAction::Create | RowAction::Update, ImportKind::Guardians) => {
+                let s = p.target_student.clone().ok_or_else(ApiError::internal)?;
+                attach_guardian_slot(
+                    &mut tx,
+                    state,
+                    actor,
+                    &batch,
+                    row_no,
+                    school_id,
+                    s.id,
+                    &p.row,
+                    &mut used_guardians,
+                    "guardian",
+                    p.row.get("primary") == Some("true"),
+                )
+                .await?;
+            }
+            (RowAction::Create | RowAction::Update, ImportKind::FeeStructure) => {
+                let f = p.fee.clone().ok_or_else(ApiError::internal)?;
+                let year = ctx
+                    .year_id
+                    .ok_or_else(|| ApiError::validation("No active academic year."))?;
+                let head_id = match f
+                    .head_id
+                    .or_else(|| new_heads.get(&f.head_name.to_lowercase()).copied())
+                {
+                    Some(id) => id,
+                    None => {
+                        let taken: Vec<String> = fees::list_heads(&mut tx, school_id)
+                            .await?
+                            .into_iter()
+                            .map(|h| h.code)
+                            .collect();
+                        let head = fees::create_head(
+                            &mut tx,
+                            &state.hlc,
+                            actor,
+                            school_id,
+                            &f.head_name,
+                            &head_code(&f.head_name, &taken),
+                            true,
+                            taken.len() as i32 + 1,
+                        )
+                        .await?;
+                        repo::add_row(
+                            &mut tx,
+                            &state.hlc,
+                            actor,
+                            &batch,
+                            row_no,
+                            "created",
+                            "fee_head",
+                            Some(head.id),
+                            None,
+                        )
+                        .await?;
+                        new_heads.insert(f.head_name.to_lowercase(), head.id);
+                        head.id
+                    }
+                };
+                let set = fees::set_structure(
+                    &mut tx, &state.hlc, actor, school_id, year, f.class_id, head_id, f.amount,
+                )
+                .await?;
+                repo::add_row(
+                    &mut tx,
+                    &state.hlc,
+                    actor,
+                    &batch,
+                    row_no,
+                    "updated",
+                    "fee_structure",
+                    Some(set.map(|s| s.id).unwrap_or(head_id)),
+                    Some(serde_json::json!({
+                        "academic_year_id": year.to_string(),
+                        "class_id": f.class_id.to_string(),
+                        "fee_head_id": head_id.to_string(),
+                        "amount": f.old.unwrap_or_default().to_string(),
+                    })),
+                )
+                .await?;
+            }
         }
         outcomes.push(outcome(p.row, p.action, p.matched));
     }
@@ -1355,6 +2074,33 @@ pub async fn apply(
         summary,
         rows: outcomes,
     })
+}
+
+/// A short code for a new fee head: the capitals and digits of its name ("Computer fee" →
+/// "COMPUTER"), made different from the codes in use by a number at the end.
+fn head_code(name: &str, taken: &[String]) -> String {
+    let base: String = name
+        .split_whitespace()
+        .next()
+        .unwrap_or("FEE")
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric())
+        .take(10)
+        .collect::<String>()
+        .to_uppercase();
+    let base = if base.is_empty() {
+        "FEE".to_string()
+    } else {
+        base
+    };
+    let is_taken = |code: &str| taken.iter().any(|t| t.eq_ignore_ascii_case(code));
+    if !is_taken(&base) {
+        return base;
+    }
+    (2..)
+        .map(|n| format!("{base}{n}"))
+        .find(|code| !is_taken(code))
+        .unwrap_or(base)
 }
 
 /// Link the row's guardians: the first (primary) and, when the register has one, the second.

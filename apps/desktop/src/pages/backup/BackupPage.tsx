@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { DatabaseBackup } from "lucide-react";
+import { DatabaseBackup, FileSpreadsheet } from "lucide-react";
 import { api } from "@/api/endpoints";
 import type { BackupFile, BackupSettings, RestorePreview } from "@/api/types";
 import { Badge } from "@/components/ui/Badge";
@@ -32,6 +32,19 @@ export function BackupPage() {
   const files = useAsync(() => (manage ? api.backupFiles() : Promise.resolve([])), [manage]);
   const runs = useAsync(() => (manage ? api.backupRuns(10) : Promise.resolve([])), [manage]);
   const [running, setRunning] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  // Everything as a workbook: the school's way out with its data, in a form anyone can open.
+  const exportAll = async () => {
+    setExporting(true);
+    try {
+      await api.exportEverything();
+      toast.push({ kind: "success", title: t("backup.exportAll.done") });
+    } catch (err) {
+      toast.push({ kind: "error", title: errorMessage(err, t("app.error.generic")) });
+    } finally {
+      setExporting(false);
+    }
+  };
   const [preview, setPreview] = useState<RestorePreview | null>(null);
   const [otherPath, setOtherPath] = useState("");
   const fail = (err: unknown) =>
@@ -69,13 +82,24 @@ export function BackupPage() {
         crumbs={[{ label: t("nav.dashboard"), to: "/" }, { label: t("backup.title") }]}
         actions={
           manage && (
-            <Button
-              loading={running}
-              icon={<DatabaseBackup className="h-4 w-4" aria-hidden />}
-              onClick={() => void runNow()}
-            >
-              {t("backup.runNow")}
-            </Button>
+            <>
+              <Button
+                variant="secondary"
+                loading={exporting}
+                icon={<FileSpreadsheet className="h-4 w-4" aria-hidden />}
+                onClick={() => void exportAll()}
+                title={t("backup.exportAll.hint")}
+              >
+                {t("backup.exportAll")}
+              </Button>
+              <Button
+                loading={running}
+                icon={<DatabaseBackup className="h-4 w-4" aria-hidden />}
+                onClick={() => void runNow()}
+              >
+                {t("backup.runNow")}
+              </Button>
+            </>
           )
         }
       />

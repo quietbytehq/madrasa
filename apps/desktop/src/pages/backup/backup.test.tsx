@@ -19,6 +19,7 @@ vi.mock("@/api/endpoints", () => ({
     changeBackupPassword: vi.fn(),
     unlockBackups: vi.fn(),
     logout: vi.fn(async () => {}),
+    exportEverything: vi.fn(async () => {}),
   },
 }));
 
@@ -105,6 +106,18 @@ describe("BackupPage", () => {
     expect(
       await screen.findByText("Backup written to /x/madrasa-khi-mc-20261030-100000.mbk."),
     ).toBeInTheDocument();
+  });
+
+  it("exports everything as a workbook in one click, and says what it is", async () => {
+    vi.mocked(api.backupStatus).mockResolvedValue(status);
+    vi.mocked(api.backupSettings).mockResolvedValue(settings);
+    vi.mocked(api.backupFiles).mockResolvedValue([]);
+    render();
+    const button = await screen.findByRole("button", { name: "Export everything" });
+    expect(button).toHaveAttribute("title", expect.stringContaining("without passwords or keys"));
+    await userEvent.click(button);
+    expect(api.exportEverything).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText(/It holds every record of the school/)).toBeInTheDocument();
   });
 
   it("on a new install says there is no backup yet, without the two-day warning", async () => {
