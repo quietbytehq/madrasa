@@ -79,6 +79,11 @@ granted per hub user (docs/spec.md §16.1). They are separate from the school ro
   change the escrow passphrase, see which schools have left a key and every release.
   Setting escrow up needs `nexus.admin`, which also sees that list.
 
+Every hub user, whatever their permissions (also none), changes their **own** password
+(`POST /auth/password`, with the current one; the school logins' rules and lockout). Setting
+another user's password is `nexus.admin`; an administrator's own password goes the same way
+as everyone's, with the current one.
+
 At the school, leaving the backup key with head office or taking it back needs both
 `settings.manage` and `backup.manage`; seeing what head office holds and every release of
 the key needs `settings.manage` (docs/spec.md §16.7).

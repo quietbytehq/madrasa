@@ -117,6 +117,8 @@ function UserDialog({
 }) {
   const { t } = useI18n();
   const fail = useFail();
+  const { me } = useHubSession();
+  const own = user?.id === me.user.id;
   const [fullName, setFullName] = useState(user?.full_name ?? "");
   const [username, setUsername] = useState(user?.username ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
@@ -139,7 +141,7 @@ function UserDialog({
           permissions,
           is_active: active,
         });
-        if (password) await hub.setPassword(user.id, password);
+        if (password && !own) await hub.setPassword(user.id, password);
       } else {
         await hub.createUser({
           username: username.trim(),
@@ -181,15 +183,20 @@ function UserDialog({
             onChange={(e) => setEmail(e.target.value)}
             dir="ltr"
           />
-          <Input
-            label={user ? t("hub.users.newPassword") : t("hub.login.password")}
-            labelSuffix={user ? t("field.optional") : undefined}
-            hint={t("hub.users.passwordHint")}
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="new-password"
-          />
+          {own ? (
+            // One's own password is changed at the top of the page, with the current one.
+            <p className="self-end pb-1.5 text-xs text-muted">{t("hub.users.ownPassword")}</p>
+          ) : (
+            <Input
+              label={user ? t("hub.users.newPassword") : t("hub.login.password")}
+              labelSuffix={user ? t("field.optional") : undefined}
+              hint={user ? t("hub.users.resetHint") : t("hub.users.passwordHint")}
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+            />
+          )}
         </div>
         <fieldset className="flex flex-col gap-1.5">
           <legend className="mb-1 text-xs font-medium text-text">{t("hub.users.may")}</legend>

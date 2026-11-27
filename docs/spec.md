@@ -61,7 +61,7 @@ Standard/Nexus.
 | Backup | yes | Encrypted local backups, restore, recovery key |
 | Settings | yes | School profile, academic years, roles, custom fields, edition |
 | Campuses | later | Multi-campus school (Standard) |
-| Parents portal | later | Parent accounts (Nexus-wide identities) |
+| Parent app | yes, once the school has joined a school network | Parents' accounts and what each school shows them (§17). It replaced the "Parents" placeholder and its feature flag `parents_portal`, both removed after v0.6.0 |
 | Transport, Library, Hostel, HR/Payroll | later | Standard |
 | Network admin | later | Nexus hub console |
 
@@ -423,6 +423,21 @@ Rules (`madrasa_core::imports` for cleanup, `madrasa_api::imports` for the datab
   date of birth, with a student on file or an earlier row). `POST /imports/report` gives the
   same as a workbook. Neither writes anything; the app asks for a confirmation before
   `POST /imports/apply`.
+- **An import outlives the app** (after v0.6.0). The server keeps nothing between the steps:
+  the file as read, the mapping and the corrected rows are the app's. From the moment a
+  file is read until the import is confirmed, the app keeps them on that PC
+  (`apps/desktop/src/pages/import/importStore.ts`): one per user, sealed like a form draft
+  (§18.5: AES-GCM, the non-extractable draft key), in IndexedDB because a sheet of 5,000
+  rows does not fit in `localStorage`; rewritten 0.4 s after each change and at once when
+  the page is left. The dry run's result is **not** kept. Opening Import with nothing in
+  progress and a kept import for this user shows, instead of the type picker, what was
+  started and when, with **Continue the import you started on `<date>`** and **Discard
+  it**. Continuing restores the columns, the choices and the corrections, and, if the
+  import had been checked, runs `POST /imports/preview` again (the records may have changed)
+  before landing on the Check step; if that fails, it stays at the Columns step, still
+  kept. Confirming (`/imports/apply` answered), discarding or starting over removes it.
+  Where it cannot be sealed or stored, nothing is kept and the page says so. It is not
+  offered to another user of the same PC, and not on another PC.
 - **Opening balances** are billed to the month before the academic year starts and never
   earn a late fee: the balance shows as arrears on the student's first monthly voucher and
   takes no month's place. (Before, the opening voucher sat in the year's first month, and
@@ -1916,7 +1931,8 @@ Base path `/api/nexus/v1`; errors use the shape of §6.
 | GET | `/auth/me` | session | `{ user, hub_name }` |
 | GET / POST | `/users` | `nexus.admin` | List; create `{ username, full_name, email?, password, permissions[] }` |
 | PATCH | `/users/{id}` | `nexus.admin` | `{ full_name?, email?, permissions?, is_active? }`; disabling ends the user's sessions; the last active administrator cannot be disabled or lose `nexus.admin` (409) |
-| POST | `/users/{id}/password` | own account, or `nexus.admin` | Sets a new password, clears a lock, ends the user's sessions |
+| POST | `/auth/password` | session (any console user) | Change one's own password: `{ current_password, new_password }` → 204. The same rules as a school login (§12 `/auth/password`): the new one at least 10 characters and different; a wrong current password is a 400, counts as a failed login and locks the account after five (423 from then on, for 15 minutes); the session it was changed from stays, every other session of the user ends; audited as `password_changed` |
+| POST | `/users/{id}/password` | `nexus.admin`, for **another** user | An administrator's reset: `{ password }` sets a new password, clears a lock, ends every session of that user; audited as `password_reset`. For one's own id it is refused (400): that goes through `/auth/password`, with the current password |
 | GET | `/audit` | `nexus.admin` | Hub audit log, newest first (`page`, `page_size`) |
 
 First-run setup is guarded by a one-time token: `NEXUS_SETUP_TOKEN` when set, otherwise one

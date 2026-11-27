@@ -62,7 +62,6 @@ export const en = {
   "nav.backup": "Backup",
   "nav.settings": "Settings",
   "nav.campuses": "Campuses",
-  "nav.parents": "Parents",
   "nav.network": "Network",
   "nav.modules": "Modules",
   "nav.collapse": "Collapse sidebar",
@@ -1030,6 +1029,20 @@ export const en = {
   "import.history.applied": "Applied",
   "import.history.rollbackDone": "Import rolled back.",
   "import.startOver": "Start another import",
+  "import.resume.title": "An import was not finished",
+  "import.resume.body":
+    "On {date} you started importing {kind} from {name} ({rows} rows) and did not confirm it. The columns you matched and the corrections you made are still here.",
+  "import.resume.nothingSaved":
+    "Nothing from this file is in the school's records yet. If you continue, the rows are checked again before you confirm.",
+  "import.resume.continue": "Continue the import you started on {date}",
+  "import.resume.discard": "Discard it",
+  "import.resume.discarded": "The unfinished import was discarded.",
+  "import.resume.rechecked":
+    "The rows were checked again against the school's records as they are now.",
+  "import.resume.kept":
+    "This import is kept on this PC until you confirm or discard it, even if Madrasa is closed.",
+  "import.resume.notKept":
+    "This import could not be kept on this PC. If Madrasa is closed before you confirm it, you will have to start again from the file.",
   "reports.title": "Reports",
   "reports.intro":
     "Printable lists and summaries. Pick a report, set its options and run it; download it as PDF or Excel in the current language.",
@@ -2377,6 +2390,10 @@ export const en = {
   "hub.users.active": "This account may sign in",
   "hub.users.newPassword": "New password",
   "hub.users.passwordHint": "At least 10 characters.",
+  "hub.users.resetHint":
+    "At least 10 characters. The user is signed out everywhere and signs in with this password; ask them to change it afterwards.",
+  "hub.users.ownPassword":
+    "Change your own password with the lock button at the top of the page. It asks for your current password.",
   "hub.users.saved": "Saved.",
   "hub.permission.admin": "Administer",
   "hub.permission.admin.about":

@@ -1,4 +1,5 @@
-//! Hub users (`nexus.admin`): list, create, change permissions, disable, reset password.
+//! Hub users (`nexus.admin`): list, create, change permissions, disable, reset another
+//! user's password.
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
@@ -138,16 +139,20 @@ async fn update(
     Ok(Json(after))
 }
 
+/// An administrator sets a new password for **another** user: the lock is cleared and every
+/// session of that user ends. One's own password is changed with `POST /auth/password`,
+/// which asks for the current one; this route refuses it, so that a console left open
+/// cannot be used to take an account over.
 async fn reset_password(
     State(state): State<HubState>,
     current: CurrentHubUser,
     Path(id): Path<Uuid>,
     body: JsonBody<ResetPassword>,
 ) -> HubResult<Json<HubUser>> {
-    // Anyone may change their own password; changing another user's needs nexus.admin.
-    if id != current.user.id {
-        current.require(HubPermission::Admin)?;
+    if id == current.user.id {
+        return Err(HubError::validation(OWN_PASSWORD_ELSEWHERE));
     }
+    current.require(HubPermission::Admin)?;
     let Json(b) = body?;
     validate_password(&b.password).map_err(|e| HubError::validation(format!("Password: {e}.")))?;
     let password_hash = hash_password(&b.password).map_err(|_| HubError::internal())?;
@@ -161,8 +166,13 @@ async fn reset_password(
         Some(current.user.id),
         id,
         &password_hash,
+        None,
     )
     .await?;
     tx.commit().await?;
     Ok(Json(user))
 }
+
+/// Said when someone tries to set their own password without giving the current one.
+pub(crate) const OWN_PASSWORD_ELSEWHERE: &str =
+    "To change your own password, use Change password at the top of the page: it asks for your current password.";

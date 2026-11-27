@@ -669,9 +669,10 @@ Fixes for what the v0.5.0-alpha test found. Tasks 66, 67 and 69 above changed to
 
 ## 12. New since v0.5.1
 
-Everything below was added after v0.5.1-alpha and is **not in that download**: it is on the
-`main` branch and will be in the next build. Until then these tasks can only be done on a
-build made from `main` (see README). The version number still says 0.5.1.
+Tasks 82 to 107 were added after v0.5.1-alpha and are in **v0.6.0-alpha**. Tasks 108 to 116
+(the last part of this section, "Added after v0.6.0-alpha") are **not in that download**:
+they are on the `main` branch and will be in the next build; until then they can only be
+done on a build made from `main` (see README), whose version number still says 0.6.0.
 
 ### Signing in and passwords
 
@@ -785,9 +786,67 @@ build made from `main` (see README). The version number still says 0.5.1.
 ### Urdu
 
 107. **Read the Urdu.** No Urdu in Madrasa has been read by a native speaker yet.
-     `docs/urdu-review.md` says where it all is and which words we were unsure of (for
-     example "لاگ ان" and "سائن ان" are both in use). Any correction is welcome, in any
-     form.
+     `docs/urdu-review.md` says where it all is and which words we were unsure of. Three
+     were settled after v0.6.0 and should now be the only ones you see: "لاگ ان" (never
+     "سائن ان"), "چالان" for a fee voucher (never "واؤچر") and "ہیڈ آفس". Tell us where
+     "چالان" reads wrongly in its sentence. Any correction is welcome, in any form.
+
+### Added after v0.6.0-alpha (on `main` only)
+
+*Head office console (the Nexus hub)*
+
+108. **Change your own password in the console.** Sign in to the head office console as any
+     user, also one who may only read reports. Click the **lock** button at the top right
+     (next to *Log out*) → *Change password*. Give the current password and a new one
+     twice: "Password changed.", and you stay signed in. If you were signed in to the
+     console in a second browser as well, that one is signed out at its next click. Sign
+     out and in again: the old password is refused, the new one works.
+109. **Wrong current passwords lock the account.** In the same dialog type a wrong current
+     password five times: each time "The current password is not right."; after the fifth,
+     the account is locked for fifteen minutes, also for signing in, exactly as after five
+     wrong sign-ins. (Ask an administrator to reset the password to get in sooner.)
+110. **An administrator resets someone else's password.** As an administrator: Users → *Edit*
+     another user → type a *New password* → *Save*. That user is signed out everywhere, a
+     lock on the account is cleared, and they sign in with the new password (and should then
+     change it themselves, task 108). Now *Edit* your own row: there is no password box,
+     only a line sending you to the lock button, because your own password always asks for
+     the current one.
+
+*Import*
+
+111. **An import survives closing Madrasa.** Import → *Students* (or *Guardians*) → choose a
+     file with at least one row that has a mistake → match the columns → *Check the file* →
+     correct the mistake in the grid. Under the steps a line says the import is kept on
+     this PC. **Do not confirm.** Close Madrasa with the window's X, start it again, sign in
+     as the same person and open Import: instead of the list of things to import it says an
+     import was not finished, names the file and the number of rows, and offers **Continue
+     the import you started on** (the date) and **Discard it**. Continue: the columns are
+     matched as you left them, your correction is in the row, and a note says the rows were
+     checked again. Confirm it now, or go on to the next task.
+112. **The hard way.** Do the same, but instead of closing Madrasa end it from the Task
+     Manager (Windows) or with `pkill madrasa` (Linux), or switch the PC off at the wall
+     while the Check step is on screen. After the restart the same offer must be there.
+     **We have not tried this in the installed program**, only in a browser on Linux; tell
+     us what you see, also if nothing is offered.
+113. **Discard, and nothing left behind.** Leave an import unfinished again, reopen Import
+     and press **Discard it**: the ordinary list of things to import is back, and closing
+     and reopening Madrasa offers nothing. Then finish an import normally (confirm it):
+     afterwards nothing is offered either. And sign in as a *different* person on the same
+     PC while someone's import is unfinished: that person is offered nothing.
+
+*Small things*
+
+114. **No "Parents" in the sidebar.** A Madrasa running as the Nexus edition showed a
+     "Parents" entry that only said "Coming soon". It is gone; what a school does for
+     parents is under **Parent app**, which appears once the school has joined a school
+     network (section 9).
+115. **The three Urdu words.** Switch to Urdu. The fee pages, a printed fee voucher, a
+     receipt, the parent app's fee page and the fee reports say **چالان** (not "واؤچر");
+     signing in says **لاگ ان** everywhere, also in the head office console (not
+     "سائن ان"); head office is **ہیڈ آفس**. Tell us any place that still shows an old
+     word, and any sentence where "چالان" reads wrongly.
+116. **The manual.** The Urdu and English manuals (the two PDFs that come with a release)
+     show the same words as the screens, and their pictures were made again.
 
 ### For the person who installs (not everyday use)
 
@@ -813,7 +872,8 @@ one does this by itself) and keep the old installer next to the old backup files
 
 **Not tested by us:** all of the above on Windows by hand; a real USB drive pulled out; a
 real screen reader; the import templates opened in Excel by a person; a school's own PC
-under the load test.
+under the load test; the kept import (tasks 111 to 113) in the installed program, where it
+was only tried in a browser on Linux.
 
 ## 13. Report a problem
 

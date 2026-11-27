@@ -44,12 +44,39 @@ Light, compact, information-dense desktop UI. No hero banners.
 
 ## Folder layout
 ```
-apps/desktop/        Tauri app (src-tauri/ Rust shell, src/ React UI)
-crates/api/          Axum API server
-crates/core/         domain logic (fees, grading, permissions) — pure, well tested
+apps/desktop/        Tauri desktop app: src-tauri/ (Rust shell: window, tray, starts the
+                     server or the LAN client's proxy from crates/api), src/ (React UI)
+apps/desktop/src/console/   the head office console of the Nexus hub; built on its own
+                     (pnpm build:console) and served by the hub, not part of the desktop app
+apps/parent/         Parent app (Tauri 2, Android): src-tauri/, src/ (React UI, sharing the
+                     desktop's components and translations); talks to a Nexus hub, never
+                     to a school
+crates/api/          Axum API server of a school (/api/v1, /api/ro/v1), the LAN client's
+                     proxy and offline queue; bin madrasa-server
+crates/core/         domain logic (fees, grading, permissions, imports, backup format) — pure,
+                     well tested
 crates/db/           migrations, queries
 crates/demo-data/    fake data generator
-docs/                spec.md, architecture decisions (docs/adr/)
+crates/nexus/        Nexus hub: its own API (/api/nexus/v1), schema and migrations, sync,
+                     backup-key escrow, parents' accounts; bin madrasa-nexus
+crates/manual/       builds the user manual PDFs from docs/manual (Typst)
+assets/brand/        logo and icons; edit tools/build_svg.py, regenerate with generate-icons.sh
+deploy/nexus/        the hub's Dockerfile, Compose stack, Caddyfile; azure/ (Bicep), gcp/ (Terraform)
+e2e/                 browser tests (Playwright): desktop/, parent/, console/, support/
+scripts/             e2e.sh, load-test.sh, soak-test.sh, upgrade-test.sh (load/ holds their
+                     seed and drivers), manual-screenshots.sh, build-manual.sh,
+                     build-parent-apk.sh, sign-apk.sh, nexus-smoke.sh, set-version.sh
+docs/                spec.md (source of truth), PROGRESS.md, BLOCKERS.md, TASKS-*.md,
+                     permissions.md, SECURITY.md, RELEASING.md, urdu-review.md
+docs/adr/            architecture decisions, numbered
+docs/manual/         the manual's source: manual.yaml (EN and UR text), manual.typ (layout),
+                     screenshots/{en,ur}/ (made by tools/, never by hand)
+docs/user-guide/     en.md, ur.md
+docs/nexus/          deploy.md (running a hub)
+docs/upstream/       bug reports written for libraries we use; not posted without the owner's say
+docs/testing/        sample files for testers
+.github/workflows/   ci.yml (every push), release.yml (a v* tag, or run by hand)
+TESTING.md           what a person tests by hand, release by release
 ```
 
 ## Workflow

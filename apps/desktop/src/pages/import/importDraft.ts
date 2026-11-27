@@ -17,6 +17,8 @@ export interface ImportDraft {
   preview: ImportPreview | null;
   edited: string[][] | null;
   result: ImportResult | null;
+  /** When the file was read; the import is kept on this PC under this date (importStore). */
+  startedAt: string | null;
 }
 
 export const EMPTY_DRAFT: ImportDraft = {
@@ -29,11 +31,16 @@ export const EMPTY_DRAFT: ImportDraft = {
   preview: null,
   edited: null,
   result: null,
+  startedAt: null,
 };
 
 let draft: ImportDraft = EMPTY_DRAFT;
 
-/** The draft lives for the app session (not across restarts: a file would be stale anyway). */
+/**
+ * The wizard's state while the app is open, so that a visit to another page loses nothing.
+ * What must outlive the app itself (the file, the matched columns, the corrections) is kept
+ * sealed on this PC by `importStore`.
+ */
 export const importDraft = {
   get: (): ImportDraft => draft,
   set: (next: ImportDraft) => {

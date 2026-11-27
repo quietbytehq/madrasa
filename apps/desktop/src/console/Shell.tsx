@@ -2,16 +2,20 @@ import {
   Building2,
   FileBarChart,
   KeyRound,
+  LockKeyhole,
   LogOut,
   PencilLine,
   ScrollText,
   Users,
 } from "lucide-react";
+import { useState } from "react";
 import { BrandMark } from "@/components/brand/Brand";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
+import { ChangePasswordDialog } from "@/layout/ChangePasswordDialog";
 import { useI18n } from "@/i18n";
 import type { TranslationKey } from "@/i18n";
 import { cn } from "@/lib/cn";
+import { hub } from "./api";
 import type { HubPermission } from "./api";
 import { LanguageSwitch } from "./LanguageSwitch";
 import { useHubSession } from "./session";
@@ -81,6 +85,7 @@ export function Shell() {
   const { t } = useI18n();
   const { me, can, signOut } = useHubSession();
   const pages = PAGES.filter((p) => p.needs.some(can));
+  const [changingPassword, setChangingPassword] = useState(false);
 
   return (
     <div className="flex h-screen bg-bg text-text">
@@ -135,6 +140,16 @@ export function Shell() {
               {me.user.username}
             </div>
           </div>
+          {/* For every console user, whatever they may do: nobody else should know it. */}
+          <button
+            type="button"
+            onClick={() => setChangingPassword(true)}
+            aria-label={t("password.change.title")}
+            title={t("password.change.title")}
+            className="flex h-8 w-8 items-center justify-center rounded text-muted hover:bg-hover hover:text-text"
+          >
+            <LockKeyhole className="h-4 w-4" aria-hidden />
+          </button>
           <button
             type="button"
             onClick={signOut}
@@ -161,6 +176,12 @@ export function Shell() {
           )}
         </main>
       </div>
+      {changingPassword && (
+        <ChangePasswordDialog
+          onClose={() => setChangingPassword(false)}
+          change={hub.changeOwnPassword}
+        />
+      )}
     </div>
   );
 }

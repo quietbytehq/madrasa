@@ -20,7 +20,6 @@ import {
   Settings,
   UserRound,
   Users,
-  UsersRound,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { Feature } from "@/api/types";
@@ -205,13 +204,6 @@ export const NAV_ITEMS: readonly NavItem[] = [
     available: true,
     anyPermission: PARENT_APP_PERMISSIONS,
     needsNetwork: true,
-  },
-  {
-    path: "/parents",
-    labelKey: "nav.parents",
-    icon: UsersRound,
-    feature: "parents_portal",
-    available: false,
   },
   {
     path: "/network",

@@ -75,6 +75,15 @@ Do this once, when the school starts with Madrasa. Work in this order; each step
    expect, press **Import** and confirm. Nothing is written before that confirmation.
 6. Every import can be **undone** from the history at the bottom of the page.
 
+**If Madrasa is closed before you confirm** (the window is closed, the PC crashes, the power
+goes), the import is not lost. The file as it was read, the columns you matched and the rows
+you corrected are kept on that PC, sealed like the other drafts (§19), for the person who
+started it. The next time that person opens Import, Madrasa offers **Continue the import you
+started on** that day, or **Discard it**. Continuing checks the rows again against the
+school's records as they are now, then you confirm as usual. Nothing reaches the school's
+records until you confirm; a kept import is removed once it is confirmed or discarded. It is
+kept on the PC where it was started, not on the school server: continue it there.
+
 What each import does:
 
 - **Guardians**: one row per guardian and child, found by the student number or the number

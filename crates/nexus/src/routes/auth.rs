@@ -1,8 +1,9 @@
 use axum::extract::State;
+use axum::http::StatusCode;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use chrono::{DateTime, Utc};
-use madrasa_core::password::verify_password;
+use madrasa_core::password::{hash_password, validate_password, verify_password};
 use madrasa_core::session_token;
 use serde::{Deserialize, Serialize};
 
@@ -36,6 +37,7 @@ pub fn router() -> Router<HubState> {
         .route("/auth/login", post(login))
         .route("/auth/logout", post(logout))
         .route("/auth/me", get(me))
+        .route("/auth/password", post(change_own_password))
 }
 
 async fn login(
@@ -112,4 +114,69 @@ async fn me(State(state): State<HubState>, current: CurrentHubUser) -> HubResult
         user: current.user,
         hub_name,
     }))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ChangePasswordRequest {
+    pub current_password: String,
+    pub new_password: String,
+}
+
+/// Change one's own password, whatever one's permissions: the current password is asked for,
+/// the new one must meet the usual rule, and every other session of the user is ended. The
+/// same rules as a school login (`POST /auth/password` of the school API): a wrong current
+/// password counts as a failed login, so a console left open cannot be used to guess, and
+/// after the usual number of them the account is locked for the usual time.
+async fn change_own_password(
+    State(state): State<HubState>,
+    current: CurrentHubUser,
+    body: JsonBody<ChangePasswordRequest>,
+) -> HubResult<StatusCode> {
+    let Json(req) = body?;
+    let now = Utc::now();
+    let mut tx = state.pool.begin().await?;
+    // Read again inside the transaction: the lock and the hash as they are now.
+    let user = store::get_user(&mut tx, current.user.id)
+        .await?
+        .ok_or_else(HubError::unauthenticated)?;
+    if state.lockout.is_locked(user.locked_until, now) {
+        return Err(HubError::account_locked());
+    }
+    if !verify_password(&req.current_password, &user.password_hash) {
+        let next = state
+            .lockout
+            .after_failure(user.failed_login_count.max(0) as u32, now);
+        store::record_failed_login(
+            &mut tx,
+            &state.hlc,
+            user.id,
+            next.failed_count as i32,
+            next.locked_until,
+        )
+        .await?;
+        tx.commit().await?;
+        if next.locked_until.is_some() {
+            tracing::warn!(user = %user.username, "hub account locked after wrong current passwords");
+        }
+        return Err(HubError::validation("The current password is not right."));
+    }
+    validate_password(&req.new_password)
+        .map_err(|e| HubError::validation(format!("New password: {e}.")))?;
+    if req.new_password == req.current_password {
+        return Err(HubError::validation(
+            "The new password must be different from the current one.",
+        ));
+    }
+    let hash = hash_password(&req.new_password).map_err(|_| HubError::internal())?;
+    store::set_password(
+        &mut tx,
+        &state.hlc,
+        Some(user.id),
+        user.id,
+        &hash,
+        Some(current.session.id),
+    )
+    .await?;
+    tx.commit().await?;
+    Ok(StatusCode::NO_CONTENT)
 }

@@ -68,7 +68,7 @@ const TEXT: &[(&str, &str, &str)] = &[
     ("note.active_only", "Only schools that are joined are included. Schools that left or were removed are not.", "صرف شامل اسکول شمار ہیں۔ چھوڑنے والے یا ہٹائے گئے اسکول شامل نہیں۔"),
     ("note.per_currency", "Money is never added across currencies: totals are per currency.", "مختلف کرنسیوں کی رقم جمع نہیں کی جاتی: کل ہر کرنسی کا الگ ہے۔"),
     ("note.as_synced", "Figures are as of each school's last sync.", "اعداد ہر اسکول کی آخری ہم آہنگی تک کے ہیں۔"),
-    ("note.billed", "Billed is the month's own charges and late fees, without arrears carried from earlier months. Collected is by date of payment. Outstanding is what is unpaid now on that month's vouchers.", "بل میں اس مہینے کی اپنی فیس اور لیٹ فیس شامل ہے، پچھلے مہینوں کا بقایا نہیں۔ وصولی ادائیگی کی تاریخ کے مطابق ہے۔ بقایا وہ رقم ہے جو اس مہینے کے واؤچروں پر ابھی ادا نہیں ہوئی۔"),
+    ("note.billed", "Billed is the month's own charges and late fees, without arrears carried from earlier months. Collected is by date of payment. Outstanding is what is unpaid now on that month's vouchers.", "بل میں اس مہینے کی اپنی فیس اور لیٹ فیس شامل ہے، پچھلے مہینوں کا بقایا نہیں۔ وصولی ادائیگی کی تاریخ کے مطابق ہے۔ بقایا وہ رقم ہے جو اس مہینے کے چالانوں پر ابھی ادا نہیں ہوئی۔"),
     ("note.present_pct", "Present % counts present and late marks.", "حاضری % میں حاضر اور تاخیر دونوں شامل ہیں۔"),
     ("status.joining", "Joining", "شامل ہو رہا ہے"),
     ("status.active", "Joined", "شامل"),

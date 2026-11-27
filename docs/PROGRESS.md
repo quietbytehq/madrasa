@@ -2400,6 +2400,135 @@ Listed by how much it matters for a pilot.
     find before a pilot school leaves its server on for weeks. Say if you want me to do
     this in a later session, on a machine of yours or in CI as a nightly job.
 
+## Pre-pilot fixes (after v0.6.0-alpha)
+
+### 2026-11-27 — Seven items before the pilot (branch `claude/kind-franklin-ac2vjh-prepilot`)
+
+One branch, one pull request. The version stays 0.6.0 and nothing is tagged. No migration:
+the database is as v0.6.0 left it.
+
+**1. Head office console: passwords.**
+- Every console user, whatever their permissions (also none), changes their own password:
+  a lock button at the top of every console page opens the same dialog the school app
+  uses. New route `POST /auth/password` on the hub with the school login's rules: the
+  current password is asked for; the new one must have 10 characters and differ; a wrong
+  current password counts as a failed login, and after five the account is locked for
+  fifteen minutes (also for signing in); the session it was changed from stays, every other
+  session of the user ends; the audit log says `password_changed`, never a hash.
+- An administrator resets **another** user's password (Users → Edit), which signs that
+  user out everywhere and clears a lock (`password_reset` in the log).
+- Changed on the way: until now `POST /users/{id}/password` let anyone set their **own**
+  password without the current one (the console never offered it to a non-administrator,
+  but the route did). It now refuses one's own id, administrators included, and says where
+  to go. An administrator's own row in Users shows no password box.
+
+**2. An import survives closing the app.** The server keeps nothing between the steps of an
+import, so what was lost was all in the app. From the moment a file is read until the import
+is confirmed, the app now keeps the file as read, the matched columns, the choices and the
+corrected rows on that PC, one per person, sealed exactly like a form draft (AES-GCM under
+the draft key that cannot be read out of the app). Opening Import again shows what was
+started and offers **Continue the import you started on** (date) or **Discard it**.
+Decisions inside it:
+- **The check is run again, not remembered.** If the import had been checked, continuing
+  runs the dry run again on the kept rows before showing the Check step: the school's
+  records may have changed while the app was closed, and a remembered "will be created"
+  could be wrong. If the check cannot be made (server away), the person lands on the
+  Columns step with everything still kept.
+- **In IndexedDB, not `localStorage`.** A sheet of 5,000 rows is bigger than a browser lets
+  a page keep in `localStorage`, where the form drafts are. Same key, same sealing, another
+  store. Where it cannot be kept, the page says so in words instead of promising.
+- Kept 0.4 s after each change and at once when the page is left; a discard never overtakes
+  a save that is under way. Removed when the import is confirmed, discarded or started
+  over. Not offered to another person at the same PC, and not on another PC.
+
+**3. The "Parents — Coming soon" sidebar entry is gone**, with its route, its label and the
+feature flag `parents_portal` (it gated nothing else; the API's list of features for the
+Nexus edition is one entry shorter). The Parent app area is what a school uses.
+
+**4. `CLAUDE.md`'s folder layout** lists what exists: both apps, the console inside the
+desktop app's source, the six crates, `assets/brand`, `deploy/nexus`, `e2e`, `scripts`, and
+the folders under `docs`.
+
+**5. The sqlx report: written, and not needed.** `docs/upstream/sqlx-abandoned-begin.md` has
+a 40-line program that shows the fault on its own, what is expected, what happens, why (the
+lines in sqlx), our workaround and the test that notices a fix. Writing it I found that
+**sqlx 0.9.1, released 2026-11-17, already fixes it** (their pull request 4394): the same
+program gives the wrong answers on 0.9.0 and the right ones on 0.9.1, three runs each, here.
+So there is nothing to post. Two things for the owner are in the file: Madrasa is still on
+0.9.0 (behind the workaround, so nothing is at risk) and should move to 0.9.1, at which
+point `without_the_guard_sqlx_leaves_the_transaction_open` will fail as designed; and
+sqlx's new policy does not accept issues written by an AI agent, so anything reported there
+in future has to be in a person's own words. Nothing was posted anywhere.
+
+**6. Urdu terms.** Every use was listed first (`docs/urdu-review.md`, "Terms settled by the
+owner") and then switched:
+- "سائن ان" → "لاگ ان": 5 uses (3 console strings, 1 app string, 1 manual passage).
+- "واؤچر" → "چالان": 103 uses (39 strings on screen, of which 6 in the parent app; 13 in
+  printed reports; 4 in the instructions sheet of two import templates; 22 in the manual;
+  25 in the Urdu user guide).
+- "صدر دفتر" → "ہیڈ آفس": nothing to switch. The product never said "صدر دفتر"; it was a
+  suggestion in the review list. "ہیڈ آفس" stays.
+- With them, for consistency: "سائن آؤٹ" → "لاگ آؤٹ" (1), "واؤچروں" → "چالانوں", and the
+  English-style plural "واؤچرز" → "چالان". The user guide was not in the list given and was
+  switched too, because it describes the same screens.
+- No column heading that an import recognises used the old word, so sheets already filled
+  in are read as before.
+- All 278 manual screenshots were made again (139 in each language); 99 files differ. Two
+  were looked at: the Urdu fee page says چالان on its tab, button, column and search box;
+  the console's top bar shows the lock button. The manual gained two tips (the kept import,
+  console passwords).
+- Not judged: whether "چالان" reads right in each sentence. The word was swapped; the
+  sentences were not rewritten. That is a native reader's call, and TESTING.md asks for it.
+
+**7. TESTING.md**: tasks 108 to 116 at the end of "New since v0.5.1", under "Added after
+v0.6.0-alpha (on `main` only)"; the section's first lines now say that tasks 82 to 107 are in
+v0.6.0-alpha. Also updated: spec (§3 modules, §5 imports, §16 hub routes),
+`docs/permissions.md`, `docs/nexus/deploy.md`, both user guides, the manual.
+
+**Tests.** New: two hub tests (own password: the three rules, the change, sessions, the
+audit rows; wrong current passwords sharing the count with failed logins, the lock and its
+length, the administrator's reset clearing it), and the existing permission test rewritten
+for the stricter reset route; two console tests (a user without any permission changes
+their password; an administrator resets another's and has no box for their own); five
+tests of the kept import's store (round trip, sealed text holds no name, a changed or
+foreign file is refused whole, discard after save, nothing kept when it cannot be); eight of
+the Import page (no offer when there is none; offered with its date and continued at the
+columns; corrections kept and the check run again; staying at the columns when the check
+fails; discard; nothing kept after confirming; not offered to another person; saying so
+when it cannot be kept); the shell test for the removed entry; two browser tests in
+Chromium against real servers (the console's passwords end to end; an import closed
+unconfirmed, the stored text read back from IndexedDB and searched for the names, continued
+with its correction, closed again, discarded).
+
+Run here on the final state, all passing: `cargo fmt --check`, `cargo clippy -D warnings`,
+591 Rust tests (437 outside the school API, 154 in it), 331 front-end unit tests (292
+desktop and console, 39 parent app), lint, format and type checks, all 55 browser tests
+(6.1 minutes), the manual's 278 screenshots and both PDFs (104 pages in English, 107 in
+Urdu).
+
+**Not proven.**
+- The kept import **in the installed program**. It was run in the unit tests (jsdom, where
+  there is no IndexedDB and the fallback store is used) and in Chromium in the browser
+  tests (IndexedDB). The desktop app's own web views (WebView2 on Windows, WebKitGTK on
+  Linux) were not driven. The form drafts already use the same key and sealing there (lab
+  run of v0.5.0), which is a reason to expect it to work and not a test of it. TESTING.md
+  tasks 111 to 113 ask a person to try it, also by killing the app.
+- A power cut in the half second between a keystroke and its save loses that keystroke's
+  correction, not the import.
+- The console's password dialog and the Urdu were checked by machine only, as before.
+
+**For the owner.**
+1. **Move to sqlx 0.9.1** (above; not done here, it was not asked for and it changes a
+   dependency under everything).
+2. **TESTING.md and README still name the 0.5.1 installers** (`Madrasa_0.5.1_…`, the title
+   "Testing Madrasa v0.5.1-alpha"); v0.6.0-alpha was tagged without them being updated. I
+   corrected only the first lines of section 12. Say if you want the file brought to 0.6.0.
+3. Three "Coming soon" entries remain in the sidebar: **HR** and **Campuses** (Standard and
+   Nexus) and **Network** (Nexus). They were not in this list and are untouched.
+4. Decisions 3, 9 and two parts of 10 of "Summary for the owner — Pilot readiness" above
+   are settled by this change (the Urdu words, the sqlx report, the lost import, the
+   console password). The others stand, the Windows day and the server's memory first.
+
 ## Brand identity
 
 The brand sheet (`assets/brand/Madrasa_Brand_Identity_Showcase.png`) applied across the
