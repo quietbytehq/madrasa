@@ -142,6 +142,14 @@ async function unseal<T>(text: string): Promise<T | null> {
   }
 }
 
+/**
+ * Seal any value the way drafts are sealed (AES-GCM under this PC's draft key), for things
+ * that are kept like a draft but are not a form: an import that was started and not yet
+ * confirmed. Null where nothing can be sealed; then nothing is kept.
+ */
+export const sealValue = seal;
+export const unsealValue = unseal;
+
 function storage(): Storage | null {
   try {
     return globalThis.localStorage ?? null;

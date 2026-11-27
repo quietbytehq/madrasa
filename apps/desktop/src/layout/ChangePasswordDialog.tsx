@@ -14,8 +14,16 @@ const MIN_LENGTH = 10;
  * Change one's own password (user menu). The current password is asked for; the server ends
  * every other session of the user. Until v0.5.1 only an administrator could set a password,
  * so the administrator knew everyone's.
+ *
+ * The head office console uses the same dialog with its own `change` (the hub's API).
  */
-export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
+export function ChangePasswordDialog({
+  onClose,
+  change = api.changeOwnPassword,
+}: {
+  onClose: () => void;
+  change?: (current: string, next: string) => Promise<unknown>;
+}) {
   const { t } = useI18n();
   const toast = useToast();
   const [current, setCurrent] = useState("");
@@ -31,7 +39,7 @@ export function ChangePasswordDialog({ onClose }: { onClose: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      await api.changeOwnPassword(current, next);
+      await change(current, next);
       toast.push({ kind: "success", title: t("password.change.done") });
       onClose();
     } catch (err) {

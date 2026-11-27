@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Download, FileSpreadsheet, Stethoscope, Upload } from "lucide-react";
@@ -32,6 +32,8 @@ import { errorMessage, useAsync } from "@/lib/useAsync";
 import { useSession } from "@/app/session";
 import { PageHeader } from "../PageHeader";
 import { importDraft } from "./importDraft";
+import { discardImport, keepImport, keptImport } from "./importStore";
+import type { KeptImport } from "./importStore";
 
 const KINDS: ImportKind[] = [
   "students",
@@ -76,9 +78,10 @@ export function errorCsv(headers: string[], rows: string[][], outcomes: RowOutco
 
 export function ImportPage() {
   const { t, formatDate } = useI18n();
-  const { can } = useSession();
+  const { can, user } = useSession();
   const toast = useToast();
-  // An import in progress survives a visit to another page (state lives in importDraft).
+  // An import in progress survives a visit to another page (state lives in importDraft),
+  // and closing the app (the file, the columns and the corrections are kept by importStore).
   const saved = importDraft.get();
   const [step, setStep] = useState(saved.step);
   const [kind, setKind] = useState<ImportKind>(saved.kind);
@@ -94,11 +97,72 @@ export function ImportPage() {
   const [edited, setEdited] = useState<string[][] | null>(saved.edited);
   const [onlyProblems, setOnlyProblems] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(saved.result);
+  const [startedAt, setStartedAt] = useState<string | null>(saved.startedAt);
   const [confirmRollback, setConfirmRollback] = useState<ImportBatch | null>(null);
   useEffect(() => {
-    importDraft.set({ step, kind, parsed, mapping, remember, policy, preview, edited, result });
-  }, [step, kind, parsed, mapping, remember, policy, preview, edited, result]);
+    importDraft.set({
+      step,
+      kind,
+      parsed,
+      mapping,
+      remember,
+      policy,
+      preview,
+      edited,
+      result,
+      startedAt,
+    });
+  }, [step, kind, parsed, mapping, remember, policy, preview, edited, result, startedAt]);
   const [busy, setBusy] = useState(false);
+
+  // ---- an import left unfinished when the app was last closed --------------------------
+  const userId = user?.id ?? null;
+  /** What was found on this PC when the page opened: undefined while still looking. */
+  const [offer, setOffer] = useState<KeptImport | null | undefined>(
+    saved.parsed ? null : undefined,
+  );
+  /** Whether the import on screen is kept on this PC: null before the first save. */
+  const [kept, setKept] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (offer !== undefined) return;
+    if (!userId) return setOffer(null);
+    let alive = true;
+    void keptImport(userId).then((k) => alive && setOffer(k));
+    return () => {
+      alive = false;
+    };
+  }, [offer, userId]);
+  // Keep it a moment after every change; what is waiting is written at once when the page
+  // is left, so the last correction is not lost to the delay.
+  const waiting = useRef<KeptImport | null>(null);
+  const flush = useRef(() => {});
+  flush.current = () => {
+    const k = waiting.current;
+    waiting.current = null;
+    if (k) void keepImport(k).then(setKept);
+  };
+  useEffect(() => {
+    if (!userId || !parsed || !startedAt || (step !== 2 && step !== 3)) return;
+    waiting.current = {
+      user: userId,
+      at: startedAt,
+      step,
+      kind,
+      parsed,
+      mapping,
+      remember,
+      policy,
+      edited,
+    };
+    const timer = setTimeout(() => flush.current(), 400);
+    return () => clearTimeout(timer);
+  }, [userId, step, kind, parsed, mapping, remember, policy, edited, startedAt]);
+  useEffect(() => () => flush.current(), []);
+  const forget = () => {
+    waiting.current = null;
+    setKept(null);
+    if (userId) void discardImport(userId);
+  };
   const fields = useAsync(() => api.importFields(kind), [kind]);
   const batches = useAsync(() => api.importBatches(), []);
   const navigate = useNavigate();
@@ -144,7 +208,51 @@ export function ImportPage() {
     setMapping(p.mapping);
     setEdited(null);
     setPreview(null);
+    setStartedAt(new Date().toISOString());
     setStep(2);
+  };
+
+  /** Take up the import that was left unfinished: as it was, and checked again if it had been. */
+  const continueKept = async (k: KeptImport) => {
+    setOffer(null);
+    setKind(k.kind);
+    setParsed(k.parsed);
+    setMapping(k.mapping);
+    setRemember(k.remember);
+    setPolicy(k.policy);
+    setEdited(k.edited);
+    setPreview(null);
+    setResult(null);
+    setStartedAt(k.at);
+    setStep(2);
+    if (k.step !== 3) return;
+    // The records may have changed since: the check is made again, not remembered.
+    setBusy(true);
+    try {
+      setPreview(
+        await api.previewImport({
+          kind: k.kind,
+          file_name: k.parsed.file_name,
+          headers: k.parsed.headers,
+          rows: k.edited ?? k.parsed.rows,
+          mapping: k.mapping,
+          options: { duplicates: k.policy },
+          save_mapping: k.remember,
+        }),
+      );
+      setStep(3);
+      toast.push({ kind: "info", title: t("import.resume.rechecked") });
+    } catch (err) {
+      fail(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const discardKept = () => {
+    setOffer(null);
+    forget();
+    toast.push({ kind: "success", title: t("import.resume.discarded") });
   };
 
   const confirmSheet = async () => {
@@ -206,6 +314,8 @@ export function ImportPage() {
       const r = await api.applyImport(req);
       setResult(r);
       setStep(4);
+      // Confirmed: it is in the school's records now, and no longer an unfinished import.
+      forget();
       void batches.reload();
     } catch (err) {
       fail(err);
@@ -241,6 +351,8 @@ export function ImportPage() {
 
   const reset = () => {
     importDraft.clear();
+    forget();
+    setStartedAt(null);
     setStep(0);
     setParsed(null);
     setMapping({});
@@ -313,8 +425,41 @@ export function ImportPage() {
           </li>
         ))}
       </ol>
+      {(step === 2 || step === 3) && kept !== null && (
+        <p
+          role={kept ? undefined : "status"}
+          className={cn("mb-3 text-xs", kept ? "text-muted" : "text-danger")}
+          data-testid="import-kept"
+        >
+          {t(kept ? "import.resume.kept" : "import.resume.notKept")}
+        </p>
+      )}
 
-      {step === 0 && (
+      {step === 0 && offer && (
+        <Card title={t("import.resume.title")}>
+          <div className="flex flex-col gap-3" data-testid="import-resume">
+            <p className="text-sm text-text">
+              {t("import.resume.body", {
+                kind: t(`import.kind.${offer.kind}`),
+                name: offer.parsed.file_name,
+                rows: (offer.edited ?? offer.parsed.rows).length,
+                date: formatDate(offer.at),
+              })}
+            </p>
+            <p className="text-xs text-muted">{t("import.resume.nothingSaved")}</p>
+            <div className="flex flex-wrap gap-2">
+              <Button loading={busy} onClick={() => void continueKept(offer)} autoFocus>
+                {t("import.resume.continue", { date: formatDate(offer.at) })}
+              </Button>
+              <Button variant="secondary" disabled={busy} onClick={discardKept}>
+                {t("import.resume.discard")}
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {step === 0 && offer === null && (
         <div className="grid gap-3 md:grid-cols-3">
           {KINDS.map((k) => (
             <button

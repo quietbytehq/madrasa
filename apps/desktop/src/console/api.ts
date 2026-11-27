@@ -254,6 +254,9 @@ export const hub = {
     call<{ token: string; user: HubUser }>("/auth/login", "POST", { username, password }),
   logout: () => call<void>("/auth/logout", "POST", {}),
   me: () => call<Me>("/auth/me"),
+  /** One's own password: the current one is asked for; other sessions of the user end. */
+  changeOwnPassword: (current_password: string, new_password: string) =>
+    call<void>("/auth/password", "POST", { current_password, new_password }),
 
   schools: () => call<HubSchool[]>("/schools"),
   invitations: () => call<Invitation[]>("/invitations"),
@@ -320,6 +323,7 @@ export const hub = {
       is_active?: boolean;
     },
   ) => call<HubUser>(`/users/${id}`, "PATCH", body),
+  /** An administrator sets another user's password. The hub refuses it for one's own. */
   setPassword: (id: string, password: string) =>
     call<void>(`/users/${id}/password`, "POST", { password }),
 

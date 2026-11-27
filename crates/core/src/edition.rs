@@ -99,7 +99,6 @@ pub enum Feature {
     Hostel,
     /// HR basics: staff leave with balances and approvals, staff attendance polish.
     Hr,
-    ParentsPortal,
     NexusHub,
     // Standard alpha (docs/TASKS-STANDARD.md)
     Timetable,
@@ -132,7 +131,6 @@ impl Feature {
         Feature::Library,
         Feature::Hostel,
         Feature::Hr,
-        Feature::ParentsPortal,
         Feature::NexusHub,
         Feature::Timetable,
         Feature::Leave,
@@ -159,7 +157,6 @@ impl Feature {
             Feature::Library => "library",
             Feature::Hostel => "hostel",
             Feature::Hr => "hr",
-            Feature::ParentsPortal => "parents_portal",
             Feature::NexusHub => "nexus_hub",
             Feature::Timetable => "timetable",
             Feature::Leave => "leave",
@@ -251,7 +248,6 @@ const NEXUS_FEATURES: &[Feature] = &[
     Feature::Campuses,
     Feature::DirectoryLogin,
     Feature::ReadonlyApi,
-    Feature::ParentsPortal,
     Feature::NexusHub,
     Feature::NexusLink,
 ];
@@ -265,7 +261,6 @@ mod tests {
         assert!(Edition::Lite.enables(Feature::Students));
         assert!(Edition::Lite.enables(Feature::Fees));
         assert!(!Edition::Lite.enables(Feature::Campuses));
-        assert!(!Edition::Lite.enables(Feature::ParentsPortal));
         assert!(!Edition::Lite.enables(Feature::NexusHub));
     }
 

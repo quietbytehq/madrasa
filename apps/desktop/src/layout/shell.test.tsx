@@ -42,7 +42,6 @@ function renderShell(edition: "lite" | "nexus" = "lite", route = "/") {
           "backup",
           "settings",
           "campuses",
-          "parents_portal",
           "nexus_hub",
         ] as const);
   return renderWithProviders(
@@ -100,12 +99,15 @@ describe("App shell", () => {
     ]);
   });
 
-  it("shows Campuses, Parents and Network for Nexus", () => {
+  it("shows Campuses and Network for Nexus, and no Parents placeholder", () => {
     renderShell("nexus");
     const nav = screen.getByRole("navigation", { name: "Modules" });
     expect(within(nav).getByRole("link", { name: "Campuses" })).toBeInTheDocument();
-    expect(within(nav).getByRole("link", { name: "Parents" })).toBeInTheDocument();
     expect(within(nav).getByRole("link", { name: "Network" })).toBeInTheDocument();
+    // The old "Parents — Coming soon" entry is gone: the Parent app area took its place
+    // (shown once the school has joined a school network).
+    expect(within(nav).queryByRole("link", { name: "Parents" })).not.toBeInTheDocument();
+    expect(within(nav).queryByRole("link", { name: /^Parent/ })).not.toBeInTheDocument();
   });
 
   it("shows the Standard modules as coming soon once the edition enables them", async () => {

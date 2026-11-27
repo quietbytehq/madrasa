@@ -20,7 +20,6 @@ export type Feature =
   | "library"
   | "hostel"
   | "hr"
-  | "parents_portal"
   | "nexus_hub"
   | "timetable"
   | "leave"

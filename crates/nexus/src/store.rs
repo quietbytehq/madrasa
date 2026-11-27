@@ -305,7 +305,7 @@ pub async fn update_user(
     .await?;
     // A disabled account loses its sessions at once.
     if !is_active {
-        revoke_user_sessions(&mut *conn, hlc, before.id).await?;
+        revoke_user_sessions(&mut *conn, hlc, before.id, None).await?;
     }
     let after = get_user(&mut *conn, before.id)
         .await?
@@ -324,13 +324,17 @@ pub async fn update_user(
     Ok(after)
 }
 
-/// Set a new password hash; ends the user's sessions and clears any lock.
+/// Set a new password hash and clear any lock. A reset by an administrator ends every
+/// session of the user; a change by the user themselves keeps the session it was made from
+/// (`keep_session`) and ends the others. The audit row says which of the two it was, never
+/// the hash.
 pub async fn set_password(
     conn: &mut PgConnection,
     hlc: &Hlc,
     actor: Option<Uuid>,
     user_id: Uuid,
     password_hash: &str,
+    keep_session: Option<Uuid>,
 ) -> Result<(), sqlx::Error> {
     sqlx::query(
         "UPDATE hub_users SET password_hash = $2, failed_login_count = 0, locked_until = NULL,
@@ -342,13 +346,17 @@ pub async fn set_password(
     .bind(hlc.now().to_string())
     .execute(&mut *conn)
     .await?;
-    revoke_user_sessions(&mut *conn, hlc, user_id).await?;
-    // The audit row says that it happened, never the hash.
+    revoke_user_sessions(&mut *conn, hlc, user_id, keep_session).await?;
+    let action = if actor == Some(user_id) {
+        "password_changed"
+    } else {
+        "password_reset"
+    };
     audit(
         conn,
         hlc,
         actor,
-        "password_reset",
+        action,
         "hub_user",
         Some(user_id),
         None,
@@ -500,17 +508,20 @@ pub async fn revoke_session(
     Ok(())
 }
 
+/// End every live session of a user, except `keep` when given.
 pub async fn revoke_user_sessions(
     conn: &mut PgConnection,
     hlc: &Hlc,
     user_id: Uuid,
+    keep: Option<Uuid>,
 ) -> Result<(), sqlx::Error> {
     sqlx::query(
         "UPDATE hub_sessions SET revoked_at = now(), updated_at = now(), hlc = $2
-         WHERE user_id = $1 AND revoked_at IS NULL",
+         WHERE user_id = $1 AND revoked_at IS NULL AND ($3::uuid IS NULL OR id <> $3)",
     )
     .bind(user_id)
     .bind(hlc.now().to_string())
+    .bind(keep)
     .execute(conn)
     .await?;
     Ok(())

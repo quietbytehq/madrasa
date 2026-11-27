@@ -180,6 +180,80 @@ test.describe("hub console", () => {
     await context.close();
   });
 
+  test("passwords: a user changes their own with the current one; an administrator resets another's", async ({
+    browser,
+  }) => {
+    // The administrator adds a user who may only read reports.
+    const { page: admin, context: adminContext } = await openConsole(browser);
+    await admin.goto(`${URLS.hub}/users`);
+    await admin.getByRole("button", { name: "Add a user" }).click();
+    let dialog = admin.getByRole("dialog");
+    await dialog.getByLabel("Full name").fill("Sana Malik");
+    await dialog.getByLabel("Username").fill("e2e.sana");
+    await dialog.getByLabel("Password").fill("given-by-admin-1");
+    await dialog.getByRole("button", { name: "Save" }).click();
+    await expect(admin.locator("tbody tr").filter({ hasText: "e2e.sana" })).toBeVisible();
+
+    // She signs in and changes it to one only she knows.
+    const signIn = async (page: import("@playwright/test").Page, password: string) => {
+      await page.goto(URLS.hub);
+      await page.getByLabel("Username").fill("e2e.sana");
+      await page.getByLabel("Password").fill(password);
+      await page.locator('button[type="submit"]').click();
+    };
+    const context = await browser.newContext({ viewport: { width: 1366, height: 768 } });
+    const page = await context.newPage();
+    await signIn(page, "given-by-admin-1");
+    await expect(page.getByRole("heading", { level: 1, name: "Schools" })).toBeVisible();
+    await page.getByRole("button", { name: "Change password" }).click();
+    dialog = page.getByRole("dialog", { name: "Change password" });
+    expect(await a11yProblems(page, "change password")).toEqual([]);
+    await dialog.getByLabel("Current password").fill("not-what-she-was-given");
+    await dialog.getByLabel("New password", { exact: true }).fill("only-sana-knows-1");
+    await dialog.getByLabel("New password again").fill("only-sana-knows-1");
+    await dialog.getByRole("button", { name: "Change password" }).click();
+    await expect(dialog.getByRole("alert")).toContainText("current password is not right");
+    await dialog.getByLabel("Current password").fill("given-by-admin-1");
+    await dialog.getByRole("button", { name: "Change password" }).click();
+    await expect(page.getByText("Password changed.")).toBeVisible();
+    await expect(dialog).toBeHidden();
+    // Still signed in here; the old password no longer signs in, the new one does.
+    await page.reload();
+    await expect(page.getByRole("heading", { level: 1, name: "Schools" })).toBeVisible();
+    await page.getByRole("button", { name: "Log out" }).click();
+    await signIn(page, "given-by-admin-1");
+    await expect(page.getByRole("alert")).toContainText(/username or password/i);
+    await signIn(page, "only-sana-knows-1");
+    await expect(page.getByRole("heading", { level: 1, name: "Schools" })).toBeVisible();
+
+    // She forgets it: the administrator sets a new one, which signs her out at once.
+    await admin
+      .locator("tbody tr")
+      .filter({ hasText: "e2e.sana" })
+      .getByRole("button", { name: "Edit" })
+      .click();
+    dialog = admin.getByRole("dialog");
+    await dialog.getByLabel(/New password/).fill("reset-by-admin-2");
+    await dialog.getByRole("button", { name: "Save" }).click();
+    await expect(dialog).toBeHidden();
+    await page.reload();
+    await expect(page.getByLabel("Password")).toBeVisible();
+    await signIn(page, "reset-by-admin-2");
+    await expect(page.getByRole("heading", { level: 1, name: "Schools" })).toBeVisible();
+
+    // The administrator's own row offers no password box: theirs asks for the current one too.
+    await admin
+      .locator("tbody tr")
+      .filter({ hasText: "(you)" })
+      .getByRole("button", { name: "Edit" })
+      .click();
+    dialog = admin.getByRole("dialog");
+    await expect(dialog.getByText(/asks for your current password/)).toBeVisible();
+    await expect(dialog.getByLabel(/New password/)).toHaveCount(0);
+    await context.close();
+    await adminContext.close();
+  });
+
   test("Urdu: right-to-left and nothing cut off; light and dark are readable", async ({
     browser,
   }, testInfo) => {

@@ -280,8 +280,13 @@ in place. Remove the school at the hub (Schools → Open → Remove from the net
 stops working at once. Then invite it again; it joins with a new key and uploads its records
 again into a new copy. Delete the old archive when you no longer need it.
 
-**If a head office password may have leaked.** An administrator sets a new one under Users;
-that ends the user's sessions. Disable accounts that are no longer needed.
+**Passwords of head office accounts.** Everyone who signs in to the console changes their
+own password with the lock button at the top of the page; the console asks for the current
+one, and five wrong ones lock the account for fifteen minutes, as five wrong logins do. An
+administrator can set a new password for *another* user under Users (for a forgotten one,
+or one that may have leaked): that signs the user out everywhere and clears a lock. The
+user should then change it to one only they know. Disable accounts that are no longer
+needed.
 
 **Watching it.** `GET /api/nexus/v1/health` answers `200` when the hub and its database are
 well. The Schools page shows when each school last synced; a school that has been silent

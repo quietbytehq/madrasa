@@ -166,6 +166,54 @@ describe("console gate", () => {
     expect(hub.logout).toHaveBeenCalled();
   });
 
+  it("lets a user with no permission at all change their own password, with the current one", async () => {
+    vi.mocked(hub.setupStatus).mockResolvedValue({
+      needs_setup: false,
+      hub_name: "Gulshan Education Network",
+    });
+    setHubToken("session-token");
+    vi.mocked(hub.me).mockResolvedValue({ ...me, user: { ...admin, permissions: [] } });
+    vi.mocked(hub.changeOwnPassword).mockRejectedValueOnce(
+      new ApiError(400, "validation", "The current password is not right."),
+    );
+    vi.mocked(hub.changeOwnPassword).mockResolvedValue(undefined);
+    renderWithProviders(<Gate />);
+    // No page to open, yet the password is theirs to change.
+    expect(await screen.findByText(/has not been given anything to do here yet/)).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Change password" }));
+    const dialog = await screen.findByRole("dialog", { name: "Change password" });
+    const submit = within(dialog).getByRole("button", { name: "Change password" });
+    expect(submit).toBeDisabled();
+    await userEvent.type(within(dialog).getByLabelText("Current password"), "a-wrong-guess-1");
+    await userEvent.type(within(dialog).getByLabelText("New password"), "short");
+    await userEvent.type(within(dialog).getByLabelText("New password again"), "short");
+    await userEvent.click(submit);
+    expect(within(dialog).getByRole("alert")).toHaveTextContent("at least 10 characters");
+    expect(hub.changeOwnPassword).not.toHaveBeenCalled();
+    await userEvent.clear(within(dialog).getByLabelText("New password"));
+    await userEvent.type(within(dialog).getByLabelText("New password"), "only-i-know-this-1");
+    await userEvent.click(submit);
+    expect(within(dialog).getByRole("alert")).toHaveTextContent("not the same");
+    await userEvent.clear(within(dialog).getByLabelText("New password again"));
+    await userEvent.type(within(dialog).getByLabelText("New password again"), "only-i-know-this-1");
+    // The hub's own words when the current password is wrong; the dialog stays.
+    await userEvent.click(submit);
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "The current password is not right.",
+    );
+    await userEvent.clear(within(dialog).getByLabelText("Current password"));
+    await userEvent.type(within(dialog).getByLabelText("Current password"), "my-old-password-1");
+    await userEvent.click(submit);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(hub.changeOwnPassword).toHaveBeenLastCalledWith(
+      "my-old-password-1",
+      "only-i-know-this-1",
+    );
+    expect(await screen.findByText("Password changed.")).toBeInTheDocument();
+    // Still signed in.
+    expect(getHubToken()).toBe("session-token");
+  });
+
   it("says so when the hub cannot be reached, and tries again", async () => {
     vi.mocked(hub.setupStatus).mockRejectedValueOnce(new Error("network"));
     vi.mocked(hub.setupStatus).mockResolvedValue({ needs_setup: false, hub_name: null });
@@ -490,6 +538,39 @@ describe("users", () => {
         permissions: ["nexus.reports", "nexus.escrow"],
       }),
     );
+  });
+
+  it("resets another user's password, and sends one's own to the dialog that asks for the current one", async () => {
+    const sana: HubUser = {
+      ...admin,
+      id: "u2",
+      username: "sana",
+      full_name: "Sana Malik",
+      permissions: ["nexus.reports"],
+    };
+    vi.mocked(hub.users).mockResolvedValue([admin, sana]);
+    vi.mocked(hub.updateUser).mockResolvedValue(sana);
+    vi.mocked(hub.setPassword).mockResolvedValue(undefined);
+    page(<UsersPage />);
+    const row = (await screen.findByText("Sana Malik")).closest("tr")!;
+    await userEvent.click(within(row).getByRole("button", { name: "Edit" }));
+    let dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/signed out everywhere/)).toBeInTheDocument();
+    await userEvent.type(within(dialog).getByLabelText(/New password/), "given-by-admin-1");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(hub.setPassword).toHaveBeenCalledWith("u2", "given-by-admin-1"));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    // One's own row: no password box, and the hub is not asked to set one.
+    vi.mocked(hub.setPassword).mockClear();
+    const mine = screen.getByText("(you)").closest("tr")!;
+    await userEvent.click(within(mine).getByRole("button", { name: "Edit" }));
+    dialog = await screen.findByRole("dialog");
+    expect(within(dialog).queryByLabelText(/New password/)).not.toBeInTheDocument();
+    expect(within(dialog).getByText(/asks for your current password/)).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(hub.updateUser).toHaveBeenCalledTimes(2));
+    expect(hub.setPassword).not.toHaveBeenCalled();
   });
 });
 

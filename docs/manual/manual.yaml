@@ -108,7 +108,7 @@ parts:
             steps:
               - text: {en: "*School profile* holds the name, city, country, currency and time zone from the setup. Change any of them and click *Save*.", ur: "*اسکول کی تفصیلات* میں ترتیب کے وقت دیا گیا نام، شہر، ملک، کرنسی اور ٹائم زون ہیں۔ کچھ بھی بدلیں اور *محفوظ کریں* پر کلک کریں۔"}
                 shot: settings-profile
-              - text: {en: "The *School* card sets the *student number prefix* and the *payment reference on vouchers*: the heading and the note printed under the reference, so parents know how to pay at the bank or online.", ur: "*اسکول* کارڈ میں *طالب علم نمبر کا سابقہ* اور *واؤچر پر ادائیگی کا حوالہ* طے ہوتا ہے: حوالے کے اوپر کی سرخی اور نیچے کا نوٹ، تاکہ والدین جانیں کہ بینک یا آن لائن کیسے ادائیگی کریں۔"}
+              - text: {en: "The *School* card sets the *student number prefix* and the *payment reference on vouchers*: the heading and the note printed under the reference, so parents know how to pay at the bank or online.", ur: "*اسکول* کارڈ میں *طالب علم نمبر کا سابقہ* اور *چالان پر ادائیگی کا حوالہ* طے ہوتا ہے: حوالے کے اوپر کی سرخی اور نیچے کا نوٹ، تاکہ والدین جانیں کہ بینک یا آن لائن کیسے ادائیگی کریں۔"}
                 shot: settings-school
           - title: {en: "See who can log in", ur: "دیکھیں کون لاگ ان کر سکتا ہے"}
             steps:
@@ -188,7 +188,7 @@ parts:
             steps:
               - text: {en: "Click a student to open the profile: details, guardians, fees, attendance, results, subjects and consents, each on its own tab.", ur: "پروفائل کھولنے کے لیے طالب علم پر کلک کریں: تفصیلات، سرپرست، فیس، حاضری، نتائج، مضامین اور رضامندیاں، ہر ایک اپنے ٹیب پر۔"}
                 shot: students-profile
-              - text: {en: "The *Fees* tab shows every voucher and payment of the student, with what is still owed.", ur: "*فیس* ٹیب طالب علم کا ہر واؤچر اور ہر ادائیگی دکھاتا ہے، اور یہ بھی کہ ابھی کتنا باقی ہے۔"}
+              - text: {en: "The *Fees* tab shows every voucher and payment of the student, with what is still owed.", ur: "*فیس* ٹیب طالب علم کا ہر چالان اور ہر ادائیگی دکھاتا ہے، اور یہ بھی کہ ابھی کتنا باقی ہے۔"}
                 shot: students-profile-fees
           - title: {en: "Withdraw a student", ur: "طالب علم کا اخراج"}
             steps:
@@ -219,12 +219,13 @@ parts:
                 shot: import-start
               - text: {en: "*Download template* gives a file with the right columns. Fill it (or use your own sheet), choose the file, match its columns to Madrasa's fields, then *Check the file*. Fix the rows with problems, in the grid or in Excel, and import.", ur: "*ٹیمپلیٹ ڈاؤن لوڈ کریں* سے درست کالموں والی فائل ملتی ہے۔ اسے بھریں (یا اپنی شیٹ استعمال کریں)، فائل چنیں، اس کے کالم مدرسہ کے خانوں سے ملائیں، پھر *فائل جانچیں*۔ مسئلے والی قطاریں جدول میں یا ایکسل میں درست کریں، اور درآمد کریں۔"}
                 shot: import-students
-                tip: {en: "The same works for *Guardians* (one row per guardian and child, by student number), *Staff*, the *Fee structure* (one row per class and fee head) and *Opening balances* (what each student still owes from before Madrasa; it appears as arrears on the first voucher). Every template has a *Read me* sheet in English and Urdu.", ur: "یہی طریقہ *سرپرست* (ہر سرپرست اور بچے کے لیے ایک قطار، طالب علم نمبر کے ساتھ)، *عملہ*، *فیس کا ڈھانچہ* (ہر جماعت اور فیس کی مد کے لیے ایک قطار) اور *ابتدائی بقایا جات* (مدرسہ سے پہلے کا وہ بقایا جو طالب علم پر ہے؛ یہ پہلے واؤچر پر بقایا کے طور پر آتا ہے) کے لیے بھی ہے۔ ہر ٹیمپلیٹ میں انگریزی اور اردو میں *ہدایات* کی شیٹ ہے۔"}
+                tip: {en: "The same works for *Guardians* (one row per guardian and child, by student number), *Staff*, the *Fee structure* (one row per class and fee head) and *Opening balances* (what each student still owes from before Madrasa; it appears as arrears on the first voucher). Every template has a *Read me* sheet in English and Urdu.", ur: "یہی طریقہ *سرپرست* (ہر سرپرست اور بچے کے لیے ایک قطار، طالب علم نمبر کے ساتھ)، *عملہ*، *فیس کا ڈھانچہ* (ہر جماعت اور فیس کی مد کے لیے ایک قطار) اور *ابتدائی بقایا جات* (مدرسہ سے پہلے کا وہ بقایا جو طالب علم پر ہے؛ یہ پہلے چالان پر بقایا کے طور پر آتا ہے) کے لیے بھی ہے۔ ہر ٹیمپلیٹ میں انگریزی اور اردو میں *ہدایات* کی شیٹ ہے۔"}
               - text: {en: "*Check the file* is a dry run: it says how many rows will be created, updated, skipped and cannot be imported, *why* (with the row numbers), which classes or sections are not set up yet, and which rows look like someone already on file. *Download dry-run report* gives the same as a workbook to send back to whoever filled the sheet. Nothing is saved until you click *Import* and confirm.", ur: "*فائل جانچیں* ایک آزمائشی جائزہ ہے: یہ بتاتا ہے کہ کتنی قطاریں بنیں گی، تازہ ہوں گی، چھوڑی جائیں گی اور درآمد نہیں ہو سکتیں، *کیوں* (قطار نمبروں کے ساتھ)، کون سی جماعتیں یا سیکشن ابھی بنے نہیں، اور کون سی قطاریں پہلے سے موجود کسی فرد جیسی لگتی ہیں۔ *آزمائشی جائزے کی رپورٹ ڈاؤن لوڈ کریں* یہی سب ایک ورک بک میں دیتا ہے تاکہ شیٹ بھرنے والے کو واپس بھیجی جا سکے۔ جب تک آپ *درآمد* پر کلک کر کے تصدیق نہ کریں، کچھ محفوظ نہیں ہوتا۔"}
                 shot: import-dry-run
+                tip: {en: "If Madrasa is closed, or the PC loses power, before you confirm, nothing is lost: the next time you open *Import* it offers *Continue the import you started on* that day, with the columns you matched and the rows you corrected, or *Discard it*. The rows are checked again before you confirm.", ur: "اگر تصدیق سے پہلے مدرسہ بند ہو جائے یا کمپیوٹر کی بجلی چلی جائے تو کچھ ضائع نہیں ہوتا: اگلی بار *درآمد* کھولنے پر اس دن *شروع کی ہوئی درآمد جاری رکھیں* کی پیشکش ہوتی ہے، آپ کے ملائے ہوئے کالموں اور درست کی ہوئی قطاروں کے ساتھ، یا *اسے ختم کر دیں*۔ تصدیق سے پہلے قطاروں کی دوبارہ جانچ ہوتی ہے۔"}
           - title: {en: "Check the data after importing", ur: "درآمد کے بعد ڈیٹا جانچیں"}
             steps:
-              - text: {en: "*Data health* (the button on the Import page) lists what needs a person: students without a section or a guardian, guardians without a phone, the same name twice, classes without a fee structure, vouchers without a fee head and more. Each line says why it matters and links to the records. Work through it after every import and before the first vouchers.", ur: "*ڈیٹا کی جانچ* (درآمد کے صفحے پر بٹن) وہ چیزیں دکھاتی ہے جنہیں کسی کو دیکھنا ہے: بغیر سیکشن یا سرپرست کے طلبہ، بغیر فون کے سرپرست، ایک ہی نام دو بار، بغیر فیس کے ڈھانچے کی جماعتیں، بغیر فیس کی مد کے واؤچر وغیرہ۔ ہر سطر بتاتی ہے کہ یہ کیوں اہم ہے اور ریکارڈ تک لے جاتی ہے۔ ہر درآمد کے بعد اور پہلے واؤچروں سے پہلے اسے دیکھ لیں۔"}
+              - text: {en: "*Data health* (the button on the Import page) lists what needs a person: students without a section or a guardian, guardians without a phone, the same name twice, classes without a fee structure, vouchers without a fee head and more. Each line says why it matters and links to the records. Work through it after every import and before the first vouchers.", ur: "*ڈیٹا کی جانچ* (درآمد کے صفحے پر بٹن) وہ چیزیں دکھاتی ہے جنہیں کسی کو دیکھنا ہے: بغیر سیکشن یا سرپرست کے طلبہ، بغیر فون کے سرپرست، ایک ہی نام دو بار، بغیر فیس کے ڈھانچے کی جماعتیں، بغیر فیس کی مد کے چالان وغیرہ۔ ہر سطر بتاتی ہے کہ یہ کیوں اہم ہے اور ریکارڈ تک لے جاتی ہے۔ ہر درآمد کے بعد اور پہلے چالانوں سے پہلے اسے دیکھ لیں۔"}
                 shot: data-health
 
       - id: attendance
@@ -259,19 +260,19 @@ parts:
         tasks:
           - title: {en: "Set up the fees", ur: "فیس ترتیب دیں"}
             steps:
-              - text: {en: "*Setup*: the *Fee heads* (tuition, examination, transport, admission…), the *Fee structure* of each class for the year, the sibling discount, the late fee percent and the day vouchers fall due.", ur: "*ترتیب*: *فیس مدات* (ٹیوشن، امتحان، ٹرانسپورٹ، داخلہ…)، سال کے لیے ہر جماعت کا *فیس ڈھانچہ*، بہن بھائی کی رعایت، تاخیری فیس کا فیصد اور واؤچر کی آخری تاریخ کا دن۔"}
+              - text: {en: "*Setup*: the *Fee heads* (tuition, examination, transport, admission…), the *Fee structure* of each class for the year, the sibling discount, the late fee percent and the day vouchers fall due.", ur: "*ترتیب*: *فیس مدات* (ٹیوشن، امتحان، ٹرانسپورٹ، داخلہ…)، سال کے لیے ہر جماعت کا *فیس ڈھانچہ*، بہن بھائی کی رعایت، تاخیری فیس کا فیصد اور چالان کی آخری تاریخ کا دن۔"}
                 shot: fees-setup
-          - title: {en: "Make the month's vouchers", ur: "مہینے کے واؤچر بنائیں"}
+          - title: {en: "Make the month's vouchers", ur: "مہینے کے چالان بنائیں"}
             steps:
-              - text: {en: "Once a month, *Generate vouchers* for the whole school or one class. Unpaid balances and late fees carry into the next voucher on their own, also across years.", ur: "مہینے میں ایک بار پورے اسکول یا ایک جماعت کے لیے *واؤچرز بنائیں*۔ غیر ادا شدہ بقایا اور تاخیری فیس خود اگلے واؤچر میں منتقل ہو جاتے ہیں، سال بدلنے پر بھی۔"}
+              - text: {en: "Once a month, *Generate vouchers* for the whole school or one class. Unpaid balances and late fees carry into the next voucher on their own, also across years.", ur: "مہینے میں ایک بار پورے اسکول یا ایک جماعت کے لیے *چالان بنائیں*۔ غیر ادا شدہ بقایا اور تاخیری فیس خود اگلے چالان میں منتقل ہو جاتے ہیں، سال بدلنے پر بھی۔"}
                 shot: fees-generate
-              - text: {en: "*Vouchers* lists the month's vouchers with their state: unpaid, partly paid or paid.", ur: "*واؤچرز* میں مہینے کے واؤچر اپنی حالت کے ساتھ ہیں: غیر ادا شدہ، جزوی ادا شدہ یا ادا شدہ۔"}
+              - text: {en: "*Vouchers* lists the month's vouchers with their state: unpaid, partly paid or paid.", ur: "*چالان* میں مہینے کے چالان اپنی حالت کے ساتھ ہیں: غیر ادا شدہ، جزوی ادا شدہ یا ادا شدہ۔"}
                 shot: fees-vouchers
-              - text: {en: "Print the vouchers, a school copy and a parent copy on one page, in English or Urdu. *Save as PDF* in the print window makes a file to send.", ur: "واؤچر پرنٹ کریں، ایک صفحے پر اسکول کاپی اور والدین کاپی، انگریزی یا اردو میں۔ پرنٹ کی کھڑکی میں *PDF محفوظ کریں* سے بھیجنے کے لیے فائل بنتی ہے۔"}
+              - text: {en: "Print the vouchers, a school copy and a parent copy on one page, in English or Urdu. *Save as PDF* in the print window makes a file to send.", ur: "چالان پرنٹ کریں، ایک صفحے پر اسکول کاپی اور والدین کاپی، انگریزی یا اردو میں۔ پرنٹ کی کھڑکی میں *PDF محفوظ کریں* سے بھیجنے کے لیے فائل بنتی ہے۔"}
                 shot: fees-voucher-print
           - title: {en: "Collect a payment", ur: "ادائیگی وصول کریں"}
             steps:
-              - text: {en: "*Collect*: find the student by name or number. Their open vouchers are listed with the amount due.", ur: "*وصولی*: نام یا نمبر سے طالب علم تلاش کریں۔ ان کے کھلے واؤچر واجب الادا رقم کے ساتھ درج ہو جاتے ہیں۔"}
+              - text: {en: "*Collect*: find the student by name or number. Their open vouchers are listed with the amount due.", ur: "*وصولی*: نام یا نمبر سے طالب علم تلاش کریں۔ ان کے کھلے چالان واجب الادا رقم کے ساتھ درج ہو جاتے ہیں۔"}
                 shot: fees-collect
               - text: {en: "Click *Record payment*: the amount (part payments are fine), the method (cash, bank, online, 1Bill, Kuickpay) and the reference number for anything but cash.", ur: "*ادائیگی درج کریں* پر کلک کریں: رقم (جزوی ادائیگی بھی ٹھیک ہے)، طریقہ (نقد، بینک، آن لائن، 1Bill، Kuickpay) اور نقد کے سوا ہر طریقے کا حوالہ نمبر۔"}
                 shot: fees-pay
@@ -284,7 +285,7 @@ parts:
                 shot: fees-defaulters
               - text: {en: "*Daily collection* shows a day's takings by method: the figure to match against the cash box and the bank.", ur: "*روزانہ وصولی* کسی دن کی وصولی طریقے کے لحاظ سے دکھاتی ہے: یہی رقم نقدی کے ڈبے اور بینک سے ملائیں۔"}
                 shot: fees-daily
-                tip: {en: "Late fees are added on their own each day to vouchers still unpaid after their due day. A late fee can be waived with a reason; set the percent to 0 to switch late fees off.", ur: "تاخیری فیس روزانہ خود ان واؤچرز میں جمع ہو جاتی ہے جو آخری تاریخ کے بعد بھی ادا نہ ہوں۔ تاخیری فیس وجہ کے ساتھ معاف ہو سکتی ہے؛ اسے بند کرنے کے لیے فیصد 0 کر دیں۔"}
+                tip: {en: "Late fees are added on their own each day to vouchers still unpaid after their due day. A late fee can be waived with a reason; set the percent to 0 to switch late fees off.", ur: "تاخیری فیس روزانہ خود ان چالان میں جمع ہو جاتی ہے جو آخری تاریخ کے بعد بھی ادا نہ ہوں۔ تاخیری فیس وجہ کے ساتھ معاف ہو سکتی ہے؛ اسے بند کرنے کے لیے فیصد 0 کر دیں۔"}
 
       - id: exams
         title: {en: "Examinations and report cards", ur: "امتحانات اور رپورٹ کارڈ"}
@@ -323,7 +324,7 @@ parts:
                 shot: reports-run
           - title: {en: "Make your own report", ur: "اپنی رپورٹ بنائیں"}
             steps:
-              - text: {en: "*New custom report*: choose the data (students, guardians, vouchers, receipts, balances, attendance, marks or staff), tick the columns, add filters, sort and group, preview and save. The principal and administrators can share a report with everyone who runs reports.", ur: "*نئی رپورٹ بنائیں*: ڈیٹا چنیں (طلبہ، سرپرست، واؤچر، رسیدیں، بقایا، حاضری، نمبر یا عملہ)، کالموں پر نشان لگائیں، فلٹر لگائیں، ترتیب اور گروپ بنائیں، دیکھیں اور محفوظ کریں۔ پرنسپل اور منتظمین رپورٹ سب رپورٹ چلانے والوں سے بانٹ سکتے ہیں۔"}
+              - text: {en: "*New custom report*: choose the data (students, guardians, vouchers, receipts, balances, attendance, marks or staff), tick the columns, add filters, sort and group, preview and save. The principal and administrators can share a report with everyone who runs reports.", ur: "*نئی رپورٹ بنائیں*: ڈیٹا چنیں (طلبہ، سرپرست، چالان، رسیدیں، بقایا، حاضری، نمبر یا عملہ)، کالموں پر نشان لگائیں، فلٹر لگائیں، ترتیب اور گروپ بنائیں، دیکھیں اور محفوظ کریں۔ پرنسپل اور منتظمین رپورٹ سب رپورٹ چلانے والوں سے بانٹ سکتے ہیں۔"}
                 shot: reports-custom
 
       - id: backup
@@ -420,7 +421,7 @@ parts:
                 shot: adm-new
               - text: {en: "*Applications* lists them all; tick several to move them together.", ur: "*درخواستیں* میں سب درج ہیں؛ کئی پر نشان لگا کر انہیں ایک ساتھ آگے بڑھائیں۔"}
                 shot: adm-list
-              - text: {en: "Open an application to record the test marks, the interview notes and the offer, and print the offer letter. When the applicant is admitted, *Convert to student*: choose the section and roll number, and the student, guardian and admission fee voucher are made in one step.", ur: "درخواست کھول کر ٹیسٹ کے نمبر، انٹرویو کے نوٹ اور پیشکش درج کریں، اور پیشکش کا خط پرنٹ کریں۔ داخلہ ہو جائے تو *طالب علم بنائیں*: سیکشن اور رول نمبر چنیں، اور طالب علم، سرپرست اور داخلہ فیس کا واؤچر ایک ہی قدم میں بن جاتے ہیں۔"}
+              - text: {en: "Open an application to record the test marks, the interview notes and the offer, and print the offer letter. When the applicant is admitted, *Convert to student*: choose the section and roll number, and the student, guardian and admission fee voucher are made in one step.", ur: "درخواست کھول کر ٹیسٹ کے نمبر، انٹرویو کے نوٹ اور پیشکش درج کریں، اور پیشکش کا خط پرنٹ کریں۔ داخلہ ہو جائے تو *طالب علم بنائیں*: سیکشن اور رول نمبر چنیں، اور طالب علم، سرپرست اور داخلہ فیس کا چالان ایک ہی قدم میں بن جاتے ہیں۔"}
                 shot: adm-detail
 
       - id: library
@@ -429,7 +430,7 @@ parts:
         tasks:
           - title: {en: "Run the library", ur: "لائبریری چلائیں"}
             steps:
-              - text: {en: "*Settings* (librarian or office): loan limits, loan days, the fine per day and renewals for students and for staff, and the fee head for fines put on a student's voucher.", ur: "*ترتیبات* (لائبریرین یا دفتر): طلبہ اور عملے کے لیے اجرا کی حد، اجرا کے دن، روزانہ جرمانہ اور تجدید، اور طالب علم کے واؤچر پر ڈالے گئے جرمانے کی فیس مد۔"}
+              - text: {en: "*Settings* (librarian or office): loan limits, loan days, the fine per day and renewals for students and for staff, and the fee head for fines put on a student's voucher.", ur: "*ترتیبات* (لائبریرین یا دفتر): طلبہ اور عملے کے لیے اجرا کی حد، اجرا کے دن، روزانہ جرمانہ اور تجدید، اور طالب علم کے چالان پر ڈالے گئے جرمانے کی فیس مد۔"}
                 shot: lib-settings
               - text: {en: "*Catalogue*: add a book with its copies, one accession number per line (the number printed on the copy or its barcode), and the shelf.", ur: "*کیٹلاگ*: کتاب اور اس کی نقلیں شامل کریں، ہر سطر پر ایک ایکسیشن نمبر (نقل پر چھپا نمبر یا اس کا بارکوڈ)، اور شیلف۔"}
                 shot: lib-catalogue
@@ -450,7 +451,7 @@ parts:
                 shot: trp-vehicles
               - text: {en: "*Routes*: a route has a vehicle, a monthly fee and its stops in pickup order, each with a time and, if needed, a fee of its own.", ur: "*روٹس*: ہر روٹ کی ایک گاڑی، ماہانہ فیس، اور اٹھانے کی ترتیب سے اسٹاپ ہوتے ہیں، ہر ایک کا وقت اور ضرورت ہو تو اپنی فیس۔"}
                 shot: trp-routes
-              - text: {en: "*Assign*: pick a section, tick the students, choose the route, the stop and the start date, and click *Assign*. From then on their vouchers carry the transport fee.", ur: "*تفویض*: سیکشن چنیں، طلبہ پر نشان لگائیں، روٹ، اسٹاپ اور شروع کی تاریخ چنیں، اور *تفویض* پر کلک کریں۔ اس کے بعد ان کے واؤچرز پر ٹرانسپورٹ فیس آتی ہے۔"}
+              - text: {en: "*Assign*: pick a section, tick the students, choose the route, the stop and the start date, and click *Assign*. From then on their vouchers carry the transport fee.", ur: "*تفویض*: سیکشن چنیں، طلبہ پر نشان لگائیں، روٹ، اسٹاپ اور شروع کی تاریخ چنیں، اور *تفویض* پر کلک کریں۔ اس کے بعد ان کے چالان پر ٹرانسپورٹ فیس آتی ہے۔"}
                 shot: trp-assign
               - text: {en: "*Roster*: one route by stop, with student numbers, classes and guardian phones. Print it for the driver.", ur: "*فہرست*: ایک روٹ اسٹاپ وار، طالب علم نمبر، جماعت اور سرپرست کے فون کے ساتھ۔ اسے ڈرائیور کے لیے پرنٹ کریں۔"}
                 shot: trp-roster
@@ -465,7 +466,7 @@ parts:
                 shot: hst-hostels
               - text: {en: "*Board*: every room with its beds. Click a free bed, find the student, set the date and save. Move a resident to another bed from their row.", ur: "*بورڈ*: ہر کمرہ اپنے بستروں کے ساتھ۔ خالی بستر پر کلک کریں، طالب علم تلاش کریں، تاریخ طے کریں اور محفوظ کریں۔ مکین کو اس کی قطار سے دوسرے بستر پر منتقل کریں۔"}
                 shot: hst-board
-              - text: {en: "*Residents*: everyone in the hostel this year with room, bed and monthly charge. Their vouchers carry the hostel fee.", ur: "*مکین*: اس سال ہاسٹل میں ہر ایک، کمرہ، بستر اور ماہانہ رقم کے ساتھ۔ ان کے واؤچرز پر ہاسٹل فیس آتی ہے۔"}
+              - text: {en: "*Residents*: everyone in the hostel this year with room, bed and monthly charge. Their vouchers carry the hostel fee.", ur: "*مکین*: اس سال ہاسٹل میں ہر ایک، کمرہ، بستر اور ماہانہ رقم کے ساتھ۔ ان کے چالان پر ہاسٹل فیس آتی ہے۔"}
                 shot: hst-residents
               - text: {en: "*Register*: record a leave-out (expected back, the guardian's consent) or a visitor, and the return. A resident not back on time shows *Overdue*.", ur: "*رجسٹر*: باہر جانا (واپسی کا متوقع وقت، سرپرست کی رضامندی) یا ملاقاتی درج کریں، اور واپسی۔ جو مکین وقت پر واپس نہ آئے وہ *تاخیر* میں نظر آتا ہے۔"}
                 shot: hst-register
@@ -556,7 +557,7 @@ parts:
                 outside: true
               - text: {en: "Open the hub's address in a browser. Paste the *Setup token*, give the *Name of the network* (schools see it when they join) and create the first administrator. Click *Finish setup*.", ur: "براؤزر میں حب کا پتہ کھولیں۔ *سیٹ اپ ٹوکن* چسپاں کریں، *نیٹ ورک کا نام* دیں (اسکول شامل ہوتے وقت یہی دیکھتے ہیں) اور پہلا ایڈمنسٹریٹر بنائیں۔ *ترتیب مکمل کریں* پر کلک کریں۔"}
                 shot: hub-setup
-              - text: {en: "Sign in to the *head office console* with that username and password.", ur: "اسی صارف نام اور پاس ورڈ سے *ہیڈ آفس کنسول* میں سائن ان کریں۔"}
+              - text: {en: "Sign in to the *head office console* with that username and password.", ur: "اسی صارف نام اور پاس ورڈ سے *ہیڈ آفس کنسول* میں لاگ ان کریں۔"}
                 shot: hub-login
 
       - id: hub-console
@@ -587,6 +588,7 @@ parts:
             steps:
               - text: {en: "*Users*: *Add a user* for each head office person, with what they may do: *Administer*, *Read reports*, *Release backup keys*.", ur: "*صارفین*: ہیڈ آفس کے ہر فرد کے لیے *صارف شامل کریں*، اس کے اختیارات کے ساتھ: *انتظام*، *رپورٹس دیکھنا*، *بیک اپ کیز جاری کرنا*۔"}
                 shot: hub-users
+                tip: {en: "Everyone changes their own password with the lock button at the top of the console; it asks for the current password, and five wrong ones lock the account for fifteen minutes. An administrator sets a new password for *another* user here (a forgotten one); that user is signed out everywhere and should then change it to one only they know.", ur: "ہر شخص اپنا پاس ورڈ کنسول کے اوپر تالے کے بٹن سے بدلتا ہے؛ وہاں موجودہ پاس ورڈ پوچھا جاتا ہے، اور پانچ غلط پاس ورڈ اکاؤنٹ کو پندرہ منٹ کے لیے بند کر دیتے ہیں۔ منتظم *کسی دوسرے* صارف کا نیا پاس ورڈ یہاں مقرر کرتا ہے (جب کوئی بھول جائے)؛ وہ صارف ہر جگہ سے لاگ آؤٹ ہو جاتا ہے اور پھر اسے خود ایسا پاس ورڈ رکھ لینا چاہیے جو صرف اسے معلوم ہو۔"}
               - text: {en: "*Activity log*: who did what and when, for every school and head office user.", ur: "*سرگرمی کا ریکارڈ*: کس نے کب کیا کیا، ہر اسکول اور ہیڈ آفس کے ہر صارف کے لیے۔"}
                 shot: hub-activity
 
@@ -661,7 +663,7 @@ parts:
               - text: {en: "*Results*: only marks the principal has approved, with grades, position and the year so far. *Report card* opens the card.", ur: "*نتائج*: صرف وہ نمبر جو پرنسپل نے منظور کیے ہوں، گریڈ، پوزیشن اور سال کے اب تک کے نتیجے کے ساتھ۔ *رپورٹ کارڈ* کارڈ کھولتا ہے۔"}
                 shot: parent-results
                 width: 46%
-              - text: {en: "*Fees*: the vouchers as the school made them, what has been paid and what is still to pay. Fees are paid at the school; the app only shows them.", ur: "*فیس*: واؤچر جیسے اسکول نے بنائے، کتنا ادا ہوا اور کتنا باقی ہے۔ فیس اسکول میں ادا کی جاتی ہے؛ ایپ صرف دکھاتی ہے۔"}
+              - text: {en: "*Fees*: the vouchers as the school made them, what has been paid and what is still to pay. Fees are paid at the school; the app only shows them.", ur: "*فیس*: چالان جیسے اسکول نے بنائے، کتنا ادا ہوا اور کتنا باقی ہے۔ فیس اسکول میں ادا کی جاتی ہے؛ ایپ صرف دکھاتی ہے۔"}
                 shot: parent-fees
                 width: 46%
               - text: {en: "*Notices*: the school's notices for everyone and for the child's class.", ur: "*اعلانات*: سب کے لیے اور بچے کی جماعت کے لیے اسکول کے اعلانات۔"}
@@ -679,7 +681,7 @@ parts:
       - id: rollover
         title: {en: "Year-end rollover", ur: "سال کے آخر کی منتقلی"}
         editions: [all]
-        intro: {en: "Do the rollover after the final results are approved and before the new year's first vouchers. Make a backup first (chapter *Backups*).", ur: "منتقلی سالانہ نتائج کی منظوری کے بعد اور نئے سال کے پہلے واؤچرز سے پہلے کریں۔ پہلے بیک اپ لے لیں (باب *بیک اپ*)۔"}
+        intro: {en: "Do the rollover after the final results are approved and before the new year's first vouchers. Make a backup first (chapter *Backups*).", ur: "منتقلی سالانہ نتائج کی منظوری کے بعد اور نئے سال کے پہلے چالان سے پہلے کریں۔ پہلے بیک اپ لے لیں (باب *بیک اپ*)۔"}
         tasks:
           - title: {en: "Roll over to the next year", ur: "اگلے سال میں منتقلی"}
             steps:
@@ -691,7 +693,7 @@ parts:
                 shot: rollover-done
                 warning: {en: "The rollover runs once per year and cannot be undone except by restoring the backup made before it.", ur: "منتقلی سال میں ایک بار ہوتی ہے اور اس سے پہلے لیے گئے بیک اپ کو بحال کرنے کے سوا واپس نہیں ہو سکتی۔"}
           - title: {en: "After the rollover", ur: "منتقلی کے بعد"}
-            intro: {en: "Check the new sections and class teachers under *Settings*, carry leave balances over (*Leave → Balances*, Standard), make the new year's timetable (Standard), and generate the first vouchers: the unpaid balances are already on them.", ur: "*ترتیبات* میں نئے سیکشن اور کلاس ٹیچر دیکھ لیں، رخصت کے بقایا منتقل کریں (*رخصت ← بقایا*، اسٹینڈرڈ)، نئے سال کا ٹائم ٹیبل بنائیں (اسٹینڈرڈ)، اور پہلے واؤچرز بنائیں: غیر ادا شدہ بقایا ان پر پہلے سے موجود ہیں۔"}
+            intro: {en: "Check the new sections and class teachers under *Settings*, carry leave balances over (*Leave → Balances*, Standard), make the new year's timetable (Standard), and generate the first vouchers: the unpaid balances are already on them.", ur: "*ترتیبات* میں نئے سیکشن اور کلاس ٹیچر دیکھ لیں، رخصت کے بقایا منتقل کریں (*رخصت ← بقایا*، اسٹینڈرڈ)، نئے سال کا ٹائم ٹیبل بنائیں (اسٹینڈرڈ)، اور پہلے چالان بنائیں: غیر ادا شدہ بقایا ان پر پہلے سے موجود ہیں۔"}
 
       - id: help
         title: {en: "When something goes wrong", ur: "جب کچھ غلط ہو جائے"}

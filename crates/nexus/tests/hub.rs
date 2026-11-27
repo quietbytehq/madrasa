@@ -268,7 +268,8 @@ async fn permissions_are_enforced_and_one_administrator_always_remains() {
             "{path}: {e}"
         );
     }
-    // ...but may change their own password, not anyone else's.
+    // ...and cannot set anyone's password through the administrator's route: not another
+    // user's (no permission), not their own (that asks for the current password elsewhere).
     let (_, users) = hub.get("/users", &admin).await;
     let admin_id = users
         .as_array()
@@ -287,10 +288,28 @@ async fn permissions_are_enforced_and_one_administrator_always_remains() {
         )
         .await;
     assert_eq!(s, StatusCode::FORBIDDEN);
-    let (s, _) = hub
+    let (s, e) = hub
         .post(
             &format!("/users/{sana_id}/password"),
             &viewer,
+            json!({ "password": "viewer-password-2" }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::BAD_REQUEST, "{e}");
+    assert!(
+        e["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("current password"),
+        "{e}"
+    );
+    let (s, _) = hub.get("/auth/me", &viewer).await;
+    assert_eq!(s, StatusCode::OK, "nothing was changed");
+    // An administrator resets it: the user's sessions end and the new password works.
+    let (s, _) = hub
+        .post(
+            &format!("/users/{sana_id}/password"),
+            &admin,
             json!({ "password": "viewer-password-2" }),
         )
         .await;
@@ -299,7 +318,7 @@ async fn permissions_are_enforced_and_one_administrator_always_remains() {
     assert_eq!(
         s,
         StatusCode::UNAUTHORIZED,
-        "a password change ends existing sessions"
+        "a password reset ends the user's sessions"
     );
 
     // The only administrator cannot be disabled or stripped of nexus.admin.
@@ -362,6 +381,237 @@ async fn permissions_are_enforced_and_one_administrator_always_remains() {
         (StatusCode::NOT_FOUND, Some("not_found")),
         "{e}"
     );
+    hub.finish().await;
+}
+
+/// Every console user, whatever their permissions, changes their own password with the
+/// current one: the same rules as a school login.
+#[tokio::test]
+async fn anyone_changes_their_own_password_with_the_current_one() {
+    let hub = hub!();
+    let admin = hub.setup().await;
+    // A user with no permission at all is still a console user.
+    let (s, u) = hub
+        .post(
+            "/users",
+            &admin,
+            json!({ "username": "sana", "full_name": "Sana Malik", "password": "viewer-password-1",
+                    "permissions": [] }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::CREATED, "{u}");
+    let here = hub.login("sana", "viewer-password-1").await;
+    let elsewhere = hub.login("sana", "viewer-password-1").await;
+
+    // Not signed in: nothing.
+    let body =
+        json!({ "current_password": "viewer-password-1", "new_password": "viewer-password-2" });
+    let (s, _) = hub
+        .call(Method::POST, "/auth/password", None, Some(body.clone()))
+        .await;
+    assert_eq!(s, StatusCode::UNAUTHORIZED);
+
+    // The rules, each said in words; none of them changes anything.
+    for (current, new, says) in [
+        ("viewer-password-1", "short", "at least 10 characters"),
+        (
+            "viewer-password-1",
+            "viewer-password-1",
+            "different from the current one",
+        ),
+        (
+            "not-my-password",
+            "viewer-password-2",
+            "current password is not right",
+        ),
+    ] {
+        let (s, e) = hub
+            .post(
+                "/auth/password",
+                &here,
+                json!({ "current_password": current, "new_password": new }),
+            )
+            .await;
+        assert_eq!(
+            (s, e["error"]["code"].as_str()),
+            (StatusCode::BAD_REQUEST, Some("validation")),
+            "{current} -> {new}: {e}"
+        );
+        assert!(
+            e["error"]["message"].as_str().unwrap().contains(says),
+            "{e}"
+        );
+    }
+    let (s, e) = hub.post("/auth/password", &here, json!({})).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST, "{e}");
+    hub.login("sana", "viewer-password-1").await;
+
+    // The change: this session stays, the other one ends, only the new password signs in.
+    let (s, b) = hub.post("/auth/password", &here, body).await;
+    assert_eq!(s, StatusCode::NO_CONTENT, "{b}");
+    let (s, _) = hub.get("/auth/me", &here).await;
+    assert_eq!(s, StatusCode::OK, "the session it was changed from stays");
+    let (s, _) = hub.get("/auth/me", &elsewhere).await;
+    assert_eq!(s, StatusCode::UNAUTHORIZED, "every other session ends");
+    let (s, _) = hub
+        .call(
+            Method::POST,
+            "/auth/login",
+            None,
+            Some(json!({ "username": "sana", "password": "viewer-password-1" })),
+        )
+        .await;
+    assert_eq!(s, StatusCode::UNAUTHORIZED, "the old password is dead");
+    hub.login("sana", "viewer-password-2").await;
+
+    // The administrator changes their own the same way, and is not let off the current one.
+    let (s, e) = hub
+        .post(
+            "/auth/password",
+            &admin,
+            json!({ "current_password": "guess-guess-guess", "new_password": "admin-password-2" }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::BAD_REQUEST, "{e}");
+    let (_, me) = hub.get("/auth/me", &admin).await;
+    let admin_id = me["user"]["id"].as_str().unwrap().to_string();
+    let (s, e) = hub
+        .post(
+            &format!("/users/{admin_id}/password"),
+            &admin,
+            json!({ "password": "admin-password-2" }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::BAD_REQUEST, "{e}");
+    hub.login("head.office", ADMIN_PASSWORD).await;
+    let (s, _) = hub
+        .post(
+            "/auth/password",
+            &admin,
+            json!({ "current_password": ADMIN_PASSWORD, "new_password": "admin-password-2" }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::NO_CONTENT);
+    hub.login("head.office", "admin-password-2").await;
+
+    // The audit log tells a change by the person from a reset by an administrator, and holds
+    // neither passwords nor hashes.
+    let (_, log) = hub.get("/audit?page_size=50", &admin).await;
+    let changed: Vec<&serde_json::Value> = log
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|r| r["action"] == "password_changed")
+        .collect();
+    assert_eq!(changed.len(), 2, "{log}");
+    for row in &changed {
+        assert_eq!(row["actor_user_id"], row["entity_id"], "{row}");
+    }
+    assert!(!log
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|r| r["action"] == "password_reset"));
+    let text = log.to_string();
+    assert!(
+        !text.contains("argon2") && !text.contains("-password-"),
+        "{text}"
+    );
+    hub.finish().await;
+}
+
+/// Wrong current passwords count like failed logins: after the usual number the account is
+/// locked for the usual time, so a console left open cannot be used to guess the password.
+#[tokio::test]
+async fn wrong_current_passwords_lock_the_account_like_failed_logins() {
+    let hub = hub!();
+    let admin = hub.setup().await;
+    let (_, u) = hub
+        .post(
+            "/users",
+            &admin,
+            json!({ "username": "sana", "full_name": "Sana Malik", "password": "viewer-password-1",
+                    "permissions": ["nexus.reports"] }),
+        )
+        .await;
+    let sana_id = u["id"].as_str().unwrap().to_string();
+    let sana = hub.login("sana", "viewer-password-1").await;
+    let max = hub.state.lockout.max_attempts;
+    // One failed login first: the two kinds of failure share one count.
+    let (s, _) = hub
+        .call(
+            Method::POST,
+            "/auth/login",
+            None,
+            Some(json!({ "username": "sana", "password": "wrong-password" })),
+        )
+        .await;
+    assert_eq!(s, StatusCode::UNAUTHORIZED);
+    for attempt in 2..=max {
+        let (s, e) = hub
+            .post(
+                "/auth/password",
+                &sana,
+                json!({ "current_password": "a-guess-number-1", "new_password": "viewer-password-2" }),
+            )
+            .await;
+        assert_eq!(s, StatusCode::BAD_REQUEST, "attempt {attempt}: {e}");
+    }
+    // Locked: the right current password is refused too, and so is a login.
+    let right =
+        json!({ "current_password": "viewer-password-1", "new_password": "viewer-password-2" });
+    let (s, e) = hub.post("/auth/password", &sana, right.clone()).await;
+    assert_eq!(
+        (s, e["error"]["code"].as_str()),
+        (StatusCode::LOCKED, Some("account_locked")),
+        "{e}"
+    );
+    let (s, _) = hub
+        .call(
+            Method::POST,
+            "/auth/login",
+            None,
+            Some(json!({ "username": "sana", "password": "viewer-password-1" })),
+        )
+        .await;
+    assert_eq!(s, StatusCode::LOCKED);
+    let locked_until: Option<chrono::DateTime<chrono::Utc>> =
+        sqlx::query_scalar("SELECT locked_until FROM hub_users WHERE username = 'sana'")
+            .fetch_one(&hub.state.pool)
+            .await
+            .unwrap();
+    let minutes = (locked_until.expect("locked") - chrono::Utc::now()).num_minutes();
+    let policy = hub.state.lockout.lock_duration.num_minutes();
+    assert!(
+        (policy - 1..=policy).contains(&minutes),
+        "locked for {minutes} of {policy} minutes"
+    );
+
+    // An administrator's reset clears the lock; after it the user changes it to their own.
+    let (s, _) = hub
+        .post(
+            &format!("/users/{sana_id}/password"),
+            &admin,
+            json!({ "password": "given-by-the-admin-1" }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK);
+    let sana = hub.login("sana", "given-by-the-admin-1").await;
+    let (s, e) = hub
+        .post(
+            "/auth/password",
+            &sana,
+            json!({ "current_password": "given-by-the-admin-1", "new_password": "only-sana-knows-1" }),
+        )
+        .await;
+    assert_eq!(s, StatusCode::NO_CONTENT, "{e}");
+    // A right current password also resets the count of wrong ones.
+    let count: i32 =
+        sqlx::query_scalar("SELECT failed_login_count FROM hub_users WHERE username = 'sana'")
+            .fetch_one(&hub.state.pool)
+            .await
+            .unwrap();
+    assert_eq!(count, 0);
     hub.finish().await;
 }
 

@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { expect, test } from "@playwright/test";
 import { call, tokenFor } from "../support/api";
 import { openDesktop } from "../support/desktop";
+import { URLS } from "../support/env";
 import { downloadFrom } from "../support/pdf";
 
 /** The names of a workbook's sheets, in order. */
@@ -105,6 +106,90 @@ test.describe("pilot onboarding", () => {
     expect(mine).toBeTruthy();
     const other = await call<{ guardians: { id: string }[] }>(`/students/${second.id}`, { token });
     expect(other.guardians.map((g) => g.id)).toContain(mine.id);
+    await context.close();
+  });
+
+  test("an import that is not confirmed survives closing the app: continue it, or discard it", async ({
+    browser,
+  }) => {
+    const token = await tokenFor("admin");
+    const list = await call<{ items: Student[] }>("/students?per_page=5", { token });
+    const [first, second] = list.items;
+    const tag = Date.now() % 100000;
+    const father = `Naveed Resume ${tag}`;
+    const csv = [
+      "Student number,Guardian name,Relationship,Phone,Primary contact",
+      `${first.student_number},${father},uncle,0300-66${String(tag).padStart(5, "0")},no`,
+      `NO-SUCH-NUMBER,${father},uncle,0300-66${String(tag).padStart(5, "0")},no`,
+    ].join("\n");
+    const links = async () =>
+      (await call<{ guardians: unknown[] }>(`/students/${second.id}`, { token })).guardians.length;
+    const linksBefore = await links();
+
+    const { page, context } = await openDesktop(browser, { route: "/import" });
+    await page.getByRole("button", { name: /^Guardians/ }).click();
+    await page.getByLabel("Choose a .xlsx or .csv file").setInputFiles({
+      name: "guardians-resume.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from(csv),
+    });
+    await expect(page.getByText("2 rows found in guardians-resume.csv")).toBeVisible();
+    await page.getByRole("button", { name: "Check the file" }).click();
+    await expect(page.getByTestId("dry-error")).toContainText("1");
+    // The wrong student number is corrected in the row, and then the app is closed without
+    // confirming: a crash, a power cut, the window's X.
+    const cell = page.getByTestId("preview-row-3").getByLabel("Row 3: Student number");
+    await cell.fill(second.student_number);
+    await expect(page.getByTestId("import-kept")).toContainText("kept on this PC");
+    await page.close();
+
+    // What is on the disk is sealed: neither the guardian's name nor the file's name is in it.
+    const reopened = await context.newPage();
+    await reopened.goto(`${URLS.desktop}/import`);
+    const stored = await reopened.evaluate(
+      () =>
+        new Promise<string[]>((resolve, reject) => {
+          const open = indexedDB.open("madrasa-import");
+          open.onerror = () => reject(open.error);
+          open.onsuccess = () => {
+            const all = open.result.transaction("kept").objectStore("kept").getAll();
+            all.onerror = () => reject(all.error);
+            all.onsuccess = () => resolve(all.result as string[]);
+          };
+        }),
+    );
+    expect(stored).toHaveLength(1);
+    expect(stored[0].length).toBeGreaterThan(200);
+    expect(stored[0]).not.toContain("Naveed");
+    expect(stored[0]).not.toContain("guardians-resume");
+
+    // Reopening Import offers it back, with the day it was started.
+    const offer = reopened.getByTestId("import-resume");
+    await expect(offer).toContainText("from guardians-resume.csv (2 rows)");
+    await expect(offer).toContainText("Nothing from this file is in the school's records yet");
+    expect(await links()).toBe(linksBefore);
+    const today = new Intl.DateTimeFormat("en-PK", { dateStyle: "medium" }).format(new Date());
+    await offer
+      .getByRole("button", { name: `Continue the import you started on ${today}` })
+      .click();
+    // The rows are checked again, with the correction that was made before the app closed.
+    await expect(reopened.getByTestId("dry-create")).toContainText("2");
+    await expect(reopened.getByTestId("dry-error")).toContainText("0");
+    await expect(reopened.getByTestId("preview-row-3")).toContainText(second.student_number);
+    await expect(reopened.getByRole("button", { name: "Import 2 rows" })).toBeEnabled();
+    expect(await links()).toBe(linksBefore);
+    await reopened.close();
+
+    // Closed once more, still not confirmed; this time it is discarded.
+    const again = await context.newPage();
+    await again.goto(`${URLS.desktop}/import`);
+    await again.getByTestId("import-resume").getByRole("button", { name: "Discard it" }).click();
+    await expect(again.getByText("The unfinished import was discarded.")).toBeVisible();
+    await expect(again.getByRole("button", { name: /^Guardians/ })).toBeVisible();
+    await again.reload();
+    await expect(again.getByRole("button", { name: /^Guardians/ })).toBeVisible();
+    await expect(again.getByTestId("import-resume")).toHaveCount(0);
+    expect(await links()).toBe(linksBefore);
     await context.close();
   });
 
