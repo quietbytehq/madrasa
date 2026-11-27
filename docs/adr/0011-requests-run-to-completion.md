@@ -1,6 +1,6 @@
 # ADR 0011: A request is carried out to its end, and a connection comes back to the pool clean
 
-- Status: accepted
+- Status: accepted; decision 2 withdrawn on 2026-11-27 (see "Update" at the end)
 - Date: 2026-11-26
 
 ## Context
@@ -56,3 +56,30 @@ than a client leaving (a timeout around database work, a task that is cancelled)
   together with everything else in the load test: every screen still opens within a second).
 - `tests/pool.rs` has a test that fails the day sqlx no longer leaves the transaction open;
   the guard can go then.
+
+## Update, 2026-11-27: the pool's guard is removed (sqlx 0.9.1)
+
+sqlx 0.9.1 (released 2026-11-17) fixes the fault in point 1 of the context: it counts the
+transaction before it waits for the database's answer, so a `BEGIN` abandoned half-way is
+rolled back like any other dropped transaction.
+
+- Madrasa moved to sqlx 0.9.1 (`Cargo.toml` asks for at least that version). With it, the
+  test that was written to notice the fix failed as intended ("sqlx no longer leaves an
+  abandoned BEGIN open").
+- **Decision 2 is withdrawn.** `madrasa_db::pool_options` and its `BEGIN; ROLLBACK` on every
+  returned connection are gone; the school server, the hub and the tests open plain sqlx
+  pools. It was a workaround for a fault that no longer exists, and it cost an exchange with
+  the database on every request.
+- **Decisions 1 and 3 stand.** Every request still runs to its end (`to_completion`): that
+  was never only about sqlx, it is what keeps a request from being dropped between two
+  steps that are not in one transaction. And no hand-written `BEGIN` on pooled connections.
+- **The test stays, turned round** (`crates/db/tests/pool.rs`): 150 starts abandoned
+  half-way on a plain pool must leave no connection inside a transaction, and rows saved
+  afterwards must be seen by another connection. It was run against both versions on the
+  day of the change: with sqlx 0.9.0 it fails (29 of 150 connections came back inside a
+  transaction), with 0.9.1 it passes. It also checks itself: that enough of the starts
+  really were dropped between `BEGIN` going out and its answer, and, in a second test, that
+  its way of looking does see a transaction left open.
+- What is given up: the guard also covered any *other* way a connection might come back
+  inside a transaction. None is known; `to_completion` removes the commonest cause of
+  dropped work, and the regression test covers the one that was found.

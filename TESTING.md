@@ -1,4 +1,4 @@
-# Testing Madrasa v0.5.1-alpha (Lite, Standard, the Nexus hub and the parent app)
+# Testing Madrasa v0.6.1-alpha (Lite, Standard, the Nexus hub and the parent app)
 
 Thank you for trying Madrasa. This is an early build for a small group of testers. It is
 not ready for a school's real records yet: use made-up data, expect rough edges, and tell us
@@ -15,9 +15,9 @@ Download the file for your computer from the release page (the "Assets" list):
 
 | Computer | File |
 | --- | --- |
-| Windows 10/11 (64-bit) | `Madrasa_0.5.1_x64-setup.exe` |
-| Debian 12/13, Ubuntu 22.04+, Linux Mint 21+ | `Madrasa_0.5.1_amd64.deb` |
-| Any other 64-bit Linux from 2022 or later | `Madrasa_0.5.1_amd64.AppImage` |
+| Windows 10/11 (64-bit) | `Madrasa_0.6.1_x64-setup.exe` |
+| Debian 12/13, Ubuntu 22.04+, Linux Mint 21+ | `Madrasa_0.6.1_amd64.deb` |
+| Any other 64-bit Linux from 2022 or later | `Madrasa_0.6.1_amd64.AppImage` |
 
 ### Windows
 
@@ -35,7 +35,7 @@ Download the file for your computer from the release page (the "Assets" list):
 Open a terminal in the folder with the downloaded file and run:
 
 ```bash
-sudo apt install ./Madrasa_0.5.1_amd64.deb
+sudo apt install ./Madrasa_0.6.1_amd64.deb
 ```
 
 apt also installs the libraries Madrasa needs (WebKitGTK 4.1 and GTK 3) if they are missing,
@@ -47,10 +47,10 @@ Then start **Madrasa** from your applications menu, or run `madrasa` in a termin
 ### Linux (AppImage: any distribution)
 
 1. Right-click the `.AppImage` file → Properties → Permissions → tick **Allow executing
-   file as program** (or run `chmod +x Madrasa_0.5.1_amd64.AppImage`).
+   file as program** (or run `chmod +x Madrasa_0.6.1_amd64.AppImage`).
 2. Double-click the file. If nothing happens, open a terminal in that folder and run
-   `./Madrasa_0.5.1_amd64.AppImage`; if it complains about FUSE, run
-   `./Madrasa_0.5.1_amd64.AppImage --appimage-extract-and-run` instead.
+   `./Madrasa_0.6.1_amd64.AppImage`; if it complains about FUSE, run
+   `./Madrasa_0.6.1_amd64.AppImage --appimage-extract-and-run` instead.
 
 ### Where Madrasa keeps its files
 
@@ -359,7 +359,7 @@ Madrasa installs to act as schools (the demo school of section 3 is fine).
 ### Start a hub
 
 The hub image is published with every release (`ghcr.io/quietbytehq/madrasa-nexus`, tagged
-with the release, for example `:0.5.1-alpha`, and `:latest`). Compose pulls it:
+with the release, for example `:0.6.1-alpha`, and `:latest`). Compose pulls it:
 
 ```bash
 cd deploy/nexus
@@ -370,7 +370,7 @@ cp .env.example .env
 ```
 
 Edit `.env` and set `NEXUS_DB_PASSWORD` (letters and digits) and `NEXUS_SETUP_TOKEN` (any
-long text you choose), and `NEXUS_IMAGE=ghcr.io/quietbytehq/madrasa-nexus:0.5.1-alpha` so
+long text you choose), and `NEXUS_IMAGE=ghcr.io/quietbytehq/madrasa-nexus:0.6.1-alpha` so
 the hub is the same version as your Madrasa. Then:
 
 ```bash
@@ -576,7 +576,7 @@ see), paying fees in the app, report cards as PDF, attachments, and an iPhone ve
     "Change this login's role?"; *Keep it as it is* changes nothing. Changing the role in the
     Login account box also asks first.
 65. **Installing the .deb on a fresh system** (a spare Ubuntu or Debian PC, or a virtual
-    machine, where Madrasa was never installed): `sudo apt install ./Madrasa_0.5.1_amd64.deb`
+    machine, where Madrasa was never installed): `sudo apt install ./Madrasa_0.6.1_amd64.deb`
     installs WebKitGTK and the rest by itself.
 
 ## 10. Working offline
@@ -667,12 +667,11 @@ Fixes for what the v0.5.0-alpha test found. Tasks 66, 67 and 69 above changed to
     Task Manager → Details; Linux: `pgrep -u $USER postgres` prints nothing), and Madrasa
     opens again without delay.
 
-## 12. New since v0.5.1
+## 12. New in v0.6.0-alpha
 
-Tasks 82 to 107 were added after v0.5.1-alpha and are in **v0.6.0-alpha**. Tasks 108 to 116
-(the last part of this section, "Added after v0.6.0-alpha") are **not in that download**:
-they are on the `main` branch and will be in the next build; until then they can only be
-done on a build made from `main` (see README), whose version number still says 0.6.0.
+Tasks 82 to 107: what was added between v0.5.1-alpha and v0.6.0-alpha, the work done to
+make Madrasa ready for a first school (security, bringing a school's records in, backups
+that are checked, larger schools, wording, keyboard).
 
 ### Signing in and passwords
 
@@ -787,13 +786,20 @@ done on a build made from `main` (see README), whose version number still says 0
 
 107. **Read the Urdu.** No Urdu in Madrasa has been read by a native speaker yet.
      `docs/urdu-review.md` says where it all is and which words we were unsure of. Three
-     were settled after v0.6.0 and should now be the only ones you see: "لاگ ان" (never
-     "سائن ان"), "چالان" for a fee voucher (never "واؤچر") and "ہیڈ آفس". Tell us where
-     "چالان" reads wrongly in its sentence. Any correction is welcome, in any form.
+     were settled in v0.6.1 (task 115). Any correction is welcome, in any form.
 
-### Added after v0.6.0-alpha (on `main` only)
+## 13. New in v0.6.1-alpha
 
-*Head office console (the Nexus hub)*
+Tasks 108 to 116. A small release before the first school: passwords in the head office
+console, an import that is not lost when Madrasa is closed, three Urdu words settled, and
+one change nobody should notice (see "Under the hood" at the end of this section).
+
+Upgrading from v0.6.0-alpha: make a backup, then install v0.6.1 over it. Nothing in the
+database changes between the two, so the first start does no conversion and a backup made
+by v0.6.0 is accepted by v0.6.1. (Our automated upgrade test starts from v0.4.1; this
+particular step, with the installers, has not been tried by us.)
+
+### Head office console (the Nexus hub)
 
 108. **Change your own password in the console.** Sign in to the head office console as any
      user, also one who may only read reports. Click the **lock** button at the top right
@@ -812,7 +818,7 @@ done on a build made from `main` (see README), whose version number still says 0
      only a line sending you to the lock button, because your own password always asks for
      the current one.
 
-*Import*
+### Import
 
 111. **An import survives closing Madrasa.** Import → *Students* (or *Guardians*) → choose a
      file with at least one row that has a mistake → match the columns → *Check the file* →
@@ -834,12 +840,12 @@ done on a build made from `main` (see README), whose version number still says 0
      afterwards nothing is offered either. And sign in as a *different* person on the same
      PC while someone's import is unfinished: that person is offered nothing.
 
-*Small things*
+### Small things
 
 114. **No "Parents" in the sidebar.** A Madrasa running as the Nexus edition showed a
      "Parents" entry that only said "Coming soon". It is gone; what a school does for
      parents is under **Parent app**, which appears once the school has joined a school
-     network (section 9).
+     network (sections 7 and 8).
 115. **The three Urdu words.** Switch to Urdu. The fee pages, a printed fee voucher, a
      receipt, the parent app's fee page and the fee reports say **چالان** (not "واؤچر");
      signing in says **لاگ ان** everywhere, also in the head office console (not
@@ -848,7 +854,18 @@ done on a build made from `main` (see README), whose version number still says 0
 116. **The manual.** The Urdu and English manuals (the two PDFs that come with a release)
      show the same words as the screens, and their pictures were made again.
 
-### For the person who installs (not everyday use)
+### Under the hood
+
+Nothing to click here, only something to watch for. v0.6.1 uses a newer version of the
+library Madrasa talks to its database with (sqlx 0.9.1). That version repairs the fault
+behind the worst problem found before v0.6.0, where a change shown as saved could be lost
+on a school with client PCs, and the extra safeguard Madrasa carried against it since then
+has been taken out again. Our automated tests cover this (one of them fails on the old
+library and passes on the new one), but a school with several PCs is the real test: after a
+day's work on client PCs, **anything that was saved and is not there the next morning** is
+the first thing to tell us, with the time it was entered and on which PC.
+
+## 14. For the person who installs (not everyday use)
 
 Three scripts in `scripts/` test what a tester cannot do by hand; each says at its top what
 it needs. They are run by us before a release; a school does not need them.
@@ -866,16 +883,20 @@ it needs. They are run by us before a release; a school does not need them.
 - `scripts/upgrade-test.sh`: a school on 0.4.1 is upgraded in place; every record must
   still be there.
 
-**Upgrading and old backups.** A backup file can only be restored by the version of Madrasa
-that made it. After installing a new version, make a new backup the same day (the nightly
-one does this by itself) and keep the old installer next to the old backup files.
+**Upgrading and old backups.** A backup file can only be restored by a Madrasa whose
+database is laid out the same way as the one that made it: Madrasa compares the layout, not
+the version number. A version that changes the layout refuses older backups, so after
+installing such a version make a new backup the same day (the nightly one does this by
+itself) and keep the old installer next to the old backup files. **v0.6.1 does not change
+the layout**: backups made by v0.6.0 stay usable. (By the rule above; we have not restored
+a real v0.6.0 backup file on v0.6.1.)
 
 **Not tested by us:** all of the above on Windows by hand; a real USB drive pulled out; a
 real screen reader; the import templates opened in Excel by a person; a school's own PC
 under the load test; the kept import (tasks 111 to 113) in the installed program, where it
 was only tried in a browser on Linux.
 
-## 13. Report a problem
+## 15. Report a problem
 
 Please report anything, including small things, at
 <https://github.com/quietbytehq/madrasa/issues/new>. If you do not have a GitHub account,

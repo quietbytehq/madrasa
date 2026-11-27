@@ -2529,6 +2529,78 @@ Urdu).
    are settled by this change (the Urdu words, the sqlx report, the lost import, the
    console password). The others stand, the Windows day and the server's memory first.
 
+## v0.6.1 (not tagged)
+
+### 2026-11-27 — sqlx 0.9.1, the pool's workaround removed, docs and version to 0.6.1 (branch `claude/kind-franklin-ac2vjh-v061`)
+
+The owner's answers to the two questions left by the pre-pilot fixes, in one pull request.
+The version is 0.6.1 (`scripts/set-version.sh 0.6.1`); **no tag was made**. No migration.
+
+**1. sqlx 0.9.0 → 0.9.1, and the workaround for its fault is gone.**
+- `Cargo.toml` now asks for sqlx `0.9.1` as the least version; `Cargo.lock` moved the seven
+  sqlx crates and nothing else (one new entry, `objc2-system-configuration`, comes in with
+  them and is only built on Apple systems).
+- **The detection test did its job.** With 0.9.1 and the workaround still in place,
+  `without_the_guard_sqlx_leaves_the_transaction_open` failed with "sqlx no longer leaves an
+  abandoned BEGIN open: madrasa_db::pool_options may drop its guard".
+- **Removed:** `madrasa_db::pool_options` and its `BEGIN; ROLLBACK` on every connection
+  given back. The school server, the hub and the tests open plain sqlx pools again: one
+  exchange with the database less on every request.
+- **Kept on purpose:** `to_completion` (every request runs to its end). It was the other
+  half of ADR 0011's answer, but it is not a workaround for sqlx: it is what stops a request
+  from being dropped between two steps that are not in one transaction. ADR 0011 has an
+  update that withdraws decision 2 and keeps 1 and 3.
+- **The test stays as a regression check** (`crates/db/tests/pool.rs`):
+  `a_begin_abandoned_half_way_never_leaves_a_transaction_open` abandons 150 starts on a plain
+  pool and requires that none leaves a connection inside a transaction, that 40 rows saved
+  afterwards are seen by another connection, and that at least 10 of the starts really were
+  dropped between `BEGIN` going out and its answer (so it cannot pass by no longer abandoning
+  anything). `the_check_sees_a_transaction_left_open` shows that its way of looking does see
+  one.
+- **Shown to have teeth.** The regression check was run once against sqlx 0.9.0 with the
+  guard already removed: it **failed**, 29 of 150 connections came back inside a
+  transaction. Against 0.9.1 it passed, three runs. Then 0.9.1 was put back.
+
+**2. TESTING.md and README are for v0.6.1-alpha.** Title, the install table and every
+installer name (8), the hub image tag (2), README's status line and its `apt` line. The
+sections are by release now: 12 "New in v0.6.0-alpha" (tasks 82 to 107), 13 "New in
+v0.6.1-alpha" (108 to 116, and "Under the hood": what to watch for after the sqlx change),
+14 "For the person who installs", 15 "Report a problem". Corrected on the way:
+- Task 114 pointed at "section 9" for joining a network; it is sections 7 and 8. My mistake
+  in the previous change.
+- "A backup can only be restored by the version that made it" was too strong: Madrasa
+  compares the database's layout (its list of migrations), not the version number. v0.6.1
+  adds no migration, so v0.6.0 backups stay usable. TESTING.md says so, and says that a
+  real v0.6.0 backup file has not been restored on v0.6.1 by us.
+
+**3. Version 0.6.1** in the seven files `scripts/set-version.sh` names.
+
+**Tests.** Run here, all passing: `cargo fmt --check`, `cargo clippy -D warnings`, 591 Rust
+tests on sqlx 0.9.1 without the guard (437 outside the school API, 154 in it; the count is
+unchanged because the two pool tests replaced two), the regression check again after the
+version bump, and all 55 browser tests against servers built from this state (6.1 minutes).
+The front end is untouched apart from the version in its `package.json` files. Left to CI,
+which runs them on every push: the upgrade from 0.4.1, six minutes of the long-run test,
+the Windows jobs, the installers and the hub image.
+
+**Not proven.**
+- A long run on this build. The six-minute long-run test in CI closes connections in the
+  middle of requests and passed; the eight-hour run was never completed on any build
+  (decision 12 of the pilot summary), and it is the test that found the fault in the first
+  place. It should be the first thing run on a machine that stays on.
+- sqlx 0.9.1 on Windows beyond what CI's Windows job runs (the Rust tests without a
+  database, and the build).
+- The upgrade from v0.6.0 to v0.6.1 with the installers, and a v0.6.0 backup restored on
+  v0.6.1.
+
+**For the owner.**
+1. **Tag v0.6.1-alpha when you are ready**: `main` is at 0.6.1 and TESTING.md already speaks
+   of v0.6.1-alpha, so until the tag exists TESTING.md names a download that is not there
+   yet. `docs/RELEASING.md` has the steps; there are no release notes in `docs/releases/`
+   for it (the last one there is v0.1.0-alpha).
+2. The memory question (decision 12) is unchanged, and more worth settling now that the
+   pool's guard is gone: the same 24-hour run answers both.
+
 ## Brand identity
 
 The brand sheet (`assets/brand/Madrasa_Brand_Identity_Showcase.png`) applied across the
