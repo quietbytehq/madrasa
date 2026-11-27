@@ -11,7 +11,7 @@
 that need reliable, offline-capable administration: students, attendance, examinations,
 fees and finance, teachers, reports and backups.
 
-Status: **alpha** (v0.4.x-alpha). Testers are trying it with made-up data; it is not yet
+Status: **alpha** (v0.6.1-alpha). Testers are trying it with made-up data; it is not yet
 ready for a school's real records. Every release tag ends in `-alpha`.
 
 ## Download
@@ -37,7 +37,7 @@ Install it with `apt`, which also installs the libraries it needs (WebKitGTK 4.1
 when they are missing:
 
 ```bash
-sudo apt install ./Madrasa_0.5.1_amd64.deb
+sudo apt install ./Madrasa_0.6.1_amd64.deb
 ```
 
 Note the `./`: without it apt looks for a package of that name online. `dpkg -i` does not

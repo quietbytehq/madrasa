@@ -68,29 +68,15 @@ pub enum DbError {
 
 pub type DbResult<T> = Result<T, DbError>;
 
-/// What every Madrasa connection pool starts from: a connection that comes back to the pool
-/// is cleared of any transaction before the next borrower gets it.
-///
-/// Why: when the work that started a transaction is dropped at that very moment (the client
-/// went away and the request was abandoned), sqlx 0.9.0 gives the connection back with the
-/// transaction open, because it rolls an abandoned `BEGIN` back only once it has counted
-/// it, and it counts after the database has answered. Everything the next borrowers then
-/// "saved" on that connection sat in a transaction nobody would commit (pilot stage 4, found
-/// by the long-run test; `tests/pool.rs`). `BEGIN; ROLLBACK` costs one short exchange, says
-/// nothing on a clean connection, and on a connection left inside a transaction ends it
-/// with a warning from PostgreSQL in the log.
-pub fn pool_options() -> PgPoolOptions {
-    PgPoolOptions::new().after_release(|conn, _meta| {
-        Box::pin(async move {
-            sqlx::raw_sql("BEGIN; ROLLBACK").execute(&mut *conn).await?;
-            Ok(true)
-        })
-    })
-}
-
 /// Open a pool. Secrets stay in the URL; never log it.
+///
+/// A plain sqlx pool. Until sqlx 0.9.1 every Madrasa pool also cleared each connection as it
+/// came back (`BEGIN; ROLLBACK`), because sqlx 0.9.0 left a connection inside a transaction
+/// when the work that started it was dropped at that very moment (ADR 0011,
+/// docs/upstream/sqlx-abandoned-begin.md). sqlx 0.9.1 fixed that and the guard was removed;
+/// `tests/pool.rs` fails if the fault ever comes back.
 pub async fn connect(database_url: &str) -> DbResult<PgPool> {
-    let pool = pool_options()
+    let pool = PgPoolOptions::new()
         .max_connections(8)
         .acquire_timeout(Duration::from_secs(30))
         .connect(database_url)

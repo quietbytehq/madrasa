@@ -1,11 +1,11 @@
 # sqlx 0.9.0 (PostgreSQL): a `begin()` cancelled half-way leaves the connection inside a transaction
 
-**Status (2026-11-27): already fixed upstream. Do not post this.** sqlx **0.9.1** (released
-2026-11-17) contains the fix: "fix(postgres): roll back a transaction cancelled during
-BEGIN", pull request 4394 in sqlx's repository. The program below prints the wrong answers
-with sqlx 0.9.0 and the right ones with 0.9.1; both were run here (see "Checked"). Madrasa
-is still on 0.9.0, so the fault is still in what we ship, behind our workaround. What is
-left is ours to do, not sqlx's: see "What Madrasa should do now".
+**Status (2026-11-27): fixed upstream, and Madrasa has moved to the fix. Do not post
+this.** sqlx **0.9.1** (released 2026-11-17) contains the fix: "fix(postgres): roll back a
+transaction cancelled during BEGIN", pull request 4394 in sqlx's repository. The program
+below prints the wrong answers with sqlx 0.9.0 and the right ones with 0.9.1; both were run
+here (see "Checked"). Madrasa was on 0.9.0 with a workaround until v0.6.0; since v0.6.1 it
+is on sqlx 0.9.1 and the pool's workaround is removed (see "What Madrasa did").
 
 Two more things the owner should know before anything is ever posted to that project:
 
@@ -16,7 +16,7 @@ Two more things the owner should know before anything is ever posted to that pro
 - Nothing was posted anywhere. This file is the whole of it.
 
 The rest is kept as the record of the fault, in the shape of a bug report, because it
-explains why `madrasa_db::pool_options` and ADR 0011 exist.
+explains ADR 0011 and the regression check in `crates/db/tests/pool.rs`.
 
 ## Summary
 
@@ -155,10 +155,11 @@ attendance saved by later requests on that connection were answered "saved" and 
 transaction nobody would commit: undone by the next rollback on that connection, or lost at
 a restart. In every Madrasa version up to 0.5.1.
 
-## Our workaround (in Madrasa since pilot stage 4, ADR 0011)
+## Our workaround while on sqlx 0.9.0 (pilot stage 4 to v0.6.0, ADR 0011)
 
-1. **Every pool clears a connection when it comes back**: `madrasa_db::pool_options()`
-   (`crates/db/src/lib.rs`), used by the school server, the hub and the tests:
+1. **Every pool cleared a connection when it came back**: `madrasa_db::pool_options()`,
+   used by the school server, the hub and the tests. **Removed in v0.6.1**, with the move
+   to sqlx 0.9.1:
 
    ```rust
    PgPoolOptions::new().after_release(|conn, _meta| {
@@ -171,25 +172,30 @@ a restart. In every Madrasa version up to 0.5.1.
 
    `BEGIN; ROLLBACK` rather than a bare `ROLLBACK`: it is silent on a clean connection, and
    on one left inside a transaction it ends that transaction with a warning from PostgreSQL
-   in the log. One short exchange each time a connection is given back.
+   in the log. One short exchange each time a connection was given back.
 2. **Every request runs to its end**: `madrasa_api::to_completion` (and the same layer in
    the hub) hands each request to a task of its own, so a client going away no longer drops
-   the work at an `.await`.
+   the work at an `.await`. **Kept**: it also protects steps that are not in one
+   transaction, which has nothing to do with sqlx.
 
-Either would have stopped the fault. Both are kept: 2 also covers steps that are not in one
-transaction; 1 also covers work dropped for other reasons (a timeout, a cancelled task).
+## The test
 
-## The test that detects the fix
+`crates/db/tests/pool.rs`.
 
-`crates/db/tests/pool.rs`:
+While Madrasa was on 0.9.0 it held a test that passed only as long as sqlx had the fault,
+`without_the_guard_sqlx_leaves_the_transaction_open`. On the day sqlx was raised to 0.9.1
+it failed as it was meant to, with "sqlx no longer leaves an abandoned BEGIN open:
+madrasa_db::pool_options may drop its guard". That was the signal to remove the guard.
 
-- `a_begin_abandoned_half_way_never_leaves_a_transaction_open`: with our pool, 150 abandoned
-  starts leave no transaction open, and 40 rows saved after such moments are all seen by
-  another connection.
-- `without_the_guard_sqlx_leaves_the_transaction_open`: the fault itself, on a pool without
-  the guard. **It passes while sqlx has the fault and fails once sqlx is fixed**, with the
-  message "sqlx no longer leaves an abandoned BEGIN open: madrasa_db::pool_options may drop
-  its guard".
+What is there now is the regression check:
+
+- `a_begin_abandoned_half_way_never_leaves_a_transaction_open`: on a plain sqlx pool, 150
+  starts abandoned after 0 to 4 steps of the exchange leave no connection inside a
+  transaction, and 40 rows saved after such moments are all seen by another connection. It
+  also requires that at least 10 of the starts were really dropped between `BEGIN` going out
+  and its answer, so that it cannot pass by no longer abandoning anything.
+- `the_check_sees_a_transaction_left_open`: the way the first test looks does report a
+  transaction that was left open by hand.
 
 ## Checked
 
@@ -197,23 +203,22 @@ transaction; 1 also covers work dropped for other reasons (a timeout, a cancelle
 | --- | --- | --- |
 | The program above, three runs each, PostgreSQL 16.15 | wrong every time: 0, true, 0 | right every time: 1, false, 1 |
 | `PgTransactionManager::begin` | depth raised after the await | depth raised before the await |
+| Madrasa's regression check (`crates/db/tests/pool.rs`), plain pool, no guard | fails: 29 of 150 connections came back inside a transaction | passes, three runs |
 
 Not checked: MySQL and SQLite. Read only: the MySQL driver of 0.9.0 and of 0.9.1 also raises
 its depth after `conn.execute(statement).await`, which looks like the same order; whether a
 cancelled `begin()` leaves a MySQL connection inside a transaction was not run. Madrasa does
 not use MySQL.
 
-## What Madrasa should do now
+## What Madrasa did (2026-11-27, v0.6.1)
 
-Nothing has been changed for this in the pull request that added this file; these are for
-the owner to decide.
+1. Moved to sqlx 0.9.1; `Cargo.toml` asks for `0.9.1` as the least version, so an older one
+   cannot come back through the lock file unnoticed.
+2. Saw the detection test fail on 0.9.1 with the workaround still in place, as designed.
+3. Removed the pool's guard and turned the test into the regression check above.
+4. Ran the regression check against both versions: **fails on 0.9.0** (29 of 150
+   connections came back inside a transaction), **passes on 0.9.1** (three runs).
+5. Kept `to_completion`.
 
-1. **Move to sqlx 0.9.1.** It is a patch release with many fixes; its changelog names one
-   behaviour change (`hostaddr` in a connection string is no longer an alias for `host`),
-   which Madrasa's connection strings do not use. The whole test suite, the upgrade test and
-   the long-run test should be run on it before a release.
-2. When that is done, `without_the_guard_sqlx_leaves_the_transaction_open` will fail, as it
-   is meant to. Then choose: delete that test and keep the guard as a cheap second line of
-   defence (one exchange per returned connection; suggested), or remove the guard as
-   ADR 0011 allows. `to_completion` stays either way.
-3. Until then, nothing is at risk: the workaround does not depend on sqlx's behaviour.
+sqlx 0.9.1's changelog names one behaviour change, `hostaddr` in a connection string no
+longer being an alias for `host`; Madrasa's connection strings do not use it.

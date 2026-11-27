@@ -47,7 +47,7 @@ impl TestDb {
             .expect("create test database");
         admin.close().await.ok();
         let url = replace_database(&admin_url, &name);
-        let pool = crate::pool_options()
+        let pool = sqlx::postgres::PgPoolOptions::new()
             .max_connections(4)
             .connect(&url)
             .await
@@ -82,7 +82,7 @@ impl TestDb {
         .expect("clone test database");
         admin.close().await.ok();
         let url = replace_database(&self.admin_url, &name);
-        let pool = crate::pool_options()
+        let pool = sqlx::postgres::PgPoolOptions::new()
             .max_connections(4)
             .connect(&url)
             .await

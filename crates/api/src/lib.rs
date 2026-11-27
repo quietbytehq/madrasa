@@ -119,10 +119,11 @@ pub fn router(state: AppState) -> Router {
 /// Without this a request is dropped at whatever line it has reached the moment its client
 /// goes away (a closed window, a client PC switched off, a proxy that stopped waiting). Half
 /// of a change is then undone by its transaction, which is right, but a request dropped
-/// between two steps that are not in one transaction leaves the first one done, and one
-/// dropped while it opens a transaction left the database connection unusable (see
-/// `madrasa_db::pool_options`). Finishing what was started is the simpler promise; a change
-/// sent again by a client PC is recognised by its `Idempotency-Key` and not applied twice.
+/// between two steps that are not in one transaction leaves the first one done. (With sqlx
+/// 0.9.0, one dropped while it opened a transaction also left its database connection
+/// inside that transaction; sqlx 0.9.1 fixed that, see `madrasa_db::connect`.) Finishing
+/// what was started is the simpler promise; a change sent again by a client PC is
+/// recognised by its `Idempotency-Key` and not applied twice.
 pub async fn to_completion(
     req: axum::extract::Request,
     next: axum::middleware::Next,

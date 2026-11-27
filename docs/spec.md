@@ -61,7 +61,7 @@ Standard/Nexus.
 | Backup | yes | Encrypted local backups, restore, recovery key |
 | Settings | yes | School profile, academic years, roles, custom fields, edition |
 | Campuses | later | Multi-campus school (Standard) |
-| Parent app | yes, once the school has joined a school network | Parents' accounts and what each school shows them (§17). It replaced the "Parents" placeholder and its feature flag `parents_portal`, both removed after v0.6.0 |
+| Parent app | yes, once the school has joined a school network | Parents' accounts and what each school shows them (§17). It replaced the "Parents" placeholder and its feature flag `parents_portal`, both removed in v0.6.1 |
 | Transport, Library, Hostel, HR/Payroll | later | Standard |
 | Network admin | later | Nexus hub console |
 
@@ -423,7 +423,7 @@ Rules (`madrasa_core::imports` for cleanup, `madrasa_api::imports` for the datab
   date of birth, with a student on file or an earlier row). `POST /imports/report` gives the
   same as a workbook. Neither writes anything; the app asks for a confirmation before
   `POST /imports/apply`.
-- **An import outlives the app** (after v0.6.0). The server keeps nothing between the steps:
+- **An import outlives the app** (v0.6.1). The server keeps nothing between the steps:
   the file as read, the mapping and the corrected rows are the app's. From the moment a
   file is read until the import is confirmed, the app keeps them on that PC
   (`apps/desktop/src/pages/import/importStore.ts`): one per user, sealed like a form draft
@@ -2711,9 +2711,13 @@ Everything overwritten is shown in the connection panel until the user clears it
   (`madrasa_api::to_completion`, and the same layer in the hub). The client proxy stops
   waiting for slow reads and people close windows; a request dropped half-way must not
   leave half of its work.
-- **A database connection comes back to the pool clean** (`madrasa_db::pool_options`): any
-  transaction left on it is ended before the next borrower gets it. No hand-written
-  `BEGIN`/`COMMIT` on pooled connections.
+- **A database connection comes back to the pool clean.** This is sqlx's job, and since
+  sqlx 0.9.1 it does it also when the work that started a transaction is dropped at that
+  very moment (0.9.0 did not; ADR 0011 and its update). Madrasa asks for sqlx 0.9.1 or
+  later and opens plain pools; the guard it carried on every pool while on 0.9.0
+  (`BEGIN; ROLLBACK` on each returned connection) was removed in v0.6.1.
+  `crates/db/tests/pool.rs` is the regression check: it fails on sqlx 0.9.0. No
+  hand-written `BEGIN`/`COMMIT` on pooled connections.
 - **Stopping.** The server stops answering on both listeners (loopback and the school
   network) before the database is shut down, so a request that arrives while it stops
   finds the door closed, and a client PC keeps the change to send later.
